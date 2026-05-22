@@ -587,8 +587,8 @@
     then:
     - data:
         title: Frigate - Disk Space Warning
-        message: Frigate disk is at {{ states('sensor.lxc_docker_frigate_107_disk_used_percentage')
-          | round(1) }}%. Check recording retention before storage fills up.
+        message: Frigate CCTV disk is at {{ states('sensor.frigate_cctv_disk_usage')
+          }}%. Check recording retention before storage fills up.
       action: notify.send_message
       target:
         entity_id: notify.np3
@@ -598,8 +598,8 @@
         at: 07:00:00
     - data:
         title: Frigate - Disk Space Warning (triggered {{ alert_time }})
-        message: Frigate disk is at {{ states('sensor.lxc_docker_frigate_107_disk_used_percentage')
-          | round(1) }}%. Check recording retention before storage fills up.
+        message: Frigate CCTV disk is at {{ states('sensor.frigate_cctv_disk_usage')
+          }}%. Check recording retention before storage fills up.
       action: notify.send_message
       target:
         entity_id: notify.np3
