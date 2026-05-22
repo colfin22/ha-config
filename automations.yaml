@@ -1,0 +1,2000 @@
+- id: '1738415614884'
+  alias: Frigate - Olivia Notify
+  description: ''
+  use_blueprint:
+    path: SgtBatten/Stable.yaml
+    input:
+      presence_filter:
+      - ''
+      camera:
+      - camera.front_car
+      - camera.front_van
+      - camera.rear_door
+      - camera.rear_shed
+      - camera.doorbell
+      notify_device: 608a38b4b22a758514a74999ee616eb9
+      base_url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa
+      alert_once: true
+      attachment: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif'
+      attachment_2: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif'
+      review_severity:
+      - alert
+      message: '{{ label }} detected - {{ camera_name }} at {{event[''after''][''start_time'']|timestamp_custom(''%H:%M'')}}'
+      icon: mdi:cctv
+      android_auto: true
+- id: '1738415663458'
+  alias: Frigate - Colm Notify
+  description: ''
+  use_blueprint:
+    path: SgtBatten/Stable.yaml
+    input:
+      presence_filter:
+      - ''
+      camera:
+      - camera.front_car
+      - camera.front_van
+      - camera.rear_door
+      - camera.rear_shed
+      - camera.doorbell
+      notify_device: 002753768c371c4f05a272c7e1e0f93c
+      base_url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa
+      alert_once: true
+      attachment: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif'
+      attachment_2: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif'
+      android_auto: true
+      review_severity:
+      - alert
+      message: '{{ label }} detected - {{ camera_name }}'
+      icon: mdi:cctv
+      final_update: false
+      color: '#ffeb3b'
+- id: '1738945275489'
+  alias: Bins Out Notification
+  description: Notify which bins to put out the night before collection, listing all
+    bin types due that day
+  triggers:
+  - platform: calendar
+    event: start
+    offset: '-2:0:0'
+    entity_id: calendar.panda_waste
+  conditions: []
+  actions:
+  - action: calendar.get_events
+    target:
+      entity_id: calendar.panda_waste
+    data:
+      start_date_time: '{{ (now() + timedelta(hours=2)).strftime(''%Y-%m-%d'') }}T00:00:00'
+      end_date_time: '{{ (now() + timedelta(hours=2)).strftime(''%Y-%m-%d'') }}T23:59:59'
+    response_variable: collections
+  - variables:
+      bins: '{{ collections[''calendar.panda_waste''][''events''] | map(attribute=''summary'')
+        | list | join('' & '') }}'
+  - action: notify.send_message
+    target:
+      entity_id:
+      - notify.np3
+      - notify.pixel_6a
+    data:
+      title: Bins Out Tonight
+      message: '{{ bins }} collection tomorrow morning — put the bins out before you
+        go to bed.'
+  mode: single
+- id: '1767011232807'
+  alias: Brother Printer Auto Power Cycle
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    minutes: '15'
+  conditions:
+  - condition: time
+    after: 07:00:00
+    before: '21:00:00'
+    weekday:
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+    - sat
+    - sun
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: binary_sensor.10_0_20_252
+        state: 'on'
+      sequence: []
+    - conditions:
+      - condition: state
+        entity_id: binary_sensor.10_0_20_252
+        state: 'off'
+      sequence:
+      - target:
+          entity_id: switch.brother_printer
+        action: switch.turn_off
+      - delay: 00:00:10
+      - target:
+          entity_id: switch.brother_printer
+        action: switch.turn_on
+  mode: single
+- id: '1767042274860'
+  alias: Frigate to Shield Notification
+  description: ''
+  use_blueprint:
+    path: SgtBatten/Stable.yaml
+    input:
+      camera:
+      - camera.doorbell
+      notify_group: notify.nvidia_shield
+      tv: true
+      tv_position: top-right
+      notify_device: 002753768c371c4f05a272c7e1e0f93c
+      base_url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa
+      attachment_2: '{{base_url}}/api/frigate{{client_id}}/notifications/{{id}}/snapshot.jpg'
+      video: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif?format=ts'
+      attachment: '{{base_url}}/api/frigate{{client_id}}/notifications/{{id}}/snapshot.jpg'
+      tv_size: medium
+      final_update: true
+      message: '{{ label }} detected - {{ camera_name }} at {{event[''after''][''start_time'']|timestamp_custom(''%H:%M'')}}'
+      labels:
+      - person
+- id: '1769600924498'
+  alias: Dishwasher Notifications & Actions
+  description: ''
+  use_blueprint:
+    path: Blackshome/appliance-notifications.yaml
+    input:
+      power_sensor: sensor.dishwasher_socket_power
+      include_start_notify: enable_start_notify_options
+      start_notify_device:
+      - 002753768c371c4f05a272c7e1e0f93c
+      start_title: Dishwasher
+      start_notify_icon: mdi:dishwasher
+      include_end_notify: enable_end_notify_options
+      end_notify_device:
+      - 002753768c371c4f05a272c7e1e0f93c
+      - 608a38b4b22a758514a74999ee616eb9
+      end_message_title: Dishwasher
+      end_message: Yippee the dishwasher is finished!
+      end_notify_icon: mdi:dishwasher
+      include_run_status: run_status_enabled
+      after_time: 07:00:00
+      before_time: '22:00:00'
+      include_runtime_tracking: disable_runtime_tracking
+      include_duration_tracking: enable_duration_tracking
+      include_power_tracking: enable_power_tracking_and_cost
+      power_consumption_sensor: sensor.dishwasher_socket_energy_today
+      cost_per_kwh: input_number.electricity_rate
+      start_power_consumption: input_number.dishwasher_energy_tracking_start_number_helper
+      end_power_consumption: input_number.dishwasher_energy_tracking_end_number_helper
+      end_message_cost: Approx Cost €
+      start_time_delay: 0.25
+      include_time: time_enabled
+      run_status_start: Scrubbing Away!
+      run_status_entity: input_select.dishwasher_run_status
+      run_status_end: All Done!
+      cycle_counter_helper: counter.dishwasher_run_cycle_counter
+      include_cycle_counter: enable_cycle_counter
+      include_custom_actions: []
+      start_custom_actions: []
+      end_custom_actions:
+      - action: tts.cloud_say
+        data:
+          entity_id: media_player.home_audio_group_cast
+          message: The dishwasher cycle is now complete
+      start_notify_data:
+      - icon
+      end_notify_data:
+      - icon
+      notify_zone: zone.home
+      include_device_tracker:
+      - zone_start
+      - zone_end
+- id: '1769601039448'
+  alias: Washing Machine Notifications & Actions
+  description: ''
+  use_blueprint:
+    path: Blackshome/appliance-notifications.yaml
+    input:
+      power_sensor: sensor.washing_machine_socket_power
+      include_start_notify: enable_start_notify_options
+      start_notify_device:
+      - 002753768c371c4f05a272c7e1e0f93c
+      include_end_notify: enable_end_notify_options
+      end_notify_device:
+      - 002753768c371c4f05a272c7e1e0f93c
+      - 608a38b4b22a758514a74999ee616eb9
+      include_duration_tracking: enable_duration_tracking
+      power_consumption_sensor: sensor.washing_machine_socket_energy_today
+      end_message_cost: Approx Cost €
+      cost_per_kwh: input_number.electricity_rate
+      start_power_consumption: input_number.washing_machine_energy_tracking_start_number_helper
+      end_power_consumption: input_number.washing_machine_energy_tracking_end_number_helper
+      include_power_tracking: enable_power_tracking_and_cost
+      start_message: YES! Another load of washing is ON :)
+      start_time_delay: 0.25
+      end_time_delay: 0.5
+      include_time: time_enabled
+      after_time: 07:00:00
+      before_time: '22:00:00'
+      include_run_status: run_status_enabled
+      run_status_entity: input_select.washing_machine_run_status
+      run_status_end: All Done!
+      run_status_start: Washing
+      include_cycle_counter: enable_cycle_counter
+      cycle_counter_helper: counter.washing_machine_cycle_counter
+      end_custom_actions:
+      - action: tts.cloud_say
+        data:
+          entity_id: media_player.home_audio_group_cast
+          message: The washing machine cycle is now complete
+      include_custom_actions: []
+      end_notify_data:
+      - icon
+      start_notify_data:
+      - icon
+      include_device_tracker:
+      - zone_start
+      - zone_end
+      notify_zone: zone.home
+- id: '1769601134185'
+  alias: Tumble Dryer Notifications & Actions
+  description: ''
+  use_blueprint:
+    path: Blackshome/appliance-notifications.yaml
+    input:
+      power_sensor: sensor.tumble_dryer_socket_power
+      include_start_notify: enable_start_notify_options
+      start_notify_device:
+      - 002753768c371c4f05a272c7e1e0f93c
+      start_title: Tumble Dryer
+      start_notify_icon: mdi:tumble-dryer
+      include_end_notify: enable_end_notify_options
+      end_notify_device:
+      - 002753768c371c4f05a272c7e1e0f93c
+      - 608a38b4b22a758514a74999ee616eb9
+      end_message_title: Tumble Dryer
+      end_message: Yippee the tumble dryer is finished!
+      end_notify_icon: mdi:tumble-dryer
+      include_duration_tracking: enable_duration_tracking
+      start_time_delay: 0.25
+      include_power_tracking: enable_power_tracking_and_cost
+      power_consumption_sensor: sensor.tumble_dryer_socket_energy_today
+      end_message_cost: Approx Cost €
+      cost_per_kwh: input_number.electricity_rate
+      start_power_consumption: input_number.tumble_dryer_energy_tracking_start_number_helper
+      end_power_consumption: input_number.tumble_dryer_energy_tracking_end_number_helper
+      start_message: YES! Another load of clothes for drying :)
+      end_time_delay: 0.5
+      after_time: 07:00:00
+      before_time: '22:00:00'
+      include_run_status: run_status_enabled
+      run_status_entity: input_select.tumble_dryer_run_status
+      run_status_start: Drying
+      run_status_end: All Done!
+      include_cycle_counter: enable_cycle_counter
+      cycle_counter_helper: counter.tumble_dryer_cycle_counter
+      include_custom_actions: []
+      end_custom_actions:
+      - action: tts.cloud_say
+        data:
+          entity_id: media_player.home_audio_group_cast
+          message: The tumble dryer cycle is now complete
+      start_notify_data:
+      - icon
+      end_notify_data:
+      - icon
+      notify_zone: zone.home
+      include_device_tracker:
+      - zone_start
+      - zone_end
+- id: '1769623964458'
+  alias: Electricity Rate - Night (11 PM-8 AM)
+  description: Sets night rate at 11 PM
+  triggers:
+  - at: '23:00:00'
+    platform: time
+  actions:
+  - target:
+      entity_id: input_number.import_kwh_at_11pm
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+    action: input_number.set_value
+  - data:
+      entity_id: input_number.electricity_rate
+      value: 0.2
+    action: input_number.set_value
+  mode: single
+- id: '1769624024597'
+  alias: Electricity Rate - Day (8 AM-5 PM)
+  description: Sets day rate at 8 AM
+  triggers:
+  - at: 08:00:00
+    platform: time
+  actions:
+  - target:
+      entity_id: input_number.import_kwh_at_8am
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+    action: input_number.set_value
+  - data:
+      entity_id: input_number.electricity_rate
+      value: 0.37
+    action: input_number.set_value
+  mode: single
+- id: '1769624072939'
+  alias: Electricity Rate - Peak (5-7 PM)
+  description: Sets peak rate at 5 PM
+  triggers:
+  - at: '17:00:00'
+    platform: time
+  actions:
+  - target:
+      entity_id: input_number.import_kwh_at_5pm
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+    action: input_number.set_value
+  - data:
+      entity_id: input_number.electricity_rate
+      value: 0.39
+    action: input_number.set_value
+  mode: single
+- id: '1769624436568'
+  alias: Electricity Rate - Day End Peak (7 PM-11 PM)
+  description: Sets day rate at 7 PM after peak
+  triggers:
+  - at: '19:00:00'
+    platform: time
+  actions:
+  - target:
+      entity_id: input_number.import_kwh_at_7pm
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+    action: input_number.set_value
+  - data:
+      entity_id: input_number.electricity_rate
+      value: 0.37
+    action: input_number.set_value
+  mode: single
+- id: '1771669072411'
+  alias: Frigate Person Detected at Car Alert
+  description: ''
+  use_blueprint:
+    path: SgtBatten/Stable.yaml
+    input:
+      camera:
+      - camera.front_car
+      - camera.front_van
+      notify_device: 002753768c371c4f05a272c7e1e0f93c
+      review_severity:
+      - alert
+      master_condition:
+      - condition: time
+        after: '23:00:00'
+        before: 06:30:00
+        weekday:
+        - mon
+        - tue
+        - wed
+        - thu
+        - fri
+        - sat
+        - sun
+      zone_filter: true
+      zones:
+      - 182_focus_zone
+      - 162_focus_zone
+      labels:
+      - person
+      custom_action_auto:
+      - repeat:
+          count: 10
+          sequence:
+          - action: light.turn_on
+            target:
+              entity_id:
+              - light.sitting_room
+              - light.hallway
+            data:
+              brightness_pct: 100
+          - delay:
+              seconds: 1.5
+          - action: light.turn_off
+            target:
+              entity_id:
+              - light.sitting_room
+              - light.hallway
+          - delay:
+              seconds: 1.5
+      - action: tts.cloud_say
+        data:
+          entity_id: media_player.colm_bedroom_speaker_cast
+          message: Person detected on front camera at car
+- id: '1771748445702'
+  alias: Low Battery Notifications & Actions
+  description: ''
+  use_blueprint:
+    path: Blackshome/low-battery-notifications-and-actions.yaml
+    input:
+      include_time: time_enabled
+      time: '10:00:00'
+      weekday_options:
+      - sun
+      battery_sensor_report_fields:
+      - friendly_name
+      - floor
+      - area
+      - device
+      - entity_id
+      battery_level: 15
+      exclude_hidden_entities: hidden_enabled
+      custom_group_battery_level: 15
+      include_easy_notify: enable_easy_okay_notify
+      notify_device:
+      - 002753768c371c4f05a272c7e1e0f93c
+- id: '1773057607414'
+  alias: Office Hue Dimmer Switch
+  description: ''
+  use_blueprint:
+    path: EPMatt/philips_324131092621.yaml
+    input:
+      integration: Zigbee2MQTT
+      controller_device: f8d2538f89c131fa7bb7ecfc1eb0c502
+      helper_last_controller_event: input_text.office_dimmer_helper_last_controller_event
+      action_button_on_short:
+      - action: light.turn_on
+        metadata: {}
+        data: {}
+        target:
+          entity_id: light.office_ceiling
+      action_button_on_long:
+      - action: light.turn_off
+        metadata: {}
+        target:
+          entity_id: light.office_ceiling
+        data:
+          transition: 2
+      action_button_off_short:
+      - action: light.turn_off
+        metadata: {}
+        target:
+          entity_id: light.office_ceiling
+        data:
+          transition: 2
+      action_button_up_short:
+      - action: light.turn_on
+        metadata: {}
+        target:
+          entity_id: light.office_ceiling
+        data:
+          brightness_step_pct: 10
+      action_button_down_short:
+      - action: light.turn_on
+        metadata: {}
+        target:
+          entity_id: light.office_ceiling
+        data:
+          brightness_step_pct: -10
+      action_button_up_long:
+      - action: light.turn_on
+        metadata: {}
+        target:
+          entity_id: light.office_ceiling
+        data:
+          brightness_pct: 100
+- id: '1775750149545'
+  alias: Smart Parcel Box Notification
+  description: ''
+  use_blueprint:
+    path: eroak/smart-mailbox.yaml
+    input:
+      motion_sensor: binary_sensor.parcel_delivery_box_contact
+      timeout_in_seconds: 30
+      collection_confirming_entities:
+      - binary_sensor.front_door_contact
+      actions_in:
+      - action: notify.mobile_app_np3
+        metadata: {}
+        data:
+          message: A Package Has Been Delivered!
+      - action: tts.cloud_say
+        metadata: {}
+        data:
+          cache: false
+          entity_id: media_player.home_audio_group_cast
+          message: A Package Has Been Delivered!
+      - action: notify.mobile_app_pixel_6a
+        metadata: {}
+        data:
+          message: A Package Has Been Delivered!
+      last_deposit_input_datetime: input_datetime.parcel_box_last_delivery
+      last_collect_input_datetime: input_datetime.parcel_box_last_collection
+      actions_out:
+      - action: notify.mobile_app_np3
+        metadata: {}
+        data:
+          message: The Parcel Box Has Been Opened
+- id: '1776186517558'
+  alias: Offline Devices Report
+  description: ''
+  use_blueprint:
+    path: Ltek/offline-devices-report-ltek.yaml
+    input:
+      include_easy_notify: enable_easy_notify
+      notify_device:
+      - 002753768c371c4f05a272c7e1e0f93c
+      time: 06:00:00
+      weekday_options:
+      - sat
+      - mon
+      - tue
+      - wed
+      - thu
+      - fri
+      - sun
+      include_time: time_enabled
+      auto_add_to_do: enable_auto_add_to_do
+      notify_action_buttons: enable_to_do_list_button
+      to_do_list: todo.tasks
+      button_entity: input_button.offline_devices_report_button
+- id: '1776515291123'
+  alias: Office Occupancy Lighting
+  description: ''
+  use_blueprint:
+    path: MajorLazer2142/Clean_and_Simple_Universal_Occupancy_Lighting_for_PIR_and_Radar_Sensors.yaml
+    input:
+      occupancy_sensors:
+      - binary_sensor.office_presence_occupancy
+      lights_turn_on:
+        entity_id: light.office_ceiling
+      lights_turn_off:
+        entity_id: light.office_ceiling
+      enable_dim_before_off: true
+      dim_delay_minutes: 2
+- id: '1778185346460'
+  alias: Sim Rig Socket Off - No Office Presence
+  description: Turn off the sim rig socket when no presence is detected in the office
+    for 30 minutes
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.office_presence_occupancy
+    to: 'off'
+    for: 00:30:00
+  conditions: []
+  actions:
+  - target:
+      entity_id: switch.colm_sim_rig_socket
+    action: switch.turn_off
+  mode: single
+- id: '1778187447645'
+  alias: Frigate - Disk Space Warning
+  description: Alert when Frigate LXC disk usage exceeds 85%
+  triggers:
+  - platform: numeric_state
+    entity_id: sensor.frigate_cctv_disk_usage
+    above: 85
+    for:
+      minutes: 5
+  conditions: []
+  actions:
+  - variables:
+      alert_time: '{{ as_local(trigger.to_state.last_changed).strftime(''%H:%M'')
+        }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - data:
+        title: Frigate - Disk Space Warning
+        message: Frigate disk is at {{ states('sensor.lxc_docker_frigate_107_disk_used_percentage')
+          | round(1) }}%. Check recording retention before storage fills up.
+      action: notify.send_message
+      target:
+        entity_id: notify.np3
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - data:
+        title: Frigate - Disk Space Warning (triggered {{ alert_time }})
+        message: Frigate disk is at {{ states('sensor.lxc_docker_frigate_107_disk_used_percentage')
+          | round(1) }}%. Check recording retention before storage fills up.
+      action: notify.send_message
+      target:
+        entity_id: notify.np3
+  mode: single
+- id: '1778187449238'
+  alias: Frigate - System Offline
+  description: Alert when the Frigate LXC container goes offline
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.lxc_docker_frigate_107_status
+    from: 'on'
+    to: 'off'
+    for:
+      minutes: 2
+  conditions: []
+  actions:
+  - variables:
+      alert_time: '{{ as_local(trigger.to_state.last_changed).strftime(''%H:%M'')
+        }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - data:
+        title: Frigate - System Offline
+        message: Frigate has been offline for 2 minutes. Check the LXC container on
+          Proxmox.
+      action: notify.send_message
+      target:
+        entity_id: notify.np3
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - data:
+        title: Frigate - System Offline (triggered {{ alert_time }})
+        message: Frigate has been offline for 2 minutes. Check the LXC container on
+          Proxmox.
+      action: notify.send_message
+      target:
+        entity_id: notify.np3
+  mode: single
+- id: '1778187451459'
+  alias: Frigate - Camera Offline
+  description: Alert when any Frigate camera becomes unavailable
+  triggers:
+  - entity_id:
+    - camera.doorbell
+    - camera.front_van
+    - camera.front_car
+    - camera.rear_door
+    - camera.rear_shed
+    to: unavailable
+    for:
+      minutes: 2
+    platform: state
+  conditions: []
+  actions:
+  - variables:
+      alert_time: '{{ as_local(trigger.to_state.last_changed).strftime(''%H:%M'')
+        }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - data:
+        title: Frigate - Camera Offline
+        message: '{{ trigger.to_state.attributes.friendly_name }} has been unavailable
+          for 2 minutes.'
+      action: notify.send_message
+      target:
+        entity_id: notify.np3
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - data:
+        title: Frigate - Camera Offline (triggered {{ alert_time }})
+        message: '{{ trigger.to_state.attributes.friendly_name }} has been unavailable
+          for 2 minutes.'
+      action: notify.send_message
+      target:
+        entity_id: notify.np3
+  mode: parallel
+  max: 6
+- id: '1778225960347'
+  alias: Cameras - Overnight Summary
+  description: At 7am sends an overnight camera summary. If a person was detected,
+    sends a high-priority alert with a snapshot and notes any other animals spotted.
+    If no person, sends an all-clear with any cats, dogs or birds mentioned.
+  triggers:
+  - platform: time
+    at: 07:00:00
+  actions:
+  - variables:
+      other_line: "{% set midnight = today_at('00:00') | as_timestamp %}{% set cat_n
+        = namespace(n=0) %}{% for img in ['image.doorbell_cat','image.front_car_cat','image.front_van_cat','image.rear_door_cat','image.rear_shed_cat']
+        %}{% if states(img) not in ('unknown','unavailable') and as_timestamp(states(img),
+        0) > midnight %}{% set cat_n.n = cat_n.n + 1 %}{% endif %}{% endfor %}{% set
+        dog_n = namespace(n=0) %}{% for img in ['image.doorbell_dog','image.front_car_dog','image.front_van_dog','image.rear_door_dog','image.rear_shed_dog']
+        %}{% if states(img) not in ('unknown','unavailable') and as_timestamp(states(img),
+        0) > midnight %}{% set dog_n.n = dog_n.n + 1 %}{% endif %}{% endfor %}{% set
+        bird_n = namespace(n=0) %}{% for img in ['image.doorbell_bird','image.front_car_bird','image.front_van_bird','image.rear_door_bird','image.rear_shed_bird']
+        %}{% if states(img) not in ('unknown','unavailable') and as_timestamp(states(img),
+        0) > midnight %}{% set bird_n.n = bird_n.n + 1 %}{% endif %}{% endfor %}{%
+        set parts = namespace(list=[]) %}{% if cat_n.n > 0 %}{% set parts.list = parts.list
+        + ['\U0001F431 Cat' + (' ×' + cat_n.n | string if cat_n.n > 1 else '')] %}{%
+        endif %}{% if dog_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F436
+        Dog' + (' ×' + dog_n.n | string if dog_n.n > 1 else '')] %}{% endif %}{% if
+        bird_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F426 Bird' + (' ×'
+        + bird_n.n | string if bird_n.n > 1 else '')] %}{% endif %}{{ parts.list |
+        join('  ·  ') }}"
+  - if:
+    - condition: template
+      value_template: '{{ best_image != '''' }}'
+    then:
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: "\U0001F6A8 Person Detected Overnight"
+        message: '{% set cam = state_attr(best_image, ''friendly_name'') | replace(''
+          Person'', '''') %}
+
+          {% set t = as_timestamp(states(best_image)) | timestamp_custom(''%-I:%M
+          %p'') %}
+
+          Person spotted on {{ cam }} at {{ t }}{% if camera_count | int > 1 %} (+{{
+          (camera_count | int) - 1 }} other camera{{ ''s'' if camera_count | int >
+          2 else '''' }}){% endif %}{% if other_line != '''' %}
+
+
+          Also overnight: {{ other_line }}{% endif %}'
+    - action: notify.send_message
+      target:
+        entity_id: notify.pixel_6a
+      data:
+        title: "\U0001F6A8 Person Detected Overnight"
+        message: '{% set cam = state_attr(best_image, ''friendly_name'') | replace(''
+          Person'', '''') %}
+
+          {% set t = as_timestamp(states(best_image)) | timestamp_custom(''%-I:%M
+          %p'') %}
+
+          Person spotted on {{ cam }} at {{ t }}{% if camera_count | int > 1 %} (+{{
+          (camera_count | int) - 1 }} other camera{{ ''s'' if camera_count | int >
+          2 else '''' }}){% endif %}{% if other_line != '''' %}
+
+
+          Also overnight: {{ other_line }}{% endif %}'
+    else:
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: "\U0001F7E2 All Clear Overnight — {{ now().strftime('%A %-d %B') }}"
+        message: 'No people detected on any camera.{% if other_line != '''' %}
+
+
+          Also spotted: {{ other_line }}{% else %}
+
+          No other activity detected.{% endif %}'
+    - action: notify.send_message
+      target:
+        entity_id: notify.pixel_6a
+      data:
+        title: "\U0001F7E2 All Clear Overnight — {{ now().strftime('%A %-d %B') }}"
+        message: 'No people detected on any camera.{% if other_line != '''' %}
+
+
+          Also spotted: {{ other_line }}{% else %}
+
+          No other activity detected.{% endif %}'
+  mode: single
+  variables:
+    best_image: "{% set ns = namespace(entity='', ts=0) %}\n{% for img in ['image.doorbell_person','image.front_car_person','image.front_van_person','image.rear_door_person','image.rear_shed_person']
+      %}\n  {% set s = states(img) %}\n  {% if s not in ('unknown','unavailable')
+      %}\n    {% set t = as_timestamp(s, 0) %}\n    {% if t > (today_at('00:00') |
+      as_timestamp) and t > ns.ts %}\n      {% set ns.entity = img %}\n      {% set
+      ns.ts = t %}\n    {% endif %}\n  {% endif %}\n{% endfor %}\n{{ ns.entity }}"
+    camera_count: "{% set ns = namespace(n=0) %}\n{% for img in ['image.doorbell_person','image.front_car_person','image.front_van_person','image.rear_door_person','image.rear_shed_person']
+      %}\n  {% set s = states(img) %}\n  {% if s not in ('unknown','unavailable')
+      and as_timestamp(s, 0) > (today_at('00:00') | as_timestamp) %}\n    {% set ns.n
+      = ns.n + 1 %}\n  {% endif %}\n{% endfor %}\n{{ ns.n }}"
+- id: '1778228718912'
+  alias: Energy - Snapshot Daily Totals
+  description: At 23:58 each night, saves today's energy sensor values to helpers
+    so they can be read the next morning.
+  triggers:
+  - platform: time
+    at: '23:58:00'
+  actions:
+  - target:
+      entity_id: input_number.yesterday_solar_generated
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_generated_today'') | float(0) }}'
+    action: input_number.set_value
+  - target:
+      entity_id: input_number.yesterday_grid_import
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+    action: input_number.set_value
+  - target:
+      entity_id: input_number.yesterday_grid_export
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_grid_export_today'') | float(0) }}'
+    action: input_number.set_value
+  - target:
+      entity_id: input_number.yesterday_import_cost
+    data:
+      value: '{% set n = states(''input_number.import_kwh_at_8am'') | float(0) %}{%
+        set d = (states(''input_number.import_kwh_at_5pm'') | float(0)) - n %}{% set
+        p = (states(''input_number.import_kwh_at_7pm'') | float(0)) - (states(''input_number.import_kwh_at_5pm'')
+        | float(0)) %}{% set e = (states(''input_number.import_kwh_at_11pm'') | float(0))
+        - (states(''input_number.import_kwh_at_7pm'') | float(0)) %}{% set ln = [states(''sensor.myenergi_eddi_grid_import_today'')
+        | float(0) - states(''input_number.import_kwh_at_11pm'') | float(0), 0] |
+        max %}{{ [n * 0.20 + d * 0.37 + p * 0.39 + e * 0.37 + ln * 0.20, 0] | max
+        | round(4) }}'
+    action: input_number.set_value
+  - target:
+      entity_id: input_number.yesterday_export_compensation
+    data:
+      value: '{{ (states(''sensor.myenergi_eddi_grid_export_today'') | float(0) *
+        0.19) | round(4) }}'
+    action: input_number.set_value
+  - target:
+      entity_id: input_number.yesterday_eddi_diverted
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_green_energy_today'') | float(0) }}'
+    action: input_number.set_value
+  mode: single
+- id: '1778228723586'
+  alias: Energy - Daily Summary Notification
+  description: At 8am each morning, sends a summary of yesterday's solar and electricity
+    to NP3.
+  triggers:
+  - platform: time
+    at: 07:45:00
+  actions:
+  - action: notify.send_message
+    target:
+      entity_id: notify.np3
+    data:
+      title: ⚡ Energy Summary — {{ day_name }}
+      message: "{% if solar >= 15 %}☀️{% elif solar >= 8 %}\U0001F324️{% elif solar
+        >= 3 %}⛅{% else %}\U0001F325️{% endif %} Solar: {{ solar | round(2) }} kWh\n\U0001F525
+        Eddi: {{ eddi | round(2) }} kWh\n\U0001F7E2 Exported: {{ exported | round(2)
+        }} kWh  (+€{{ export_comp | round(2) }})\n\U0001F534 Imported: {{ imported
+        | round(2) }} kWh  (€{{ import_cost | round(2) }})\n{% if net_cost <= 0 %}\U0001F49A
+        Saved: €{{ (net_cost * -1) | round(2) }}{% else %}\U0001F4B8 Net cost: €{{
+        net_cost | round(2) }}{% endif %}"
+  - action: notify.send_message
+    target:
+      entity_id: notify.pixel_6a
+    data:
+      title: ⚡ Energy Summary — {{ day_name }}
+      message: "{% if solar >= 15 %}☀️{% elif solar >= 8 %}\U0001F324️{% elif solar
+        >= 3 %}⛅{% else %}\U0001F325️{% endif %} Solar: {{ solar | round(2) }} kWh\n\U0001F525
+        Eddi: {{ eddi | round(2) }} kWh\n\U0001F7E2 Exported: {{ exported | round(2)
+        }} kWh  (+€{{ export_comp | round(2) }})\n\U0001F534 Imported: {{ imported
+        | round(2) }} kWh  (€{{ import_cost | round(2) }})\n{% if net_cost <= 0 %}\U0001F49A
+        Saved: €{{ (net_cost * -1) | round(2) }}{% else %}\U0001F4B8 Net cost: €{{
+        net_cost | round(2) }}{% endif %}"
+  variables:
+    solar: '{{ states(''input_number.yesterday_solar_generated'') | float(0) }}'
+    imported: '{{ states(''input_number.yesterday_grid_import'') | float(0) }}'
+    exported: '{{ states(''input_number.yesterday_grid_export'') | float(0) }}'
+    import_cost: '{{ states(''input_number.yesterday_import_cost'') | float(0) }}'
+    export_comp: '{{ states(''input_number.yesterday_export_compensation'') | float(0)
+      }}'
+    eddi: '{{ states(''input_number.yesterday_eddi_diverted'') | float(0) }}'
+    net_cost: '{{ (states(''input_number.yesterday_import_cost'') | float(0)) - (states(''input_number.yesterday_export_compensation'')
+      | float(0)) }}'
+    day_name: '{{ (now() - timedelta(days=1)).strftime(''%A'') }}'
+  mode: single
+- id: '1778233652235'
+  alias: Doorbell - Postman TTS Alert
+  description: When Frigate detects the postman at the doorbell, announce on all speakers.
+  triggers:
+  - platform: state
+    entity_id: sensor.frigate_postman_last_camera
+    to: Doorbell
+  conditions: []
+  actions:
+  - action: tts.cloud_say
+    data:
+      entity_id: media_player.home_audio_group_cast
+      message: The postman has been detected. You have post or a package.
+  mode: single
+- id: '1778233948678'
+  alias: Frigate - Courier Delivery TTS Alert
+  description: When DPD, GLS, Amazon or UPS is detected on the front car or front
+    van camera, announce on all speakers.
+  triggers:
+  - entity_id: sensor.front_car_dpd_count
+    above: 0
+    platform: numeric_state
+  - entity_id: sensor.front_van_dpd_count
+    above: 0
+    platform: numeric_state
+  - entity_id: sensor.front_car_gls_count
+    above: 0
+    platform: numeric_state
+  - entity_id: sensor.front_van_gls_count
+    above: 0
+    platform: numeric_state
+  - entity_id: sensor.front_car_amazon_count
+    above: 0
+    platform: numeric_state
+  - entity_id: sensor.front_van_amazon_count
+    above: 0
+    platform: numeric_state
+  - entity_id: sensor.front_car_ups_count
+    above: 0
+    platform: numeric_state
+  - entity_id: sensor.front_van_ups_count
+    above: 0
+    platform: numeric_state
+  - platform: numeric_state
+    entity_id: sensor.front_car_fedex_count
+    above: 0
+  - platform: numeric_state
+    entity_id: sensor.front_van_fedex_count
+    above: 0
+  - platform: numeric_state
+    entity_id: sensor.front_car_dhl_count
+    above: 0
+  - platform: numeric_state
+    entity_id: sensor.front_van_dhl_count
+    above: 0
+  - platform: numeric_state
+    entity_id: sensor.front_car_an_post_count
+    above: 0
+  - platform: numeric_state
+    entity_id: sensor.front_van_an_post_count
+    above: 0
+  conditions: []
+  actions:
+  - action: tts.cloud_say
+    data:
+      entity_id: media_player.home_audio_group_cast
+      message: '{{ courier_name }} has landed.'
+  variables:
+    courier_key: '{{ trigger.entity_id | replace(''sensor.front_car_'', '''') | replace(''sensor.front_van_'',
+      '''') | replace(''_count'', '''') }}'
+    courier_name: '{% set names = {''dpd'': ''DPD'', ''gls'': ''GLS'', ''amazon'':
+      ''Amazon'', ''ups'': ''UPS'', ''fedex'': ''FedEx'', ''dhl'': ''DHL'', ''an_post'':
+      ''An Post''} %}{{ names.get(courier_key, courier_key | upper) }}'
+  mode: single
+- id: '1778234345312'
+  alias: Doorbell - Hello Olivia TTS
+  description: When Olivia is detected at the doorbell between 1pm and 2pm on weekdays,
+    greet her on all speakers after a short delay.
+  triggers:
+  - platform: state
+    entity_id: sensor.frigate_olivia_last_camera
+    to: Doorbell
+  conditions:
+  - condition: time
+    after: '13:00:00'
+    before: '14:00:00'
+    weekday:
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+  actions:
+  - delay:
+      minutes: 2
+  - variables:
+      kitchen_vol: '{{ state_attr(''media_player.kitchen_display_cast'', ''volume_level'')
+        }}'
+      sitting_vol: '{{ state_attr(''media_player.sitting_room_speaker_cast'', ''volume_level'')
+        }}'
+  - action: media_player.volume_set
+    target:
+      entity_id:
+      - media_player.kitchen_display_cast
+      - media_player.sitting_room_speaker_cast
+    data:
+      volume_level: 1.0
+  - action: tts.cloud_say
+    data:
+      entity_id:
+      - media_player.kitchen_display_cast
+      - media_player.sitting_room_speaker_cast
+      message: Hello Olivia. How are you? You're looking amazing today. I hope you
+        had a good day at work?
+  - delay:
+      seconds: 15
+  - action: media_player.volume_set
+    target:
+      entity_id: media_player.kitchen_display_cast
+    data:
+      volume_level: '{{ kitchen_vol }}'
+  - action: media_player.volume_set
+    target:
+      entity_id: media_player.sitting_room_speaker_cast
+    data:
+      volume_level: '{{ sitting_vol }}'
+  mode: single
+- id: '1778237018912'
+  alias: Colm's Grand Return
+  description: When Frigate face recognition detects Colm at the doorbell and he has
+    been away for more than 3 days, play a fanfare and announce his return on all
+    speakers.
+  triggers:
+  - platform: state
+    entity_id: sensor.frigate_colm_last_camera
+    to: Doorbell
+  conditions:
+  - condition: state
+    entity_id: person.colm_finn
+    state: not_home
+  - condition: template
+    value_template: '{{ (now() - states.person.colm_finn.last_changed).total_seconds()
+      > 259200 }}'
+  actions:
+  - delay:
+      minutes: 2
+  - variables:
+      sitting_room_vol: '{{ state_attr(''media_player.sitting_room_speaker_cast'',
+        ''volume_level'') }}'
+      kitchen_display_vol: '{{ state_attr(''media_player.kitchen_display_cast'', ''volume_level'')
+        }}'
+  - action: media_player.volume_set
+    target:
+      entity_id:
+      - media_player.sitting_room_speaker_cast
+      - media_player.kitchen_display_cast
+    data:
+      volume_level: 1.0
+  - action: media_player.play_media
+    target:
+      entity_id:
+      - media_player.sitting_room_speaker_cast
+      - media_player.kitchen_display_cast
+    data:
+      media_content_id: https://upload.wikimedia.org/wikipedia/commons/e/e5/Trumpet_fanfare.ogg
+      media_content_type: music
+  - delay: 00:00:06
+  - action: tts.cloud_say
+    data:
+      entity_id:
+      - media_player.sitting_room_speaker_cast
+      - media_player.kitchen_display_cast
+      message: Colm has finally returned!
+  - delay: 00:00:08
+  - action: media_player.volume_set
+    target:
+      entity_id: media_player.sitting_room_speaker_cast
+    data:
+      volume_level: '{{ sitting_room_vol }}'
+  - action: media_player.volume_set
+    target:
+      entity_id: media_player.kitchen_display_cast
+    data:
+      volume_level: '{{ kitchen_display_vol }}'
+  mode: single
+- id: '1778240499637'
+  alias: Zigbee2MQTT Down - Restart & Notify NP3
+  description: Always restart Z2M if down. Notify immediately 07:00-22:00, or queue
+    a morning notification with time and outcome if silenced.
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
+    to: 'off'
+  - platform: state
+    entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
+    to: unavailable
+  conditions: []
+  actions:
+  - variables:
+      triggered_at: '{{ now().strftime(''%d %b at %H:%M'') }}'
+  - delay:
+      minutes: 2
+  - condition: state
+    entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
+    state:
+    - 'off'
+    - unavailable
+  - action: hassio.addon_restart
+    data:
+      addon: 45df7312_zigbee2mqtt
+  - delay:
+      seconds: 60
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
+        state:
+        - 'off'
+        - unavailable
+      sequence:
+      - delay:
+          minutes: 1
+      - action: hassio.addon_restart
+        data:
+          addon: 45df7312_zigbee2mqtt
+      - delay:
+          seconds: 60
+  - variables:
+      outcome: '{{ ''Recovered successfully'' if is_state(''binary_sensor.zigbee2mqtt_bridge_connection_state'',
+        ''on'') else ''Still down after 2 restart attempts'' }}'
+  - choose:
+    - conditions:
+      - condition: time
+        after: 07:00:00
+        before: '22:00:00'
+      sequence:
+      - action: notify.send_message
+        data:
+          title: Zigbee2MQTT Restarted
+          message: 'Went down at {{ triggered_at }}. Outcome: {{ outcome }}'
+        target:
+          entity_id: notify.np3
+    default:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - action: notify.send_message
+      data:
+        title: Zigbee2MQTT Overnight Restart
+        message: 'Went down at {{ triggered_at }}. Outcome: {{ outcome }}'
+      target:
+        entity_id: notify.np3
+  mode: single
+- id: '1778243937781'
+  alias: Sitting Room - Power Off After 30min No Presence
+  description: If nobody has been in the sitting room for 30 continuous minutes, power
+    off all Harmony devices.
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.sitting_room_presence_occupancy
+    to: 'off'
+    for: 00:30:00
+  actions:
+  - target:
+      entity_id: remote.sittingrmhub
+    action: remote.turn_off
+  mode: single
+- id: '1778268484924'
+  alias: Tomorrow's Weather Forecast at 9pm
+  description: Fetches tomorrow's daily forecast and sends a colourful notification
+    to all phones at 9pm each evening. If Colm or Olivia is more than 100km from home,
+    a second weather block is added for their away location.
+  triggers:
+  - platform: time
+    at: '21:30:00'
+  actions:
+  - action: weather.get_forecasts
+    data:
+      type: daily
+    target:
+      entity_id: weather.forecast_home_2
+    response_variable: forecast_data
+  - variables:
+      fc: '{{ forecast_data[''weather.forecast_home_2''][''forecast''][1] }}'
+      condition: '{{ forecast_data[''weather.forecast_home_2''][''forecast''][1].condition
+        }}'
+      someone_away: '{{ colm_dist > 100 or olivia_dist > 100 }}'
+      away_lat: '{{ state_attr(''person.colm_finn'', ''latitude'') if colm_dist >
+        100 else state_attr(''person.olivia_finn'', ''latitude'') }}'
+      away_lon: '{{ state_attr(''person.colm_finn'', ''longitude'') if colm_dist >
+        100 else state_attr(''person.olivia_finn'', ''longitude'') }}'
+      away_person_name: '{{ ''Colm'' if colm_dist > 100 else ''Olivia'' }}'
+  - variables:
+      icon: "{% set icons = {'sunny': '☀️', 'clear-night': '\U0001F319', 'partlycloudy':
+        '⛅', 'cloudy': '☁️', 'rainy': '\U0001F327️', 'pouring': '\U0001F30A', 'snowy':
+        '❄️', 'snowy-rainy': '\U0001F328️', 'lightning': '\U0001F329️', 'lightning-rainy':
+        '⛈️', 'windy': '\U0001F4A8', 'windy-variant': '\U0001F32C️', 'fog': '\U0001F32B️',
+        'hail': '\U0001F9CA', 'exceptional': '\U0001F321️'} %}{{ icons.get(condition,
+        '\U0001F324️') }}"
+      color: '{% set colors = {''sunny'': ''#FFA500'', ''clear-night'': ''#191970'',
+        ''partlycloudy'': ''#87CEEB'', ''cloudy'': ''#708090'', ''rainy'': ''#4169E1'',
+        ''pouring'': ''#1E3A8A'', ''snowy'': ''#00BFFF'', ''snowy-rainy'': ''#4682B4'',
+        ''lightning'': ''#FFD700'', ''lightning-rainy'': ''#FF8C00'', ''windy'': ''#20B2AA'',
+        ''windy-variant'': ''#2E8B57'', ''fog'': ''#A9A9A9'', ''hail'': ''#B0E0E6'',
+        ''exceptional'': ''#FF4500''} %}{{ colors.get(condition, ''#1a73e8'') }}'
+  - variables:
+      notif_title: '{{ icon }} Tomorrow – {{ (now() + timedelta(days=1)).strftime(''%A
+        %-d %B'') }}'
+      notif_message: "{{ icon }} {{ condition | replace('-', ' ') | title }}\n\n\U0001F321️
+        \ High {{ fc.temperature | default(0) | round | int }}°C  ·  Low {{ fc.templow
+        | default(0) | round | int }}°C\n\U0001F327️  Rain: {{ fc.precipitation_probability
+        | default(0) | round | int }}%  ({{ fc.precipitation | default(0) | round(1)
+        }}mm)\n\U0001F4A8  Wind: {{ fc.wind_speed | default(0) | round | int }} km/h"
+  - if:
+    - condition: template
+      value_template: '{{ someone_away }}'
+    then:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.away_lat
+      data:
+        value: '{{ away_lat }}'
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.away_lon
+      data:
+        value: '{{ away_lon }}'
+    - action: rest_command.get_away_location_name
+      data:
+        lat: '{{ away_lat }}'
+        lon: '{{ away_lon }}'
+      response_variable: geocode_resp
+    - variables:
+        away_name: '{% set addr = geocode_resp.content.address %}{% set city = addr.get(''city'',
+          addr.get(''town'', addr.get(''village'', addr.get(''municipality'', ''Unknown''))))
+          %}{{ city }}, {{ addr.get(''country'', '''') }}'
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.away_location_name
+      data:
+        value: '{{ away_name }}'
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.away_weather_forecast
+    - delay: 00:00:05
+    - variables:
+        away_icon: "{% set p = state_attr('sensor.away_weather_forecast', 'precipitation_probability_max')[1]
+          | int(0) %}{% if p > 70 %}\U0001F327️{% elif p > 40 %}⛅{% elif p > 20 %}\U0001F324️{%
+          else %}☀️{% endif %}"
+        notif_message: "{{ notif_message }}\n\n─────────────\n\U0001F4CD {{ away_name
+          }}\n{{ away_icon }} {{ away_person_name }}'s location\n\n\U0001F321️  High
+          {{ state_attr('sensor.away_weather_forecast', 'temperature_2m_max')[1] |
+          round | int }}°C  ·  Low {{ state_attr('sensor.away_weather_forecast', 'temperature_2m_min')[1]
+          | round | int }}°C\n\U0001F327️  Rain: {{ state_attr('sensor.away_weather_forecast',
+          'precipitation_probability_max')[1] | round | int }}%  ({{ state_attr('sensor.away_weather_forecast',
+          'precipitation_sum')[1] | round(1) }}mm)\n\U0001F4A8  Wind: {{ state_attr('sensor.away_weather_forecast',
+          'wind_speed_10m_max')[1] | round | int }} km/h"
+  - action: notify.send_message
+    target:
+      entity_id: notify.np3
+    data:
+      title: '{{ notif_title }}'
+      message: '{{ notif_message }}'
+  - action: notify.send_message
+    target:
+      entity_id: notify.pixel_6a
+    data:
+      title: '{{ notif_title }}'
+      message: '{{ notif_message }}'
+  mode: single
+  variables:
+    colm_dist: '{{ distance(''person.colm_finn'', ''zone.home'') | float(0) }}'
+    olivia_dist: '{{ distance(''person.olivia_finn'', ''zone.home'') | float(0) }}'
+- id: '1778268683818'
+  alias: Today's Weather Forecast at 8:30am
+  description: Fetches today's daily forecast and sends a colourful notification to
+    all phones at 8:30am each morning. If Colm or Olivia is more than 100km from home,
+    a second weather block is added for their away location.
+  triggers:
+  - platform: time
+    at: 08:30:00
+  actions:
+  - action: weather.get_forecasts
+    data:
+      type: daily
+    target:
+      entity_id: weather.forecast_home_2
+    response_variable: forecast_data
+  - variables:
+      fc: '{{ forecast_data[''weather.forecast_home_2''][''forecast''][0] }}'
+      condition: '{{ forecast_data[''weather.forecast_home_2''][''forecast''][0].condition
+        }}'
+      someone_away: '{{ colm_dist > 100 or olivia_dist > 100 }}'
+      away_lat: '{{ state_attr(''person.colm_finn'', ''latitude'') if colm_dist >
+        100 else state_attr(''person.olivia_finn'', ''latitude'') }}'
+      away_lon: '{{ state_attr(''person.colm_finn'', ''longitude'') if colm_dist >
+        100 else state_attr(''person.olivia_finn'', ''longitude'') }}'
+      away_person_name: '{{ ''Colm'' if colm_dist > 100 else ''Olivia'' }}'
+  - variables:
+      icon: "{% set icons = {'sunny': '☀️', 'clear-night': '\U0001F319', 'partlycloudy':
+        '⛅', 'cloudy': '☁️', 'rainy': '\U0001F327️', 'pouring': '\U0001F30A', 'snowy':
+        '❄️', 'snowy-rainy': '\U0001F328️', 'lightning': '\U0001F329️', 'lightning-rainy':
+        '⛈️', 'windy': '\U0001F4A8', 'windy-variant': '\U0001F32C️', 'fog': '\U0001F32B️',
+        'hail': '\U0001F9CA', 'exceptional': '\U0001F321️'} %}{{ icons.get(condition,
+        '\U0001F324️') }}"
+      color: '{% set colors = {''sunny'': ''#FFA500'', ''clear-night'': ''#191970'',
+        ''partlycloudy'': ''#87CEEB'', ''cloudy'': ''#708090'', ''rainy'': ''#4169E1'',
+        ''pouring'': ''#1E3A8A'', ''snowy'': ''#00BFFF'', ''snowy-rainy'': ''#4682B4'',
+        ''lightning'': ''#FFD700'', ''lightning-rainy'': ''#FF8C00'', ''windy'': ''#20B2AA'',
+        ''windy-variant'': ''#2E8B57'', ''fog'': ''#A9A9A9'', ''hail'': ''#B0E0E6'',
+        ''exceptional'': ''#FF4500''} %}{{ colors.get(condition, ''#1a73e8'') }}'
+  - variables:
+      notif_title: '{{ icon }} Today''s Weather – {{ now().strftime(''%A %-d %B'')
+        }}'
+      notif_message: "{{ icon }} {{ condition | replace('-', ' ') | title }}\n\n\U0001F321️
+        \ High {{ fc.temperature | default(0) | round | int }}°C  ·  Low {{ fc.templow
+        | default(0) | round | int }}°C\n\U0001F327️  Rain: {{ fc.precipitation_probability
+        | default(0) | round | int }}%  ({{ fc.precipitation | default(0) | round(1)
+        }}mm)\n\U0001F4A8  Wind: {{ fc.wind_speed | default(0) | round | int }} km/h"
+  - if:
+    - condition: template
+      value_template: '{{ someone_away }}'
+    then:
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.away_lat
+      data:
+        value: '{{ away_lat }}'
+    - action: input_number.set_value
+      target:
+        entity_id: input_number.away_lon
+      data:
+        value: '{{ away_lon }}'
+    - action: rest_command.get_away_location_name
+      data:
+        lat: '{{ away_lat }}'
+        lon: '{{ away_lon }}'
+      response_variable: geocode_resp
+    - variables:
+        away_name: '{% set addr = geocode_resp.content.address %}{% set city = addr.get(''city'',
+          addr.get(''town'', addr.get(''village'', addr.get(''municipality'', ''Unknown''))))
+          %}{{ city }}, {{ addr.get(''country'', '''') }}'
+    - action: input_text.set_value
+      target:
+        entity_id: input_text.away_location_name
+      data:
+        value: '{{ away_name }}'
+    - action: homeassistant.update_entity
+      target:
+        entity_id: sensor.away_weather_forecast
+    - delay: 00:00:05
+    - variables:
+        away_icon: "{% set p = state_attr('sensor.away_weather_forecast', 'precipitation_probability_max')[0]
+          | int(0) %}{% if p > 70 %}\U0001F327️{% elif p > 40 %}⛅{% elif p > 20 %}\U0001F324️{%
+          else %}☀️{% endif %}"
+        notif_message: "{{ notif_message }}\n\n─────────────\n\U0001F4CD {{ away_name
+          }}\n{{ away_icon }} {{ away_person_name }}'s location\n\n\U0001F321️  High
+          {{ state_attr('sensor.away_weather_forecast', 'temperature_2m_max')[0] |
+          round | int }}°C  ·  Low {{ state_attr('sensor.away_weather_forecast', 'temperature_2m_min')[0]
+          | round | int }}°C\n\U0001F327️  Rain: {{ state_attr('sensor.away_weather_forecast',
+          'precipitation_probability_max')[0] | round | int }}%  ({{ state_attr('sensor.away_weather_forecast',
+          'precipitation_sum')[0] | round(1) }}mm)\n\U0001F4A8  Wind: {{ state_attr('sensor.away_weather_forecast',
+          'wind_speed_10m_max')[0] | round | int }} km/h"
+  - action: notify.send_message
+    target:
+      entity_id: notify.np3
+    data:
+      title: '{{ notif_title }}'
+      message: '{{ notif_message }}'
+  - action: notify.send_message
+    target:
+      entity_id: notify.pixel_6a
+    data:
+      title: '{{ notif_title }}'
+      message: '{{ notif_message }}'
+  mode: single
+  variables:
+    colm_dist: '{{ distance(''person.colm_finn'', ''zone.home'') | float(0) }}'
+    olivia_dist: '{{ distance(''person.olivia_finn'', ''zone.home'') | float(0) }}'
+- id: '1778325782880'
+  alias: Energy - Daily Grid-Free Celebration
+  description: Notifies both phones at 8pm if zero grid electricity was imported today
+    — a full solar day.
+  triggers:
+  - platform: time
+    at: '20:00:00'
+  conditions:
+  - condition: template
+    value_template: '{{ (states(''sensor.myenergi_eddi_grid_import_today'') | float(0))
+      - (states(''input_number.grid_import_at_8am_baseline'') | float(0)) < 0.1 }}'
+  actions:
+  - action: notify.send_message
+    target:
+      entity_id:
+      - notify.np3
+      - notify.pixel_6a
+    data:
+      title: ☀️ Grid-Free Day!
+      message: 'You went the whole day without importing from the grid after 8am!
+
+
+        Exported: {{ states(''sensor.myenergi_eddi_grid_export_today'') | float(0)
+        | round(2) }} kWh
+
+        Earned: €{{ (states(''sensor.myenergi_eddi_grid_export_today'') | float(0)
+        * 0.19) | round(2) }}'
+  mode: single
+- id: '1778325882100'
+  alias: Energy - Snapshot Grid Import at 8am
+  description: Captures the grid import total at 8am each day to use as a baseline,
+    excluding overnight battery charging from the grid-free day calculation.
+  triggers:
+  - platform: time
+    at: 08:00:00
+  actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.grid_import_at_8am_baseline
+    data:
+      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) | round(3)
+        }}'
+  mode: single
+- id: '1778349216347'
+  alias: Alarm - Strobe on Triggered
+  description: Strobe all downstairs lights when alarm is triggered. Restores previous
+    light state after strobe.
+  triggers:
+  - platform: state
+    entity_id: alarm_control_panel.alarmo
+    to: triggered
+  conditions: []
+  actions:
+  - action: scene.create
+    data:
+      scene_id: pre_strobe_snapshot
+      snapshot_entities:
+      - light.downstairs
+  - repeat:
+      while:
+      - condition: state
+        entity_id: alarm_control_panel.alarmo
+        state: triggered
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.downstairs
+        data:
+          brightness_pct: 100
+          color_name: white
+      - delay: '00:00:00.5'
+      - action: light.turn_off
+        target:
+          entity_id: light.downstairs
+      - delay: '00:00:00.5'
+  - action: scene.turn_on
+    target:
+      entity_id: scene.pre_strobe_snapshot
+  mode: restart
+- id: '1778352065342'
+  alias: Met Éireann Weather Warning
+  description: Notifies when Met Éireann issues a new official weather warning
+  triggers:
+  - platform: state
+    entity_id: sensor.met_eireann_active_warnings
+    not_to:
+    - unknown
+    - unavailable
+    - none
+  conditions:
+  - condition: template
+    value_template: '{% set old = trigger.from_state.state %}
+
+      {% set old_ids = [] if old in [''none'', ''unknown'', ''unavailable''] else
+      old.split('','') %}
+
+      {% set new_ids = trigger.to_state.state.split('','') %}
+
+      {{ (new_ids | reject(''in'', old_ids) | list | length) > 0 }}'
+  actions:
+  - variables:
+      level: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''level'') | default(''Weather'')
+        }}'
+      headline: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''headline'')
+        | default('''') }}'
+      expiry: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''expiry'') |
+        default('''') }}'
+      severity: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''severity'')
+        | default('''') }}'
+  - action: notify.send_message
+    target:
+      entity_id: notify.np3
+    data:
+      title: ⚠️ Met Éireann {{ level }} Warning
+      message: '{{ headline }}
+
+        Severity: {{ level }} / {{ severity }}
+
+        {% if expiry %}Expires: {{ as_local(as_datetime(expiry)).strftime(''%H:%M
+        %d/%m/%Y'') }}{% endif %}'
+  - action: notify.send_message
+    target:
+      entity_id: notify.pixel_6a
+    data:
+      title: ⚠️ Met Éireann {{ level }} Warning
+      message: '{{ headline }}
+
+        Severity: {{ level }} / {{ severity }}
+
+        {% if expiry %}Expires: {{ as_local(as_datetime(expiry)).strftime(''%H:%M
+        %d/%m/%Y'') }}{% endif %}'
+  mode: single
+- id: '1778443028904'
+  alias: Appliances - Reset Weekly Cycle Counters
+  description: Resets all 3 appliance weekly cycle counters every Monday at midnight
+  triggers:
+  - platform: time
+    at: 00:00:00
+  conditions:
+  - condition: time
+    weekday:
+    - mon
+  actions:
+  - action: counter.reset
+    target:
+      entity_id:
+      - counter.dishwasher_weekly_cycles
+      - counter.washing_machine_weekly_cycles
+      - counter.tumble_dryer_weekly_cycles
+  mode: single
+- id: '1778443033804'
+  alias: Appliances - Increment Weekly Cycle Counters
+  description: Increments the weekly cycle counter for whichever appliance just finished
+    a cycle
+  triggers:
+  - platform: state
+    entity_id: input_select.dishwasher_run_status
+    to: All Done!
+    id: dishwasher
+  - platform: state
+    entity_id: input_select.washing_machine_run_status
+    to: All Done!
+    id: washing_machine
+  - platform: state
+    entity_id: input_select.tumble_dryer_run_status
+    to: All Done!
+    id: tumble_dryer
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: dishwasher
+      sequence:
+      - action: counter.increment
+        target:
+          entity_id: counter.dishwasher_weekly_cycles
+    - conditions:
+      - condition: trigger
+        id: washing_machine
+      sequence:
+      - action: counter.increment
+        target:
+          entity_id: counter.washing_machine_weekly_cycles
+    - conditions:
+      - condition: trigger
+        id: tumble_dryer
+      sequence:
+      - action: counter.increment
+        target:
+          entity_id: counter.tumble_dryer_weekly_cycles
+  mode: parallel
+  max: 3
+- id: '1778854433068'
+  alias: NFC - Disarm Alarmo
+  triggers:
+  - platform: tag
+    tag_id: f195ee10-14a9-4b65-bd10-c53c9866bcdf
+  conditions:
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: alarm_control_panel.alarmo
+      state: disarmed
+  actions:
+  - action: alarm_control_panel.alarm_disarm
+    target:
+      entity_id: alarm_control_panel.alarmo
+  mode: single
+- id: '1778870199308'
+  alias: NFC - Night Scene
+  triggers:
+  - platform: tag
+    tag_id: 393b5201-6ab5-4b7e-a195-4cd26aa89776
+  actions:
+  - action: scene.turn_on
+    target:
+      entity_id: scene.kitchen_night
+  mode: single
+- id: '1779099403072'
+  alias: TrueNAS Problem Alerts
+  description: Notify NP3 on TrueNAS problem states only — success/info states like
+    FINISHED are ignored
+  triggers:
+  - entity_id: binary_sensor.truenas_system_mainpool_healthy
+    to: 'off'
+    platform: state
+  - entity_id: binary_sensor.truenas_system_boot_pool_healthy
+    to: 'off'
+    platform: state
+  - entity_id: sensor.truenas_snapshot_tasks_mainpool
+    to:
+    - ERROR
+    - FAILED
+    - ABORTED
+    platform: state
+  - entity_id:
+    - sensor.truenas_disks_sda
+    - sensor.truenas_disks_sdb
+    - sensor.truenas_disks_sdc
+    - sensor.truenas_disks_sdd
+    - sensor.truenas_disks_sde
+    above: 45
+    platform: numeric_state
+    for: 00:05:00
+  - platform: state
+    entity_id: binary_sensor.truenas_rsync_failures
+    to: 'on'
+  actions:
+  - variables:
+      alert_time: '{{ as_local(trigger.to_state.last_changed).strftime(''%H:%M'')
+        }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - action: notify.send_message
+      data:
+        title: TrueNAS Alert
+        message: '{% if trigger.entity_id == ''binary_sensor.truenas_system_mainpool_healthy''
+          %}MainPool is unhealthy — check pool status immediately{% elif trigger.entity_id
+          == ''binary_sensor.truenas_system_boot_pool_healthy'' %}Boot pool is unhealthy
+          — check boot pool status{% elif trigger.entity_id == ''sensor.truenas_snapshot_tasks_mainpool''
+          %}Snapshot task failed — status: {{ trigger.to_state.state }}{% elif trigger.entity_id
+          == ''binary_sensor.truenas_rsync_failures'' %}Rsync task failure — {{ states(''sensor.truenas_rsync_failed_paths'')
+          }}{% else %}Disk temperature warning: {{ trigger.to_state.name }} is {{
+          trigger.to_state.state | round(0) | int }}°C{% endif %}'
+      target:
+        entity_id: notify.np3
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - action: notify.send_message
+      data:
+        title: TrueNAS Alert (triggered {{ alert_time }})
+        message: '{% if trigger.entity_id == ''binary_sensor.truenas_system_mainpool_healthy''
+          %}MainPool is unhealthy — check pool status immediately{% elif trigger.entity_id
+          == ''binary_sensor.truenas_system_boot_pool_healthy'' %}Boot pool is unhealthy
+          — check boot pool status{% elif trigger.entity_id == ''sensor.truenas_snapshot_tasks_mainpool''
+          %}Snapshot task failed — status: {{ trigger.to_state.state }}{% elif trigger.entity_id
+          == ''binary_sensor.truenas_rsync_failures'' %}Rsync task failure — {{ states(''sensor.truenas_rsync_failed_paths'')
+          }}{% else %}Disk temperature warning: {{ trigger.to_state.name }} is {{
+          trigger.to_state.state | round(0) | int }}°C{% endif %}'
+      target:
+        entity_id: notify.np3
+  mode: single
+- id: '1779124962808'
+  alias: Proxmox Problem Alerts
+  description: Notify NP3 on Proxmox node offline, high CPU/memory/disk, or PBS storage
+    filling up
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.node_proxmox_status
+    to: 'off'
+  - platform: state
+    entity_id: binary_sensor.node_proxmox2_status
+    to: 'off'
+  - platform: numeric_state
+    entity_id: sensor.node_proxmox_cpu_used
+    above: 85
+    for: 00:05:00
+  - platform: numeric_state
+    entity_id: sensor.node_proxmox2_cpu_used
+    above: 85
+    for: 00:05:00
+  - platform: numeric_state
+    entity_id: sensor.node_proxmox_memory_used_percentage
+    above: 85
+  - platform: numeric_state
+    entity_id: sensor.node_proxmox2_memory_used_percentage
+    above: 85
+  - platform: numeric_state
+    entity_id: sensor.node_proxmox_disk_used_percentage
+    above: 85
+  - platform: numeric_state
+    entity_id: sensor.node_proxmox2_disk_used_percentage
+    above: 85
+  - platform: numeric_state
+    entity_id: sensor.storage_proxmox_pbs_remote_vpn_disk_used_percentage
+    above: 80
+  actions:
+  - variables:
+      alert_time: '{{ as_local(trigger.to_state.last_changed).strftime(''%H:%M'')
+        }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: Proxmox Alert
+        message: '{% if trigger.entity_id == ''binary_sensor.node_proxmox_status''
+          %}Node 1 (proxmox) is offline{% elif trigger.entity_id == ''binary_sensor.node_proxmox2_status''
+          %}Node 2 (proxmox2) is offline{% elif trigger.entity_id == ''sensor.node_proxmox_cpu_used''
+          %}Node 1 CPU high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.node_proxmox2_cpu_used'' %}Node 2 CPU high: {{ trigger.to_state.state
+          | round(1) }}%{% elif trigger.entity_id == ''sensor.node_proxmox_memory_used_percentage''
+          %}Node 1 memory high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.node_proxmox2_memory_used_percentage'' %}Node 2 memory high:
+          {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id == ''sensor.node_proxmox_disk_used_percentage''
+          %}Node 1 disk high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.node_proxmox2_disk_used_percentage'' %}Node 2 disk high: {{
+          trigger.to_state.state | round(1) }}%{% elif trigger.entity_id == ''sensor.storage_proxmox_pbs_remote_vpn_disk_used_percentage''
+          %}PBS remote VPN storage at {{ trigger.to_state.state | round(1) }}% — consider
+          pruning backups{% endif %}'
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: Proxmox Alert (triggered {{ alert_time }})
+        message: '{% if trigger.entity_id == ''binary_sensor.node_proxmox_status''
+          %}Node 1 (proxmox) is offline{% elif trigger.entity_id == ''binary_sensor.node_proxmox2_status''
+          %}Node 2 (proxmox2) is offline{% elif trigger.entity_id == ''sensor.node_proxmox_cpu_used''
+          %}Node 1 CPU high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.node_proxmox2_cpu_used'' %}Node 2 CPU high: {{ trigger.to_state.state
+          | round(1) }}%{% elif trigger.entity_id == ''sensor.node_proxmox_memory_used_percentage''
+          %}Node 1 memory high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.node_proxmox2_memory_used_percentage'' %}Node 2 memory high:
+          {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id == ''sensor.node_proxmox_disk_used_percentage''
+          %}Node 1 disk high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.node_proxmox2_disk_used_percentage'' %}Node 2 disk high: {{
+          trigger.to_state.state | round(1) }}%{% elif trigger.entity_id == ''sensor.storage_proxmox_pbs_remote_vpn_disk_used_percentage''
+          %}PBS remote VPN storage at {{ trigger.to_state.state | round(1) }}% — consider
+          pruning backups{% endif %}'
+  mode: single
+- id: '1779178937255'
+  alias: Doorbell - Person Snapshot on Kitchen Display
+  description: When Frigate detects a person at the doorbell, show the detection snapshot
+    with bounding box on the kitchen display for 20 seconds.
+  triggers:
+  - platform: mqtt
+    topic: frigate/events
+    value_template: '{{ value_json.type == ''new'' and value_json.after.camera ==
+      ''Doorbell'' and value_json.after.label == ''person'' }}'
+    payload: 'True'
+  conditions: []
+  actions:
+  - action: camera.snapshot
+    target:
+      entity_id: camera.doorbell
+    data:
+      filename: /config/www/doorbell_snapshot.jpg
+  - action: media_player.play_media
+    target:
+      entity_id: media_player.kitchen_display_cast
+    data:
+      media_content_id: http://10.0.0.252:8123/local/doorbell_snapshot.jpg?t={{ now().timestamp()
+        | int }}
+      media_content_type: image/jpeg
+  - delay:
+      seconds: 20
+  - action: media_player.turn_off
+    target:
+      entity_id: media_player.kitchen_display_cast
+  mode: restart
+- id: '1779369809621'
+  alias: Nextcloud Problem Alerts
+  description: Notify NP3 when Nextcloud VM goes offline, CPU/memory is strained,
+    storage is low, or app updates are available
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.qemu_ubuntu_nextcloud_117_status
+    to: 'off'
+  - platform: numeric_state
+    entity_id: sensor.qemu_ubuntu_nextcloud_117_cpu_used
+    above: 85
+    for: 00:05:00
+  - platform: numeric_state
+    entity_id: sensor.qemu_ubuntu_nextcloud_117_memory_free
+    below: 0.25
+  - platform: numeric_state
+    entity_id: sensor.nextcloud_colfin22_net_free_space
+    below: 500
+  - platform: numeric_state
+    entity_id: sensor.nextcloud_colfin22_net_updates_available
+    above: 0
+  actions:
+  - variables:
+      alert_time: '{{ as_local(trigger.to_state.last_changed).strftime(''%H:%M'')
+        }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: Nextcloud Alert
+        message: '{% if trigger.entity_id == ''binary_sensor.qemu_ubuntu_nextcloud_117_status''
+          %}Nextcloud VM is offline{% elif trigger.entity_id == ''sensor.qemu_ubuntu_nextcloud_117_cpu_used''
+          %}Nextcloud VM CPU high: {{ trigger.to_state.state | round(1) }}%{% elif
+          trigger.entity_id == ''sensor.qemu_ubuntu_nextcloud_117_memory_free'' %}Nextcloud
+          VM memory low: {{ trigger.to_state.state | float | round(2) }} GB free{%
+          elif trigger.entity_id == ''sensor.nextcloud_colfin22_net_free_space'' %}Nextcloud
+          storage low: {{ (trigger.to_state.state | float / 1024) | round(1) }} TB
+          free{% elif trigger.entity_id == ''sensor.nextcloud_colfin22_net_updates_available''
+          %}{{ trigger.to_state.state }} Nextcloud app update(s) available{% endif
+          %}'
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: Nextcloud Alert (triggered {{ alert_time }})
+        message: '{% if trigger.entity_id == ''binary_sensor.qemu_ubuntu_nextcloud_117_status''
+          %}Nextcloud VM is offline{% elif trigger.entity_id == ''sensor.qemu_ubuntu_nextcloud_117_cpu_used''
+          %}Nextcloud VM CPU high: {{ trigger.to_state.state | round(1) }}%{% elif
+          trigger.entity_id == ''sensor.qemu_ubuntu_nextcloud_117_memory_free'' %}Nextcloud
+          VM memory low: {{ trigger.to_state.state | float | round(2) }} GB free{%
+          elif trigger.entity_id == ''sensor.nextcloud_colfin22_net_free_space'' %}Nextcloud
+          storage low: {{ (trigger.to_state.state | float / 1024) | round(1) }} TB
+          free{% elif trigger.entity_id == ''sensor.nextcloud_colfin22_net_updates_available''
+          %}{{ trigger.to_state.state }} Nextcloud app update(s) available{% endif
+          %}'
+  mode: single
+- id: '1779371023214'
+  alias: Ubuntu VM Problem Alerts
+  description: Notify NP3 when Nextcloud or Docker VMs go offline, hit resource limits,
+    or have pending package updates
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.nextcloud_online
+    to: 'off'
+  - platform: state
+    entity_id: binary_sensor.docker_online
+    to: 'off'
+  - platform: numeric_state
+    entity_id: sensor.nextcloud_cpu
+    above: 85
+    for: 00:05:00
+  - platform: numeric_state
+    entity_id: sensor.docker_cpu
+    above: 85
+    for: 00:05:00
+  - platform: numeric_state
+    entity_id: sensor.nextcloud_memory
+    above: 85
+  - platform: numeric_state
+    entity_id: sensor.docker_memory
+    above: 85
+  - platform: numeric_state
+    entity_id: sensor.nextcloud_disk
+    above: 85
+  - platform: numeric_state
+    entity_id: sensor.docker_disk
+    above: 85
+  - platform: numeric_state
+    entity_id: sensor.nextcloud_package_count
+    above: 0
+  - platform: numeric_state
+    entity_id: sensor.docker_package_count
+    above: 0
+  actions:
+  - variables:
+      alert_time: '{{ as_local(trigger.to_state.last_changed).strftime(''%H:%M'')
+        }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: Ubuntu VM Alert
+        message: '{% if trigger.entity_id == ''binary_sensor.nextcloud_online'' %}Nextcloud
+          VM is offline{% elif trigger.entity_id == ''binary_sensor.docker_online''
+          %}Docker VM is offline{% elif trigger.entity_id == ''sensor.nextcloud_cpu''
+          %}Nextcloud VM CPU high: {{ trigger.to_state.state | round(1) }}%{% elif
+          trigger.entity_id == ''sensor.docker_cpu'' %}Docker VM CPU high: {{ trigger.to_state.state
+          | round(1) }}%{% elif trigger.entity_id == ''sensor.nextcloud_memory'' %}Nextcloud
+          VM memory high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.docker_memory'' %}Docker VM memory high: {{ trigger.to_state.state
+          | round(1) }}%{% elif trigger.entity_id == ''sensor.nextcloud_disk'' %}Nextcloud
+          VM disk high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.docker_disk'' %}Docker VM disk high: {{ trigger.to_state.state
+          | round(1) }}%{% elif trigger.entity_id == ''sensor.nextcloud_package_count''
+          %}Nextcloud VM has {{ trigger.to_state.state }} pending package update(s){%
+          elif trigger.entity_id == ''sensor.docker_package_count'' %}Docker VM has
+          {{ trigger.to_state.state }} pending package update(s){% endif %}'
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: Ubuntu VM Alert (triggered {{ alert_time }})
+        message: '{% if trigger.entity_id == ''binary_sensor.nextcloud_online'' %}Nextcloud
+          VM is offline{% elif trigger.entity_id == ''binary_sensor.docker_online''
+          %}Docker VM is offline{% elif trigger.entity_id == ''sensor.nextcloud_cpu''
+          %}Nextcloud VM CPU high: {{ trigger.to_state.state | round(1) }}%{% elif
+          trigger.entity_id == ''sensor.docker_cpu'' %}Docker VM CPU high: {{ trigger.to_state.state
+          | round(1) }}%{% elif trigger.entity_id == ''sensor.nextcloud_memory'' %}Nextcloud
+          VM memory high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.docker_memory'' %}Docker VM memory high: {{ trigger.to_state.state
+          | round(1) }}%{% elif trigger.entity_id == ''sensor.nextcloud_disk'' %}Nextcloud
+          VM disk high: {{ trigger.to_state.state | round(1) }}%{% elif trigger.entity_id
+          == ''sensor.docker_disk'' %}Docker VM disk high: {{ trigger.to_state.state
+          | round(1) }}%{% elif trigger.entity_id == ''sensor.nextcloud_package_count''
+          %}Nextcloud VM has {{ trigger.to_state.state }} pending package update(s){%
+          elif trigger.entity_id == ''sensor.docker_package_count'' %}Docker VM has
+          {{ trigger.to_state.state }} pending package update(s){% endif %}'
+  mode: single
+- id: '1779385700033'
+  alias: Netatmo - Integration Monitor
+  description: 'Immediate notifications 07-22. Overnight outages: morning summary
+    at 07:00 with down and restored times.'
+  triggers:
+  - id: offline
+    platform: state
+    entity_id: climate.hallway
+    to: unavailable
+    for: 00:05:00
+  - id: online
+    platform: state
+    entity_id: climate.hallway
+    from: unavailable
+    not_to:
+    - unavailable
+    - unknown
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: offline
+      sequence:
+      - variables:
+          offline_time: '{{ as_local(trigger.to_state.last_changed).strftime(''%H:%M'')
+            }}'
+      - if:
+        - condition: time
+          after: 07:00:00
+          before: '22:00:00'
+        then:
+        - action: notify.send_message
+          target:
+            entity_id: notify.np3
+          data:
+            title: Netatmo Offline
+            message: Netatmo integration has gone offline.
+        else:
+        - wait_for_trigger:
+          - platform: time
+            at: 07:00:00
+          - platform: state
+            entity_id: climate.hallway
+            from: unavailable
+        - if:
+          - condition: template
+            value_template: '{{ wait.trigger.platform == ''state'' }}'
+          then:
+          - variables:
+              recovery_time: '{{ as_local(wait.trigger.to_state.last_changed).strftime(''%H:%M'')
+                }}'
+          - wait_for_trigger:
+            - platform: time
+              at: 07:00:00
+          - action: notify.send_message
+            target:
+              entity_id: notify.np3
+            data:
+              title: Netatmo - Overnight Outage (Resolved)
+              message: Netatmo went offline at {{ offline_time }} and recovered at
+                {{ recovery_time }}.
+          else:
+          - action: notify.send_message
+            target:
+              entity_id: notify.np3
+            data:
+              title: Netatmo Offline Overnight
+              message: Netatmo integration went offline at {{ offline_time }} and
+                is still down.
+    - conditions:
+      - condition: trigger
+        id: online
+      sequence:
+      - condition: time
+        after: 07:00:00
+        before: '22:00:00'
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: Netatmo Back Online
+          message: Netatmo integration has reconnected.
+  mode: parallel

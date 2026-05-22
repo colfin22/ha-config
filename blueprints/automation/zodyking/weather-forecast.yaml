@@ -1,0 +1,1198 @@
+blueprint:
+  name: Weather — Forecast TTS (AI Optional)
+  description: '![Weather Forecast Alerts banner](https://raw.githubusercontent.com/zodyking/weather-forecast-alert-blueprint/refs/heads/main/imageforecast.png)
+
+    Speak a concise, TV-weatherman-style forecast to one or more speakers on a schedule.
+
+    Pulls daily + hourly forecasts, mentions likely rain/snow with daypart and %,
+    and (optionally) rewrites via an AI Task without changing facts.
+
+    Tips:
+
+    • Use a weather entity that supports `weather.get_forecasts` (daily + hourly).
+
+    • Tune “Precipitation probability threshold” and “Hours ahead” to control precip
+    mentions.
+
+    • Turn off “Use AI rewrite” to speak the raw crafted message.
+
+    • If your audio cuts in late, increase **TTS pre-roll (ms)** to give speakers
+    time to wake up.
+
+    '
+  domain: automation
+  source_url: https://github.com/zodyking/weather-forecast-alert-blueprint/blob/main/weather-forecast.yaml
+  input:
+    weather_data:
+      name: Weather Data
+      description: This section allows you to select the primary weather entity that
+        supplies current conditions and forecast information for generating announcements.
+        Choose an entity compatible with Home Assistant's weather integrations, such
+        as OpenWeatherMap, which supports both daily and hourly forecasts essential
+        for detailed weather reports.
+      icon: mdi:asterisk
+      collapsed: true
+      input:
+        weather_entity:
+          name: Weather Entity
+          description: The weather entity in Home Assistant that provides current
+            conditions and forecast data, including support for hourly and daily forecasts
+            from services like OpenWeatherMap or similar integrations.
+          default: ''
+          selector:
+            entity:
+              domain:
+              - weather
+              multiple: false
+              reorder: false
+    tts_settings:
+      name: TTS Settings
+      description: Configure the Text-to-Speech (TTS) system here, including the engine
+        for voice synthesis, media players for output, voice selection, volume control,
+        and pre-roll delay to ensure smooth audio playback. These settings determine
+        how announcements are spoken and delivered through your smart home devices.
+      icon: mdi:account-voice
+      collapsed: true
+      input:
+        tts_engine:
+          name: TTS Engine
+          description: The Text-to-Speech engine entity in Home Assistant responsible
+            for generating spoken announcements, such as Piper TTS or Google Translate
+            TTS.
+          default: ''
+          selector:
+            entity:
+              domain:
+              - tts
+              multiple: false
+              reorder: false
+        speakers:
+          name: Speakers
+          description: The media player entities (e.g., speakers or smart displays)
+            where the TTS announcements will be played. Multiple can be selected for
+            broadcasting to different locations.
+          default: []
+          selector:
+            entity:
+              domain:
+              - media_player
+              multiple: true
+              reorder: false
+        voice:
+          name: TTS Voice
+          description: The voice option for the TTS engine. Specify the voice identifier
+            compatible with your TTS service.
+          default: en_US-carlin-high
+          selector:
+            text:
+              multiline: false
+              multiple: false
+        volume_level:
+          name: Volume Level
+          description: The volume level for announcements (range 0 to 1, where 1 is
+            maximum volume).
+          default: 0.6
+          selector:
+            number:
+              min: 0.0
+              max: 1.0
+              step: 0.01
+              mode: slider
+        preroll_ms:
+          name: TTS Pre-roll (ms)
+          description: Delay in milliseconds before speaking to allow speakers time
+            to wake up and avoid audio cutoff.
+          default: 150
+          selector:
+            number:
+              min: 0.0
+              max: 1000.0
+              step: 50.0
+              unit_of_measurement: ms
+              mode: slider
+    ai_settings:
+      name: AI Rephrasing (Optional)
+      description: This optional section enables AI-based rephrasing of weather messages
+        for a more natural, professional tone, similar to a TV meteorologist. Select
+        an AI task entity, toggle rephrasing on or off, and customize the prompt to
+        guide how the AI rewrites messages while strictly preserving all factual details.
+      icon: mdi:robot
+      collapsed: true
+      input:
+        ai_task_entity:
+          name: AI Task Entity (Optional)
+          description: An optional AI task entity (such as a Google AI integration)
+            used to rephrase the weather messages for more natural-sounding TTS output.
+            Leave blank if not using AI rephrasing.
+          selector:
+            entity:
+              domain:
+              - ai_task
+              multiple: false
+              reorder: false
+          default: ''
+        use_ai_rewrite:
+          name: Use AI Rewrite
+          description: Toggle to enable AI rephrasing of the weather messages. If
+            disabled, the raw crafted message will be spoken directly.
+          default: false
+          selector:
+            boolean: {}
+        ai_rewrite_prompt:
+          name: AI Rewrite Prompt
+          description: The prompt template used for AI rephrasing. Customize this
+            to adjust how the AI rewrites the message while preserving facts.
+          default: 'Rewrite the message below for clear, natural TTS in a crisp TV-meteorologist
+            voice.
+
+            Hard rules:
+
+            - Preserve every fact exactly: all numbers, units (degrees, %, mph), times,
+            day names, and weather terms.
+
+            - Do not invent, omit, reorder, round, or restate any facts. Keep original
+            sequencing of info.
+
+            - Output RAW TEXT ONLY — no quotes, code fences, YAML/JSON, greetings,
+            preambles, or sign-offs.
+
+            - 2–4 short sentences, ≤55 words, plain vocabulary, no emojis, no hashtags,
+            no ALL CAPS.
+
+            - If precipitation timing/probability exists, mention it once using the
+            same daypart/time and %; otherwise omit.
+
+            - Keep symbols and formatting as given (%, AM/PM). If the input is “Forecast
+            not available.” return it unchanged.
+
+            '
+          selector:
+            text:
+              multiline: true
+              multiple: false
+    time_based_settings:
+      name: Time-Based Announcements
+      description: Set up scheduled weather announcements that occur at regular intervals
+        throughout the day. This section includes toggles for enabling the feature,
+        patterns for timing (e.g., every few hours), start and end times to restrict
+        announcements to specific periods, and day-of-week selections to limit when
+        they trigger.
+      icon: mdi:clock-outline
+      collapsed: true
+      input:
+        enable_time_based:
+          name: Enable Time-Based Announcements
+          description: Toggle to enable periodic weather announcements at set intervals
+            during the day, based on the hour pattern, start time, and end time configurations.
+          default: true
+          selector:
+            boolean: {}
+        hour_pattern:
+          name: Hour Pattern for Time-Based
+          description: Specifies the interval for time-based announcements (e.g.,
+            'Hourly' for every hour).
+          default: /3
+          selector:
+            select:
+              options:
+              - label: Hourly
+                value: /1
+              - label: Every 2 Hours
+                value: /2
+              - label: Every 3 Hours
+                value: /3
+              - label: Every 4 Hours
+                value: /4
+              - label: Every 5 Hours
+                value: /5
+              - label: Every 6 Hours
+                value: /6
+              custom_value: false
+              multiple: false
+              sort: false
+        minute_offset:
+          name: Minute Offset
+          description: The minute of the hour when the announcement should trigger
+            (0-59).
+          default: '3'
+          selector:
+            select:
+              options:
+              - label: '0'
+                value: '0'
+              - label: '1'
+                value: '1'
+              - label: '2'
+                value: '2'
+              - label: '3'
+                value: '3'
+              - label: '4'
+                value: '4'
+              - label: '5'
+                value: '5'
+              - label: '6'
+                value: '6'
+              - label: '7'
+                value: '7'
+              - label: '8'
+                value: '8'
+              - label: '9'
+                value: '9'
+              - label: '10'
+                value: '10'
+              - label: '11'
+                value: '11'
+              - label: '12'
+                value: '12'
+              - label: '13'
+                value: '13'
+              - label: '14'
+                value: '14'
+              - label: '15'
+                value: '15'
+              - label: '16'
+                value: '16'
+              - label: '17'
+                value: '17'
+              - label: '18'
+                value: '18'
+              - label: '19'
+                value: '19'
+              - label: '20'
+                value: '20'
+              - label: '21'
+                value: '21'
+              - label: '22'
+                value: '22'
+              - label: '23'
+                value: '23'
+              - label: '24'
+                value: '24'
+              - label: '25'
+                value: '25'
+              - label: '26'
+                value: '26'
+              - label: '27'
+                value: '27'
+              - label: '28'
+                value: '28'
+              - label: '29'
+                value: '29'
+              - label: '30'
+                value: '30'
+              - label: '31'
+                value: '31'
+              - label: '32'
+                value: '32'
+              - label: '33'
+                value: '33'
+              - label: '34'
+                value: '34'
+              - label: '35'
+                value: '35'
+              - label: '36'
+                value: '36'
+              - label: '37'
+                value: '37'
+              - label: '38'
+                value: '38'
+              - label: '39'
+                value: '39'
+              - label: '40'
+                value: '40'
+              - label: '41'
+                value: '41'
+              - label: '42'
+                value: '42'
+              - label: '43'
+                value: '43'
+              - label: '44'
+                value: '44'
+              - label: '45'
+                value: '45'
+              - label: '46'
+                value: '46'
+              - label: '47'
+                value: '47'
+              - label: '48'
+                value: '48'
+              - label: '49'
+                value: '49'
+              - label: '50'
+                value: '50'
+              - label: '51'
+                value: '51'
+              - label: '52'
+                value: '52'
+              - label: '53'
+                value: '53'
+              - label: '54'
+                value: '54'
+              - label: '55'
+                value: '55'
+              - label: '56'
+                value: '56'
+              - label: '57'
+                value: '57'
+              - label: '58'
+                value: '58'
+              - label: '59'
+                value: '59'
+              custom_value: false
+              multiple: false
+              sort: false
+        start_time:
+          name: Start Time
+          description: The earliest time of day (in HH:MM:SS format) when time-based
+            announcements can occur. Announcements will only trigger between this
+            and the end time.
+          default: 08:00:00
+          selector:
+            time: {}
+        end_time:
+          name: End Time
+          description: The latest time of day (in HH:MM:SS format) when time-based
+            announcements can occur. Announcements will only trigger between the start
+            time and this time.
+          default: '21:00:00'
+          selector:
+            time: {}
+        days_of_week:
+          name: Days of the Week
+          description: Select the days of the week for time-based announcements to
+            occur. If none selected, it will run every day.
+          default:
+          - mon
+          - tue
+          - wed
+          - thu
+          - fri
+          - sat
+          - sun
+          selector:
+            select:
+              multiple: true
+              options:
+              - label: Monday
+                value: mon
+              - label: Tuesday
+                value: tue
+              - label: Wednesday
+                value: wed
+              - label: Thursday
+                value: thu
+              - label: Friday
+                value: fri
+              - label: Saturday
+                value: sat
+              - label: Sunday
+                value: sun
+              custom_value: false
+              sort: false
+    sensor_trigger_settings:
+      name: Sensor Trigger Announcements
+      description: Enable weather updates triggered by sensor detection, ideal for
+        announcing forecasts upon arrival home. Configure sensors for detecting occupancy
+        and toggle the feature to integrate with your smart home's motion or presence
+        awareness.
+      icon: mdi:motion-sensor
+      collapsed: true
+      input:
+        enable_sensor_triggered:
+          name: Enable Sensor Triggered Announcements
+          description: Toggle to enable weather announcements when sensor is detected
+            (e.g., someone arrives home), using the specified sensors.
+          default: false
+          selector:
+            boolean: {}
+        presence_sensors:
+          name: Sensors
+          description: Binary sensor entities that detect presence (e.g., motion or
+            occupancy sensors). Announcements trigger when these turn on if sensor-triggered
+            is enabled.
+          default: []
+          selector:
+            entity:
+              domain:
+              - binary_sensor
+              multiple: true
+              reorder: false
+    alarm_based_settings:
+      name: Alarm Based Announcement
+      description: Configure webhook-triggered personal weather reports, such as for
+        wake-up alarms. The webhook URL is formatted as "http://homeassistant.local:8123/api/webhook/(webhook-id)".
+        Use this to integrate with external systems or apps for on-demand forecasts.
+      icon: mdi:alarm
+      collapsed: true
+      input:
+        enable_alarm_announce:
+          name: Enable Alarm Based Announcement
+          description: Toggle to enable webhook-triggered personal weather announcements.
+          default: false
+          selector:
+            boolean: {}
+        webhook_id:
+          name: Webhook ID
+          description: Custom ID for the webhook trigger. The full URL will be "http://homeassistant.local:8123/api/webhook/(your-id-here)".
+          default: wakeup_alarm
+          selector:
+            text:
+              multiline: false
+              multiple: false
+        personal_name:
+          name: Personal Name
+          description: Name for personalized greeting in the weather report (e.g.,
+            "John").
+          default: ''
+          selector:
+            text:
+              multiline: false
+              multiple: false
+        alarm_volume_level:
+          name: Alarm Volume Level
+          description: The volume level for alarm-based announcements (range 0 to
+            1, where 1 is maximum volume).
+          default: 0.6
+          selector:
+            number:
+              min: 0.0
+              max: 1.0
+              step: 0.01
+              mode: slider
+    change_settings:
+      name: Change Announcements
+      description: Control alerts for real-time and impending weather changes. This
+        includes toggles for notifying about current condition shifts (e.g., starting
+        to rain) and upcoming events, with adjustable timing for advance warnings
+        to prepare users for weather shifts.
+      icon: mdi:weather-cloudy-alert
+      collapsed: true
+      input:
+        enable_current_change_announce:
+          name: Enable Current Change Announcements
+          description: Toggle to enable announcements when the current weather condition
+            changes (e.g., from sunny to rainy).
+          default: true
+          selector:
+            boolean: {}
+        current_change_volume_level:
+          name: Current Change Volume Level
+          description: The volume level for current change announcements (range 0
+            to 1, where 1 is maximum volume).
+          default: 0.6
+          selector:
+            number:
+              min: 0.0
+              max: 1.0
+              step: 0.01
+              mode: slider
+        enable_upcoming_change_announce:
+          name: Enable Upcoming Change Announcements
+          description: Toggle to enable announcements for upcoming weather changes,
+            such as approaching precipitation, based on hourly forecasts and the minutes
+            before announce setting.
+          default: true
+          selector:
+            boolean: {}
+        upcoming_change_volume_level:
+          name: Upcoming Change Volume Level
+          description: The volume level for upcoming change announcements (range 0
+            to 1, where 1 is maximum volume).
+          default: 0.6
+          selector:
+            number:
+              min: 0.0
+              max: 1.0
+              step: 0.01
+              mode: slider
+        minutes_before_announce:
+          name: Minutes Before Upcoming Announcement
+          description: The number of minutes before an upcoming weather change (e.g.,
+            rain starting) that an announcement should be made. Used for upcoming
+            change alerts.
+          default: 30
+          selector:
+            number:
+              min: 15.0
+              max: 60.0
+              step: 15.0
+              unit_of_measurement: minutes
+              mode: slider
+    precip_settings:
+      name: Precipitation Settings
+      description: Fine-tune how precipitation is handled in forecasts and alerts.
+        Set thresholds for probability to avoid unnecessary mentions and define the
+        forecast window in hours to focus on near-term or extended predictions.
+      icon: mdi:weather-rainy
+      collapsed: true
+      input:
+        precip_threshold:
+          name: Precipitation Probability Threshold (%)
+          description: The minimum precipitation probability percentage required to
+            mention potential rain/snow in forecasts. Lower values include more mentions;
+            higher values are more conservative.
+          default: 30
+          selector:
+            number:
+              min: 0.0
+              max: 100.0
+              unit_of_measurement: '%'
+              mode: slider
+              step: 1.0
+        hours_ahead:
+          name: Hours Ahead for Forecast
+          description: The number of hours ahead to check for precipitation in hourly
+            forecasts. Adjust to control how far into the future precipitation mentions
+            are considered.
+          default: 24
+          selector:
+            number:
+              min: 1.0
+              max: 48.0
+              unit_of_measurement: hours
+              mode: slider
+              step: 1.0
+        hourly_segments_count:
+          name: Hourly Forecast Segments
+          description: Number of critical hourly changes to announce. Segments include
+            precipitation (time and %), condition changes (e.g. clearing by 4 PM),
+            and significant temperature swings (rise/fall in degrees).
+          default: 3
+          selector:
+            number:
+              min: 1.0
+              max: 6.0
+              mode: slider
+              step: 1.0
+        temp_change_threshold:
+          name: Temperature Change Threshold (degrees)
+          description: Minimum temperature change (degrees) between hours to mention
+            in hourly segments (e.g. "Temperatures dropping to 62 by 7 PM"). Larger
+            values mean only bigger swings are announced.
+          default: 5
+          selector:
+            number:
+              min: 3.0
+              max: 15.0
+              unit_of_measurement: °
+              mode: slider
+              step: 1.0
+        daily_forecast_days:
+          name: Daily Forecast Days
+          description: Number of days ahead to mention in the daily forecast segment
+            (tomorrow, then next day, etc.).
+          default: 3
+          selector:
+            number:
+              min: 1.0
+              max: 5.0
+              mode: slider
+              step: 1.0
+        wind_speed_threshold:
+          name: Wind Speed Threshold
+          description: Minimum wind speed to mention in forecasts. Winds below this
+            threshold are not announced. Set based on your preference and local conditions.
+          default: 15
+          selector:
+            number:
+              min: 5.0
+              max: 30.0
+              unit_of_measurement: mph
+              mode: slider
+              step: 1.0
+        wind_gust_threshold:
+          name: Wind Gust Threshold
+          description: Minimum gust speed to mention separately from sustained wind.
+            If gusts exceed this AND are significantly higher than sustained wind,
+            they will be mentioned.
+          default: 20
+          selector:
+            number:
+              min: 10.0
+              max: 50.0
+              unit_of_measurement: mph
+              mode: slider
+              step: 1.0
+    voice_satellite_settings:
+      name: Voice Satellite
+      description: Configure voice-activated weather reports for assistants like Alexa
+        or Google Home. Customize the trigger phrases and toggle the feature to respond
+        with detailed forecasts similar to scheduled announcements upon voice command.
+      icon: mdi:microphone-message
+      collapsed: true
+      input:
+        enable_voice_satellite:
+          name: Enable Voice Satellite
+          description: Toggle to enable conversation-based triggers for voice assistants.
+            When activated, the automation listens for specified phrases and responds
+            with a weather forecast TTS announcement.
+          default: false
+          selector:
+            boolean: {}
+        conversation_command:
+          name: Conversation Command
+          description: Custom phrases (one per line) to trigger the weather forecast
+            via voice assistants (e.g., "What's the weather"). Edit to match your
+            preferred commands; multiple phrases can be added for flexibility.
+          default: 'What is the weather
+
+            Whats the weather'
+          selector:
+            text:
+              multiline: true
+              multiple: false
+trigger_variables:
+  enable_time_based: !input enable_time_based
+  enable_sensor_triggered: !input enable_sensor_triggered
+  enable_current_change_announce: !input enable_current_change_announce
+  enable_upcoming_change_announce: !input enable_upcoming_change_announce
+  minutes_before_announce: !input minutes_before_announce
+  enable_alarm_announce: !input enable_alarm_announce
+  enable_voice_satellite: !input enable_voice_satellite
+mode: queued
+max: 4
+triggers:
+- trigger: time_pattern
+  hours: !input hour_pattern
+  minutes: !input minute_offset
+  id: time_based
+- trigger: state
+  entity_id: !input presence_sensors
+  to: 'on'
+  id: sensor_trigger
+- trigger: state
+  entity_id: !input weather_entity
+  id: current_change
+- trigger: time_pattern
+  minutes: /5
+  id: upcoming_change
+- trigger: webhook
+  allowed_methods:
+  - POST
+  - PUT
+  - GET
+  - HEAD
+  local_only: true
+  webhook_id: !input webhook_id
+  id: alarm_webhook
+- trigger: conversation
+  command: '{{ conversation_command.split(''
+
+    '') }}'
+  id: voice_satellite
+actions:
+- variables:
+    key: !input weather_entity
+    spoken: ''
+- choose:
+  - conditions:
+    - condition: or
+      conditions:
+      - condition: trigger
+        id: time_based
+      - condition: trigger
+        id: sensor_trigger
+    sequence:
+    - action: weather.get_forecasts
+      target:
+        entity_id: !input weather_entity
+      data:
+        type: daily
+      response_variable: d
+    - action: weather.get_forecasts
+      target:
+        entity_id: !input weather_entity
+      data:
+        type: hourly
+      response_variable: h
+    - variables:
+        precip_threshold: !input precip_threshold
+        hours_ahead: !input hours_ahead
+        hourly_segments_count: !input hourly_segments_count
+        daily_forecast_days: !input daily_forecast_days
+        temp_change_threshold: !input temp_change_threshold
+        wind_speed_threshold: !input wind_speed_threshold
+        wind_gust_threshold: !input wind_gust_threshold
+        now_hour: '{{ now().hour }}'
+        day_name: '{{ (now() | as_timestamp | timestamp_custom(''%A'', true)) }}'
+        now_temp: '{{ state_attr(key,''temperature'') }}'
+        now_hum: '{{ state_attr(key,''humidity'') }}'
+        now_wind: '{{ state_attr(key,''wind_speed'') | float(0) | round(0) | int }}'
+        now_gust: '{{ state_attr(key,''wind_gust_speed'') | float(0) | round(0) |
+          int }}'
+        now_cond_h: '{% set s = (states(key) or '''') | lower %} {% set s = s | replace(''_'',''
+          '') | replace(''-'','' '') %} {% set s = s | replace(''partlycloudy'',''partly
+          cloudy'') | replace(''clearnight'',''clear night'') %} {{ s | trim }}'
+        daily_list: '{{ d.get(key,{}).get(''forecast'',[]) }}'
+        today: '{{ daily_list[0] if daily_list|length>0 else dict() }}'
+        high: '{{ today.get(''temperature'') }}'
+        low: '{{ today.get(''templow'', today.get(''temperature_low'')) }}'
+        hourly_list: '{{ h.get(key,{}).get(''forecast'',[]) }}'
+        next_hours: '{{ hourly_list[:hours_ahead] if hourly_list else [] }}'
+        current_time_12h: '{{ (as_timestamp(now()) | timestamp_custom(''%I:%M %p'',
+          true)) | replace('' 0'', '' '') }}'
+        current_hour: '{{ now().hour }}'
+        greeting: '{% set h = current_hour | int %} {% if h >= 5 and h < 12 %}Good
+          morning{% elif h >= 12 and h < 17 %}Good afternoon{% elif h >= 17 and h
+          < 21 %}Good evening{% else %}Good night{% endif %}'
+        opening_line: '{{ greeting }}. It is {{ current_time_12h }}, and here is your
+          weather forecast. '
+        current_segment: "{% set cond_phrase = '' %} {% if now_cond_h %}\n  {% set
+          cond_phrase = 'We are looking at ' ~ (now_cond_h | lower) ~ ' conditions'
+          %}\n  {% if now_temp is not none %}\n    {% set cond_phrase = cond_phrase
+          ~ ' with a temperature of ' ~ (now_temp | round(0) | int) ~ ' degrees' %}\n
+          \ {% endif %}\n  {% if now_hum is not none %}\n    {% set cond_phrase =
+          cond_phrase ~ ' and humidity at ' ~ now_hum ~ ' percent' %}\n  {% endif
+          %}\n  {% set cond_phrase = cond_phrase ~ '. ' %}\n{% endif %} {% set wind_phrase
+          = '' %} {% if now_wind >= wind_speed_threshold %}\n  {% if now_gust >= wind_gust_threshold
+          and now_gust > (now_wind + 5) %}\n    {% set wind_phrase = 'Winds are currently
+          around ' ~ now_wind ~ ' miles per hour, gusting up to ' ~ now_gust ~ ' miles
+          per hour. ' %}\n  {% else %}\n    {% set wind_phrase = 'Winds are currently
+          around ' ~ now_wind ~ ' miles per hour. ' %}\n  {% endif %}\n{% elif now_gust
+          >= wind_gust_threshold %}\n  {% set wind_phrase = 'Wind gusts are reaching
+          up to ' ~ now_gust ~ ' miles per hour. ' %}\n{% endif %} {% set day_phrase
+          = '' %} {% if high is not none and low is not none %}\n  {% set day_phrase
+          = 'For today, we reach a high of ' ~ (high | round(0) | int) ~ ' degrees
+          and a low of ' ~ (low | round(0) | int) ~ ' degrees. ' %}\n{% elif high
+          is not none %}\n  {% set day_phrase = 'For today, we reach a high of ' ~
+          (high | round(0) | int) ~ ' degrees. ' %}\n{% elif low is not none %}\n
+          \ {% set day_phrase = 'For today, expect a low of ' ~ (low | round(0) |
+          int) ~ ' degrees. ' %}\n{% endif %} {{ cond_phrase }}{{ wind_phrase }}{{
+          day_phrase }}"
+        hourly_segments: "{% set now_ts = as_timestamp(now()) %} {% set dominated
+          = ['sunny', 'clear', 'clearnight', 'clear night', 'partlycloudy', 'partly
+          cloudy', 'cloudy'] %} {% set dominated_norm = dominated | map('lower') |
+          map('replace', ' ', '') | list %} {% set future_hours = [] %} {% for ho
+          in (next_hours if next_hours is defined and next_hours else []) %}\n  {%
+          set ho_ts = as_datetime(ho.datetime) | as_timestamp if ho.datetime else
+          0 %}\n  {% if ho_ts > now_ts %}\n    {% set future_hours = future_hours
+          + [ho] %}\n  {% endif %}\n{% endfor %} {% set ns = namespace(parts=[], last_cond='',
+          wind_mentioned=false) %} {% for h in future_hours %}\n  {% if ns.parts |
+          length >= hourly_segments_count %}\n  {% else %}\n    {% set h_ts = as_datetime(h.datetime)
+          | as_timestamp if h.datetime else none %}\n    {% set h_clock = (h_ts |
+          timestamp_custom('%I %p', true) | replace(' 0',' ')) if h_ts is not none
+          else '' %}\n    {% set h_cond = (h.condition or '') | lower %}\n    {% set
+          h_cond_norm = h_cond | replace('_','') | replace(' ','') | replace('-','')
+          %}\n    {% set is_dominated = h_cond_norm in dominated_norm %}\n    {% set
+          is_precip = 'rain' in h_cond or 'snow' in h_cond or 'sleet' in h_cond or
+          'hail' in h_cond or 'storm' in h_cond or 'lightning' in h_cond or 'pour'
+          in h_cond %}\n    {% set h_wind = (h.wind_speed | float(0) | round(0) |
+          int) if h.wind_speed is defined else 0 %}\n    {% set h_gust = (h.wind_gust_speed
+          | float(0) | round(0) | int) if h.wind_gust_speed is defined else 0 %}\n
+          \   {% set is_windy = h_wind >= wind_speed_threshold or h_gust >= wind_gust_threshold
+          %}\n    {% set is_significant = is_precip or 'fog' in h_cond or is_windy
+          %}\n    {% set phrase = '' %}\n    {% if h.precipitation_probability is
+          defined and h.precipitation_probability >= precip_threshold and is_precip
+          %}\n      {% set h_kind = 'snow' if 'snow' in h_cond else ('sleet' if 'sleet'
+          in h_cond else ('hail' if 'hail' in h_cond else ('thunderstorms' if 'storm'
+          in h_cond or 'lightning' in h_cond else 'rain'))) %}\n      {% set phrase
+          = 'expect ' ~ h_kind ~ ' around ' ~ h_clock ~ ' with a ' ~ (h.precipitation_probability
+          | int) ~ ' percent chance' %}\n    {% elif is_windy and not ns.wind_mentioned
+          %}\n      {% if h_gust >= wind_gust_threshold and h_gust > (h_wind + 5)
+          %}\n        {% set phrase = 'expect winds around ' ~ h_wind ~ ' miles per
+          hour gusting to ' ~ h_gust ~ ' by ' ~ h_clock %}\n      {% elif h_wind >=
+          wind_speed_threshold %}\n        {% set phrase = 'expect winds around '
+          ~ h_wind ~ ' miles per hour by ' ~ h_clock %}\n      {% else %}\n        {%
+          set phrase = 'expect wind gusts up to ' ~ h_gust ~ ' miles per hour by '
+          ~ h_clock %}\n      {% endif %}\n      {% set ns.wind_mentioned = true %}\n
+          \   {% elif is_significant and not is_dominated and h_cond_norm != ns.last_cond
+          and not is_windy %}\n      {% set cond_h = h_cond | replace('_',' ') | replace('-','
+          ') | replace('partlycloudy','partly cloudy') %}\n      {% set phrase = 'expect
+          ' ~ cond_h ~ ' conditions around ' ~ h_clock %}\n      {% set ns.last_cond
+          = h_cond_norm %}\n    {% endif %}\n    {% if phrase %}\n      {% set ns.parts
+          = ns.parts + [phrase] %}\n    {% endif %}\n  {% endif %}\n{% endfor %} {%
+          if ns.parts | length > 0 %}Heading into the next few hours, {{ ns.parts
+          | join(', and ') }}. {% endif %}"
+        daily_segments: "{% set ns = namespace(parts=[]) %} {% for day in (daily_list[1:1+daily_forecast_days]
+          if daily_list is defined and daily_list|length > 1 else []) %}\n  {% set
+          day_name_str = 'Tomorrow' if loop.first else (as_datetime(day.datetime)
+          | as_timestamp | timestamp_custom('%A', true) if day.datetime else '') %}\n
+          \ {% set raw_cond = (day.condition or '') | lower %}\n  {% set day_cond
+          = raw_cond | replace('_',' ') | replace('-',' ') | replace('partlycloudy','partly
+          cloudy') | replace('clearnight','clear') %}\n  {% set day_high = (day.temperature
+          | round(0) | int) if day.temperature is defined and day.temperature is not
+          none else none %}\n  {% set day_low = ((day.templow or day.temperature_low)
+          | round(0) | int) if (day.templow or day.temperature_low) is defined and
+          (day.templow or day.temperature_low) is not none else none %}\n  {% set
+          day_wind = (day.wind_speed | float(0) | round(0) | int) if day.wind_speed
+          is defined else 0 %}\n  {% set day_gust = (day.wind_gust_speed | float(0)
+          | round(0) | int) if day.wind_gust_speed is defined else 0 %}\n  {% set
+          temp_phrase = '' %}\n  {% if day_high is not none and day_low is not none
+          %}\n    {% set temp_phrase = ' with a high of ' ~ day_high ~ ' degrees and
+          a low of ' ~ day_low ~ ' degrees' %}\n  {% elif day_high is not none %}\n
+          \   {% set temp_phrase = ' with a high of ' ~ day_high ~ ' degrees' %}\n
+          \ {% elif day_low is not none %}\n    {% set temp_phrase = ' with a low
+          of ' ~ day_low ~ ' degrees' %}\n  {% endif %}\n  {% set wind_phrase = ''
+          %}\n  {% if day_wind >= wind_speed_threshold %}\n    {% if day_gust >= wind_gust_threshold
+          and day_gust > (day_wind + 5) %}\n      {% set wind_phrase = ', with winds
+          around ' ~ day_wind ~ ' miles per hour gusting to ' ~ day_gust %}\n    {%
+          else %}\n      {% set wind_phrase = ', with winds around ' ~ day_wind ~
+          ' miles per hour' %}\n    {% endif %}\n  {% elif day_gust >= wind_gust_threshold
+          %}\n    {% set wind_phrase = ', with gusts up to ' ~ day_gust ~ ' miles
+          per hour' %}\n  {% endif %}\n  {% if loop.first %}\n    {% set phr = day_name_str
+          ~ ' will be ' ~ day_cond ~ temp_phrase ~ wind_phrase ~ '. ' %}\n  {% elif
+          loop.last %}\n    {% set phr = 'By ' ~ day_name_str ~ ', expect ' ~ day_cond
+          ~ ' conditions' ~ temp_phrase ~ wind_phrase ~ '. ' %}\n  {% else %}\n    {%
+          set phr = day_name_str ~ ' brings ' ~ day_cond ~ ' conditions' ~ temp_phrase
+          ~ wind_phrase ~ '. ' %}\n  {% endif %}\n  {% set ns.parts = ns.parts + [phr]
+          %}\n{% endfor %} {% if ns.parts | length > 0 %}Now for your extended forecast.
+          {{ ns.parts | join('') }}{% endif %}"
+        msg: '{% set body = (current_segment ~ hourly_segments ~ daily_segments) |
+          trim %}{{ (opening_line ~ body) if body else greeting ~ ''. It is '' ~ current_time_12h
+          ~ ''. Unfortunately, the weather forecast is not available at this time.''
+          }}'
+        i_ai: !input use_ai_rewrite
+        i_ai_task: !input ai_task_entity
+        i_ai_text: !input ai_rewrite_prompt
+    - choose:
+      - conditions:
+        - condition: template
+          value_template: '{{ i_ai and (i_ai_task | default('''') | string) != ''''
+            }}'
+        sequence:
+        - action: ai_task.generate_data
+          data:
+            entity_id: '{{ i_ai_task }}'
+            task_name: weather message
+            instructions: '{{ i_ai_text }}
+
+              Message:
+
+              "{{ msg | replace(''"'',''\\"'') }}"'
+          response_variable: aimsg
+        - variables:
+            spoken: '{{ aimsg.data | default(msg) }}'
+      default:
+      - variables:
+          spoken: '{{ msg }}'
+    - action: media_player.volume_set
+      target:
+        entity_id: !input speakers
+      data:
+        volume_level: !input volume_level
+    - repeat:
+        for_each: !input speakers
+        sequence:
+        - delay:
+            milliseconds: !input preroll_ms
+        - action: tts.speak
+          target:
+            entity_id: !input tts_engine
+          data:
+            cache: true
+            media_player_entity_id: '{{ repeat.item }}'
+            message: '{{ spoken | trim }}'
+            options:
+              voice: !input voice
+  - conditions:
+    - condition: trigger
+      id: current_change
+    sequence:
+    - variables:
+        now_cond_raw: '{{ trigger.to_state.state | lower }}'
+        now_cond_h: '{% set s = now_cond_raw %} {% set s = s | replace(''_'','' '')
+          | replace(''-'','' '') %} {% set s = s | replace(''partlycloudy'',''partly
+          cloudy'') | replace(''clearnight'',''clear night'') %} {{ s | trim }}'
+        from_cond_raw: '{{ trigger.from_state.state | default(''unknown'') | lower
+          }}'
+        now_temp: '{{ trigger.to_state.attributes.temperature | round(0) }}'
+        is_change: '{{ now_cond_raw != from_cond_raw }}'
+        current_time_12h: '{{ (as_timestamp(now()) | timestamp_custom(''%I:%M %p'',
+          true)) | replace('' 0'', '' '') }}'
+        current_hour: '{{ now().hour }}'
+        greeting: '{% set h = current_hour | int %}{% if h >= 5 and h < 12 %}Good
+          morning{% elif h >= 12 and h < 17 %}Good afternoon{% elif h >= 17 and h
+          < 21 %}Good evening{% else %}Good night{% endif %}'
+        msg: '{{ greeting }}. It is {{ current_time_12h }}, and we have a weather
+          update for you. Conditions have changed to {{ now_cond_h }} with a temperature
+          of {{ now_temp }} degrees.'
+        i_ai: !input use_ai_rewrite
+        i_ai_task: !input ai_task_entity
+        i_ai_text: !input ai_rewrite_prompt
+    - if: '{{ is_change }}'
+      then:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: '{{ i_ai and (i_ai_task | default('''') | string) != ''''
+              }}'
+          sequence:
+          - action: ai_task.generate_data
+            data:
+              entity_id: '{{ i_ai_task }}'
+              task_name: weather message
+              instructions: '{{ i_ai_text }}
+
+                Message:
+
+                "{{ msg | replace(''"'',''\\"'') }}"'
+            response_variable: aimsg
+          - variables:
+              spoken: '{{ aimsg.data | default(msg) }}'
+        default:
+        - variables:
+            spoken: '{{ msg }}'
+      - action: media_player.volume_set
+        target:
+          entity_id: !input speakers
+        data:
+          volume_level: !input current_change_volume_level
+      - repeat:
+          for_each: !input speakers
+          sequence:
+          - delay:
+              milliseconds: !input preroll_ms
+          - action: tts.speak
+            target:
+              entity_id: !input tts_engine
+            data:
+              cache: true
+              media_player_entity_id: '{{ repeat.item }}'
+              message: '{{ spoken | trim }}'
+              options:
+                voice: !input voice
+  - conditions:
+    - condition: trigger
+      id: upcoming_change
+    sequence:
+    - action: weather.get_forecasts
+      target:
+        entity_id: !input weather_entity
+      data:
+        type: hourly
+      response_variable: h
+    - variables:
+        hourly_list: '{{ h.get(key,{}).get(''forecast'',[]) }}'
+        upcoming: '{{ hourly_list | selectattr(''datetime'',''gt'', now().isoformat())
+          | sort(attribute=''datetime'') | list }}'
+        next_hit: '{{ upcoming[0] if upcoming else {} }}'
+        next_dt: '{{ next_hit.get(''datetime'') }}'
+        next_ts: '{{ as_timestamp(next_dt) if next_dt else none }}'
+        min_to: '{{ ((next_ts - as_timestamp(now())) / 60) | round(0) if next_ts else
+          0 }}'
+        next_cond_raw: '{{ next_hit.get(''condition'','''') | lower }}'
+        next_cond_h: '{% set s = next_cond_raw %} {% set s = s | replace(''_'',''
+          '') | replace(''-'','' '') %} {% set s = s | replace(''partlycloudy'',''partly
+          cloudy'') | replace(''clearnight'',''clear night'') %} {{ s | trim }}'
+        now_cond_raw: '{{ states(key) | lower }}'
+        now_is_precip: '{{ ''rain'' in now_cond_raw or ''snow'' in now_cond_raw or
+          ''hail'' in now_cond_raw or ''sleet'' in now_cond_raw or ''pour'' in now_cond_raw
+          or ''lightning'' in now_cond_raw }}'
+        next_is_precip: '{{ ''rain'' in next_cond_raw or ''snow'' in next_cond_raw
+          or ''hail'' in next_cond_raw or ''sleet'' in next_cond_raw or ''pour'' in
+          next_cond_raw or ''lightning'' in next_cond_raw }}'
+        should_announce: '{{ next_ts is not none and next_is_precip and not now_is_precip
+          and 0 < min_to <= minutes_before_announce }}'
+        precip_kind: '{% if ''snow'' in next_cond_h %}snow{% elif ''sleet'' in next_cond_h
+          or ''hail'' in next_cond_h %}mixed precipitation {% elif next_cond_h %}rain{%
+          else %}precipitation{% endif %}'
+        current_time_12h: '{{ (as_timestamp(now()) | timestamp_custom(''%I:%M %p'',
+          true)) | replace('' 0'', '' '') }}'
+        current_hour: '{{ now().hour }}'
+        greeting: '{% set h = current_hour | int %}{% if h >= 5 and h < 12 %}Good
+          morning{% elif h >= 12 and h < 17 %}Good afternoon{% elif h >= 17 and h
+          < 21 %}Good evening{% else %}Good night{% endif %}'
+        msg: '{{ greeting }}. It is {{ current_time_12h }}, and we have a weather
+          alert for you. {{ precip_kind | capitalize }} is expected in about {{ min_to
+          }} minutes, so you may want to prepare.'
+        i_ai: !input use_ai_rewrite
+        i_ai_task: !input ai_task_entity
+        i_ai_text: !input ai_rewrite_prompt
+    - if: '{{ should_announce }}'
+      then:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: '{{ i_ai and (i_ai_task | default('''') | string) != ''''
+              }}'
+          sequence:
+          - action: ai_task.generate_data
+            data:
+              entity_id: '{{ i_ai_task }}'
+              task_name: weather message
+              instructions: '{{ i_ai_text }}
+
+                Message:
+
+                "{{ msg | replace(''"'',''\\"'') }}"'
+            response_variable: aimsg
+          - variables:
+              spoken: '{{ aimsg.data | default(msg) }}'
+        default:
+        - variables:
+            spoken: '{{ msg }}'
+      - action: media_player.volume_set
+        target:
+          entity_id: !input speakers
+        data:
+          volume_level: !input upcoming_change_volume_level
+      - repeat:
+          for_each: !input speakers
+          sequence:
+          - delay:
+              milliseconds: !input preroll_ms
+          - action: tts.speak
+            target:
+              entity_id: !input tts_engine
+            data:
+              cache: true
+              media_player_entity_id: '{{ repeat.item }}'
+              message: '{{ spoken | trim }}'
+              options:
+                voice: !input voice
+  - conditions:
+    - condition: trigger
+      id: alarm_webhook
+    sequence:
+    - action: weather.get_forecasts
+      target:
+        entity_id: !input weather_entity
+      data:
+        type: daily
+      response_variable: d
+    - action: weather.get_forecasts
+      target:
+        entity_id: !input weather_entity
+      data:
+        type: hourly
+      response_variable: h
+    - variables:
+        name: !input personal_name
+        precip_threshold: !input precip_threshold
+        wind_speed_threshold: !input wind_speed_threshold
+        wind_gust_threshold: !input wind_gust_threshold
+        current_time: '{{ as_timestamp(now()) | timestamp_custom(''%I:%M %p'', true)
+          | replace('' 0'', '' '') }}'
+        now_temp: '{{ state_attr(key,''temperature'') | round(0) }}'
+        now_wind: '{{ state_attr(key,''wind_speed'') | float(0) | round(0) | int }}'
+        now_gust: '{{ state_attr(key,''wind_gust_speed'') | float(0) | round(0) |
+          int }}'
+        now_cond_h: '{% set s = (states(key) or '''') | lower %} {% set s = s | replace(''_'',''
+          '') | replace(''-'','' '') %} {% set s = s | replace(''partlycloudy'',''partly
+          cloudy'') | replace(''clearnight'',''clear night'') %} {{ s | trim }}'
+        daily_list: '{{ d.get(key,{}).get(''forecast'',[]) }}'
+        today: '{{ daily_list[0] if daily_list|length>0 else dict() }}'
+        high: '{{ today.get(''temperature'') | round(0) }}'
+        low: '{{ today.get(''templow'', today.get(''temperature_low'')) | round(0)
+          }}'
+        hourly_list: '{{ h.get(key,{}).get(''forecast'',[]) }}'
+        hits: '{{ (hourly_list | selectattr(''precipitation_probability'',''defined'')
+          | selectattr(''precipitation_probability'',''ge'', precip_threshold) | list)
+          }}'
+        first_hit: '{{ hits[0] if hits|length>0 else dict() }}'
+        hit_pp: '{{ first_hit.get(''precipitation_probability'') | int(default=0)
+          }}'
+        hit_cond_h: '{% set raw = (first_hit.get(''condition'','''') | lower) %} {%
+          set s = raw | replace(''_'','' '') | replace(''-'','' '') %} {% set s =
+          s | replace(''partlycloudy'',''partly cloudy'') | replace(''clearnight'',''clear
+          night'') %} {{ s | trim }}'
+        hit_ts: '{% set t = none %} {% if first_hit.get(''datetime'') %} {% set t
+          = as_datetime(first_hit.get(''datetime'')) | as_timestamp %} {% endif %}
+          {{ t }}'
+        hit_clock: '{% set out = '''' %} {% if hit_ts is not none %} {% set out =
+          (hit_ts | timestamp_custom(''%I %p'', true)) | replace('' 0'','' '') %}
+          {% endif %} {{ out }}'
+        precip_kind: '{% if ''snow'' in hit_cond_h %}snow{% elif ''sleet'' in hit_cond_h
+          or ''hail'' in hit_cond_h %}mixed precipitation {% elif hit_cond_h %}rain{%
+          else %}precipitation{% endif %}'
+        precip_msg: '{% if hits | length > 0 and hit_pp > 0 %} Looking ahead, expect
+          {{ precip_kind }} around {{ hit_clock }} with a {{ hit_pp }} percent chance.{%
+          else %}{% endif %}'
+        wind_msg: "{% if now_wind >= wind_speed_threshold %}\n  {% if now_gust >=
+          wind_gust_threshold and now_gust > (now_wind + 5) %}\n    Winds are around
+          {{ now_wind }} miles per hour, gusting up to {{ now_gust }}.\n  {% else
+          %}\n    Winds are around {{ now_wind }} miles per hour.\n  {% endif %}\n{%
+          elif now_gust >= wind_gust_threshold %}\n  Wind gusts are reaching up to
+          {{ now_gust }} miles per hour.\n{% endif %}"
+        msg: It is {{ current_time }}. We are looking at {{ now_cond_h }} conditions
+          with a temperature of {{ now_temp }} degrees. {% if wind_msg | trim %}{{
+          wind_msg | trim }} {% endif %}For today, we reach a high of {{ high }} degrees
+          and a low of {{ low }} degrees.{{ precip_msg }}
+        i_ai: !input use_ai_rewrite
+        i_ai_task: !input ai_task_entity
+        i_ai_text: !input ai_rewrite_prompt
+    - choose:
+      - conditions:
+        - condition: template
+          value_template: '{{ i_ai and (i_ai_task | default('''') | string) != ''''
+            }}'
+        sequence:
+        - action: ai_task.generate_data
+          data:
+            entity_id: '{{ i_ai_task }}'
+            task_name: weather message
+            instructions: '{{ i_ai_text }}
+
+              Message:
+
+              "{{ msg | replace(''"'',''\\"'') }}"'
+          response_variable: aimsg
+        - variables:
+            spoken: '{{ aimsg.data | default(msg) }}'
+      default:
+      - variables:
+          spoken: '{{ msg }}'
+    - variables:
+        spoken_final: Good morning {{ name }}. {{ spoken }}
+    - action: media_player.volume_set
+      target:
+        entity_id: !input speakers
+      data:
+        volume_level: !input alarm_volume_level
+    - repeat:
+        for_each: !input speakers
+        sequence:
+        - delay:
+            milliseconds: !input preroll_ms
+        - action: tts.speak
+          target:
+            entity_id: !input tts_engine
+          data:
+            cache: true
+            media_player_entity_id: '{{ repeat.item }}'
+            message: '{{ spoken_final | trim }}'
+            options:
+              voice: !input voice
+conditions:
+- condition: or
+  conditions:
+  - condition: and
+    conditions:
+    - condition: trigger
+      id: time_based
+    - condition: time
+      after: !input start_time
+      before: !input end_time
+    - condition: template
+      value_template: '{{ enable_time_based }}'
+    - '{{ not days_of_week or now().strftime(''%a'').lower()[:3] in days_of_week }}'
+  - condition: and
+    conditions:
+    - condition: trigger
+      id: sensor_trigger
+    - condition: template
+      value_template: '{{ enable_sensor_triggered }}'
+  - condition: and
+    conditions:
+    - condition: trigger
+      id: current_change
+    - condition: template
+      value_template: '{{ enable_current_change_announce }}'
+  - condition: and
+    conditions:
+    - condition: trigger
+      id: upcoming_change
+    - condition: template
+      value_template: '{{ enable_upcoming_change_announce }}'
+  - condition: and
+    conditions:
+    - condition: trigger
+      id: alarm_webhook
+    - condition: template
+      value_template: '{{ enable_alarm_announce }}'
+  - condition: and
+    conditions:
+    - condition: trigger
+      id: voice_satellite
+    - condition: template
+      value_template: '{{ enable_voice_satellite }}'

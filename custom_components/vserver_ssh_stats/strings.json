@@ -1,0 +1,236 @@
+{
+  "title": "VServer SSH Stats",
+  "config": {
+    "step": {
+      "user": {
+        "title": "VServer SSH Stats",
+        "data": {
+          "interval": "Update interval (seconds)",
+          "name": "Server name",
+          "host": "Host",
+          "port": "SSH port",
+          "username": "Username",
+          "password": "Password",
+          "key": "Key file",
+          "add_another": "Add another server after this",
+          "target_os": "Target system"
+        }
+      }
+    },
+    "error": {
+      "auth": "Provide password or key file",
+      "duplicate_host": "This host was already added",
+      "host_in_use": "This host is already configured",
+      "key_missing": "SSH key file not found"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "interval": "Update interval (seconds)",
+          "connect_timeout": "SSH connect timeout (seconds)",
+          "command_timeout": "Collection command timeout (seconds)",
+          "edit_server": "Edit an existing server",
+          "add_server": "Add another server",
+          "remove_server": "Remove a server",
+          "reconfigure_servers": "Replace the full server list"
+        }
+      },
+      "select_server": {
+        "title": "Select server",
+        "data": {
+          "server": "Server"
+        }
+      },
+      "edit_server": {
+        "title": "Edit server",
+        "description": "Leave the password empty to keep the stored password. Use the clear checkboxes to remove stored credentials.",
+        "data": {
+          "name": "Server name",
+          "host": "Host",
+          "port": "SSH port",
+          "username": "Username",
+          "password": "Password (leave empty to keep current)",
+          "clear_password": "Remove stored password",
+          "key": "Key file",
+          "clear_key": "Remove stored key file",
+          "target_os": "Target system"
+        }
+      },
+      "add_server": {
+        "title": "Add server",
+        "description": "Add another server to this integration entry.",
+        "data": {
+          "name": "Server name",
+          "host": "Host",
+          "port": "SSH port",
+          "username": "Username",
+          "password": "Password",
+          "key": "Key file",
+          "add_another": "Add another server after this",
+          "target_os": "Target system"
+        }
+      },
+      "remove_server": {
+        "title": "Remove server",
+        "data": {
+          "server": "Server",
+          "confirm_remove": "Confirm removal"
+        }
+      },
+      "servers": {
+        "title": "VServer SSH Stats",
+        "description": "Add servers one by one. Choose 'Add another server' to continue entering hosts.",
+        "data": {
+          "name": "Server name",
+          "host": "Host",
+          "port": "SSH port",
+          "username": "Username",
+          "password": "Password",
+          "key": "Key file",
+          "add_another": "Add another server after this",
+          "target_os": "Target system"
+        }
+      }
+    },
+    "error": {
+      "auth": "Provide password or key file",
+      "duplicate_host": "This host was already added",
+      "host_in_use": "This host is already configured",
+      "key_missing": "SSH key file not found",
+      "single_action": "Choose only one server action at a time",
+      "no_servers": "No configured server was found",
+      "cannot_remove_last_server": "At least one server must remain configured",
+      "confirm_remove": "Confirm that the selected server should be removed"
+    }
+  },
+  "services": {
+    "get_local_ip": {
+      "name": "Get local IP",
+      "description": "Retrieve the host's local IP address."
+    },
+    "get_uptime": {
+      "name": "Get uptime",
+      "description": "Retrieve system uptime in seconds."
+    },
+    "list_connections": {
+      "name": "List SSH connections",
+      "description": "List IP addresses of active SSH sessions."
+    },
+    "run_command": {
+      "name": "Run SSH command",
+      "description": "Execute an arbitrary command on a remote server.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname or IP of the server."
+        },
+        "username": {
+          "name": "Username",
+          "description": "SSH username."
+        },
+        "command": {
+          "name": "Command",
+          "description": "Command to execute."
+        },
+        "password": {
+          "name": "Password",
+          "description": "Password for authentication."
+        },
+        "key": {
+          "name": "Key file",
+          "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
+        },
+        "port": {
+          "name": "SSH port",
+          "description": "SSH port."
+        },
+        "connect_timeout": {
+          "name": "SSH connect timeout",
+          "description": "Maximum time to wait while opening the SSH connection."
+        },
+        "command_timeout": {
+          "name": "Command timeout",
+          "description": "Maximum time to wait for the remote command."
+        }
+      }
+    },
+    "update_packages": {
+      "name": "Update packages",
+      "description": "Update system packages using apt, dnf, or yum.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname or IP of the server."
+        },
+        "username": {
+          "name": "Username",
+          "description": "SSH username."
+        },
+        "password": {
+          "name": "Password",
+          "description": "Password for authentication."
+        },
+        "key": {
+          "name": "Key file",
+          "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
+        },
+        "port": {
+          "name": "SSH port",
+          "description": "SSH port."
+        },
+        "target_os": {
+          "name": "Target system",
+          "description": "OS profile used for command selection."
+        },
+        "connect_timeout": {
+          "name": "SSH connect timeout",
+          "description": "Maximum time to wait while opening the SSH connection."
+        },
+        "command_timeout": {
+          "name": "Command timeout",
+          "description": "Maximum time to wait for the package update command."
+        }
+      }
+    },
+    "reboot_host": {
+      "name": "Reboot host",
+      "description": "Reboot the remote server.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname or IP of the server."
+        },
+        "username": {
+          "name": "Username",
+          "description": "SSH username."
+        },
+        "password": {
+          "name": "Password",
+          "description": "Password for authentication."
+        },
+        "key": {
+          "name": "Key file",
+          "description": "Path to SSH private key (e.g. /config/ssh/id_rsa)."
+        },
+        "port": {
+          "name": "SSH port",
+          "description": "SSH port."
+        },
+        "target_os": {
+          "name": "Target system",
+          "description": "OS profile used for command selection."
+        },
+        "connect_timeout": {
+          "name": "SSH connect timeout",
+          "description": "Maximum time to wait while opening the SSH connection."
+        },
+        "command_timeout": {
+          "name": "Command timeout",
+          "description": "Maximum time to wait for the reboot command."
+        }
+      }
+    }
+  }
+}

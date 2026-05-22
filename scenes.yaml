@@ -1,0 +1,14 @@
+- id: office_bright
+  name: Office Bright
+  entities:
+    light.office_ceiling:
+      state: 'on'
+      brightness: 255
+  icon: mdi:brightness-7
+- id: office_dimmed
+  name: Office Dimmed
+  entities:
+    light.office_ceiling:
+      state: 'on'
+      brightness: 102
+  icon: mdi:brightness-3

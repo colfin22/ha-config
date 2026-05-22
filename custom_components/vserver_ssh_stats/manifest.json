@@ -1,0 +1,21 @@
+{
+  "domain": "vserver_ssh_stats",
+  "name": "VServer SSH Stats",
+  "codeowners": [
+    "@404GamerNotFound"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/404GamerNotFound/vserver-ssh-stats",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/404GamerNotFound/vserver-ssh-stats/issues",
+  "requirements": [
+    "paramiko>=3.4.0"
+  ],
+  "version": "1.3.3",
+  "zeroconf": [
+    {
+      "type": "_ssh._tcp.local."
+    }
+  ]
+}

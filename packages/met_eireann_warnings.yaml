@@ -1,0 +1,18 @@
+  rest:
+    - resource: "https://www.met.ie/Open_Data/json/warning_IRELAND.json"
+      scan_interval: 300
+      sensor:
+        - name: "Met Éireann Active Warnings"
+          unique_id: met_eireann_active_warnings
+          value_template: >
+            {{ value_json | map(attribute='id') | sort | join(',') if value_json | length > 0 else 'none' }}
+          json_attributes_path: "$[0]"
+          json_attributes:
+            - "level"
+            - "severity"
+            - "type"
+            - "regions"
+            - "headline"
+            - "description"
+            - "expiry"
+            - "status"

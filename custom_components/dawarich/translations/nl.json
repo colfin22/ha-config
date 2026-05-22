@@ -1,0 +1,63 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dawarich",
+        "description": "Alstublieft voer uw Dawarich gegevens in",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "name": "Name",
+          "mobile_app": "Apparaat Tracker",
+          "ssl": "Gebruiken SSL (d.w.z https)",
+          "verify_ssl": "Verifiëren SSL"
+        }
+      },
+      "api_key": {
+        "title": "Dawarich",
+        "description": "Alstublieft voer uw Dawarich gegevens in",
+        "data": {
+          "api_key": "API Sleutel"
+        }
+      }
+    },
+    "error": {
+      "connection_error": "Verbindingsfout, kon de Dawarich API niet bereiken.",
+      "invalid_api_key": "Ongeldige API sleutel."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_distance": {
+        "name": "Totaal Afstand"
+      },
+      "total_points_tracked": {
+        "name": "Totaal Punten Gevolgd",
+        "unit_of_measurement": "punten"
+      },
+      "total_reverse_geocoded_points": {
+        "name": "Totaal Omgekeerde Geocodeerd",
+        "unit_of_measurement": "punten"
+      },
+      "total_countries_visited": {
+        "name": "Totaal Landen Bezocht",
+        "unit_of_measurement": "landen"
+      },
+      "total_cities_visited": {
+        "name": "Totaal Steden Bezocht",
+        "unit_of_measurement": "steden"
+      },
+      "last_update": {
+        "name": "Laatste Update",
+        "state": {
+          "unknown": "Onbekend",
+          "success": "Succes",
+          "error": "Fout"
+        }
+      },
+      "version": {
+        "name": "Versie"
+      }
+    }
+  }
+}

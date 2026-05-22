@@ -1,0 +1,194 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Setup Blueprints Updater",
+        "description": "Do you want to setup Blueprints Updater? It will scan your local blueprints and look for updates.",
+        "data": {
+          "auto_update": "Enable Auto-Update",
+          "use_cdn": "Use jsDelivr CDN for GitHub",
+          "update_interval": "Update Interval (hours)",
+          "filter_mode": "Filter Mode",
+          "selected_blueprints": "Blueprints (optional)",
+          "max_backups": "Max Backup Versions"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single instance of Blueprints Updater is allowed."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Settings",
+        "description": "Configure the behavior and settings for Blueprints Updater.",
+        "data": {
+          "auto_update": "Enable Auto-Update",
+          "use_cdn": "Use jsDelivr CDN for GitHub",
+          "update_interval": "Update Interval (hours)",
+          "filter_mode": "Filter Mode",
+          "selected_blueprints": "Selected Blueprints",
+          "max_backups": "Max Backup Versions"
+        }
+      }
+    }
+  },
+  "selector": {
+    "filter_mode": {
+      "options": {
+        "all": "Update All",
+        "whitelist": "Whitelist (Only update selected blueprints)",
+        "blacklist": "Blacklist (Do not update selected blueprints)"
+      }
+    }
+  },
+  "entity": {
+    "update": {
+      "blueprint": {
+        "name": "{name}"
+      }
+    }
+  },
+  "services": {
+    "reload": {
+      "name": "Reload blueprints",
+      "description": "Scans all local blueprints for new files and checks for updates immediately."
+    },
+    "restore_blueprint": {
+      "name": "Restore Blueprint",
+      "description": "Restores a blueprint from a numbered backup file (.bak.1, .bak.2, etc.) if available.",
+      "fields": {
+        "entity_id": {
+          "name": "Blueprint Entity",
+          "description": "The update entity of the blueprint you want to restore."
+        },
+        "version": {
+          "name": "Backup Version",
+          "description": "Which backup version to restore (1 = newest, 2 = older, etc.)"
+        }
+      }
+    },
+    "update_all": {
+      "name": "Update All Blueprints",
+      "description": "Automatically downloads and installs all available blueprint updates simultaneously.",
+      "fields": {
+        "backup": {
+          "name": "Create Backup",
+          "description": "Create numbered backup files for all updated blueprints before overwriting."
+        }
+      }
+    },
+    "import_blueprint": {
+      "name": "Import Blueprint",
+      "description": "Downloads and installs a blueprint from a URL.",
+      "fields": {
+        "url": {
+          "name": "Blueprint URL",
+          "description": "The URL of the blueprint. Supports direct YAML links or provider URLs (GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket)."
+        },
+        "confirm": {
+          "name": "Confirm External Source",
+          "description": "Required to acknowledge importing from external/unverified sources."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "missing_entity_id": {
+      "message": "Missing entity_id parameter."
+    },
+    "invalid_entity": {
+      "message": "Invalid blueprint update entity."
+    },
+    "not_found": {
+      "message": "Original blueprint file not found."
+    },
+    "success": {
+      "message": "Backup restored successfully."
+    },
+    "missing_backup": {
+      "message": "Missing backup file. A backup may not have been created during the previous update."
+    },
+    "invalid_version": {
+      "message": "Invalid backup version {version}. Must be between 1 and {max_backups}."
+    },
+    "system_error": {
+      "message": "System error during restore: {error}"
+    },
+    "missing_url": {
+      "message": "Missing URL parameter."
+    },
+    "no_coordinator": {
+      "message": "No active coordinator found. Please check integration setup."
+    },
+    "confirmation_required": {
+      "message": "Importing from external sources requires explicit confirmation. Please check the 'Confirm' box."
+    },
+    "unsupported_source": {
+      "message": "Unsupported source. Only GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket, and direct YAML links are supported."
+    },
+    "import_path_conflict": {
+      "message": "A blueprint with this name already exists from a different source ({existing_url}). Please remove it first to avoid conflicts."
+    },
+    "invalid_content_type": {
+      "message": "Invalid content type: {content_type}. Expected text/plain or YAML."
+    },
+    "invalid_yaml": {
+      "message": "The imported file is not a valid YAML blueprint."
+    },
+    "empty_content": {
+      "message": "Empty content received"
+    },
+    "fetch_error": {
+      "message": "Fetch Error: {error}"
+    },
+    "unsafe_url": {
+      "message": "Unsafe URL: {url}"
+    },
+    "unsafe_path": {
+      "message": "Target path is unsafe: {path}"
+    },
+    "validation_error": {
+      "message": "Validation Error: {error}"
+    },
+    "import_invalid_source_type": {
+      "message": "Invalid source_url type: {type}. Expected a string."
+    }
+  },
+  "common": {
+    "auto_update_title": "Blueprints Updater: Auto-Updated",
+    "auto_update_message": "The following blueprints have been automatically updated:\n\n{blueprints}",
+    "update_available_short": "Update available",
+    "update_available": "Update available from {source_url}",
+    "update_safety_message": "Safety Tip: It is recommended to enable the backup option before installing updates to ensure you can revert if needed.",
+    "usage_warning": "Warning: This update will affect [{count} running {domain}(s)]({usage_url}).",
+    "up_to_date": "Up to date",
+    "install_error": "Cannot install blueprint: {error}. The remote file has errors and cannot be safely applied.",
+    "invalid_blueprint": "Invalid blueprint: Missing 'blueprint' root key",
+    "incompatible": "Incompatible: {errors}",
+    "validation_error": "Validation Error: {error}",
+    "empty_content": "Empty content received",
+    "yaml_syntax_error": "YAML Syntax Error: {error}",
+    "fetch_error": "Fetch Error: {error}",
+    "processing_error": "Processing Error: {error}",
+    "auto_update_failed": "Auto-update failed: {error}",
+    "unsafe_url": "Unsafe URL: {url}",
+    "unsafe_path": "Target path is unsafe: {path}",
+    "content_missing": "Blueprint content is missing or could not be fetched",
+    "git_diff_title": "Code Changes (Git Diff)",
+    "semantic_sync_notice": "This blueprint is semantically identical, but requires a structural update to align with the new canonical formatting (e.g. newline normalization, metadata injection).",
+    "breaking_risks_title": "[WARNING] POTENTIAL BREAKING CHANGES",
+    "auto_update_blocked_by_breaking_change": "Auto-update blocked for {name} due to detected breaking changes",
+    "risk_new_mandatory": "New mandatory input {input} added.",
+    "risk_missing_input": "Entity {entity} is missing mandatory input {input} required by new version.",
+    "risk_removed_input": "Input {input} removed, but currently used by {count} entities.",
+    "risk_selector_mismatch": "Selector type changed for {input}: from {old_type} to {new_type} (affects {count} entities).",
+    "risk_validation_failed_blueprint": "New blueprint content is invalid: {error}",
+    "risk_unknown": "Unknown risk",
+    "risk_compatibility": "Compatibility Error for {entity}: {error}",
+    "risk_system_error": "System error: {error}",
+    "breaking_risks_report": "Auto-update for {name} was blocked as a precaution. Detected risks:\n{risks}\n\nPlease review and install manually if correct.",
+    "auto_update_blocked_by_system_error": "Auto-update for {name} was paused due to an unexpected error during compatibility check."
+  }
+}

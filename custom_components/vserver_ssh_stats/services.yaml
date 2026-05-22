@@ -1,0 +1,98 @@
+get_local_ip:
+  name: Get local IP
+  description: Retrieve the host's local IP address.
+
+get_uptime:
+  name: Get uptime
+  description: Retrieve system uptime in seconds.
+
+list_connections:
+  name: List SSH connections
+  description: List IP addresses of active SSH sessions.
+
+run_command:
+  name: Run SSH command
+  description: Execute an arbitrary command on a remote server.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    command:
+      description: Command to execute.
+      example: uptime
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the remote command.
+      example: 300
+
+update_packages:
+  name: Update packages
+  description: Update system packages using OS-specific commands.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the package update command.
+      example: 300
+
+reboot_host:
+  name: Reboot host
+  description: Reboot the remote server using an OS-specific command.
+  fields:
+    host:
+      description: Hostname or IP of the server.
+      example: 192.168.1.10
+    username:
+      description: SSH username.
+      example: root
+    password:
+      description: Password for authentication.
+      example: secret
+    key:
+      description: Path to SSH private key.
+      example: /config/ssh/id_rsa
+    port:
+      description: SSH port.
+      example: 22
+    target_os:
+      description: Target OS profile (auto, debian, raspbian, windows).
+      example: auto
+    connect_timeout:
+      description: Maximum time to wait while opening the SSH connection.
+      example: 10
+    command_timeout:
+      description: Maximum time to wait for the reboot command.
+      example: 300

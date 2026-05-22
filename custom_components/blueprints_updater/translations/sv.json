@@ -1,0 +1,194 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Konfigurera Blueprints Updater",
+        "description": "Vill du konfigurera Blueprints Updater? Den kommer att skanna dina lokala blueprints och leta efter uppdateringar.",
+        "data": {
+          "auto_update": "Aktivera automatisk uppdatering",
+          "use_cdn": "Använd jsDelivr CDN för GitHub",
+          "update_interval": "Uppdateringsintervall (timmar)",
+          "filter_mode": "Filterläge",
+          "selected_blueprints": "Blueprints (valfritt)",
+          "max_backups": "Max antal backupversioner"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Endast en instans av Blueprints Updater är tillåten."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Inställningar",
+        "description": "Konfigurera beteende och inställningar för Blueprints Updater.",
+        "data": {
+          "auto_update": "Aktivera automatisk uppdatering",
+          "use_cdn": "Använd jsDelivr CDN för GitHub",
+          "update_interval": "Uppdateringsintervall (timmar)",
+          "filter_mode": "Filterläge",
+          "selected_blueprints": "Valda Blueprints",
+          "max_backups": "Max antal backupversioner"
+        }
+      }
+    }
+  },
+  "selector": {
+    "filter_mode": {
+      "options": {
+        "all": "Uppdatera alla",
+        "whitelist": "Vitlista (Uppdatera endast valda blueprints)",
+        "blacklist": "Svartlista (Uppdatera inte valda blueprints)"
+      }
+    }
+  },
+  "entity": {
+    "update": {
+      "blueprint": {
+        "name": "{name}"
+      }
+    }
+  },
+  "services": {
+    "reload": {
+      "name": "Ladda om blueprints",
+      "description": "Skannar alla lokala blueprints efter nya filer och letar efter uppdateringar omedelbart."
+    },
+    "restore_blueprint": {
+      "name": "Återställ Blueprint",
+      "description": "Återställer en blueprint från en numrerad backupfil (.bak.1, .bak.2, etc.) om tillgänglig.",
+      "fields": {
+        "entity_id": {
+          "name": "Blueprint-entitet",
+          "description": "Update-entiteten för den blueprint du vill återställa."
+        },
+        "version": {
+          "name": "Backupversion",
+          "description": "Vilken backupversion som ska återställas (1 = nyaste, 2 = äldre, etc.)"
+        }
+      }
+    },
+    "update_all": {
+      "name": "Uppdatera alla Blueprints",
+      "description": "Laddar automatiskt ner och installerar alla tillgängliga blueprint-uppdateringar samtidigt.",
+      "fields": {
+        "backup": {
+          "name": "Skapa backup",
+          "description": "Skapa numrerade backupfiler för alla uppdaterade blueprints innan de skrivs över."
+        }
+      }
+    },
+    "import_blueprint": {
+      "name": "Importera Blueprint",
+      "description": "Laddar ner och installerar en blueprint från en URL.",
+      "fields": {
+        "url": {
+          "name": "Blueprint URL",
+          "description": "Webbadressen för blueprinten. Stöder direkta YAML-länkar eller leverantörsadresser (GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket)."
+        },
+        "confirm": {
+          "name": "Bekräfta extern källa",
+          "description": "Krävs för att bekräfta import från externa/overifierade källor."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "missing_entity_id": {
+      "message": "Parametern entity_id saknas."
+    },
+    "invalid_entity": {
+      "message": "Ogiltig blueprint-update-entitet."
+    },
+    "not_found": {
+      "message": "Ursprunglig blueprint-fil hittades inte."
+    },
+    "success": {
+      "message": "Backup återställdes framgångsfullt."
+    },
+    "missing_backup": {
+      "message": "Backupfil saknas. En backup kanske inte skapades under föregående uppdatering."
+    },
+    "invalid_version": {
+      "message": "Ogiltig backupversion {version}. Måste vara mellan 1 och {max_backups}."
+    },
+    "system_error": {
+      "message": "Systemfel under återställning: {error}"
+    },
+    "missing_url": {
+      "message": "URL-parameter saknas."
+    },
+    "no_coordinator": {
+      "message": "Ingen aktiv koordinator hittades. Kontrollera integrationsinställningarna."
+    },
+    "confirmation_required": {
+      "message": "Import från externa källor kräver uttrycklig bekräftelse. Markera rutan 'Bekräfta'."
+    },
+    "unsupported_source": {
+      "message": "Källan stöds inte. Endast GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket och direkta YAML-länkar stöds."
+    },
+    "import_path_conflict": {
+      "message": "En blueprint med detta namn finns redan från en annan källa ({existing_url}). Ta bort den först för att undvika konflikter."
+    },
+    "invalid_content_type": {
+      "message": "Ogiltig innehållstyp: {content_type}. Förväntade text/plain eller YAML."
+    },
+    "invalid_yaml": {
+      "message": "Den importerade filen är inte en giltig YAML-blueprint."
+    },
+    "empty_content": {
+      "message": "Tomt innehåll mottogs"
+    },
+    "fetch_error": {
+      "message": "Hämtningsfel: {error}"
+    },
+    "unsafe_url": {
+      "message": "Osäker URL: {url}"
+    },
+    "unsafe_path": {
+      "message": "Målsökvägen är osäker: {path}"
+    },
+    "validation_error": {
+      "message": "Valideringsfel: {error}"
+    },
+    "import_invalid_source_type": {
+      "message": "Ogiltig source_url-typ: {type}. En sträng (string) förväntades."
+    }
+  },
+  "common": {
+    "auto_update_title": "Blueprints Updater: Automatiskt uppdaterad",
+    "auto_update_message": "Följande blueprints har uppdaterats automatiskt:\n\n{blueprints}",
+    "update_available_short": "Uppdatering tillgänglig",
+    "update_available": "Uppdatering tillgänglig från {source_url}",
+    "update_safety_message": "Tips: Det rekommenderas att aktivera säkerhetskopieringsalternativet innan du installerar uppdateringar.",
+    "usage_warning": "Varning: Denna uppdatering kommer att påverka [{count} körande {domain}]({usage_url}).",
+    "up_to_date": "Uppdaterad",
+    "install_error": "Kan inte installera blueprint: {error}. Fjärrfilen har fel och kan inte appliceras säkert.",
+    "invalid_blueprint": "Ogiltig blueprint: Root-nyckeln 'blueprint' saknas",
+    "incompatible": "Inkompatibel: {errors}",
+    "validation_error": "Valideringsfel: {error}",
+    "empty_content": "Tomt innehåll mottogs",
+    "yaml_syntax_error": "YAML-syntaxfel: {error}",
+    "fetch_error": "Hämtningsfel: {error}",
+    "processing_error": "Bearbetningsfel: {error}",
+    "auto_update_failed": "Automatisk uppdatering misslyckades: {error}",
+    "unsafe_url": "Osäker URL: {url}",
+    "unsafe_path": "Målsökvägen är osäker: {path}",
+    "content_missing": "Innehållet i blueprint saknas eller kunde inte hämtas.",
+    "git_diff_title": "Kodändringar (Git Diff)",
+    "semantic_sync_notice": "Denna blueprint är semantiskt identisk, men kräver en strukturell uppdatering för att anpassas till den nya kanoniska formateringen (t.ex. normalisering av radbrytningar, metadata-injektion).",
+    "breaking_risks_title": "[VARNING] POTENTIELLA INKOMPATIBILITETER",
+    "auto_update_blocked_by_breaking_change": "Automatisk uppdatering blockerad för {name} på grund av upptäckta potentiella inkompatibiliteter",
+    "risk_new_mandatory": "Ny obligatorisk inmatning {input} har lagts till.",
+    "risk_missing_input": "Entiteten {entity} saknar obligatorisk inmatning {input} som krävs av den nya versionen.",
+    "risk_removed_input": "Inmatning {input} har tagits bort, men används för närvarande av {count} entiteter.",
+    "risk_selector_mismatch": "Selectortyp har ändrats för {input}: från {old_type} till {new_type} (påverkar {count} entiteter).",
+    "risk_validation_failed_blueprint": "Nytt blueprint-innehåll är ogiltigt: {error}",
+    "risk_unknown": "Okänt fel",
+    "risk_compatibility": "Kompatibilitetsfel för {entity}: {error}",
+    "risk_system_error": "Systemfel: {error}",
+    "breaking_risks_report": "Automatisk uppdatering för {name} blockerades som en försiktighetsåtgärd. Upptäckta risker:\n{risks}\n\nGranska och installera manuellt om det är korrekt.",
+    "auto_update_blocked_by_system_error": "Automatisk uppdatering för {name} har pausats på grund av ett oväntat fel vid kompatibilitetskontrollen."
+  }
+}

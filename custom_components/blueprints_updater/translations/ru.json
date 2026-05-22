@@ -1,0 +1,194 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Настройка Blueprints Updater",
+        "description": "Хотите настроить Blueprints Updater? Он просканирует ваши локальные чертежи и проверит наличие обновлений.",
+        "data": {
+          "auto_update": "Включить автообновление",
+          "use_cdn": "Использовать jsDelivr CDN для GitHub",
+          "update_interval": "Интервал обновления (часы)",
+          "filter_mode": "Режим фильтрации",
+          "selected_blueprints": "Чертежи (необязательно)",
+          "max_backups": "Макс. количество резервных копий"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Допускается только один экземпляр Blueprints Updater."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройки",
+        "description": "Настройте поведение и параметры Blueprints Updater.",
+        "data": {
+          "auto_update": "Включить автообновление",
+          "use_cdn": "Использовать jsDelivr CDN для GitHub",
+          "update_interval": "Интервал обновления (часы)",
+          "filter_mode": "Режим фильтрации",
+          "selected_blueprints": "Выбранные чертежи",
+          "max_backups": "Макс. количество резервных копий"
+        }
+      }
+    }
+  },
+  "selector": {
+    "filter_mode": {
+      "options": {
+        "all": "Обновить все",
+        "whitelist": "Белый список (обновлять только выбранные чертежи)",
+        "blacklist": "Черный список (не обновлять выбранные чертежи)"
+      }
+    }
+  },
+  "entity": {
+    "update": {
+      "blueprint": {
+        "name": "{name}"
+      }
+    }
+  },
+  "services": {
+    "reload": {
+      "name": "Перезагрузить чертежи",
+      "description": "Сканирует все локальные чертежи на наличие новых файлов и немедленно проверяет наличие обновлений."
+    },
+    "restore_blueprint": {
+      "name": "Восстановить чертеж",
+      "description": "Восстанавливает чертеж из пронумерованного файла резервной копии (.bak.1, .bak.2 и т. д.), если он доступен.",
+      "fields": {
+        "entity_id": {
+          "name": "Объект чертежа",
+          "description": "Объект обновления чертежа, который вы хотите восстановить."
+        },
+        "version": {
+          "name": "Версия резервной копии",
+          "description": "Какую версию резервной копии восстановить (1 = самая новая, 2 = более старая и т. д.)"
+        }
+      }
+    },
+    "update_all": {
+      "name": "Обновить все чертежи",
+      "description": "Автоматически загружает и устанавливает все доступные обновления чертежей одновременно.",
+      "fields": {
+        "backup": {
+          "name": "Создать резервную копию",
+          "description": "Создавать пронумерованные файлы резервных копий для всех обновленных чертежей перед перезаписью."
+        }
+      }
+    },
+    "import_blueprint": {
+      "name": "Импорт чертежа",
+      "description": "Загружает и устанавливает чертеж по URL-адресу.",
+      "fields": {
+        "url": {
+          "name": "URL чертежа",
+          "description": "URL-адрес чертежа. Поддерживаются прямые ссылки на YAML или URL-адреса провайдеров (GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket)."
+        },
+        "confirm": {
+          "name": "Подтвердить внешний источник",
+          "description": "Требуется для подтверждения импорта из внешних/непроверенных источников."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "missing_entity_id": {
+      "message": "Отсутствует параметр entity_id."
+    },
+    "invalid_entity": {
+      "message": "Недопустимый объект обновления чертежа."
+    },
+    "not_found": {
+      "message": "Файл исходного чертежа не найден."
+    },
+    "success": {
+      "message": "Резервная копия успешно восстановлена."
+    },
+    "missing_backup": {
+      "message": "Файл резервной копии отсутствует. Резервная копия могла быть не создана во время предыдущего обновления."
+    },
+    "invalid_version": {
+      "message": "Недопустимая версия резервной копии {version}. Должна быть от 1 до {max_backups}."
+    },
+    "system_error": {
+      "message": "Системная ошибка при восстановлении: {error}"
+    },
+    "missing_url": {
+      "message": "Отсутствует параметр URL."
+    },
+    "no_coordinator": {
+      "message": "Активный координатор не найден. Пожалуйста, проверьте настройки интеграции."
+    },
+    "confirmation_required": {
+      "message": "Импорт из внешних источников требует явного подтверждения. Пожалуйста, установите флажок 'Подтвердить'."
+    },
+    "unsupported_source": {
+      "message": "Неподдерживаемый источник. Поддерживаются только GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket и прямые ссылки на YAML."
+    },
+    "import_path_conflict": {
+      "message": "Blueprint с этим именем уже существует из другого источника ({existing_url}). Пожалуйста, сначала удалите его, чтобы избежать конфликтов."
+    },
+    "invalid_content_type": {
+      "message": "Недопустимый тип контента: {content_type}. Ожидался text/plain или YAML."
+    },
+    "invalid_yaml": {
+      "message": "Импортированный файл не является допустимым YAML-чертежом."
+    },
+    "empty_content": {
+      "message": "Получено пустое содержимое"
+    },
+    "fetch_error": {
+      "message": "Ошибка получения: {error}"
+    },
+    "unsafe_url": {
+      "message": "Небезопасный URL: {url}"
+    },
+    "unsafe_path": {
+      "message": "Целевой путь небезопасен: {path}"
+    },
+    "validation_error": {
+      "message": "Ошибка валидации: {error}"
+    },
+    "import_invalid_source_type": {
+      "message": "Неверный тип source_url: {type}. Ожидалась строка (string)."
+    }
+  },
+  "common": {
+    "auto_update_title": "Blueprints Updater: Автоматически обновлено",
+    "auto_update_message": "Следующие чертежи были автоматически обновлены:\n\n{blueprints}",
+    "update_available_short": "Доступно обновление",
+    "update_available": "Доступно обновление от {source_url}",
+    "update_safety_message": "Совет: Рекомендуется включить опцию резервного копирования перед установкой обновлений.",
+    "usage_warning": "Предупреждение: Это обновление затронет [{count} работающих {domain}]({usage_url}).",
+    "up_to_date": "Обновлено",
+    "install_error": "Не удалось установить чертеж: {error}. Удаленный файл содержит ошибки и не может быть безопасно применен.",
+    "invalid_blueprint": "Недопустимый чертеж: Отсутствует корневой ключ 'blueprint'",
+    "incompatible": "Несовместимо: {errors}",
+    "validation_error": "Ошибка валидации: {error}",
+    "empty_content": "Получено пустое содержимое",
+    "yaml_syntax_error": "Ошибка синтаксиса YAML: {error}",
+    "fetch_error": "Ошибка получения: {error}",
+    "processing_error": "Ошибка обработки: {error}",
+    "auto_update_failed": "Автоматическое обновление не удалось: {error}",
+    "unsafe_url": "Небезопасный URL: {url}",
+    "unsafe_path": "Целевой путь небезопасен: {path}",
+    "content_missing": "Содержимое чертежа отсутствует или не может быть получено.",
+    "git_diff_title": "Изменения в коде (Git Diff)",
+    "semantic_sync_notice": "Этот блюпринт логически не изменился, но требует структурного обновления для соответствия новому каноническому форматированию (например, нормализация переносов строк, внедрение метаданных).",
+    "breaking_risks_title": "[ПРЕДУПРЕЖДЕНИЕ] РИСК НАРУШЕНИЯ СОВМЕСТИМОСТИ",
+    "auto_update_blocked_by_breaking_change": "Автоматическое обновление {name} заблокировано из-за обнаружения рисков нарушения совместимости",
+    "risk_new_mandatory": "Добавлен новый обязательный ввод {input}.",
+    "risk_missing_input": "В сущности {entity} отсутствует обязательный ввод {input}, необходимый для новой версии.",
+    "risk_removed_input": "Ввод {input} удален, но в данный момент используется {count} сущностями.",
+    "risk_selector_mismatch": "Тип селектора изменен для {input}: с {old_type} на {new_type} (влияет на {count} сущностей).",
+    "risk_validation_failed_blueprint": "Новое содержимое чертежа недействительно: {error}",
+    "risk_unknown": "Неизвестная ошибка",
+    "risk_compatibility": "Ошибка совместимости для {entity}: {error}",
+    "risk_system_error": "Системная ошибка: {error}",
+    "breaking_risks_report": "Автоматическое обновление {name} было заблокировано в целях предосторожности. Обнаруженные риски:\n{risks}\n\nПожалуйста, проверьте и установите вручную, если всё верно.",
+    "auto_update_blocked_by_system_error": "Автообновление {name} приостановлено из-за непредвиденной ошибки при проверке совместимости."
+  }
+}

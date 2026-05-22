@@ -1,0 +1,63 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dawarich",
+        "description": "Per favor introdueix les credencials de Dawarich",
+        "data": {
+          "host": "Amfitrió",
+          "port": "Port",
+          "name": "Nom",
+          "mobile_app": "Rastrejador de Dispositiu",
+          "ssl": "Fes servir SSL (ex. https)",
+          "verify_ssl": "Verifica SSL"
+        }
+      },
+      "api_key": {
+        "title": "Dawarich",
+        "description": "Per favor introdueix les credencials de Dawarich",
+        "data": {
+          "api_key": "Clau d'API"
+        }
+      }
+    },
+    "error": {
+      "connection_error": "Error de connexió, no s'ha pogut contactar amb l'API de Dawarich.",
+      "invalid_api_key": "Clau d'API invàlida."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_distance": {
+        "name": "Distància total"
+      },
+      "total_points_tracked": {
+        "name": "Punts Totals Rastrejats",
+        "unit_of_measurement": "punts"
+      },
+      "total_reverse_geocoded_points": {
+        "name": "Total Geolocalitzats Inversament",
+        "unit_of_measurement": "punts"
+      },
+      "total_countries_visited": {
+        "name": "Total de Països Visitats",
+        "unit_of_measurement": "països"
+      },
+      "total_cities_visited": {
+        "name": "Total de Ciutats Visitades",
+        "unit_of_measurement": "ciutats"
+      },
+      "last_update": {
+        "name": "Última Actualització",
+        "state": {
+          "unknown": "Desconeguda",
+          "success": "Exitosa",
+          "error": "Error"
+        }
+      },
+      "version": {
+        "name": "Versió"
+      }
+    }
+  }
+}

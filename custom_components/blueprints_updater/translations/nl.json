@@ -1,0 +1,194 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Blueprints Updater instellen",
+        "description": "Wilt u Blueprints Updater instellen? Het scant uw lokale blueprints en zoekt naar updates.",
+        "data": {
+          "auto_update": "Automatische update inschakelen",
+          "use_cdn": "Gebruik jsDelivr CDN voor GitHub",
+          "update_interval": "Update-interval (uren)",
+          "filter_mode": "Filtermodus",
+          "selected_blueprints": "Blueprints (optioneel)",
+          "max_backups": "Maximaal aantal back-upversies"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Slechts één instantie van Blueprints Updater is toegestaan."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Instellingen",
+        "description": "Configureer de opties en instellingen voor Blueprints Updater.",
+        "data": {
+          "auto_update": "Automatische update inschakelen",
+          "use_cdn": "Gebruik jsDelivr CDN voor GitHub",
+          "update_interval": "Update-interval (uren)",
+          "filter_mode": "Filtermodus",
+          "selected_blueprints": "Geselecteerde blueprints",
+          "max_backups": "Maximaal aantal back-upversies"
+        }
+      }
+    }
+  },
+  "selector": {
+    "filter_mode": {
+      "options": {
+        "all": "Alles bijwerken",
+        "whitelist": "Whitelist (Alleen geselecteerde blueprints bijwerken)",
+        "blacklist": "Blacklist (Geselecteerde blueprints niet bijwerken)"
+      }
+    }
+  },
+  "entity": {
+    "update": {
+      "blueprint": {
+        "name": "{name}"
+      }
+    }
+  },
+  "services": {
+    "reload": {
+      "name": "Blueprints herladen",
+      "description": "Scant alle lokale blueprints op nieuwe bestanden en controleert onmiddellijk op updates."
+    },
+    "restore_blueprint": {
+      "name": "Blueprint herstellen",
+      "description": "Herstelt een blueprint van een genummerd back-upbestand (.bak.1, .bak.2, etc.) indien beschikbaar.",
+      "fields": {
+        "entity_id": {
+          "name": "Blueprint-entiteit",
+          "description": "De update-entiteit van de blueprint die u wilt herstellen."
+        },
+        "version": {
+          "name": "Back-upversie",
+          "description": "Welke back-upversie moet worden hersteld (1 = nieuwste, 2 = ouder, enz.)"
+        }
+      }
+    },
+    "update_all": {
+      "name": "Alle blueprints bijwerken",
+      "description": "Downloadt en installeert automatisch alle beschikbare blueprint-updates tegelijkertijd.",
+      "fields": {
+        "backup": {
+          "name": "Back-up maken",
+          "description": "Maak genummerde back-upbestanden voor alle bijgewerkte blueprints voordat u deze overschrijft."
+        }
+      }
+    },
+    "import_blueprint": {
+      "name": "Blueprint importeren",
+      "description": "Downloadt en installeert een blueprint via een URL.",
+      "fields": {
+        "url": {
+          "name": "Blueprint-URL",
+          "description": "De URL van de blueprint. Ondersteunt directe YAML-links of provider-URL's (GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket)."
+        },
+        "confirm": {
+          "name": "Externe bron bevestigen",
+          "description": "Vereist om het importeren uit externe/niet-geverifieerde bronnen te bevestigen."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "missing_entity_id": {
+      "message": "Parameter entity_id ontbreekt."
+    },
+    "invalid_entity": {
+      "message": "Ongeldige blueprint-update-entiteit."
+    },
+    "not_found": {
+      "message": "Oorspronkelijk blueprint-bestand niet gevonden."
+    },
+    "success": {
+      "message": "Back-up succesvol hersteld."
+    },
+    "missing_backup": {
+      "message": "Back-upbestand ontbreekt. Er is mogelijk geen back-up gemaakt tijdens de vorige update."
+    },
+    "invalid_version": {
+      "message": "Ongeldige back-upversie {version}. Moet tussen 1 en {max_backups} liggen."
+    },
+    "system_error": {
+      "message": "Systeemfout tijdens herstel: {error}"
+    },
+    "missing_url": {
+      "message": "URL-parameter ontbreekt."
+    },
+    "no_coordinator": {
+      "message": "Geen actieve coördinator gevonden. Controleer de integratie-instellingen."
+    },
+    "confirmation_required": {
+      "message": "Importeren uit externe bronnen vereist expliciete bevestiging. Vink het vakje 'Bevestigen' aan."
+    },
+    "unsupported_source": {
+      "message": "Niet-ondersteunde bron. Alleen GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket en directe YAML-links worden ondersteund."
+    },
+    "import_path_conflict": {
+      "message": "Er bestaat al een blueprint met deze naam uit een andere bron ({existing_url}). Verwijder deze eerst om conflicten te voorkomen."
+    },
+    "invalid_content_type": {
+      "message": "Ongeldig inhoudstype: {content_type}. text/plain of YAML verwacht."
+    },
+    "invalid_yaml": {
+      "message": "Het geïmporteerde bestand is geen geldige YAML-blueprint."
+    },
+    "empty_content": {
+      "message": "Lege inhoud ontvangen"
+    },
+    "fetch_error": {
+      "message": "Ophaalfout: {error}"
+    },
+    "unsafe_url": {
+      "message": "Onveilige URL: {url}"
+    },
+    "unsafe_path": {
+      "message": "Doelpad is onveilig: {path}"
+    },
+    "validation_error": {
+      "message": "Validatiefout: {error}"
+    },
+    "import_invalid_source_type": {
+      "message": "Ongeldig source_url-type: {type}. Tekenreeks (string) verwacht."
+    }
+  },
+  "common": {
+    "auto_update_title": "Blueprints Updater: Automatisch bijgewerkt",
+    "auto_update_message": "De volgende blueprints zijn automatisch bijgewerkt:\n\n{blueprints}",
+    "update_available_short": "Update beschikbaar",
+    "update_available": "Update beschikbaar van {source_url}",
+    "update_safety_message": "Tip: Het wordt aanbevolen om de back-upoptie in te schakelen voordat u updates installeert.",
+    "usage_warning": "Waarschuwing: Deze update heeft invloed op [{count} actieve {domain}]({usage_url}).",
+    "up_to_date": "Bijgewerkt",
+    "install_error": "Kan blueprint niet installeren: {error}. Het externe bestand bevat fouten en kan niet veilig worden toegepast.",
+    "invalid_blueprint": "Ongeldige blueprint: Root-sleutel 'blueprint' ontbreekt",
+    "incompatible": "Incompatibel: {errors}",
+    "validation_error": "Validatiefout: {error}",
+    "empty_content": "Lege inhoud ontvangen",
+    "yaml_syntax_error": "YAML-syntaxfout: {error}",
+    "fetch_error": "Ophaalfout: {error}",
+    "processing_error": "Verwerkingsfout: {error}",
+    "auto_update_failed": "Automatische update mislukt: {error}",
+    "unsafe_url": "Onveilige URL: {url}",
+    "unsafe_path": "Doelpad is onveilig: {path}",
+    "content_missing": "De inhoud van de blueprint ontbreekt of kon niet worden opgehaald.",
+    "git_diff_title": "Codewijzigingen (Git Diff)",
+    "semantic_sync_notice": "Deze blueprint is semantisch identiek, maar vereist een structurele update om in de pas te lopen met de nieuwe canonieke formattering (bijv. normalisatie van regeleinden, injectie van metadata).",
+    "breaking_risks_title": "[WAARSCHUWING] POTENTIËLE INCOMPATIBILITEITEN",
+    "auto_update_blocked_by_breaking_change": "Automatische update geblokkeerd voor {name} vanwege potentiële incompatibiliteiten",
+    "risk_new_mandatory": "Nieuwe verplichte invoer {input} toegevoegd.",
+    "risk_missing_input": "Entiteit {entity} mist verplichte invoer {input} vereist door nieuwe versie.",
+    "risk_removed_input": "Invoer {input} verwijderd, maar momenteel in gebruik door {count} entiteiten.",
+    "risk_selector_mismatch": "Selector-type gewijzigd voor {input}: van {old_type} naar {new_type} (beïnvloedt {count} entiteiten).",
+    "risk_validation_failed_blueprint": "Nieuwe blueprint inhoud is ongeldig: {error}",
+    "risk_unknown": "Onbekende fout",
+    "risk_compatibility": "Compatibiliteitsfout voor {entity}: {error}",
+    "risk_system_error": "Systeemfout: {error}",
+    "breaking_risks_report": "Automatische update voor {name} is uit voorzorg geblokkeerd. Gedetecteerde risico's:\n{risks}\n\nControleer dit en installeer handmatig als het correct is.",
+    "auto_update_blocked_by_system_error": "Automatische update voor {name} gepauzeerd door een onverwachte fout tijdens de compatibiliteitscontrole."
+  }
+}

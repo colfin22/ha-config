@@ -1,0 +1,350 @@
+blueprint:
+  name: Clean & Simple Universal Occupancy Lighting for PIR & Radar Sensors
+  description: "# \U0001F4A1 Universal Occupancy Lighting · v2.0\nMotion-activated
+    lighting for PIR & radar sensors (Aqara FP300, Eve Motion, etc.). Occupied = at
+    least one sensor detects presence.\n**Features:** illuminance gate · brightness
+    & color temp · fade-in · dim-before-off · schedule restriction · \"keep lights
+    on\" override · off-delay in seconds\n---\n**Lights not showing?** Switch to the
+    *Entity* tab in the target picker.\n**Sensor not triggering (Matter/Thread)?**
+    Check *Developer Tools → States* – it needs `device_class: occupancy`, `motion`,
+    or `presence`. If missing, mirror the state to an `input_boolean` and use that
+    instead.\n---\nRequired fields = *"
+  domain: automation
+  input:
+    sensors_conditions:
+      name: "\U0001F50D Sensors & Conditions *"
+      description: Select sensors and conditions for turning lights on
+      icon: mdi:radar
+      collapsed: true
+      input:
+        occupancy_sensors:
+          name: Occupancy Sensors *
+          description: One or more presence/motion sensors. Occupied = at least one
+            sensor is on.
+          default: []
+          selector:
+            entity:
+              domain:
+              - binary_sensor
+              device_class:
+              - occupancy
+              - motion
+              - presence
+              multiple: true
+              reorder: false
+        illuminance_sensor:
+          name: Illuminance Sensor (optional)
+          description: Leave empty to ignore ambient light.
+          default: []
+          selector:
+            entity:
+              domain:
+              - sensor
+              device_class:
+              - illuminance
+              multiple: false
+              reorder: false
+        illuminance_threshold:
+          name: Illuminance Threshold (lux)
+          description: Lights turn on only if current illuminance is below this value.
+          default: 60
+          selector:
+            number:
+              min: 0.0
+              max: 1000.0
+              unit_of_measurement: lux
+              mode: box
+              step: 1.0
+    lights_appearance:
+      name: "\U0001F4A1 Lights & Appearance *"
+      description: Which lights to control and how they should appear when turned
+        on
+      icon: mdi:lightbulb-group
+      collapsed: true
+      input:
+        lights_turn_on:
+          name: Lights to Turn On *
+          description: Turned on when occupancy is detected (and dark enough). Supports
+            entities, devices, and areas.
+          default: {}
+          selector:
+            target:
+              entity:
+              - domain:
+                - light
+        lights_turn_off:
+          name: Lights to Turn Off *
+          description: Dimmed/turned off when unoccupied. Can differ from "Lights
+            to Turn On".
+          default: {}
+          selector:
+            target:
+              entity:
+              - domain:
+                - light
+        brightness_pct:
+          name: Brightness when Turning On (%)
+          description: Target brightness when occupancy is detected.
+          default: 100
+          selector:
+            number:
+              min: 1.0
+              max: 100.0
+              unit_of_measurement: '%'
+              mode: slider
+              step: 1.0
+        color_temp_kelvin:
+          name: Color Temperature when Turning On (Kelvin)
+          description: 2700 = warm white, 6500 = cool daylight. Set to 0 to skip.
+          default: 2700
+          selector:
+            number:
+              min: 0.0
+              max: 6500.0
+              unit_of_measurement: K
+              mode: box
+              step: 100.0
+        turn_on_transition:
+          name: Fade-in Duration when Turning On (seconds)
+          description: Fade-in time when turning on. 0 = instant.
+          default: 0
+          selector:
+            number:
+              min: 0.0
+              max: 60.0
+              unit_of_measurement: sec
+              mode: box
+              step: 1.0
+    off_delay:
+      name: ⏱ Off Delay
+      description: Delay before turning off or starting the dim phase
+      icon: mdi:timer-outline
+      collapsed: true
+      input:
+        off_delay_seconds:
+          name: Main Off Delay (seconds)
+          description: 'Wait time after last sensor clears. Example: 10 = 10 s, 300
+            = 5 min.'
+          default: 300
+          selector:
+            number:
+              min: 0.0
+              max: 3600.0
+              unit_of_measurement: sec
+              mode: box
+              step: 1.0
+    schedule_restriction:
+      name: "\U0001F4C5 Schedule (Optional)"
+      description: Restrict the automation to specific time periods using a schedule
+        helper
+      icon: mdi:calendar-clock
+      collapsed: true
+      input:
+        enable_schedule_restriction:
+          name: Enable Schedule Restriction
+          description: Only run during active periods of the selected schedule helper.
+          default: false
+          selector:
+            boolean: {}
+        schedule_helper:
+          name: Schedule Helper
+          description: Only used when "Enable Schedule Restriction" is on.
+          default: []
+          selector:
+            entity:
+              domain:
+              - schedule
+              multiple: false
+              reorder: false
+    keep_lights_on:
+      name: "\U0001F512 Keep Lights On (Optional)"
+      description: Override automatic turn-off with a helper switch (e.g. for visitors).
+      icon: mdi:light-switch
+      collapsed: true
+      input:
+        enable_keep_lights_on:
+          name: Enable Keep Lights On Override
+          description: While the helper is on, lights won't dim or turn off automatically.
+            They still turn on normally with occupancy.
+          default: false
+          selector:
+            boolean: {}
+        keep_lights_on_helper:
+          name: Keep Lights On Helper
+          description: Only used when "Enable Keep Lights On Override" is on.
+          default: []
+          selector:
+            entity:
+              domain:
+              - input_boolean
+              - switch
+              multiple: false
+              reorder: false
+    dim_advanced:
+      name: "\U0001F305 Dim before Off (Optional)"
+      description: Optional courteous behavior – dim as a warning before final turn-off
+      icon: mdi:brightness-4
+      collapsed: true
+      input:
+        enable_dim_before_off:
+          name: Enable Dim before Turning Off
+          description: Gradually dim lights as a warning before turning off.
+          default: false
+          selector:
+            boolean: {}
+        dim_brightness_pct:
+          name: Dim Brightness (%)
+          description: Target brightness during the dimming phase.
+          default: 20
+          selector:
+            number:
+              min: 1.0
+              max: 100.0
+              unit_of_measurement: '%'
+              mode: slider
+              step: 1.0
+        dim_transition_seconds:
+          name: Dim Transition Duration (seconds)
+          description: How long the gradual dimming should take.
+          default: 30
+          selector:
+            number:
+              min: 0.0
+              max: 300.0
+              unit_of_measurement: sec
+              mode: box
+              step: 1.0
+        dim_delay_minutes:
+          name: Hold Time at Dim Level (minutes)
+          description: Time at dim level before final turn-off. Gives you time to
+            re-trigger.
+          default: 5
+          selector:
+            number:
+              min: 0.0
+              max: 30.0
+              unit_of_measurement: min
+              mode: box
+              step: 1.0
+  source_url: https://github.com/MajorLazer2142/home-assistant_blueprints/blob/main/Clean_and_Simple_Universal_Occupancy_Lighting_for_PIR_and_Radar_Sensors.yaml
+variables:
+  sensors: !input occupancy_sensors
+  enable_dim: !input enable_dim_before_off
+  illuminance_sensor_entity: !input illuminance_sensor
+  schedule_enabled: !input enable_schedule_restriction
+  schedule_helper_entity: !input schedule_helper
+  color_temp: !input color_temp_kelvin
+  off_delay_sec: !input off_delay_seconds
+  lights_off_target: !input lights_turn_off
+  keep_on_enabled: !input enable_keep_lights_on
+  keep_on_helper_entity: !input keep_lights_on_helper
+mode: restart
+max_exceeded: silent
+triggers:
+- platform: state
+  entity_id: !input occupancy_sensors
+  to: 'on'
+  id: Occupied
+- platform: state
+  entity_id: !input occupancy_sensors
+  to: 'off'
+  id: Unoccupied
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: Occupied
+    - condition: or
+      conditions:
+      - condition: template
+        value_template: '{{ illuminance_sensor_entity in [none, [], ''''] }}'
+      - condition: numeric_state
+        entity_id: !input illuminance_sensor
+        below: !input illuminance_threshold
+    - condition: or
+      conditions:
+      - condition: template
+        value_template: '{{ not schedule_enabled }}'
+      - condition: template
+        value_template: '{{ schedule_helper_entity in [none, [], ''''] }}'
+      - condition: state
+        entity_id: !input schedule_helper
+        state: 'on'
+    sequence:
+    - if:
+      - condition: template
+        value_template: '{{ color_temp | int(0) > 0 }}'
+      then:
+      - service: light.turn_on
+        target: !input lights_turn_on
+        data:
+          brightness_pct: !input brightness_pct
+          color_temp_kelvin: !input color_temp_kelvin
+          transition: !input turn_on_transition
+      else:
+      - service: light.turn_on
+        target: !input lights_turn_on
+        data:
+          brightness_pct: !input brightness_pct
+          transition: !input turn_on_transition
+  - conditions:
+    - condition: trigger
+      id: Unoccupied
+    - condition: template
+      value_template: "{% set reachable = expand(sensors)\n     | rejectattr('state',
+        'in', ['unavailable', 'unknown'])\n     | list %}\n{{ reachable | length >
+        0\n   and (reachable | selectattr('state', 'eq', 'on') | list | length) ==
+        0 }}"
+    - condition: or
+      conditions:
+      - condition: template
+        value_template: '{{ not keep_on_enabled }}'
+      - condition: template
+        value_template: '{{ keep_on_helper_entity in [none, [], ''''] }}'
+      - condition: template
+        value_template: '{{ not is_state(keep_on_helper_entity, ''on'') }}'
+    sequence:
+    - delay:
+        seconds: !input off_delay_seconds
+    - condition: template
+      value_template: "{% set reachable = expand(sensors)\n     | rejectattr('state',
+        'in', ['unavailable', 'unknown'])\n     | list %}\n{{ reachable | length >
+        0\n   and (reachable | selectattr('state', 'eq', 'on') | list | length) ==
+        0 }}"
+    - condition: template
+      value_template: "{% set ns = namespace(entities=[]) %} {% if lights_off_target.entity_id
+        is defined %}\n  {% if lights_off_target.entity_id is string %}\n    {% set
+        ns.entities = [lights_off_target.entity_id] %}\n  {% else %}\n    {% set ns.entities
+        = lights_off_target.entity_id | list %}\n  {% endif %}\n{% endif %} {% if
+        lights_off_target.device_id is defined %}\n  {% set devices = [lights_off_target.device_id]
+        if lights_off_target.device_id is string else lights_off_target.device_id
+        %}\n  {% for dev in devices %}\n    {% set ns.entities = ns.entities + (device_entities(dev)
+        | select('match', 'light\\\\.') | list) %}\n  {% endfor %}\n{% endif %} {%
+        if lights_off_target.area_id is defined %}\n  {% set areas = [lights_off_target.area_id]
+        if lights_off_target.area_id is string else lights_off_target.area_id %}\n
+        \ {% for area in areas %}\n    {% set ns.entities = ns.entities + (area_entities(area)
+        | select('match', 'light\\\\.') | list) %}\n  {% endfor %}\n{% endif %} {{
+        ns.entities | select('is_state', 'on') | list | length > 0 }}"
+    - if:
+      - condition: template
+        value_template: '{{ not enable_dim }}'
+      then:
+      - service: light.turn_off
+        target: !input lights_turn_off
+      else:
+      - service: light.turn_on
+        target: !input lights_turn_off
+        data:
+          brightness_pct: !input dim_brightness_pct
+          transition: !input dim_transition_seconds
+      - delay:
+          seconds: !input dim_transition_seconds
+          minutes: !input dim_delay_minutes
+      - condition: template
+        value_template: "{% set reachable = expand(sensors)\n     | rejectattr('state',
+          'in', ['unavailable', 'unknown'])\n     | list %}\n{{ reachable | length
+          > 0\n   and (reachable | selectattr('state', 'eq', 'on') | list | length)
+          == 0 }}"
+      - service: light.turn_off
+        target: !input lights_turn_off
+  default: []

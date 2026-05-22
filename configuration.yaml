@@ -1,0 +1,67 @@
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+#  extra_module_url:
+#    - /local/card-mod.js  
+
+recorder:
+  purge_keep_days: 7
+  exclude:
+    entity_globs:
+      - image.*
+      - binary_sensor.*_occupancy
+      - sensor.lxc_*
+      - sensor.qemu_*
+      - sensor.datasets_*
+      - sensor.node_proxmox*
+      - sensor.mikrotik_*
+      - sensor.pi_hole_*
+      - sensor.truenas_disks_*
+      - sensor.nextcloud_*
+  
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+
+# Turns on the API so that Daire can do dev stuff
+api:
+
+#dashboard
+lovelace:
+#  resource_mode: yaml
+  dashboards:
+    lovelace:
+      mode: yaml
+      filename: ui-lovelace.yaml
+      title: Overview
+      icon: mdi:view-dashboard
+      show_in_sidebar: true
+  
+sensor: !include_dir_list entities/sensors/
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 10.0.0.249
+
+template: !include template.yaml
+
+
+homeassistant:
+  packages: !include_dir_named packages 
+  media_dirs:
+    llmvision: /config/media/llmvision
+    
+command_line:
+  - sensor:
+      name: "Frigate CCTV Disk Usage"
+      unique_id: frigate_cctv_disk_usage
+      unit_of_measurement: "%"
+      command: "ssh -i /config/.ssh/frigate_sensor -o StrictHostKeyChecking=no -o BatchMode=yes hassio@10.0.0.246 df /cctv_clips"
+      scan_interval: 300
+      value_template: "{{ value.split()[-2] | replace('%', '') | int }}"
+  

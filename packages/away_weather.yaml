@@ -1,0 +1,24 @@
+  rest:
+    - resource_template: "https://api.open-meteo.com/v1/forecast?latitude={{ states('input_number.away_lat')
+  }}&longitude={{ states('input_number.away_lon') }}&daily=temperature_2m_max,temperature_2m_min,precipitation_probabili
+  ty_max,precipitation_sum,wind_speed_10m_max&timezone=auto&forecast_days=2&wind_speed_unit=kmh"
+      scan_interval: 3600
+      sensor:
+        - name: "Away Weather Forecast"
+          unique_id: "away_weather_forecast"
+          value_template: "ok"
+          json_attributes_path: "$.daily"
+          json_attributes:
+            - "temperature_2m_max"
+            - "temperature_2m_min"
+            - "precipitation_probability_max"
+            - "precipitation_sum"
+            - "wind_speed_10m_max"
+
+  rest_command:
+    get_away_location_name:
+      url: "https://nominatim.openstreetmap.org/reverse?lat={{ lat }}&lon={{ lon }}&zoom=10&format=json"
+      method: GET
+      headers:
+        User-Agent: "HomeAssistant/1.0"
+      timeout: 10

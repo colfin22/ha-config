@@ -1,0 +1,191 @@
+blueprint:
+  name: Motion-activated Light extended
+  description: Turn on a light when a movement occurs
+  domain: automation
+  source_url: https://github.com/giannisigalotti/HomeAssistant/blob/main/blueprints/motion-activated-light.yaml
+  input:
+    motion_entity:
+      name: Motion sensor
+      selector:
+        entity:
+          domain:
+          - binary_sensor
+          device_class:
+          - occupancy
+          multiple: false
+          reorder: false
+    light_target:
+      name: Light
+      selector:
+        target:
+          entity:
+          - domain:
+            - light
+    no_motion_wait:
+      name: Wait time
+      description: The time to wait before turning off the light after no movement
+        is detected.
+      default: 120
+      selector:
+        number:
+          min: 0.0
+          max: 3600.0
+          unit_of_measurement: seconds
+          mode: slider
+          step: 1.0
+    skip_if_light_is_on:
+      name: Do not execute if the light is already on (prevent auto-turn-off if the
+        light was turned on manually).
+      selector:
+        boolean: {}
+      default: false
+    no_sunset_handling:
+      name: Disable day/night management?
+      description: When you turn this option to off, you can define how many hour
+        before sunset and after sunshine the automation turn on the light
+      selector:
+        boolean: {}
+      default: false
+    wheater_handling:
+      name: Enable meteo managment?
+      description: Does it also take weather into account to enable/disable motion
+        sensors (use the time range only when it's sunny and disable otherwise)?
+      selector:
+        boolean: {}
+      default: false
+    wheater_entity:
+      name: Weather status sensor
+      description: This sensor is used only with the Meteo managment option to determine
+        if the weather is sunny or not (useful if you are in a room usually dark in
+        case of bad weather condition
+      selector:
+        entity:
+          domain:
+          - weather
+          multiple: false
+          reorder: false
+      default: weather.home
+    sunset_start_hh:
+      name: Pre-sunset hours activation
+      description: How many hours before sunset does the management activate (negative
+        numbers indicate a delay)?
+      selector:
+        number:
+          min: 0.0
+          max: 12.0
+          unit_of_measurement: hours
+          mode: slider
+          step: 1.0
+      default: 0
+    sunset_start_mm:
+      name: Pre-sunset minutes activation
+      description: How many minutes before sunset does the management activate (negative
+        numbers indicate a delay)?
+      selector:
+        number:
+          min: 0.0
+          max: 59.0
+          unit_of_measurement: minutes
+          mode: slider
+          step: 1.0
+      default: 0
+    sunrise_start_hh:
+      name: Post-sunrise hours activation
+      description: How many hours after sunrise does the management deactivate (negative
+        numbers indicate an advance)?
+      selector:
+        number:
+          min: 0.0
+          max: 12.0
+          unit_of_measurement: hours
+          mode: slider
+          step: 1.0
+      default: 0
+    sunrise_start_mm:
+      name: Post-sunrise minutes activation
+      description: How many minutes after sunrise does the management deactivate (negative
+        numbers indicate an advance)?
+      selector:
+        number:
+          min: 0.0
+          max: 59.0
+          unit_of_measurement: minutes
+          mode: slider
+          step: 1.0
+      default: 0
+    timeout:
+      name: Deactivation timeout?
+      description: After how many minutes does the switch turn off automatically (-1
+        if no timeout)
+      selector:
+        number:
+          min: -1.0
+          max: 60.0
+          unit_of_measurement: minutes
+          mode: slider
+          step: 1.0
+      default: 5
+mode: restart
+max_exceeded: silent
+variables:
+  dusk_start_hour: !input sunset_start_hh
+  dusk_start_minute: !input sunset_start_mm
+  rising_start_hour: !input sunrise_start_hh
+  rising_start_minute: !input sunrise_start_mm
+  use_weather: !input wheater_handling
+  skip_light_on: !input skip_if_light_is_on
+  target_lights: !input light_target
+  force_skip: "{{ skip_light_on and\n    (expand(\n              (([] if target_lights.device_id
+    is undefined\n              else target_lights.device_id | device_entities\n              if
+    target_lights.device_id is string\n              else target_lights.device_id
+    | map('device_entities') | sum(start=[]) )\n              +\n              ([]
+    if target_lights.entity_id is undefined\n              else [target_lights.entity_id]\n
+    \             if target_lights.entity_id is string\n              else target_lights.entity_id
+    ))\n             | select('search', '^light\\.') | list\n          ) | selectattr('state',
+    'eq', 'on') | list | length  > 0)\n}}\n"
+  sun_rising: "{% if (states.sun.sun.state == \"above_horizon\") %}\n    {{ states.sun.sun.last_changed
+    }}\n{%- else -%}\n    {{ states.sun.sun.attributes.next_rising }}\n{%- endif %}\n"
+  sun_dusk: "{% if (states.sun.sun.state == \"above_horizon\") %}\n    {{ states.sun.sun.attributes.next_dusk
+    }}\n{%- else -%}\n    {{ states.sun.sun.last_changed }}\n{%- endif %}\n"
+  wheater_sensor: !input wheater_entity
+  no_sunny_wheater: '{{ states(wheater_sensor) != ''sunny'' and use_weather }}
+
+    '
+triggers:
+  platform: state
+  entity_id: !input motion_entity
+  from: 'off'
+  to: 'on'
+actions:
+- service: light.turn_on
+  target: !input light_target
+- wait_for_trigger:
+    platform: state
+    entity_id: !input motion_entity
+    from: 'on'
+    to: 'off'
+  timeout:
+    hours: 0
+    minutes: !input timeout
+    seconds: 0
+    milliseconds: 0
+- delay: !input no_motion_wait
+- service: light.turn_off
+  target: !input light_target
+conditions:
+- condition: and
+  conditions:
+  - condition: template
+    value_template: '{{ not force_skip }}'
+  - condition: or
+    conditions:
+    - condition: template
+      value_template: !input no_sunset_handling
+    - condition: template
+      value_template: '{{ no_sunny_wheater }}'
+    - condition: and
+      conditions:
+      - '{{ as_timestamp(now()) >= ((as_timestamp(sun_dusk) - dusk_start_hour*3600
+        - dusk_start_minute*60) )}}'
+      - '{{ as_timestamp(now()) < ((as_timestamp(sun_rising) + rising_start_hour*3600
+        + rising_start_minute*60) )}}'

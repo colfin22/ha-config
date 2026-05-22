@@ -1,0 +1,236 @@
+{
+  "title": "VServer SSH Stats",
+  "config": {
+    "step": {
+      "user": {
+        "title": "VServer SSH Stats",
+        "data": {
+          "interval": "Aktualisierungsintervall (Sekunden)",
+          "name": "Servername",
+          "host": "Host",
+          "port": "SSH-Port",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "key": "Schlüsseldatei",
+          "add_another": "Weiteren Server danach hinzufügen",
+          "target_os": "Zielsystem"
+        }
+      }
+    },
+    "error": {
+      "auth": "Passwort oder Schlüsseldatei angeben",
+      "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
+      "host_in_use": "Dieser Host ist bereits konfiguriert",
+      "key_missing": "SSH-Schlüsseldatei nicht gefunden"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "interval": "Aktualisierungsintervall (Sekunden)",
+          "connect_timeout": "SSH-Verbindungs-Timeout (Sekunden)",
+          "command_timeout": "Timeout für Sammelbefehl (Sekunden)",
+          "edit_server": "Bestehenden Server bearbeiten",
+          "add_server": "Weiteren Server hinzufügen",
+          "remove_server": "Server entfernen",
+          "reconfigure_servers": "Komplette Serverliste ersetzen"
+        }
+      },
+      "select_server": {
+        "title": "Server auswählen",
+        "data": {
+          "server": "Server"
+        }
+      },
+      "edit_server": {
+        "title": "Server bearbeiten",
+        "description": "Passwort leer lassen, um das gespeicherte Passwort beizubehalten. Mit den Entfernen-Optionen können gespeicherte Zugangsdaten gelöscht werden.",
+        "data": {
+          "name": "Servername",
+          "host": "Host",
+          "port": "SSH-Port",
+          "username": "Benutzername",
+          "password": "Passwort (leer lassen = beibehalten)",
+          "clear_password": "Gespeichertes Passwort entfernen",
+          "key": "Schlüsseldatei",
+          "clear_key": "Gespeicherte Schlüsseldatei entfernen",
+          "target_os": "Zielsystem"
+        }
+      },
+      "add_server": {
+        "title": "Server hinzufügen",
+        "description": "Fügt dieser Integration einen weiteren Server hinzu.",
+        "data": {
+          "name": "Servername",
+          "host": "Host",
+          "port": "SSH-Port",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "key": "Schlüsseldatei",
+          "add_another": "Weiteren Server danach hinzufügen",
+          "target_os": "Zielsystem"
+        }
+      },
+      "remove_server": {
+        "title": "Server entfernen",
+        "data": {
+          "server": "Server",
+          "confirm_remove": "Entfernen bestätigen"
+        }
+      },
+      "servers": {
+        "title": "VServer SSH Stats",
+        "description": "Server einzeln hinzufügen. Wählen Sie 'Weiteren Server danach hinzufügen', um weitere Hosts einzutragen.",
+        "data": {
+          "name": "Servername",
+          "host": "Host",
+          "port": "SSH-Port",
+          "username": "Benutzername",
+          "password": "Passwort",
+          "key": "Schlüsseldatei",
+          "add_another": "Weiteren Server danach hinzufügen",
+          "target_os": "Zielsystem"
+        }
+      }
+    },
+    "error": {
+      "auth": "Passwort oder Schlüsseldatei angeben",
+      "duplicate_host": "Dieser Host wurde bereits hinzugefügt",
+      "host_in_use": "Dieser Host ist bereits konfiguriert",
+      "key_missing": "SSH-Schlüsseldatei nicht gefunden",
+      "single_action": "Bitte nur eine Serveraktion gleichzeitig auswählen",
+      "no_servers": "Es wurde kein konfigurierter Server gefunden",
+      "cannot_remove_last_server": "Mindestens ein Server muss konfiguriert bleiben",
+      "confirm_remove": "Bitte bestätigen, dass der ausgewählte Server entfernt werden soll"
+    }
+  },
+  "services": {
+    "get_local_ip": {
+      "name": "Lokale IP abrufen",
+      "description": "Ermittelt die lokale IP-Adresse des Hosts."
+    },
+    "get_uptime": {
+      "name": "Betriebszeit abrufen",
+      "description": "Liest die Systembetriebszeit in Sekunden aus."
+    },
+    "list_connections": {
+      "name": "SSH-Verbindungen auflisten",
+      "description": "Listet IP-Adressen aktiver SSH-Sitzungen auf."
+    },
+    "run_command": {
+      "name": "SSH-Befehl ausführen",
+      "description": "Führt einen beliebigen Befehl auf einem entfernten Server aus.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname oder IP des Servers."
+        },
+        "username": {
+          "name": "Benutzername",
+          "description": "SSH-Benutzername."
+        },
+        "command": {
+          "name": "Befehl",
+          "description": "Befehl, der ausgeführt werden soll."
+        },
+        "password": {
+          "name": "Passwort",
+          "description": "Passwort für die Authentifizierung."
+        },
+        "key": {
+          "name": "Schlüsseldatei",
+          "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
+        },
+        "port": {
+          "name": "SSH-Port",
+          "description": "SSH-Port."
+        },
+        "connect_timeout": {
+          "name": "SSH-Verbindungs-Timeout",
+          "description": "Maximale Wartezeit beim Aufbau der SSH-Verbindung."
+        },
+        "command_timeout": {
+          "name": "Befehls-Timeout",
+          "description": "Maximale Wartezeit für den entfernten Befehl."
+        }
+      }
+    },
+    "update_packages": {
+      "name": "Pakete aktualisieren",
+      "description": "Aktualisiert Systempakete per apt, dnf oder yum.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname oder IP des Servers."
+        },
+        "username": {
+          "name": "Benutzername",
+          "description": "SSH-Benutzername."
+        },
+        "password": {
+          "name": "Passwort",
+          "description": "Passwort für die Authentifizierung."
+        },
+        "key": {
+          "name": "Schlüsseldatei",
+          "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
+        },
+        "port": {
+          "name": "SSH-Port",
+          "description": "SSH-Port."
+        },
+        "target_os": {
+          "name": "Zielsystem",
+          "description": "Für die Befehlsauswahl verwendetes OS-Profil."
+        },
+        "connect_timeout": {
+          "name": "SSH-Verbindungs-Timeout",
+          "description": "Maximale Wartezeit beim Aufbau der SSH-Verbindung."
+        },
+        "command_timeout": {
+          "name": "Befehls-Timeout",
+          "description": "Maximale Wartezeit für den Paketupdate-Befehl."
+        }
+      }
+    },
+    "reboot_host": {
+      "name": "Host neu starten",
+      "description": "Startet den entfernten Server neu.",
+      "fields": {
+        "host": {
+          "name": "Host",
+          "description": "Hostname oder IP des Servers."
+        },
+        "username": {
+          "name": "Benutzername",
+          "description": "SSH-Benutzername."
+        },
+        "password": {
+          "name": "Passwort",
+          "description": "Passwort für die Authentifizierung."
+        },
+        "key": {
+          "name": "Schlüsseldatei",
+          "description": "Pfad zur privaten SSH-Schlüsseldatei (z. B. /config/ssh/id_rsa)."
+        },
+        "port": {
+          "name": "SSH-Port",
+          "description": "SSH-Port."
+        },
+        "target_os": {
+          "name": "Zielsystem",
+          "description": "Für die Befehlsauswahl verwendetes OS-Profil."
+        },
+        "connect_timeout": {
+          "name": "SSH-Verbindungs-Timeout",
+          "description": "Maximale Wartezeit beim Aufbau der SSH-Verbindung."
+        },
+        "command_timeout": {
+          "name": "Befehls-Timeout",
+          "description": "Maximale Wartezeit für den Neustart-Befehl."
+        }
+      }
+    }
+  }
+}

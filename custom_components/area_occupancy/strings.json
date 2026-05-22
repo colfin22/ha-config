@@ -1,0 +1,941 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "A configuration for {title} already exists. {hint}",
+            "cannot_remove_last_area": "Cannot remove the last area. At least one area must remain configured."
+        },
+        "step": {
+            "user": {
+                "title": "Area Occupancy Detection",
+                "description": "Select an area to manage or choose an action. At least one area must be configured before finishing setup.",
+                "menu_options": {
+                    "add_area": "Add New Area",
+                    "manage_areas": "Manage Areas",
+                    "finish_setup": "Finish Setup"
+                },
+                "menu_option_descriptions": {
+                    "add_area": "Configure a new room or zone for occupancy detection",
+                    "manage_areas": "Edit or remove previously configured areas",
+                    "finish_setup": "Save configuration and create the integration"
+                },
+                "data": {
+                    "selected_option": "Select an area or action"
+                },
+                "data_description": {
+                    "selected_option": "Choose an area to edit or remove, add a new area, or finish setup"
+                }
+            },
+            "manage_areas": {
+                "title": "Manage Areas",
+                "description": "Select an area to edit or remove.",
+                "data": {
+                    "selected_option": "Select an area"
+                }
+            },
+            "area_action": {
+                "title": "Manage Area",
+                "description": "Choose an action for this area.",
+                "menu_options": {
+                    "edit_area": "Edit Area",
+                    "reset_learning_confirm": "Reset Learning",
+                    "remove_area_confirm": "Remove Area",
+                    "cancel_area_action": "Cancel"
+                }
+            },
+            "area_config": {
+                "title": "{mode} Area: {area_name}",
+                "description": "Configure sensors and parameters for this area.",
+                "data": {
+                    "area_id": "Home Assistant Area",
+                    "purpose": "Area Purpose",
+                    "name": "Name of Detection Area"
+                },
+                "data_description": {
+                    "area_id": "Select the Home Assistant area for this occupancy detection. The area name will be automatically used for the device and entities.",
+                    "purpose": "The primary purpose of this area determines decay behavior. Different purposes have different half-life values that affect how quickly occupancy probability decreases over time.",
+                    "name": "This is the name of the area or detection area. It will be used to name the sensors and the area occupancy entity."
+                },
+                "sections": {
+                    "motion": {
+                        "name": "Motion & Presence Sensors",
+                        "description": "Configure motion and presence sensors",
+                        "data": {
+                            "motion_sensors": "Motion/Presence Sensors",
+                            "weight_motion": "Motion Weight",
+                            "motion_timeout": "Motion Timeout",
+                            "motion_prob_given_true": "P(Active | Occupied)",
+                            "motion_prob_given_false": "P(Active | Not Occupied)"
+                        },
+                        "data_description": {
+                            "motion_sensors": "These will be used to detect occupancy and presence. They can be motion sensors, occupancy sensors, or presence sensors.",
+                            "weight_motion": "The weight given to motion sensor inputs in the occupancy calculation.",
+                            "motion_timeout": "This adds an additional timeout to historical motion sensor data. You can use this to effectively adjust the prior probability for the area and the likelihood of occupancy for any given sensor.",
+                            "motion_prob_given_true": "The probability that a motion sensor is active when the area is actually occupied. Higher values (closer to 1.0) mean the motion sensor is more reliable when the area is occupied. Default: 0.95 (95%).",
+                            "motion_prob_given_false": "The probability that a motion sensor is active when the area is not occupied (false positive rate). Lower values (closer to 0.0) mean fewer false positives. Default: 0.005 (0.5%)."
+                        }
+                    },
+                    "windows_and_doors": {
+                        "name": "Windows, Doors & Covers",
+                        "description": "Configure door, window, and cover sensors and their states",
+                        "data": {
+                            "door_sensors": "Door Sensors",
+                            "door_active_state": "Door Active State",
+                            "weight_door": "Door Weight",
+                            "window_sensors": "Window Sensors",
+                            "window_active_state": "Window Active State",
+                            "weight_window": "Window Weight",
+                            "cover_sensors": "Cover Sensors",
+                            "cover_active_states": "Cover Active States",
+                            "weight_cover": "Cover Weight"
+                        },
+                        "data_description": {
+                            "door_active_state": "This is the value your sensors report when the door is closed.",
+                            "weight_door": "The weight given to door sensor inputs in the occupancy calculation.",
+                            "window_active_state": "This is the state of the window that will be used to detect occupancy.",
+                            "weight_window": "The weight given to window sensor inputs in the occupancy calculation.",
+                            "cover_sensors": "Cover entities (blinds, shades, garage doors, shutters) that indicate occupancy when their state changes.",
+                            "cover_active_states": "The states of the covers that indicate occupancy (e.g., open, opening, closing).",
+                            "weight_cover": "The weight given to cover sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "wasp_in_box": {
+                        "name": "Wasp in Box",
+                        "description": "Configure wasp-in-box behavior for single-entry rooms",
+                        "data": {
+                            "wasp_enabled": "Enable Wasp in Box",
+                            "wasp_motion_timeout": "Motion Timeout",
+                            "wasp_weight": "Sensor Weight",
+                            "wasp_max_duration": "Max Duration",
+                            "wasp_verification_delay": "Verification Delay"
+                        },
+                        "data_description": {
+                            "wasp_enabled": "Enable wasp-in-box behavior and entity for this area.",
+                            "wasp_motion_timeout": "How long motion remains valid after detection.",
+                            "wasp_weight": "The weight given to this sensor in the occupancy calculation.",
+                            "wasp_max_duration": "Maximum duration that the wasp-in-box stays active after the last detected motion, even if no door opens. This is to end a false positive.",
+                            "wasp_verification_delay": "The delay after closing the last door before any detected motion is considered as actual occupancy. This gives time for the motion sensor to stop reporting motion. (0 = disabled)."
+                        }
+                    },
+                    "media": {
+                        "name": "Media Players",
+                        "description": "Configure media players and their states",
+                        "data": {
+                            "media_devices": "Media Players",
+                            "media_active_states": "Media Active States",
+                            "weight_media": "Media Weight"
+                        },
+                        "data_description": {
+                            "media_active_states": "These are the states of the media players that will be used to detect occupancy.",
+                            "weight_media": "The weight given to media player inputs in the occupancy calculation."
+                        }
+                    },
+                    "appliances": {
+                        "name": "Appliances",
+                        "description": "Configure appliances and their states",
+                        "data": {
+                            "appliances": "Appliances",
+                            "appliance_active_states": "Appliance Active States",
+                            "weight_appliance": "Appliance Weight"
+                        },
+                        "data_description": {
+                            "appliance_active_states": "These are the states of the appliances that will be used to detect occupancy.",
+                            "weight_appliance": "The weight given to appliance inputs in the occupancy calculation."
+                        }
+                    },
+                    "environmental": {
+                        "name": "Environmental Sensors",
+                        "description": "Configure environmental sensors",
+                        "data": {
+                            "illuminance_sensors": "Illuminance Sensors",
+                            "humidity_sensors": "Humidity Sensors",
+                            "temperature_sensors": "Temperature Sensors",
+                            "co2_sensors": "CO2 Sensors",
+                            "co_sensors": "CO Sensors (Carbon Monoxide)",
+                            "sound_pressure_sensors": "Sound Pressure Sensors (Decibels)",
+                            "pressure_sensors": "Atmospheric Pressure Sensors",
+                            "air_quality_sensors": "Air Quality Index Sensors",
+                            "voc_sensors": "VOC Sensors (Volatile Organic Compounds)",
+                            "pm25_sensors": "PM2.5 Sensors (Particulate Matter)",
+                            "pm10_sensors": "PM10 Sensors (Particulate Matter)",
+                            "weight_environmental": "Environmental Weight"
+                        },
+                        "data_description": {
+                            "co2_sensors": "Carbon dioxide sensors that detect increased CO2 levels from human respiration, indicating occupancy.",
+                            "co_sensors": "Carbon monoxide sensors that detect increased CO levels from combustion sources and human activity (cooking, heating), indicating occupancy.",
+                            "sound_pressure_sensors": "Sound pressure sensors (decibels) that detect noise from human activity, indicating occupancy.",
+                            "pressure_sensors": "Atmospheric pressure sensors that detect subtle changes from HVAC and human presence, indicating occupancy.",
+                            "air_quality_sensors": "Air quality index sensors that detect general air quality changes, indicating occupancy.",
+                            "voc_sensors": "Volatile organic compound sensors that detect chemical signatures of human presence, indicating occupancy.",
+                            "pm25_sensors": "PM2.5 particulate matter sensors that detect fine particles from human activity, indicating occupancy.",
+                            "pm10_sensors": "PM10 particulate matter sensors that detect coarse particles from human activity, indicating occupancy.",
+                            "weight_environmental": "The weight given to environmental sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "power": {
+                        "name": "Power Sensors",
+                        "description": "Configure power consumption sensors",
+                        "data": {
+                            "power_sensors": "Power Sensors",
+                            "weight_power": "Power Weight"
+                        },
+                        "data_description": {
+                            "power_sensors": "Power sensors that measure power consumption (W/kW). When consumption is above baseline levels, it indicates active device usage and potential occupancy.",
+                            "weight_power": "The weight given to power sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "parameters": {
+                        "name": "Advanced Parameters",
+                        "description": "Configure advanced parameters for occupancy detection",
+                        "data": {
+                            "threshold": "Occupancy Threshold (%)",
+                            "decay_enabled": "Enable Time Decay",
+                            "decay_half_life": "Decay Half-Life",
+                            "min_prior_override": "Minimum Prior Override"
+                        },
+                        "data_description": {
+                            "threshold": "The probability threshold above which the area is considered occupied.",
+                            "decay_enabled": "Whether to enable time-based decay of occupancy probability.",
+                            "decay_half_life": "Time window over which occupancy probability decays by half. Set to 0 to use the purpose-based default value, or enter a value between 10 seconds and 1 hour to override. When set to 0, the system automatically uses the half-life value appropriate for the selected area purpose.",
+                            "min_prior_override": "The minimum prior probability that will be used regardless of learned patterns. The prior (baseline occupancy probability) will never drop below this value, useful for areas that should always have some baseline occupancy probability. Set to 0.0 to disable (default)."
+                        }
+                    }
+                }
+            },
+            "area_basics": {
+                "title": "{mode} Area: {area_name}",
+                "description": "Select the Home Assistant area and its primary purpose.",
+                "data": {
+                    "area_id": "Home Assistant Area",
+                    "purpose": "Area Purpose"
+                },
+                "data_description": {
+                    "area_id": "Select the Home Assistant area for this occupancy detection. The area name will be automatically used for the device and entities.",
+                    "purpose": "The primary purpose of this area determines decay behavior. Different purposes have different half-life values that affect how quickly occupancy probability decreases over time."
+                }
+            },
+            "area_motion": {
+                "title": "Motion Sensors — {area_name}",
+                "description": "Configure motion and presence sensors for this area. At least one motion sensor is required.",
+                "data": {
+                    "motion_sensors": "Motion/Presence Sensors",
+                    "weight_motion": "Motion Weight",
+                    "motion_timeout": "Motion Timeout",
+                    "motion_prob_given_true": "P(Active | Occupied)",
+                    "motion_prob_given_false": "P(Active | Not Occupied)"
+                },
+                "data_description": {
+                    "motion_sensors": "These will be used to detect occupancy and presence. They can be motion sensors, occupancy sensors, or presence sensors.",
+                    "weight_motion": "The weight given to motion sensor inputs in the occupancy calculation.",
+                    "motion_timeout": "This adds an additional timeout to historical motion sensor data.",
+                    "motion_prob_given_true": "The probability that a motion sensor is active when the area is actually occupied. Higher values (closer to 1.0) mean the motion sensor is more reliable when the area is occupied. Default: 0.95 (95%).",
+                    "motion_prob_given_false": "The probability that a motion sensor is active when the area is not occupied (false positive rate). Lower values (closer to 0.0) mean fewer false positives. Default: 0.005 (0.5%)."
+                }
+            },
+            "area_sensors": {
+                "title": "Additional Sensors — {area_name}",
+                "description": "Configure doors, windows, media players, appliances, environmental, and power sensors. All sections are optional.",
+                "sections": {
+                    "windows_and_doors": {
+                        "name": "Windows, Doors & Covers",
+                        "description": "Configure door, window, and cover sensors and their states",
+                        "data": {
+                            "door_sensors": "Door Sensors",
+                            "door_active_state": "Door Active State",
+                            "weight_door": "Door Weight",
+                            "window_sensors": "Window Sensors",
+                            "window_active_state": "Window Active State",
+                            "weight_window": "Window Weight",
+                            "cover_sensors": "Cover Sensors",
+                            "cover_active_states": "Cover Active States",
+                            "weight_cover": "Cover Weight"
+                        },
+                        "data_description": {
+                            "door_active_state": "This is the value your sensors report when the door is closed.",
+                            "weight_door": "The weight given to door sensor inputs in the occupancy calculation.",
+                            "window_active_state": "This is the state of the window that will be used to detect occupancy.",
+                            "weight_window": "The weight given to window sensor inputs in the occupancy calculation.",
+                            "cover_sensors": "Cover entities (blinds, shades, garage doors, shutters) that indicate occupancy when their state changes.",
+                            "cover_active_states": "The states of the covers that indicate occupancy (e.g., open, opening, closing).",
+                            "weight_cover": "The weight given to cover sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "media": {
+                        "name": "Media Players",
+                        "description": "Configure media players and their states",
+                        "data": {
+                            "media_devices": "Media Players",
+                            "media_active_states": "Media Active States",
+                            "weight_media": "Media Weight"
+                        },
+                        "data_description": {
+                            "media_active_states": "These are the states of the media players that will be used to detect occupancy.",
+                            "weight_media": "The weight given to media player inputs in the occupancy calculation."
+                        }
+                    },
+                    "appliances": {
+                        "name": "Appliances",
+                        "description": "Configure appliances and their states",
+                        "data": {
+                            "appliances": "Appliances",
+                            "appliance_active_states": "Appliance Active States",
+                            "weight_appliance": "Appliance Weight"
+                        },
+                        "data_description": {
+                            "appliance_active_states": "These are the states of the appliances that will be used to detect occupancy.",
+                            "weight_appliance": "The weight given to appliance inputs in the occupancy calculation."
+                        }
+                    },
+                    "environmental": {
+                        "name": "Environmental Sensors",
+                        "description": "Configure environmental sensors",
+                        "data": {
+                            "illuminance_sensors": "Illuminance Sensors",
+                            "humidity_sensors": "Humidity Sensors",
+                            "temperature_sensors": "Temperature Sensors",
+                            "co2_sensors": "CO2 Sensors",
+                            "co_sensors": "CO Sensors (Carbon Monoxide)",
+                            "sound_pressure_sensors": "Sound Pressure Sensors (Decibels)",
+                            "pressure_sensors": "Atmospheric Pressure Sensors",
+                            "air_quality_sensors": "Air Quality Index Sensors",
+                            "voc_sensors": "VOC Sensors (Volatile Organic Compounds)",
+                            "pm25_sensors": "PM2.5 Sensors (Particulate Matter)",
+                            "pm10_sensors": "PM10 Sensors (Particulate Matter)",
+                            "weight_environmental": "Environmental Weight"
+                        },
+                        "data_description": {
+                            "co2_sensors": "Carbon dioxide sensors that detect increased CO2 levels from human respiration, indicating occupancy.",
+                            "co_sensors": "Carbon monoxide sensors that detect increased CO levels from combustion sources and human activity (cooking, heating), indicating occupancy.",
+                            "sound_pressure_sensors": "Sound pressure sensors (decibels) that detect noise from human activity, indicating occupancy.",
+                            "pressure_sensors": "Atmospheric pressure sensors that detect subtle changes from HVAC and human presence, indicating occupancy.",
+                            "air_quality_sensors": "Air quality index sensors that detect general air quality changes, indicating occupancy.",
+                            "voc_sensors": "Volatile organic compound sensors that detect chemical signatures of human presence, indicating occupancy.",
+                            "pm25_sensors": "PM2.5 particulate matter sensors that detect fine particles from human activity, indicating occupancy.",
+                            "pm10_sensors": "PM10 particulate matter sensors that detect coarse particles from human activity, indicating occupancy.",
+                            "weight_environmental": "The weight given to environmental sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "power": {
+                        "name": "Power Sensors",
+                        "description": "Configure power consumption sensors",
+                        "data": {
+                            "power_sensors": "Power Sensors",
+                            "weight_power": "Power Weight"
+                        },
+                        "data_description": {
+                            "power_sensors": "Power sensors that measure power consumption (W/kW). When consumption is above baseline levels, it indicates active device usage and potential occupancy.",
+                            "weight_power": "The weight given to power sensor inputs in the occupancy calculation."
+                        }
+                    }
+                }
+            },
+            "area_behavior": {
+                "title": "Detection Behavior — {area_name}",
+                "description": "Configure occupancy threshold, time decay, and wasp-in-box detection.",
+                "data": {
+                    "threshold": "Occupancy Threshold (%)",
+                    "decay_enabled": "Enable Time Decay",
+                    "decay_half_life": "Decay Half-Life",
+                    "min_prior_override": "Minimum Prior Override",
+                    "exclude_from_all_areas": "Exclude from All Areas"
+                },
+                "data_description": {
+                    "threshold": "The probability threshold above which the area is considered occupied.",
+                    "decay_enabled": "Whether to enable time-based decay of occupancy probability.",
+                    "decay_half_life": "Time window over which occupancy probability decays by half. Set to 0 to use the purpose-based default value, or enter a value between 10 seconds and 1 hour to override.",
+                    "min_prior_override": "The minimum prior probability that will be used regardless of learned patterns. Set to 0.0 to disable (default).",
+                    "exclude_from_all_areas": "When enabled, this area won't contribute to the All Areas aggregate sensors. Useful for garages, driveways, and outdoor areas."
+                },
+                "sections": {
+                    "wasp_in_box": {
+                        "name": "Wasp in Box",
+                        "description": "Configure wasp-in-box behavior for single-entry rooms",
+                        "data": {
+                            "wasp_enabled": "Enable Wasp in Box",
+                            "wasp_motion_timeout": "Motion Timeout",
+                            "wasp_weight": "Sensor Weight",
+                            "wasp_max_duration": "Max Duration",
+                            "wasp_verification_delay": "Verification Delay"
+                        },
+                        "data_description": {
+                            "wasp_enabled": "Enable wasp-in-box behavior and entity for this area. Useful for single-entry rooms like bathrooms.",
+                            "wasp_motion_timeout": "How long motion remains valid after detection.",
+                            "wasp_weight": "The weight given to this sensor in the occupancy calculation.",
+                            "wasp_max_duration": "Maximum duration that the wasp-in-box stays active after the last detected motion.",
+                            "wasp_verification_delay": "The delay after closing the last door before any detected motion is considered as actual occupancy. (0 = disabled)."
+                        }
+                    }
+                }
+            },
+            "remove_area": {
+                "title": "Remove Area?",
+                "description": "Are you sure you want to remove this area and all its entities?",
+                "menu_options": {
+                    "confirm_remove_area": "Yes, remove area",
+                    "cancel_remove_area": "Cancel"
+                }
+            }
+        },
+        "error": {
+            "area_required": "Area selection is required.",
+            "area_not_found": "Selected area no longer exists in Home Assistant.",
+            "area_already_configured": "This area is already configured.",
+            "purpose_required": "Purpose is required.",
+            "motion_required": "At least one motion sensor is required.",
+            "prob_true_must_exceed_false": "P(Active | Occupied) must be greater than P(Active | Not Occupied).",
+            "invalid_threshold": "Threshold must be between 1 and 100.",
+            "invalid_weight": "Weight must be between 0 and 1.",
+            "invalid_decay_half_life": "Decay half-life must be 0 (use purpose default) or between 10 seconds and 1 hour.",
+            "media_states_required": "Media active states are required when media devices are configured.",
+            "appliance_states_required": "Appliance active states are required when appliances are configured.",
+            "door_state_required": "Door active state is required when door sensors are configured.",
+            "window_state_required": "Window active state is required when window sensors are configured.",
+            "cover_states_required": "Cover active states are required when cover sensors are configured.",
+            "person_entity_required": "A person entity is required.",
+            "sleep_sensor_required": "At least one sleep sensor is required.",
+            "sleep_area_required": "A sleep area is required.",
+            "confidence_not_number": "Confidence threshold must be a number.",
+            "invalid_selection": "Invalid selection. Please try again.",
+            "unknown": "An unexpected error occurred."
+        }
+    },
+    "options": {
+        "abort": {
+            "cannot_remove_last_area": "Cannot remove the last area. At least one area must remain configured.",
+            "reset_learning_failed": "Failed to reset the area's learned history. Check the Home Assistant log for details."
+        },
+        "step": {
+            "init": {
+                "title": "Area Occupancy Detection Options",
+                "description": "Configure areas, global settings, or manage people for occupancy detection.",
+                "menu_options": {
+                    "add_area": "Add New Area",
+                    "manage_areas": "Manage Areas",
+                    "global_settings": "Global Settings",
+                    "manage_people": "Manage People"
+                },
+                "menu_option_descriptions": {
+                    "add_area": "Configure a new room or zone for occupancy detection",
+                    "manage_areas": "Edit or remove previously configured areas",
+                    "global_settings": "Configure sleep schedule and other integration-wide settings",
+                    "manage_people": "Add, edit, or remove people for sleep presence detection"
+                }
+            },
+            "manage_areas": {
+                "title": "Manage Areas",
+                "description": "Select an area to edit or remove.",
+                "data": {
+                    "selected_option": "Select an area"
+                }
+            },
+            "area_action": {
+                "title": "Manage Area",
+                "description": "Choose an action for this area.",
+                "menu_options": {
+                    "edit_area": "Edit Area",
+                    "reset_learning_confirm": "Reset Learning",
+                    "remove_area_confirm": "Remove Area",
+                    "cancel_area_action": "Cancel"
+                }
+            },
+            "area_config": {
+                "title": "{mode} Area: {area_name}",
+                "description": "Configure sensors and parameters for this area.",
+                "data": {
+                    "area_id": "Home Assistant Area",
+                    "purpose": "Area Purpose",
+                    "name": "Name of Detection Area"
+                },
+                "data_description": {
+                    "area_id": "Select the Home Assistant area for this occupancy detection. The area name will be automatically used for the device and entities.",
+                    "purpose": "The primary purpose of this area determines decay behavior. Different purposes have different half-life values that affect how quickly occupancy probability decreases over time.",
+                    "name": "This is the name of the area or detection area. It will be used to name the sensors and the area occupancy entity."
+                },
+                "sections": {
+                    "motion": {
+                        "name": "Motion & Presence Sensors",
+                        "description": "Configure motion and presence sensors",
+                        "data": {
+                            "motion_sensors": "Motion/Presence Sensors",
+                            "weight_motion": "Motion Weight",
+                            "motion_timeout": "Motion Timeout",
+                            "motion_prob_given_true": "P(Active | Occupied)",
+                            "motion_prob_given_false": "P(Active | Not Occupied)"
+                        },
+                        "data_description": {
+                            "motion_sensors": "These will be used to detect occupancy and presence. They can be motion sensors, occupancy sensors, or presence sensors.",
+                            "weight_motion": "The weight given to motion sensor inputs in the occupancy calculation.",
+                            "motion_timeout": "This adds an additional timeout to historical motion sensor data. You can use this to effectively adjust the prior probability for the area and the likelihood of occupancy for any given sensor.",
+                            "motion_prob_given_true": "The probability that a motion sensor is active when the area is actually occupied. Higher values (closer to 1.0) mean the motion sensor is more reliable when the area is occupied. Default: 0.95 (95%).",
+                            "motion_prob_given_false": "The probability that a motion sensor is active when the area is not occupied (false positive rate). Lower values (closer to 0.0) mean fewer false positives. Default: 0.005 (0.5%)."
+                        }
+                    },
+                    "windows_and_doors": {
+                        "name": "Windows, Doors & Covers",
+                        "description": "Configure door, window, and cover sensors and their states",
+                        "data": {
+                            "door_sensors": "Door Sensors",
+                            "door_active_state": "Door Active State",
+                            "weight_door": "Door Weight",
+                            "window_sensors": "Window Sensors",
+                            "window_active_state": "Window Active State",
+                            "weight_window": "Window Weight",
+                            "cover_sensors": "Cover Sensors",
+                            "cover_active_states": "Cover Active States",
+                            "weight_cover": "Cover Weight"
+                        },
+                        "data_description": {
+                            "door_active_state": "This is the value your sensors report when the door is closed.",
+                            "weight_door": "The weight given to door sensor inputs in the occupancy calculation.",
+                            "window_active_state": "This is the state of the window that will be used to detect occupancy.",
+                            "weight_window": "The weight given to window sensor inputs in the occupancy calculation.",
+                            "cover_sensors": "Cover entities (blinds, shades, garage doors, shutters) that indicate occupancy when their state changes.",
+                            "cover_active_states": "The states of the covers that indicate occupancy (e.g., open, opening, closing).",
+                            "weight_cover": "The weight given to cover sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "wasp_in_box": {
+                        "name": "Wasp in Box",
+                        "description": "Configure wasp-in-box behavior for single-entry rooms",
+                        "data": {
+                            "wasp_enabled": "Enable Wasp in Box",
+                            "wasp_motion_timeout": "Motion Timeout",
+                            "wasp_weight": "Sensor Weight",
+                            "wasp_max_duration": "Max Duration",
+                            "wasp_verification_delay": "Verification Delay"
+                        },
+                        "data_description": {
+                            "wasp_enabled": "Enable wasp-in-box behavior and entity for this area.",
+                            "wasp_motion_timeout": "How long motion remains valid after detection.",
+                            "wasp_weight": "The weight given to this sensor in the occupancy calculation.",
+                            "wasp_max_duration": "Maximum duration that the wasp-in-box stays active after the last detected motion, even if no door opens. This is to end a false positive.",
+                            "wasp_verification_delay": "The delay after closing the last door before any detected motion is considered as actual occupancy. This gives time for the motion sensor to stop reporting motion. (0 = disabled)."
+                        }
+                    },
+                    "media": {
+                        "name": "Media Players",
+                        "description": "Configure media players and their states",
+                        "data": {
+                            "media_devices": "Media Players",
+                            "media_active_states": "Media Active States",
+                            "weight_media": "Media Weight"
+                        },
+                        "data_description": {
+                            "media_active_states": "These are the states of the media players that will be used to detect occupancy.",
+                            "weight_media": "The weight given to media player inputs in the occupancy calculation."
+                        }
+                    },
+                    "appliances": {
+                        "name": "Appliances",
+                        "description": "Configure appliances and their states",
+                        "data": {
+                            "appliances": "Appliances",
+                            "appliance_active_states": "Appliance Active States",
+                            "weight_appliance": "Appliance Weight"
+                        },
+                        "data_description": {
+                            "appliance_active_states": "These are the states of the appliances that will be used to detect occupancy.",
+                            "weight_appliance": "The weight given to appliance inputs in the occupancy calculation."
+                        }
+                    },
+                    "environmental": {
+                        "name": "Environmental Sensors",
+                        "description": "Configure environmental sensors",
+                        "data": {
+                            "illuminance_sensors": "Illuminance Sensors",
+                            "humidity_sensors": "Humidity Sensors",
+                            "temperature_sensors": "Temperature Sensors",
+                            "co2_sensors": "CO2 Sensors",
+                            "co_sensors": "CO Sensors (Carbon Monoxide)",
+                            "sound_pressure_sensors": "Sound Pressure Sensors (Decibels)",
+                            "pressure_sensors": "Atmospheric Pressure Sensors",
+                            "air_quality_sensors": "Air Quality Index Sensors",
+                            "voc_sensors": "VOC Sensors (Volatile Organic Compounds)",
+                            "pm25_sensors": "PM2.5 Sensors (Particulate Matter)",
+                            "pm10_sensors": "PM10 Sensors (Particulate Matter)",
+                            "weight_environmental": "Environmental Weight"
+                        },
+                        "data_description": {
+                            "co2_sensors": "Carbon dioxide sensors that detect increased CO2 levels from human respiration, indicating occupancy.",
+                            "co_sensors": "Carbon monoxide sensors that detect increased CO levels from combustion sources and human activity (cooking, heating), indicating occupancy.",
+                            "sound_pressure_sensors": "Sound pressure sensors (decibels) that detect noise from human activity, indicating occupancy.",
+                            "pressure_sensors": "Atmospheric pressure sensors that detect subtle changes from HVAC and human presence, indicating occupancy.",
+                            "air_quality_sensors": "Air quality index sensors that detect general air quality changes, indicating occupancy.",
+                            "voc_sensors": "Volatile organic compound sensors that detect chemical signatures of human presence, indicating occupancy.",
+                            "pm25_sensors": "PM2.5 particulate matter sensors that detect fine particles from human activity, indicating occupancy.",
+                            "pm10_sensors": "PM10 particulate matter sensors that detect coarse particles from human activity, indicating occupancy.",
+                            "weight_environmental": "The weight given to environmental sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "power": {
+                        "name": "Power Sensors",
+                        "description": "Configure power consumption sensors",
+                        "data": {
+                            "power_sensors": "Power Sensors",
+                            "weight_power": "Power Weight"
+                        },
+                        "data_description": {
+                            "power_sensors": "Power sensors that measure power consumption (W/kW). When consumption is above baseline levels, it indicates active device usage and potential occupancy.",
+                            "weight_power": "The weight given to power sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "parameters": {
+                        "name": "Advanced Parameters",
+                        "description": "Configure advanced parameters for occupancy detection",
+                        "data": {
+                            "threshold": "Occupancy Threshold (%)",
+                            "decay_enabled": "Enable Time Decay",
+                            "decay_half_life": "Decay Half-Life",
+                            "min_prior_override": "Minimum Prior Override"
+                        },
+                        "data_description": {
+                            "threshold": "The probability threshold above which the area is considered occupied.",
+                            "decay_enabled": "Whether to enable time-based decay of occupancy probability.",
+                            "decay_half_life": "Time window over which occupancy probability decays by half. Set to 0 to use the purpose-based default value, or enter a value between 10 seconds and 1 hour to override. When set to 0, the system automatically uses the half-life value appropriate for the selected area purpose.",
+                            "min_prior_override": "The minimum prior probability that will be used regardless of learned patterns. The prior (baseline occupancy probability) will never drop below this value, useful for areas that should always have some baseline occupancy probability. Set to 0.0 to disable (default)."
+                        }
+                    }
+                }
+            },
+            "area_basics": {
+                "title": "{mode} Area: {area_name}",
+                "description": "Select the Home Assistant area and its primary purpose.",
+                "data": {
+                    "area_id": "Home Assistant Area",
+                    "purpose": "Area Purpose"
+                },
+                "data_description": {
+                    "area_id": "Select the Home Assistant area for this occupancy detection. The area name will be automatically used for the device and entities.",
+                    "purpose": "The primary purpose of this area determines decay behavior. Different purposes have different half-life values that affect how quickly occupancy probability decreases over time."
+                }
+            },
+            "area_motion": {
+                "title": "Motion Sensors — {area_name}",
+                "description": "Configure motion and presence sensors for this area. At least one motion sensor is required.",
+                "data": {
+                    "motion_sensors": "Motion/Presence Sensors",
+                    "weight_motion": "Motion Weight",
+                    "motion_timeout": "Motion Timeout",
+                    "motion_prob_given_true": "P(Active | Occupied)",
+                    "motion_prob_given_false": "P(Active | Not Occupied)"
+                },
+                "data_description": {
+                    "motion_sensors": "These will be used to detect occupancy and presence. They can be motion sensors, occupancy sensors, or presence sensors.",
+                    "weight_motion": "The weight given to motion sensor inputs in the occupancy calculation.",
+                    "motion_timeout": "This adds an additional timeout to historical motion sensor data.",
+                    "motion_prob_given_true": "The probability that a motion sensor is active when the area is actually occupied. Higher values (closer to 1.0) mean the motion sensor is more reliable when the area is occupied. Default: 0.95 (95%).",
+                    "motion_prob_given_false": "The probability that a motion sensor is active when the area is not occupied (false positive rate). Lower values (closer to 0.0) mean fewer false positives. Default: 0.005 (0.5%)."
+                }
+            },
+            "area_sensors": {
+                "title": "Additional Sensors — {area_name}",
+                "description": "Configure doors, windows, media players, appliances, environmental, and power sensors. All sections are optional.",
+                "sections": {
+                    "windows_and_doors": {
+                        "name": "Windows, Doors & Covers",
+                        "description": "Configure door, window, and cover sensors and their states",
+                        "data": {
+                            "door_sensors": "Door Sensors",
+                            "door_active_state": "Door Active State",
+                            "weight_door": "Door Weight",
+                            "window_sensors": "Window Sensors",
+                            "window_active_state": "Window Active State",
+                            "weight_window": "Window Weight",
+                            "cover_sensors": "Cover Sensors",
+                            "cover_active_states": "Cover Active States",
+                            "weight_cover": "Cover Weight"
+                        },
+                        "data_description": {
+                            "door_active_state": "This is the value your sensors report when the door is closed.",
+                            "weight_door": "The weight given to door sensor inputs in the occupancy calculation.",
+                            "window_active_state": "This is the state of the window that will be used to detect occupancy.",
+                            "weight_window": "The weight given to window sensor inputs in the occupancy calculation.",
+                            "cover_sensors": "Cover entities (blinds, shades, garage doors, shutters) that indicate occupancy when their state changes.",
+                            "cover_active_states": "The states of the covers that indicate occupancy (e.g., open, opening, closing).",
+                            "weight_cover": "The weight given to cover sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "media": {
+                        "name": "Media Players",
+                        "description": "Configure media players and their states",
+                        "data": {
+                            "media_devices": "Media Players",
+                            "media_active_states": "Media Active States",
+                            "weight_media": "Media Weight"
+                        },
+                        "data_description": {
+                            "media_active_states": "These are the states of the media players that will be used to detect occupancy.",
+                            "weight_media": "The weight given to media player inputs in the occupancy calculation."
+                        }
+                    },
+                    "appliances": {
+                        "name": "Appliances",
+                        "description": "Configure appliances and their states",
+                        "data": {
+                            "appliances": "Appliances",
+                            "appliance_active_states": "Appliance Active States",
+                            "weight_appliance": "Appliance Weight"
+                        },
+                        "data_description": {
+                            "appliance_active_states": "These are the states of the appliances that will be used to detect occupancy.",
+                            "weight_appliance": "The weight given to appliance inputs in the occupancy calculation."
+                        }
+                    },
+                    "environmental": {
+                        "name": "Environmental Sensors",
+                        "description": "Configure environmental sensors",
+                        "data": {
+                            "illuminance_sensors": "Illuminance Sensors",
+                            "humidity_sensors": "Humidity Sensors",
+                            "temperature_sensors": "Temperature Sensors",
+                            "co2_sensors": "CO2 Sensors",
+                            "co_sensors": "CO Sensors (Carbon Monoxide)",
+                            "sound_pressure_sensors": "Sound Pressure Sensors (Decibels)",
+                            "pressure_sensors": "Atmospheric Pressure Sensors",
+                            "air_quality_sensors": "Air Quality Index Sensors",
+                            "voc_sensors": "VOC Sensors (Volatile Organic Compounds)",
+                            "pm25_sensors": "PM2.5 Sensors (Particulate Matter)",
+                            "pm10_sensors": "PM10 Sensors (Particulate Matter)",
+                            "weight_environmental": "Environmental Weight"
+                        },
+                        "data_description": {
+                            "co2_sensors": "Carbon dioxide sensors that detect increased CO2 levels from human respiration, indicating occupancy.",
+                            "co_sensors": "Carbon monoxide sensors that detect increased CO levels from combustion sources and human activity (cooking, heating), indicating occupancy.",
+                            "sound_pressure_sensors": "Sound pressure sensors (decibels) that detect noise from human activity, indicating occupancy.",
+                            "pressure_sensors": "Atmospheric pressure sensors that detect subtle changes from HVAC and human presence, indicating occupancy.",
+                            "air_quality_sensors": "Air quality index sensors that detect general air quality changes, indicating occupancy.",
+                            "voc_sensors": "Volatile organic compound sensors that detect chemical signatures of human presence, indicating occupancy.",
+                            "pm25_sensors": "PM2.5 particulate matter sensors that detect fine particles from human activity, indicating occupancy.",
+                            "pm10_sensors": "PM10 particulate matter sensors that detect coarse particles from human activity, indicating occupancy.",
+                            "weight_environmental": "The weight given to environmental sensor inputs in the occupancy calculation."
+                        }
+                    },
+                    "power": {
+                        "name": "Power Sensors",
+                        "description": "Configure power consumption sensors",
+                        "data": {
+                            "power_sensors": "Power Sensors",
+                            "weight_power": "Power Weight"
+                        },
+                        "data_description": {
+                            "power_sensors": "Power sensors that measure power consumption (W/kW). When consumption is above baseline levels, it indicates active device usage and potential occupancy.",
+                            "weight_power": "The weight given to power sensor inputs in the occupancy calculation."
+                        }
+                    }
+                }
+            },
+            "area_behavior": {
+                "title": "Detection Behavior — {area_name}",
+                "description": "Configure occupancy threshold, time decay, and wasp-in-box detection.",
+                "data": {
+                    "threshold": "Occupancy Threshold (%)",
+                    "decay_enabled": "Enable Time Decay",
+                    "decay_half_life": "Decay Half-Life",
+                    "min_prior_override": "Minimum Prior Override",
+                    "exclude_from_all_areas": "Exclude from All Areas"
+                },
+                "data_description": {
+                    "threshold": "The probability threshold above which the area is considered occupied.",
+                    "decay_enabled": "Whether to enable time-based decay of occupancy probability.",
+                    "decay_half_life": "Time window over which occupancy probability decays by half. Set to 0 to use the purpose-based default value, or enter a value between 10 seconds and 1 hour to override.",
+                    "min_prior_override": "The minimum prior probability that will be used regardless of learned patterns. Set to 0.0 to disable (default).",
+                    "exclude_from_all_areas": "When enabled, this area won't contribute to the All Areas aggregate sensors. Useful for garages, driveways, and outdoor areas."
+                },
+                "sections": {
+                    "wasp_in_box": {
+                        "name": "Wasp in Box",
+                        "description": "Configure wasp-in-box behavior for single-entry rooms",
+                        "data": {
+                            "wasp_enabled": "Enable Wasp in Box",
+                            "wasp_motion_timeout": "Motion Timeout",
+                            "wasp_weight": "Sensor Weight",
+                            "wasp_max_duration": "Max Duration",
+                            "wasp_verification_delay": "Verification Delay"
+                        },
+                        "data_description": {
+                            "wasp_enabled": "Enable wasp-in-box behavior and entity for this area. Useful for single-entry rooms like bathrooms.",
+                            "wasp_motion_timeout": "How long motion remains valid after detection.",
+                            "wasp_weight": "The weight given to this sensor in the occupancy calculation.",
+                            "wasp_max_duration": "Maximum duration that the wasp-in-box stays active after the last detected motion.",
+                            "wasp_verification_delay": "The delay after closing the last door before any detected motion is considered as actual occupancy. (0 = disabled)."
+                        }
+                    }
+                }
+            },
+            "remove_area": {
+                "title": "Remove Area?",
+                "description": "Are you sure you want to remove this area and all its entities?",
+                "menu_options": {
+                    "confirm_remove_area": "Yes, remove area",
+                    "cancel_remove_area": "Cancel"
+                }
+            },
+            "reset_learning": {
+                "title": "Reset learned history?",
+                "description": "This wipes the area's learned occupancy history (priors, correlations, intervals, and caches) without removing the area or any of its sensor configuration. The next analysis cycle will start rebuilding from current Home Assistant recorder data.\n\nUse this if the area's behavior has gone stale (e.g. the room's usage pattern changed, or you reconfigured sensors and the old learning is interfering).",
+                "menu_options": {
+                    "confirm_reset_learning": "Yes, reset learning",
+                    "cancel_reset_learning": "Cancel"
+                }
+            },
+            "global_settings": {
+                "title": "Global Settings",
+                "description": "Configure global settings that apply to all areas",
+                "data": {
+                    "sleep_start": "Sleep Start Time",
+                    "sleep_end": "Sleep End Time",
+                    "health_enabled": "Sensor health monitoring"
+                },
+                "data_description": {
+                    "sleep_start": "The time when your sleep schedule begins. Areas with the 'Sleeping' purpose will use their configured decay half-life during this period.",
+                    "sleep_end": "The time when your sleep schedule ends. Areas with the 'Sleeping' purpose will behave like 'Relaxing' areas outside of sleep hours.",
+                    "health_enabled": "When enabled, the integration raises Home Assistant repair issues for stuck, unavailable, or never-triggered sensors and for slow or failing analysis cycles. Turn off to silence all repairs from this integration; previously raised issues will be cleared on the next analysis cycle."
+                }
+            },
+            "manage_people": {
+                "title": "Manage People",
+                "description": "Configure people for sleep presence detection. Each person needs a Home Assistant person entity and a sleep confidence sensor from the Companion App.",
+                "data": {
+                    "selected_option": "Select a person"
+                }
+            },
+            "person_action": {
+                "title": "Manage Person",
+                "description": "Choose an action for this person.",
+                "menu_options": {
+                    "edit_person": "Edit Person",
+                    "remove_person_confirm": "Remove Person",
+                    "cancel_person_action": "Cancel"
+                }
+            },
+            "remove_person": {
+                "title": "Remove Person?",
+                "description": "Are you sure you want to remove this person from sleep tracking?",
+                "menu_options": {
+                    "confirm_remove_person": "Yes, remove person",
+                    "cancel_remove_person": "Cancel"
+                }
+            },
+            "person_config": {
+                "title": "Configure Person",
+                "description": "Configure a person's sleep tracking. The person entity provides home/away state. Sleep sensors can be numeric (e.g., sleep confidence 0-100%) or binary (e.g., in-bed sensor).",
+                "data": {
+                    "person_entity": "Person",
+                    "sleep_sensors": "Sleep Sensors",
+                    "sleep_area_id": "Sleep Area",
+                    "confidence_threshold": "Sleep Confidence Threshold (%)",
+                    "device_tracker": "Device Tracker"
+                },
+                "data_description": {
+                    "person_entity": "Select the Home Assistant person entity. This provides home/not_home state.",
+                    "sleep_sensors": "Select one or more sleep detection sensors. Supports numeric sensors (e.g., sleep confidence 0-100%) and binary sensors (e.g., in-bed sensor, Sleep Focus). Any active sensor means the person is sleeping.",
+                    "sleep_area_id": "Select the area where this person sleeps (e.g., bedroom).",
+                    "confidence_threshold": "Minimum percentage to consider the person as sleeping. Only applies to numeric sensors. Default: 75%.",
+                    "device_tracker": "Home/away detection with a specific device tracker entity. When set, this is used instead of the person entity's state. Leave empty to use the person entity."
+                }
+            }
+        },
+        "error": {
+            "area_required": "Area selection is required.",
+            "area_not_found": "Selected area no longer exists in Home Assistant.",
+            "area_already_configured": "This area is already configured.",
+            "purpose_required": "Purpose is required.",
+            "motion_required": "At least one motion sensor is required.",
+            "prob_true_must_exceed_false": "P(Active | Occupied) must be greater than P(Active | Not Occupied).",
+            "invalid_threshold": "Threshold must be between 1 and 100.",
+            "invalid_weight": "Weight must be between 0 and 1.",
+            "invalid_decay_half_life": "Decay half-life must be 0 (use purpose default) or between 10 seconds and 1 hour.",
+            "media_states_required": "Media active states are required when media devices are configured.",
+            "appliance_states_required": "Appliance active states are required when appliances are configured.",
+            "door_state_required": "Door active state is required when door sensors are configured.",
+            "window_state_required": "Window active state is required when window sensors are configured.",
+            "cover_states_required": "Cover active states are required when cover sensors are configured.",
+            "person_entity_required": "A person entity is required.",
+            "sleep_sensor_required": "At least one sleep sensor is required.",
+            "sleep_area_required": "A sleep area is required.",
+            "confidence_not_number": "Confidence threshold must be a number.",
+            "invalid_selection": "Invalid selection. Please try again.",
+            "unknown": "An unexpected error occurred."
+        }
+    },
+    "entity": {
+        "binary_sensor": {
+            "occupancy_status": {
+                "name": "Occupancy Status"
+            },
+            "wasp_in_box": {
+                "name": "Wasp in Box"
+            },
+            "sleeping": {
+                "name": "Sleeping"
+            }
+        },
+        "sensor": {
+            "occupancy_probability": {
+                "name": "Occupancy Probability"
+            },
+            "prior_probability": {
+                "name": "Prior Probability"
+            },
+            "decay_status": {
+                "name": "Decay Status"
+            },
+            "detected_activity": {
+                "name": "Detected Activity",
+                "state": {
+                    "bathing": "Bathing",
+                    "cooking": "Cooking",
+                    "eating": "Eating",
+                    "idle": "Idle",
+                    "listening_to_music": "Listening to Music",
+                    "showering": "Showering",
+                    "sleeping": "Sleeping",
+                    "unoccupied": "Unoccupied",
+                    "watching_tv": "Watching TV",
+                    "working": "Working"
+                }
+            },
+            "activity_confidence": {
+                "name": "Activity Confidence"
+            }
+        },
+        "number": {
+            "threshold": {
+                "name": "Occupancy Threshold"
+            }
+        }
+    },
+    "issues": {
+        "sensor_health_stuck_active": {
+            "title": "{entity_id} appears stuck in {area}",
+            "description": "The {sensor_type} sensor **{entity_id}** in **{area}** has been continuously active for {duration}h, which exceeds the expected threshold for this sensor type.\n\nThis may indicate a hardware malfunction (e.g. a stuck PIR sensor), a connectivity issue, or an automation keeping the device in an unexpected state.\n\n**What to do:**\n- Check the physical sensor for obstructions or damage\n- Verify Zigbee/Z-Wave connectivity\n- Restart the device or replace the battery\n\nThis issue will resolve automatically when the sensor changes state."
+        },
+        "sensor_health_stuck_inactive": {
+            "title": "{entity_id} hasn't triggered in {area}",
+            "description": "The {sensor_type} sensor **{entity_id}** in **{area}** has not changed state for {duration}h, which is unusually long for this sensor type.\n\nThis may indicate the sensor is offline, has a dead battery, or is misconfigured.\n\n**What to do:**\n- Check the physical sensor and battery level\n- Verify the sensor is still paired and reachable\n- Check if the entity's active state mapping is correct in the integration configuration\n\nThis issue will resolve automatically when the sensor changes state."
+        },
+        "sensor_health_unavailable": {
+            "title": "{entity_id} is offline in {area}",
+            "description": "The {sensor_type} sensor **{entity_id}** in **{area}** has been unavailable for {duration}h.\n\nThe integration is currently falling back to learned priors for this area, which reduces occupancy detection accuracy.\n\n**What to do:**\n- Check the device battery level\n- Verify Zigbee/Z-Wave network connectivity\n- Re-pair the device if necessary\n- Check if the device's integration (e.g. Zigbee2MQTT) is running\n\nThis issue will resolve automatically when the sensor comes back online."
+        },
+        "sensor_health_never_triggered": {
+            "title": "{entity_id} may be misconfigured in {area}",
+            "description": "The {sensor_type} sensor **{entity_id}** in **{area}** has never been active in {duration}h of monitoring.\n\nThis sensor is not contributing any useful data to occupancy detection. It may be misconfigured (wrong active state), broken, or not appropriate for this area.\n\n**What to do:**\n- Verify the sensor's active state mapping matches the actual device behavior\n- Check if the device is functional by triggering it manually\n- Consider removing it from the area configuration if it's not needed\n\nThis issue will resolve automatically if the sensor triggers."
+        },
+        "pipeline_health_insufficient_priors": {
+            "title": "Priors haven't trained for {area}",
+            "description": "The integration has been running for {duration} in **{area}** but no global occupancy prior has been learned yet. Without a learned prior, every Bayesian update falls back to a minimum baseline, reducing accuracy.\n\n{details}\n\n**What to do:**\n- Confirm that motion sensors are configured and triggering — they're the ground truth used for prior learning\n- Check that the Home Assistant recorder is retaining at least 7 days of history for the configured sensors\n- Look for a `correlation_failures` repair below — many failed correlations starve prior learning too\n\nThis issue will resolve automatically once enough historical occupancy is recorded for the area."
+        },
+        "pipeline_health_stale_intervals_cache": {
+            "title": "Occupancy data hasn't refreshed for {area}",
+            "description": "The occupied-intervals cache for **{area}** is {duration} old. The hourly analysis pipeline rebuilds this cache from your sensor history; if it stops refreshing, prior learning and correlation analysis silently degrade.\n\n{details}\n\n**What to do:**\n- Check the Home Assistant logs for `Area Occupancy Detection` errors during the analysis pipeline\n- Verify the `recorder` integration is healthy (the cache is built from recorder history)\n- Try the **Run Analysis** service to force a rebuild\n\nThis issue will resolve automatically when the next successful analysis cycle rebuilds the cache."
+        },
+        "pipeline_health_slow_analysis": {
+            "title": "Analysis cycle is slow for {area}",
+            "description": "The most recent analysis cycle took longer than 3 minutes. This usually indicates a database under pressure, a very large sensor / area count, or a long-running correlation run.\n\n{details}\n\n**What to do:**\n- Check `Settings → System → Repairs` for related warnings\n- If the database is large, consider lowering retention via integration options\n- Open a GitHub issue with a downloaded diagnostic if the slowness persists across cycles\n\nThis issue will resolve automatically when the next analysis cycle completes within the threshold."
+        },
+        "pipeline_health_correlation_failures": {
+            "title": "Sensor correlation analysis is failing in {area}",
+            "description": "Half or more of the correlatable sensors in **{area}** failed correlation analysis on the last cycle. Without correlations, sensors fall back to default likelihoods and the integration can't learn how reliable each one is for *your* installation.\n\n{details}\n\n**What to do:**\n- Open the integration's downloaded diagnostics and check each entity's `analysis_error` field\n- Common causes: insufficient historical data (`too_few_samples`), no occupied periods to compare against (`no_occupied_intervals`), or sensors that never change state\n- Confirm motion sensors are configured and triggering — they're the ground truth used to score every other sensor\n\nThis issue will resolve automatically once enough sensors complete correlation analysis successfully."
+        }
+    }
+}

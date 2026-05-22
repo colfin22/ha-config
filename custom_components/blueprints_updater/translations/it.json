@@ -1,0 +1,194 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configura Blueprints Updater",
+        "description": "Vuoi configurare Blueprints Updater? Scansionerà i tuoi blueprint locali e cercherà aggiornamenti.",
+        "data": {
+          "auto_update": "Abilita aggiornamento automatico",
+          "use_cdn": "Usa jsDelivr CDN per GitHub",
+          "update_interval": "Intervallo di aggiornamento (ore)",
+          "filter_mode": "Modalità filtro",
+          "selected_blueprints": "Blueprints (opzionale)",
+          "max_backups": "Numero massimo di versioni di backup"
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "È consentita una sola istanza di Blueprints Updater."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Impostazioni",
+        "description": "Configura le opzioni e le impostazioni di Blueprints Updater.",
+        "data": {
+          "auto_update": "Abilita aggiornamento automatico",
+          "use_cdn": "Usa jsDelivr CDN per GitHub",
+          "update_interval": "Intervallo di aggiornamento (ore)",
+          "filter_mode": "Modalità filtro",
+          "selected_blueprints": "Blueprint selezionati",
+          "max_backups": "Numero massimo di versioni di backup"
+        }
+      }
+    }
+  },
+  "selector": {
+    "filter_mode": {
+      "options": {
+        "all": "Aggiorna tutto",
+        "whitelist": "Whitelist (Aggiorna solo i blueprint selezionati)",
+        "blacklist": "Blacklist (Non aggiornare i blueprint selezionati)"
+      }
+    }
+  },
+  "entity": {
+    "update": {
+      "blueprint": {
+        "name": "{name}"
+      }
+    }
+  },
+  "services": {
+    "reload": {
+      "name": "Ricarica i blueprint",
+      "description": "Scansiona tutti i blueprint locali per nuovi file e controlla immediatamente gli aggiornamenti."
+    },
+    "restore_blueprint": {
+      "name": "Ripristina Blueprint",
+      "description": "Ripristina un blueprint da un file di backup numerato (.bak.1, .bak.2, ecc.) si disponibile.",
+      "fields": {
+        "entity_id": {
+          "name": "Entità Blueprint",
+          "description": "L'entità di aggiornamento del blueprint che desideri ripristinare."
+        },
+        "version": {
+          "name": "Versione backup",
+          "description": "Quale versione di backup ripristinare (1 = la più recente, 2 = più vecchia, ecc.)"
+        }
+      }
+    },
+    "update_all": {
+      "name": "Aggiorna tutti i Blueprint",
+      "description": "Scarica e installa automaticamente tutti gli aggiornamenti dei blueprint disponibili simultaneamente.",
+      "fields": {
+        "backup": {
+          "name": "Crea backup",
+          "description": "Crea file di backup numerati per tutti i blueprint aggiornati prima di sovrascriverli."
+        }
+      }
+    },
+    "import_blueprint": {
+      "name": "Importa Blueprint",
+      "description": "Scarica e installa un blueprint da un URL.",
+      "fields": {
+        "url": {
+          "name": "URL del Blueprint",
+          "description": "L'URL del blueprint. Supporta link YAML diretti o URL di provider (GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket)."
+        },
+        "confirm": {
+          "name": "Conferma fonte esterna",
+          "description": "Richiesto per confermare l'importazione da fonti esterne/non verificate."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "missing_entity_id": {
+      "message": "Parametro entity_id mancante."
+    },
+    "invalid_entity": {
+      "message": "Entità aggiornamento blueprint non valida."
+    },
+    "not_found": {
+      "message": "File blueprint originale non trovato."
+    },
+    "success": {
+      "message": "Backup ripristinato con successo."
+    },
+    "missing_backup": {
+      "message": "File di backup mancante. Un backup potrebbe non essere stato creato durante l'aggiornamento precedente."
+    },
+    "invalid_version": {
+      "message": "Versione backup non valida {version}. Deve essere compresa tra 1 e {max_backups}."
+    },
+    "system_error": {
+      "message": "Errore di sistema durante il ripristino: {error}"
+    },
+    "missing_url": {
+      "message": "Parametro URL mancante."
+    },
+    "no_coordinator": {
+      "message": "Nessun coordinatore attivo trovato. Controlla la configurazione dell'integrazione."
+    },
+    "confirmation_required": {
+      "message": "L'importazione da fonti esterne richiede una conferma esplicita. Seleziona la casella 'Conferma'."
+    },
+    "unsupported_source": {
+      "message": "Fonte non supportata. Sono supportati solo GitHub, GitHub Gist, Home Assistant Community, GitLab, Codeberg, Bitbucket e link YAML diretti."
+    },
+    "import_path_conflict": {
+      "message": "Un blueprint con questo nome esiste già da una fonte diversa ({existing_url}). Rimuovilo prima per evitare conflitti."
+    },
+    "invalid_content_type": {
+      "message": "Tipo di contenuto non valido: {content_type}. Atteso text/plain o YAML."
+    },
+    "invalid_yaml": {
+      "message": "Il file importato non è un blueprint YAML valido."
+    },
+    "empty_content": {
+      "message": "Contenuto vuoto ricevuto"
+    },
+    "fetch_error": {
+      "message": "Errore di recupero: {error}"
+    },
+    "unsafe_url": {
+      "message": "URL non sicuro: {url}"
+    },
+    "unsafe_path": {
+      "message": "Il percorso di destinazione non è sicuro: {path}"
+    },
+    "validation_error": {
+      "message": "Errore di validazione: {error}"
+    },
+    "import_invalid_source_type": {
+      "message": "Tipo di source_url non valido: {type}. Prevista una stringa (string)."
+    }
+  },
+  "common": {
+    "auto_update_title": "Blueprints Updater: Aggiornamento automatico effettuato",
+    "auto_update_message": "I seguenti blueprint sono stati aggiornati automaticamente:\n\n{blueprints}",
+    "update_available_short": "Aggiornamento disponibile",
+    "update_available": "Aggiornamento disponibile da {source_url}",
+    "update_safety_message": "Suggerimento: Si consiglia di abilitare l'opzione di backup prima di installare gli aggiornamenti.",
+    "usage_warning": "Attenzione: questo aggiornamento interesserà [{count} {domain} in esecuzione]({usage_url}).",
+    "up_to_date": "Aggiornato",
+    "install_error": "Impossibile installare il blueprint: {error}. Il file remoto contiene errori e non può essere applicato in sicurezza.",
+    "invalid_blueprint": "Blueprint non valido: Chiave radice 'blueprint' mancante",
+    "incompatible": "Incompatibile: {errors}",
+    "validation_error": "Errore di validazione: {error}",
+    "empty_content": "Contenuto vuoto ricevuto",
+    "yaml_syntax_error": "Errore di sintassi YAML: {error}",
+    "fetch_error": "Errore di recupero: {error}",
+    "processing_error": "Errore di elaborazione: {error}",
+    "auto_update_failed": "Aggiornamento automatico fallito: {error}",
+    "unsafe_url": "URL non sicuro: {url}",
+    "unsafe_path": "Il percorso di destinazione non è sicuro: {path}",
+    "content_missing": "Il contenuto del blueprint è mancante o non è stato possibile recuperarlo.",
+    "git_diff_title": "Modifiche al codice (Git Diff)",
+    "semantic_sync_notice": "Questo blueprint è semanticamente identico, ma richiede un aggiornamento strutturale per allinearsi al nuovo formato canonico (es. normalizzazione dei fine riga, inserimento di metadati).",
+    "breaking_risks_title": "[ATTENZIONE] POTENZIALI INCOMPATIBILITÀ",
+    "auto_update_blocked_by_breaking_change": "Aggiornamento automatico bloccato per {name} a causa di potenziali incompatibilità rilevate",
+    "risk_new_mandatory": "Nuovo input obbligatorio {input} aggiunto.",
+    "risk_missing_input": "All'entità {entity} manca l'input obbligatorio {input} richiesto dalla nuova versione.",
+    "risk_removed_input": "Input {input} rimosso, ma attualmente utilizzato da {count} entità.",
+    "risk_selector_mismatch": "Tipo di selettore modificato per {input}: da {old_type} a {new_type} (interessa {count} entità).",
+    "risk_validation_failed_blueprint": "Il nuovo contenuto del blueprint non è valido: {error}",
+    "risk_unknown": "Errore sconosciuto",
+    "risk_compatibility": "Errore di compatibilità per {entity}: {error}",
+    "risk_system_error": "Errore di sistema: {error}",
+    "breaking_risks_report": "L'aggiornamento automatico per {name} è stato bloccato a scopo precauzionale. Rischi rilevati:\n{risks}\n\nSi prega di rivedere e installare manualmente se corretto.",
+    "auto_update_blocked_by_system_error": "Aggiornamento automatico per {name} sospeso per un errore imprevisto durante il controllo di compatibilità."
+  }
+}

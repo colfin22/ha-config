@@ -1,0 +1,63 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dawarich",
+        "description": "Bitte geben Sie Ihre Dawarich Daten ein",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "name": "Name",
+          "mobile_app": "Geräte Tracker",
+          "ssl": " SSL gebrauchen (i.e. https)",
+          "verify_ssl": "SSL verifizieren"
+        }
+      },
+      "api_key": {
+        "title": "Dawarich",
+        "description": " Bitte geben Sie ihre Dawarich Daten ein ",
+        "data": {
+          "api_key": "API Schlüssel"
+        }
+      }
+    },
+    "error": {
+      "connection_error": "Verbindungsfehler, konnte Dawarich API nicht erreichen.",
+      "invalid_api_key": "Ungültiger API Schlüssel."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_distance": {
+        "name": "Ganze Strecke"
+      },
+      "total_points_tracked": {
+        "name": "Alle Punkte",
+        "unit_of_measurement": "Punkte"
+      },
+      "total_reverse_geocoded_points": {
+        "name": "Alle umgekehrten geokoordinierten Punkte",
+        "unit_of_measurement": "Punkte"
+      },
+      "total_countries_visited": {
+        "name": "Besuchte Länder",
+        "unit_of_measurement": "Länder"
+      },
+      "total_cities_visited": {
+        "name": "Alle besuchten Städte",
+        "unit_of_measurement": "Städte"
+      },
+      "last_update": {
+        "name": "Letztes Update",
+        "state": {
+          "unknown": "Unbekannt",
+          "success": "Erfolgreich",
+          "error": "Fehler"
+        }
+      },
+      "version": {
+        "name": "Version"
+      }
+    }
+  }
+}

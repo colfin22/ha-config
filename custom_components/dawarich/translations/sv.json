@@ -1,0 +1,64 @@
+{
+  "config": {
+    "title": "Dawarich",
+    "step": {
+      "user": {
+        "title": "Dawarich",
+        "description": "Vänligen ange dina Dawarich-uppgifter",
+        "data": {
+          "host": "Värd",
+          "port": "Port",
+          "name": "Namn",
+          "mobile_app": "Enhetspårare",
+          "ssl": "Använd SSL (d.v.s. https)",
+          "verify_ssl": "Verifiera SSL"
+        }
+      },
+      "api_key": {
+        "title": "Dawarich",
+        "description": "Vänligen ange dina Dawarich-uppgifter",
+        "data": {
+          "api_key": "API-nyckel"
+        }
+      }
+    },
+    "error": {
+      "connection_error": "Anslutningsfel, kunde inte nå Dawarich API.",
+      "invalid_api_key": "Ogiltig API-nyckel."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "total_distance": {
+        "name": "Totalt avstånd"
+      },
+      "total_points_tracked": {
+        "name": "Spårade punkter",
+        "unit_of_measurement": "punkter"
+      },
+      "total_reverse_geocoded_points": {
+        "name": "Omvändgeokodade punkter",
+        "unit_of_measurement": "punkter"
+      },
+      "total_countries_visited": {
+        "name": "Besökta länder",
+        "unit_of_measurement": "länder"
+      },
+      "total_cities_visited": {
+        "name": "Besökta städer",
+        "unit_of_measurement": "städer"
+      },
+      "last_update": {
+        "name": "Senaste uppdatering",
+        "state": {
+          "unknown": "Okänd",
+          "success": "Lyckades",
+          "error": "Misslyckades"
+        }
+      },
+      "version": {
+        "name": "Version"
+      }
+    }
+  }
+}

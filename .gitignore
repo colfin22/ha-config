@@ -1,0 +1,59 @@
+# HA secrets - never commit
+secrets.yaml
+
+# SSH keys
+.ssh/
+
+# HA runtime and auth storage
+.storage/
+.cloud/
+
+# Database
+home-assistant_v2.db
+home-assistant_v2.db-shm
+home-assistant_v2.db-wal
+
+# Logs and locks
+*.log
+*.log.*
+home-assistant.log.fault
+.ha_run.lock
+
+# Third-party managed configs with embedded credentials
+zigbee2mqtt/
+go2rtc.yaml
+
+# Binaries
+go2rtc-*
+
+# Hub configs
+harmony_*.conf
+
+# Runtime / generated dirs
+.cache/
+tts/
+image/
+llmvision/
+llm_images/
+media/
+nest/
+deps/
+
+# Jukebox generated files
+www/jukebox/
+
+# Large reinstallable frontend assets
+www/weather-icons/
+www/community/
+
+# Python cache
+**/__pycache__/
+*.pyc
+
+# Blueprint backups
+*.bak.*
+
+# Misc
+watchman_report.txt
+mikrotik_error.txt
+git_status.txt

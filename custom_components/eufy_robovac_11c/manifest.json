@@ -1,0 +1,12 @@
+{
+  "domain": "eufy_robovac_11c",
+  "name": "Eufy RoboVac 11c",
+  "documentation": "https://github.com/jonjomckay/home-assistant-eufy-robovac-11c",
+  "issue_tracker": "https://github.com/jonjomckay/home-assistant-eufy-robovac-11c/issues",
+  "dependencies": [],
+  "config_flow": true,
+  "codeowners": ["@jonjomckay"],
+  "requirements": [
+    "robovac==0.0.9"
+  ]
+}

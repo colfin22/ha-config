@@ -1,0 +1,11 @@
+#template:
+- trigger:
+    - trigger: state
+      entity_id: event.front_door_chime
+      not_from:
+        - unknown
+        - unavailable
+  binary_sensor:
+    - name: front_doorbell_motion_detected
+      auto_off: 15
+      state: "true"
