@@ -12,3 +12,15 @@
       state: 'on'
       brightness: 102
   icon: mdi:brightness-3
+- id: landing_bright
+  name: Landing Bright
+  entities:
+    light.landing_1:
+      state: 'on'
+      brightness: 255
+- id: landing_dimmed
+  name: Landing Dimmed
+  entities:
+    light.landing_1:
+      state: 'on'
+      brightness: 77

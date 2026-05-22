@@ -2031,3 +2031,41 @@
         message: '{{ message }}'
       action: notify.mobile_app_np3
   mode: single
+- id: '1779464893871'
+  alias: Landing - Occupancy Lighting
+  description: Activates landing light on motion when lux > 2. Bright scene 07:00-22:00,
+    Dimmed 22:00-07:00. Resets 3-min timer on re-trigger. Fades off over 5s.
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.landing_motion_sensor_occupancy
+    to: 'on'
+  conditions:
+  - condition: numeric_state
+    entity_id: sensor.landing_motion_sensor_illuminance
+    above: 2
+  actions:
+  - choose:
+    - conditions:
+      - condition: time
+        after: 07:00:00
+        before: '22:00:00'
+      sequence:
+      - action: scene.turn_on
+        target:
+          entity_id: scene.landing_bright
+    default:
+    - action: scene.turn_on
+      target:
+        entity_id: scene.landing_dimmed
+  - delay: 00:02:55
+  - action: light.turn_on
+    target:
+      entity_id: light.landing_1
+    data:
+      brightness: 1
+      transition: 5
+  - delay: 00:00:05
+  - action: light.turn_off
+    target:
+      entity_id: light.landing_1
+  mode: restart
