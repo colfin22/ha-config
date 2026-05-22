@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "counter",
+  "data": {
+    "items": [
+      {
+        "id": "dishwasher_run_cycle_counter",
+        "name": "Dishwasher Run Cycle Counter",
+        "icon": "mdi:dishwasher",
+        "initial": 1,
+        "minimum": null,
+        "maximum": null,
+        "step": 1,
+        "restore": true
+      },
+      {
+        "id": "washing_machine_cycle_counter",
+        "name": "Washing Machine Cycle Counter",
+        "icon": "mdi:washing-machine",
+        "initial": 1,
+        "minimum": null,
+        "maximum": null,
+        "step": 1,
+        "restore": true
+      },
+      {
+        "id": "tumble_dryer_cycle_counter",
+        "name": "Tumble Dryer Cycle Counter",
+        "icon": "mdi:tumble-dryer",
+        "initial": 0,
+        "minimum": null,
+        "maximum": null,
+        "step": 1,
+        "restore": true
+      },
+      {
+        "id": "dishwasher_weekly_cycles",
+        "name": "Dishwasher Weekly Cycles",
+        "icon": "mdi:dishwasher",
+        "initial": 0,
+        "minimum": 0,
+        "restore": true,
+        "maximum": null,
+        "step": 1
+      },
+      {
+        "id": "washing_machine_weekly_cycles",
+        "name": "Washing Machine Weekly Cycles",
+        "icon": "mdi:washing-machine",
+        "initial": 0,
+        "minimum": 0,
+        "restore": true,
+        "maximum": null,
+        "step": 1
+      },
+      {
+        "id": "tumble_dryer_weekly_cycles",
+        "name": "Tumble Dryer Weekly Cycles",
+        "icon": "mdi:tumble-dryer",
+        "initial": 0,
+        "minimum": 0,
+        "restore": true,
+        "maximum": null,
+        "step": 1
+      }
+    ]
+  }
+}

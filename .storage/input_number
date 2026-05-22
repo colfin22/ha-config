@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "input_number",
+  "data": {
+    "items": [
+      {
+        "id": "electricity_rate",
+        "min": 0.01,
+        "max": 1.0,
+        "name": "Electricity Rate",
+        "icon": "mdi:currency-eur",
+        "unit_of_measurement": "EUR/kWh",
+        "mode": "slider",
+        "step": 0.01
+      },
+      {
+        "id": "dishwasher_energy_tracking_start_number_helper",
+        "min": 0.0,
+        "max": 100.0,
+        "name": "Dishwasher Energy Tracking - Start Number Helper",
+        "mode": "slider",
+        "step": 1.0
+      },
+      {
+        "id": "dishwasher_energy_tracking_end_number_helper",
+        "min": 0.0,
+        "max": 100.0,
+        "name": "Dishwasher Energy Tracking - End Number Helper",
+        "mode": "slider",
+        "step": 1.0
+      },
+      {
+        "id": "washing_machine_energy_tracking_start_number_helper",
+        "min": 0.0,
+        "max": 100.0,
+        "name": "Washing Machine Energy Tracking - Start Number Helper",
+        "mode": "slider",
+        "step": 1.0
+      },
+      {
+        "id": "washing_machine_energy_tracking_end_number_helper",
+        "min": 0.0,
+        "max": 100.0,
+        "name": "Washing Machine Energy Tracking - End Number Helper",
+        "mode": "slider",
+        "step": 1.0
+      },
+      {
+        "id": "tumble_dryer_energy_tracking_start_number_helper",
+        "min": 0.0,
+        "max": 100.0,
+        "name": "Tumble Dryer Energy Tracking - Start Number Helper",
+        "mode": "slider",
+        "step": 1.0
+      },
+      {
+        "id": "tumble_dryer_energy_tracking_end_number_helper",
+        "min": 0.0,
+        "max": 100.0,
+        "name": "Tumble Dryer Energy Tracking - End Number Helper",
+        "mode": "slider",
+        "step": 1.0
+      },
+      {
+        "id": "yesterday_solar_generated",
+        "name": "Yesterday Solar Generated",
+        "icon": "mdi:solar-power",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "yesterday_grid_import",
+        "name": "Yesterday Grid Import",
+        "icon": "mdi:transmission-tower-import",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "yesterday_grid_export",
+        "name": "Yesterday Grid Export",
+        "icon": "mdi:transmission-tower-export",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "yesterday_import_cost",
+        "name": "Yesterday Import Cost",
+        "icon": "mdi:currency-eur",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.0001,
+        "unit_of_measurement": "EUR",
+        "mode": "box"
+      },
+      {
+        "id": "yesterday_export_compensation",
+        "name": "Yesterday Export Compensation",
+        "icon": "mdi:currency-eur",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.0001,
+        "unit_of_measurement": "EUR",
+        "mode": "box"
+      },
+      {
+        "id": "yesterday_eddi_diverted",
+        "name": "Yesterday Eddi Diverted",
+        "icon": "mdi:water-boiler",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "away_lat",
+        "name": "Away Lat",
+        "icon": "mdi:latitude",
+        "min": -90.0,
+        "max": 90.0,
+        "step": 0.0001,
+        "mode": "box"
+      },
+      {
+        "id": "away_lon",
+        "name": "Away Lon",
+        "icon": "mdi:longitude",
+        "min": -180.0,
+        "max": 180.0,
+        "step": 0.0001,
+        "mode": "box"
+      },
+      {
+        "id": "grid_import_at_8am_baseline",
+        "name": "Grid Import at 8am Baseline",
+        "icon": "mdi:transmission-tower-import",
+        "min": 0.0,
+        "max": 999.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "import_kwh_at_8am",
+        "name": "Import kWh at 8am",
+        "icon": "mdi:transmission-tower-import",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "import_kwh_at_5pm",
+        "name": "Import kWh at 5pm",
+        "icon": "mdi:transmission-tower-import",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "import_kwh_at_7pm",
+        "name": "Import kWh at 7pm",
+        "icon": "mdi:transmission-tower-import",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "import_kwh_at_11pm",
+        "name": "Import kWh at 11pm",
+        "icon": "mdi:transmission-tower-import",
+        "min": 0.0,
+        "max": 1000.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      }
+    ]
+  }
+}

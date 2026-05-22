@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "minor_version": 3,
+  "key": "core.floor_registry",
+  "data": {
+    "floors": [
+      {
+        "aliases": [],
+        "floor_id": "attic",
+        "icon": null,
+        "level": 2,
+        "name": "2 Attic",
+        "created_at": "1970-01-01T00:00:00+00:00",
+        "modified_at": "2025-02-05T19:21:42.565179+00:00"
+      },
+      {
+        "aliases": [],
+        "floor_id": "upstairs",
+        "icon": null,
+        "level": 1,
+        "name": "1 Upstairs",
+        "created_at": "1970-01-01T00:00:00+00:00",
+        "modified_at": "2025-02-05T19:21:35.052245+00:00"
+      },
+      {
+        "aliases": [],
+        "floor_id": "downstairs",
+        "icon": null,
+        "level": 0,
+        "name": "0 Downstairs",
+        "created_at": "1970-01-01T00:00:00+00:00",
+        "modified_at": "2025-02-05T19:21:25.515103+00:00"
+      }
+    ]
+  }
+}

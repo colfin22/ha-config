@@ -1,0 +1,325 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace",
+  "data": {
+    "config": {
+      "views": [
+        {
+          "type": "masonry",
+          "path": "downstairs",
+          "title": "Downstairs",
+          "cards": [
+            {
+              "type": "picture-elements",
+              "elements": [
+                {
+                  "type": "state-label",
+                  "entity": "climate.hallway",
+                  "attribute": "current_temperature",
+                  "style": {
+                    "left": "85%",
+                    "top": "30%",
+                    "color": "red"
+                  }
+                },
+                {
+                  "type": "state-icon",
+                  "entity": "light.sitting_room_stand",
+                  "icon": "mdi:lightbulb",
+                  "state_color": true,
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "perform-action",
+                    "perform_action": "light.turn_off",
+                    "target": {}
+                  },
+                  "style": {
+                    "left": "50%",
+                    "top": "50%",
+                    "color": "yellow"
+                  }
+                }
+              ],
+              "image": "/api/image/serve/f72d71a403d44928c803193c8c95b48b/512x512",
+              "title": "Downstairs"
+            }
+          ],
+          "theme": "slate"
+        },
+        {
+          "title": "Upstairs",
+          "sections": [],
+          "type": "masonry",
+          "cards": [
+            {
+              "type": "picture-elements",
+              "elements": [],
+              "image": "/api/image/serve/9b3c3b4de171a890e4f6a54f60e1e8b7/512x512",
+              "title": "Upstairs",
+              "theme": "Google Theme"
+            }
+          ],
+          "theme": "slate"
+        },
+        {
+          "type": "masonry",
+          "title": "CCTV",
+          "path": "cctv",
+          "cards": [
+            {
+              "type": "custom:frigate-card",
+              "cameras": [
+                {
+                  "camera_entity": "camera.front_van"
+                }
+              ],
+              "view": {
+                "default": "live"
+              },
+              "status_bar": {
+                "style": "hover",
+                "items": {
+                  "technology": {
+                    "enabled": false
+                  }
+                }
+              },
+              "dimensions": {
+                "aspect_ratio_mode": "dynamic"
+              }
+            },
+            {
+              "type": "custom:frigate-card",
+              "cameras": [
+                {
+                  "camera_entity": "camera.front_car"
+                }
+              ],
+              "view": {
+                "default": "live"
+              },
+              "status_bar": {
+                "style": "hover",
+                "items": {
+                  "resolution": {
+                    "enabled": true
+                  },
+                  "technology": {
+                    "enabled": false
+                  }
+                }
+              },
+              "dimensions": {
+                "aspect_ratio_mode": "dynamic"
+              }
+            },
+            {
+              "type": "custom:frigate-card",
+              "cameras": [
+                {
+                  "camera_entity": "camera.rear_door"
+                }
+              ],
+              "view": {
+                "default": "live"
+              },
+              "status_bar": {
+                "style": "hover",
+                "items": {
+                  "technology": {
+                    "enabled": false
+                  }
+                }
+              },
+              "dimensions": {
+                "aspect_ratio_mode": "dynamic"
+              }
+            },
+            {
+              "type": "custom:frigate-card",
+              "cameras": [
+                {
+                  "camera_entity": "camera.rear_shed"
+                }
+              ],
+              "view": {
+                "default": "live"
+              },
+              "status_bar": {
+                "style": "hover",
+                "items": {
+                  "technology": {
+                    "enabled": false
+                  }
+                }
+              },
+              "dimensions": {
+                "aspect_ratio_mode": "dynamic"
+              }
+            }
+          ],
+          "theme": "slate"
+        },
+        {
+          "type": "masonry",
+          "path": "sitting-room",
+          "title": "Sitting Room",
+          "cards": [
+            {
+              "camera_view": "auto",
+              "type": "picture-glance",
+              "title": "Sitting Room",
+              "image": "https://demo.home-assistant.io/stub_config/kitchen.png",
+              "entities": [
+                {
+                  "entity": "light.sitting_room"
+                },
+                {
+                  "entity": "light.sitting_room_tv_lightstrip"
+                },
+                {
+                  "entity": "light.sitting_room_stand"
+                }
+              ],
+              "theme": "slate"
+            }
+          ],
+          "theme": "slate"
+        },
+        {
+          "type": "masonry",
+          "path": "kitchen",
+          "title": "Kitchen",
+          "cards": [
+            {
+              "camera_view": "auto",
+              "type": "picture-glance",
+              "title": "Kitchen",
+              "image": "https://demo.home-assistant.io/stub_config/kitchen.png",
+              "entities": [
+                {
+                  "entity": "light.kitchen"
+                },
+                {
+                  "entity": "light.kitchen_tv_lightstrip"
+                },
+                {
+                  "entity": "light.kitchen_1"
+                },
+                {
+                  "entity": "light.kitchen_2"
+                },
+                {
+                  "entity": "light.kitchen_3"
+                }
+              ],
+              "theme": "slate"
+            }
+          ],
+          "theme": "slate"
+        },
+        {
+          "type": "masonry",
+          "title": "Colm Bedroom",
+          "path": "colm-bedroom",
+          "sections": [],
+          "theme": "slate",
+          "cards": [
+            {
+              "alert_classes": [
+                "motion",
+                "moisture"
+              ],
+              "sensor_classes": [
+                "temperature",
+                "humidity"
+              ],
+              "type": "area",
+              "area": "colm_bedroom",
+              "theme": "Google Theme"
+            }
+          ]
+        },
+        {
+          "type": "masonry",
+          "path": "cian-bedroom",
+          "title": "Cian Bedroom",
+          "cards": [],
+          "theme": "slate"
+        },
+        {
+          "type": "masonry",
+          "title": "Aoife Bedroom",
+          "path": "aoife-bedroom",
+          "sections": [],
+          "cards": [],
+          "theme": "slate"
+        },
+        {
+          "type": "masonry",
+          "path": "office",
+          "title": "Office",
+          "theme": "slate",
+          "cards": []
+        },
+        {
+          "type": "sections",
+          "title": "Downstairs",
+          "cards": [
+            {
+              "type": "picture-elements",
+              "elements": [
+                {
+                  "type": "state-label",
+                  "entity": "climate.hallway",
+                  "attribute": "current_temperature",
+                  "style": {
+                    "left": "85%",
+                    "top": "30%",
+                    "color": "red"
+                  }
+                },
+                {
+                  "type": "state-icon",
+                  "entity": "light.sitting_room_stand",
+                  "icon": "mdi:lightbulb",
+                  "state_color": true,
+                  "tap_action": {
+                    "action": "toggle"
+                  },
+                  "hold_action": {
+                    "action": "perform-action",
+                    "perform_action": "light.turn_off",
+                    "target": {}
+                  },
+                  "style": {
+                    "left": "50%",
+                    "top": "50%",
+                    "color": "yellow"
+                  }
+                }
+              ],
+              "image": "/api/image/serve/f72d71a403d44928c803193c8c95b48b/512x512",
+              "title": "Downstairs"
+            }
+          ],
+          "theme": "slate",
+          "sections": [
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "New section"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

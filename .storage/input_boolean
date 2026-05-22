@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "input_boolean",
+  "data": {
+    "items": [
+      {
+        "id": "colm_away",
+        "name": "Colm away",
+        "icon": "mdi:eye"
+      },
+      {
+        "id": "olivia_away",
+        "name": "Olivia away",
+        "icon": "mdi:eye"
+      }
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "minor_version": 3,
+  "key": "tag",
+  "data": {
+    "items": [
+      {
+        "id": "fbee8eb4-c45a-44f1-aad4-9f5655f43f1a"
+      },
+      {
+        "id": "f195ee10-14a9-4b65-bd10-c53c9866bcdf",
+        "last_scanned": "2026-05-15T18:40:47.142617+00:00",
+        "device_id": "002753768c371c4f05a272c7e1e0f93c"
+      },
+      {
+        "id": "393b5201-6ab5-4b7e-a195-4cd26aa89776",
+        "last_scanned": "2026-05-21T21:04:22.537594+00:00",
+        "device_id": "002753768c371c4f05a272c7e1e0f93c"
+      }
+    ]
+  }
+}

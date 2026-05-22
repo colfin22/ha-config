@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "minor_version": 2,
+  "key": "input_select",
+  "data": {
+    "items": [
+      {
+        "id": "dishwasher_run_status",
+        "name": "Dishwasher Run Status",
+        "icon": "mdi:dishwasher",
+        "options": [
+          "Scrubbing Away!",
+          "All Done!"
+        ]
+      },
+      {
+        "id": "washing_machine_run_status",
+        "name": "Washing Machine Run Status",
+        "icon": "mdi:washing-machine",
+        "options": [
+          "All Done!",
+          "Washing"
+        ]
+      },
+      {
+        "id": "tumble_dryer_run_status",
+        "name": "Tumble Dryer Run Status",
+        "icon": "mdi:tumble-dryer",
+        "options": [
+          "All Done!",
+          "Drying"
+        ]
+      }
+    ]
+  }
+}

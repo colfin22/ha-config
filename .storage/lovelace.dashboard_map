@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace.dashboard_map",
+  "data": {
+    "config": {
+      "views": [
+        {
+          "type": "panel",
+          "title": "Map",
+          "icon": "mdi:map",
+          "cards": [
+            {
+              "type": "map",
+              "auto_fit": true,
+              "entities": [
+                "person.colm_finn",
+                "person.olivia_finn",
+                "person.cian_finn",
+                "zone.home"
+              ],
+              "theme_mode": "auto"
+            }
+          ],
+          "visible": [
+            {
+              "user": "5aa07e1f90c44da2aab995628305cb52"
+            },
+            {
+              "user": "da11950c94184bf281a21b4b1a06cdb7"
+            },
+            {
+              "user": "848fa8f992bb47d6a23f498d73717814"
+            },
+            {
+              "user": "bfe92889b07b4798901d5d48a789262f"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

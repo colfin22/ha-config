@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "schedule",
+  "data": {
+    "items": [
+      {
+        "id": "night_scene_mon_sun",
+        "monday": [
+          {
+            "from": "00:00:00",
+            "to": "05:30:00"
+          }
+        ],
+        "wednesday": [
+          {
+            "from": "00:00:00",
+            "to": "05:30:00"
+          }
+        ],
+        "tuesday": [
+          {
+            "from": "00:00:00",
+            "to": "05:30:00"
+          }
+        ],
+        "thursday": [
+          {
+            "from": "00:00:00",
+            "to": "05:30:00"
+          }
+        ],
+        "friday": [
+          {
+            "from": "00:00:00",
+            "to": "05:30:00"
+          }
+        ],
+        "saturday": [
+          {
+            "from": "00:00:00",
+            "to": "05:30:00"
+          }
+        ],
+        "sunday": [
+          {
+            "from": "00:00:00",
+            "to": "05:30:00"
+          }
+        ],
+        "name": "night_scene_mon-sun"
+      },
+      {
+        "id": "comfort_scene",
+        "name": "comfort scene",
+        "saturday": [
+          {
+            "from": "05:00:00",
+            "to": "11:30:00"
+          }
+        ],
+        "sunday": [
+          {
+            "from": "05:00:00",
+            "to": "11:30:00"
+          }
+        ],
+        "monday": [
+          {
+            "from": "05:00:00",
+            "to": "11:30:00"
+          }
+        ],
+        "tuesday": [
+          {
+            "from": "05:00:00",
+            "to": "11:30:00"
+          }
+        ],
+        "wednesday": [
+          {
+            "from": "05:00:00",
+            "to": "11:30:00"
+          }
+        ],
+        "thursday": [
+          {
+            "from": "05:00:00",
+            "to": "11:30:00"
+          }
+        ],
+        "friday": [
+          {
+            "from": "05:00:00",
+            "to": "11:30:00"
+          }
+        ],
+        "icon": "mdi:heating-coil"
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "input_datetime",
+  "data": {
+    "items": [
+      {
+        "id": "parcel_box_last_delivery",
+        "name": "Parcel Box Last Delivery",
+        "has_date": true,
+        "has_time": true,
+        "icon": "mdi:package"
+      },
+      {
+        "id": "parcel_box_last_collection",
+        "has_time": true,
+        "has_date": true,
+        "name": "Parcel Box Last Collection",
+        "icon": "mdi:package-check"
+      }
+    ]
+  }
+}

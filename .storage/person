@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "minor_version": 1,
+  "key": "person",
+  "data": {
+    "items": [
+      {
+        "id": "12_the_oaks",
+        "name": "Colm Finn",
+        "user_id": "da11950c94184bf281a21b4b1a06cdb7",
+        "device_trackers": [
+          "device_tracker.np3"
+        ],
+        "picture": "/api/image/serve/3bba5246cd03bbff96e16476de5bb9c1/512x512"
+      },
+      {
+        "id": "daire_finn",
+        "name": "Daire Finn",
+        "device_trackers": [],
+        "user_id": "848fa8f992bb47d6a23f498d73717814",
+        "picture": "/api/image/serve/997583f78468bc297269eae3ba92c462/512x512"
+      },
+      {
+        "id": "olivia_finn",
+        "name": "Olivia Finn",
+        "device_trackers": [
+          "device_tracker.pixel_6a"
+        ],
+        "user_id": "bfe92889b07b4798901d5d48a789262f",
+        "picture": "/api/image/serve/910126ab343bc0e9d3cdf2eb87a614ad/512x512"
+      },
+      {
+        "id": "cian_finn",
+        "name": "Cian Finn",
+        "device_trackers": [
+          "device_tracker.pixel_7a"
+        ],
+        "user_id": "5aa07e1f90c44da2aab995628305cb52",
+        "picture": "/api/image/serve/6d32c323710a5db34c2f70aa894e8955/512x512"
+      },
+      {
+        "id": "aoife_finn",
+        "name": "Aoife Finn",
+        "device_trackers": [],
+        "user_id": null,
+        "picture": "/api/image/serve/b3f0e81d13597da87439ffab22b9997c/512x512"
+      }
+    ]
+  }
+}

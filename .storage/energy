@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "minor_version": 3,
+  "key": "energy",
+  "data": {
+    "energy_sources": [
+      {
+        "type": "solar",
+        "stat_energy_from": "sensor.myenergi_eddi_generated_today",
+        "config_entry_solar_forecast": [
+          "01JXPJMG6BC05FZFQB0TV873RK",
+          "01K40SHTJ10NC784ZR0EEM2HTG",
+          "01K40SPFD7K6MKP6MQ6KJSRFWS"
+        ],
+        "stat_rate": "sensor.myenergi_eddi_power_generation"
+      },
+      {
+        "type": "battery",
+        "stat_energy_from": "sensor.battery_discharged_total",
+        "stat_energy_to": "sensor.battery_charged_total",
+        "power_config": {
+          "stat_rate": "sensor.battery_flow_now_inverted"
+        },
+        "stat_rate": "sensor.battery_flow_now_inverted"
+      },
+      {
+        "type": "grid",
+        "stat_energy_from": "sensor.myenergi_eddi_grid_import_today",
+        "stat_energy_to": "sensor.myenergi_eddi_grid_export_today",
+        "stat_cost": null,
+        "stat_compensation": null,
+        "entity_energy_price": "input_number.electricity_rate",
+        "number_energy_price": null,
+        "entity_energy_price_export": null,
+        "number_energy_price_export": 0.19,
+        "cost_adjustment_day": 0.0,
+        "power_config": {
+          "stat_rate": "sensor.myenergi_eddi_power_grid"
+        },
+        "stat_rate": "sensor.myenergi_eddi_power_grid"
+      }
+    ],
+    "device_consumption": [
+      {
+        "stat_consumption": "sensor.colm_pc_socket_energy_today",
+        "stat_rate": "sensor.colm_pc_socket_power"
+      },
+      {
+        "stat_consumption": "sensor.colm_sim_rig_socket_energy_today",
+        "stat_rate": "sensor.colm_sim_rig_socket_power"
+      },
+      {
+        "stat_consumption": "sensor.dishwasher_socket_energy_today",
+        "stat_rate": "sensor.dishwasher_socket_power"
+      },
+      {
+        "stat_consumption": "sensor.tumble_dryer_socket_energy_today",
+        "stat_rate": "sensor.tumble_dryer_socket_power"
+      },
+      {
+        "stat_consumption": "sensor.washing_machine_socket_energy_today",
+        "stat_rate": "sensor.washing_machine_socket_power"
+      },
+      {
+        "stat_consumption": "sensor.attic_nas_socket_energy_today",
+        "stat_rate": "sensor.attic_nas_socket_power"
+      },
+      {
+        "stat_consumption": "sensor.attic_network_stack_socket_energy_today",
+        "stat_rate": "sensor.attic_network_stack_socket_power"
+      }
+    ],
+    "device_consumption_water": []
+  }
+}

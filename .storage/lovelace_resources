@@ -1,0 +1,139 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace_resources",
+  "data": {
+    "items": [
+      {
+        "id": "9fa6ccd1a9394be7a918de5abe7ddc39",
+        "url": "/hacsfiles/ha-floorplan/floorplan.js?hacstag=188323494113",
+        "type": "module"
+      },
+      {
+        "id": "73a9f8a1dea04a8fb7e31b1c38cfb1b3",
+        "url": "/hacsfiles/garbage-collection-card/garbage-collection-card.js?hacstag=2070182001241",
+        "type": "module"
+      },
+      {
+        "id": "45c8fbcd59f84428a316b2af21f3bf83",
+        "url": "/hacsfiles/frigate-hass-card/frigate-hass-card.js?hacstag=394082552651",
+        "type": "module"
+      },
+      {
+        "id": "bafd971413ea41ceb00ab13b3698c91a",
+        "url": "/hacsfiles/my-cards/my-cards.js?hacstag=399108901106",
+        "type": "module"
+      },
+      {
+        "id": "06354bb8e733487e9d0ce2fe98d96af5",
+        "url": "/hacsfiles/button-card/button-card.js?hacstag=146194325430",
+        "type": "module"
+      },
+      {
+        "id": "5c2de537914d4ddbbc0f0da4e632d287",
+        "url": "/hacsfiles/lovelace-card-mod/card-mod.js?hacstag=190927524345",
+        "type": "module"
+      },
+      {
+        "id": "96111904be4b427cb59379af5ab865d3",
+        "url": "/hacsfiles/lovelace-layout-card/layout-card.js?hacstag=156434866245",
+        "type": "module"
+      },
+      {
+        "id": "9741b9a0ad3043daa24897125a9cf4e7",
+        "url": "/webrtc/webrtc-camera.js?v=v3.6.1",
+        "type": "module"
+      },
+      {
+        "id": "942d3da1788e465cafd6363295bc860e",
+        "url": "/hacsfiles/mushroom-strategy/mushroom-strategy.js?hacstag=619284862240",
+        "type": "module"
+      },
+      {
+        "id": "4a86e0ee53f44ae78f91455ec1200527",
+        "url": "/hacsfiles/lovelace-mushroom/mushroom.js?hacstag=444350375450",
+        "type": "module"
+      },
+      {
+        "id": "6aefe0bb890b46efbc5903953d2e6d4a",
+        "url": "/hacsfiles/mini-graph-card/mini-graph-card-bundle.js?hacstag=1512800620130",
+        "type": "module"
+      },
+      {
+        "id": "b7eb36f4ebf9458c83b63e98ba719c7a",
+        "url": "/hacsfiles/advanced-camera-card/advanced-camera-card.js?hacstag=3940825527170",
+        "type": "module"
+      },
+      {
+        "id": "9fdab41b23ca40bfb76637ec2d5120bc",
+        "url": "/hacsfiles/energy-sankey/energy-sankey.js?hacstag=8757988630027",
+        "type": "css"
+      },
+      {
+        "id": "1de5bc6ac6914a6f9fda0ad35bba7d6d",
+        "url": "/hacsfiles/Bubble-Card/bubble-card.js?hacstag=680112919321",
+        "type": "module"
+      },
+      {
+        "id": "be3e797adf164098b8114a6a8a16e6b9",
+        "url": "/hacsfiles/lovelace-state-switch/state-switch.js?hacstag=158756598196",
+        "type": "module"
+      },
+      {
+        "id": "d4813e780dc248ee97fd2eb78f9e2cf3",
+        "url": "/hacsfiles/tabbed-card/tabbed-card.js?hacstag=452866308033",
+        "type": "module"
+      },
+      {
+        "id": "9374bc294b944309b89f4d3a0dd2993d",
+        "url": "/local/strategy-pack.es.js",
+        "type": "module"
+      },
+      {
+        "id": "080924d3819948b3a3acf2e02ab774a4",
+        "url": "/browser_mod.js?automatically-added&2.13.3",
+        "type": "module"
+      },
+      {
+        "id": "9ad886b2398c425cb7c0276425d8591d",
+        "url": "/hacsfiles/apexcharts-card/apexcharts-card.js",
+        "type": "module"
+      },
+      {
+        "id": "a280e483fbcf47baaf26b5df4532e982",
+        "url": "/hacsfiles/swipe-card/swipe-card.js?hacstag=192732887500",
+        "type": "module"
+      },
+      {
+        "id": "ebdd6f33f9a541ef8164aa029fbaf8ca",
+        "url": "/hacsfiles/hass-swipe-navigation/swipe-navigation.js?hacstag=5017254791160",
+        "type": "module"
+      },
+      {
+        "id": "2fdf0118008d4c99991ca8dcb67b65b4",
+        "url": "/hacsfiles/atmospheric-weather-card/atmospheric-weather-card.js?hacstag=114503784845",
+        "type": "module"
+      },
+      {
+        "id": "812ff7f6863e4dd8898b2ae5c0d3532e",
+        "url": "/hacsfiles/platinum-weather-card/platinum-weather-card.js?hacstag=488086721105",
+        "type": "module"
+      },
+      {
+        "id": "c8ae491804204e1c88904ce7813e2e45",
+        "url": "/hacsfiles/clock-weather-card/clock-weather-card.js",
+        "type": "module"
+      },
+      {
+        "id": "6ea4bce91a564b8f8ef8afd04351251b",
+        "url": "/hacsfiles/mini-media-player/mini-media-player-bundle.js?hacstag=14852083811612",
+        "type": "module"
+      },
+      {
+        "id": "1ff8fec70dca4a128dcc393efc97256c",
+        "url": "/hacsfiles/alarmo-card/alarmo-card.js?hacstag=391372854169",
+        "type": "module"
+      }
+    ]
+  }
+}
