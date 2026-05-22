@@ -83,8 +83,8 @@
   alias: Brother Printer Auto Power Cycle
   description: ''
   triggers:
-  - trigger: time_pattern
-    minutes: '15'
+  - minutes: '15'
+    platform: time_pattern
   conditions:
   - condition: time
     after: 07:00:00
@@ -101,20 +101,20 @@
   - choose:
     - conditions:
       - condition: state
-        entity_id: binary_sensor.10_0_20_252
+        entity_id: binary_sensor.brother_printer
         state: 'on'
       sequence: []
     - conditions:
       - condition: state
-        entity_id: binary_sensor.10_0_20_252
+        entity_id: binary_sensor.brother_printer
         state: 'off'
       sequence:
       - target:
-          entity_id: switch.brother_printer
+          entity_id: switch.brother_printer_socket
         action: switch.turn_off
       - delay: 00:00:10
       - target:
-          entity_id: switch.brother_printer
+          entity_id: switch.brother_printer_socket
         action: switch.turn_on
   mode: single
 - id: '1767042274860'
