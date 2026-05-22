@@ -2033,8 +2033,9 @@
   mode: single
 - id: '1779464893871'
   alias: Landing - Occupancy Lighting
-  description: Activates landing light on motion when lux ≤ 2. Bright scene 07:00-22:00,
-    Dimmed 22:00-07:00. Resets 3-min timer on re-trigger. Fades off over 5s.
+  description: Activates landing light on motion when lux ≤ 2. Bright scene when sun
+    elevation > -6° and before 22:00, dimmed otherwise. Resets 3-min timer on re-trigger.
+    Fades off over 5s.
   triggers:
   - platform: state
     entity_id: binary_sensor.landing_motion_sensor_occupancy
@@ -2046,8 +2047,11 @@
   actions:
   - choose:
     - conditions:
+      - condition: numeric_state
+        entity_id: sun.sun
+        attribute: elevation
+        above: -6
       - condition: time
-        after: 07:00:00
         before: '22:00:00'
       sequence:
       - action: scene.turn_on
