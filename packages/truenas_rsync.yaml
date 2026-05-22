@@ -1,17 +1,16 @@
-truenas_rsync:
-  rest:
-    - resource: "http://10.0.0.254/api/v2.0/rsynctask"
-      headers:
-        Authorization: !secret truenas_api_key
-      scan_interval: 300
-      binary_sensor:
-        - name: "TrueNAS Rsync Failures"
-          unique_id: truenas_rsync_failures
-          value_template: >
-            {{ value_json | selectattr('job.state', 'in', ['FAILED', 'ABORTED']) | list | length > 0 }}
-          device_class: problem
-      sensor:
-        - name: "TrueNAS Rsync Failed Paths"
-          unique_id: truenas_rsync_failed_paths
-          value_template: >
-            {{ value_json | selectattr('job.state', 'in', ['FAILED', 'ABORTED']) | map(attribute='path') | list |join(', ') or 'none' }}
+rest:
+  - resource: "http://10.0.0.254/api/v2.0/rsynctask"
+    headers:
+      Authorization: !secret truenas_api_key
+    scan_interval: 300
+    binary_sensor:
+      - name: "TrueNAS Rsync Failures"
+        unique_id: truenas_rsync_failures
+        value_template: >
+          {{ value_json | selectattr('job.state', 'in', ['FAILED', 'ABORTED']) | list | length > 0 }}
+        device_class: problem
+    sensor:
+      - name: "TrueNAS Rsync Failed Paths"
+        unique_id: truenas_rsync_failed_paths
+        value_template: >
+          {{ value_json | selectattr('job.state', 'in', ['FAILED', 'ABORTED']) | map(attribute='path') | list | join(', ') or 'none' }}

@@ -22,11 +22,12 @@ recorder:
       - sensor.pi_hole_*
       - sensor.truenas_disks_*
       - sensor.nextcloud_*
-  
+
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
-
+sensor: !include_dir_list entities/sensors/
+template: !include template.yaml
 # Turns on the API so that Daire can do dev stuff
 api:
 
@@ -40,22 +41,17 @@ lovelace:
       title: Overview
       icon: mdi:view-dashboard
       show_in_sidebar: true
-  
-sensor: !include_dir_list entities/sensors/
 
 http:
   use_x_forwarded_for: true
   trusted_proxies:
     - 10.0.0.249
 
-template: !include template.yaml
-
-
 homeassistant:
   packages: !include_dir_named packages 
   media_dirs:
     llmvision: /config/media/llmvision
-    
+
 command_line:
   - sensor:
       name: "Frigate CCTV Disk Usage"
@@ -64,4 +60,3 @@ command_line:
       command: "ssh -i /config/.ssh/frigate_sensor -o StrictHostKeyChecking=no -o BatchMode=yes hassio@10.0.0.246 df /cctv_clips"
       scan_interval: 300
       value_template: "{{ value.split()[-2] | replace('%', '') | int }}"
-  
