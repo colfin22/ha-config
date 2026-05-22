@@ -1998,3 +1998,36 @@
           title: Netatmo Back Online
           message: Netatmo integration has reconnected.
   mode: parallel
+- id: '1779457541161'
+  alias: MikroTik Backup Notification
+  description: Receives webhook from Proxmox when MikroTik backup completes. Notifies
+    immediately 07:00-22:00, otherwise holds until 07:00.
+  triggers:
+  - platform: webhook
+    webhook_id: mikrotik-backup-result
+    allowed_methods:
+    - POST
+    local_only: true
+  actions:
+  - variables:
+      title: '{{ trigger.json.title }}'
+      message: '{{ trigger.json.message }}'
+  - choose:
+    - conditions:
+      - condition: time
+        after: 07:00:00
+        before: '22:00:00'
+      sequence:
+      - data:
+          title: '{{ title }}'
+          message: '{{ message }}'
+        action: notify.mobile_app_np3
+    default:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - data:
+        title: '{{ title }}'
+        message: '{{ message }}'
+      action: notify.mobile_app_np3
+  mode: single
