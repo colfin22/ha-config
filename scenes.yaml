@@ -24,15 +24,15 @@
     light.landing_1:
       state: 'on'
       brightness: 77
-- id: 275608ff-e212-4ec0-8784-986a6670cfef
-  name: Hallway Bright
-  entities:
-    light.hallway_1:
-      state: 'on'
-      brightness: 255
-- id: 1dba5809-4687-4b59-816c-ccae75a78a70
+- id: hallway_dimmed
   name: Hallway Dimmed
   entities:
     light.hallway_1:
       state: 'on'
       brightness: 77
+- id: hallway_bright
+  name: Hallway Bright
+  entities:
+    light.hallway_1:
+      state: 'on'
+      brightness: 255

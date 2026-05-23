@@ -36301,6 +36301,20 @@
             "should_expose": false
           }
         }
+      },
+      "scene.hallway_dimmed_2": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "scene.hallway_bright_2": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }
