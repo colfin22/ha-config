@@ -2073,3 +2073,45 @@
     target:
       entity_id: light.landing_1
   mode: restart
+- id: '1779543923168'
+  alias: Hallway - Occupancy Lighting
+  description: Activates hallway light on motion when lux ≤ 2. Bright scene when sun
+    elevation > -6° and before 22:00, dimmed otherwise. Resets 3-min timer on re-trigger.
+    Fades off over 5s.
+  triggers:
+  - platform: state
+    entity_id: binary_sensor.hallway_motion_sensor_occupancy
+    to: 'on'
+  conditions:
+  - condition: numeric_state
+    entity_id: sensor.hallway_motion_sensor_illuminance
+    below: 3
+  actions:
+  - choose:
+    - conditions:
+      - condition: numeric_state
+        entity_id: sun.sun
+        attribute: elevation
+        above: -6
+      - condition: time
+        before: '22:00:00'
+      sequence:
+      - action: scene.turn_on
+        target:
+          entity_id: scene.hallway_bright
+    default:
+    - action: scene.turn_on
+      target:
+        entity_id: scene.hallway_dimmed
+  - delay: 00:02:55
+  - action: light.turn_on
+    target:
+      entity_id: light.hallway_1
+    data:
+      brightness: 1
+      transition: 5
+  - delay: 00:00:05
+  - action: light.turn_off
+    target:
+      entity_id: light.hallway_1
+  mode: restart
