@@ -1458,7 +1458,8 @@
                       "title": "Sitting Room",
                       "style": {
                         "left": "45%",
-                        "top": "28%"
+                        "top": "28%",
+                        "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
                         "action": "toggle"
@@ -1470,7 +1471,8 @@
                       "title": "Kitchen",
                       "style": {
                         "left": "48%",
-                        "top": "65%"
+                        "top": "65%",
+                        "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
                         "action": "toggle"
@@ -1482,7 +1484,8 @@
                       "title": "Hallway",
                       "style": {
                         "left": "60%",
-                        "top": "44%"
+                        "top": "44%",
+                        "--mdc-icon-size": "36px"
                       },
                       "icon": "mdi:motion-sensor"
                     },
@@ -1492,7 +1495,8 @@
                       "title": "Front Door",
                       "style": {
                         "left": "66%",
-                        "top": "13%"
+                        "top": "13%",
+                        "--mdc-icon-size": "36px"
                       }
                     },
                     {
@@ -1501,7 +1505,8 @@
                       "title": "Patio Door",
                       "style": {
                         "left": "39%",
-                        "top": "78%"
+                        "top": "78%",
+                        "--mdc-icon-size": "36px"
                       }
                     },
                     {
@@ -1510,7 +1515,8 @@
                       "title": "Back Door",
                       "style": {
                         "left": "47%",
-                        "top": "81%"
+                        "top": "81%",
+                        "--mdc-icon-size": "36px"
                       }
                     },
                     {
@@ -1519,7 +1525,8 @@
                       "title": "Hallway",
                       "style": {
                         "left": "65%",
-                        "top": "39%"
+                        "top": "39%",
+                        "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
                         "action": "toggle"
@@ -1531,7 +1538,8 @@
                       "title": "Sitting Room Window",
                       "style": {
                         "left": "44%",
-                        "top": "9%"
+                        "top": "9%",
+                        "--mdc-icon-size": "36px"
                       }
                     },
                     {
@@ -1540,7 +1548,8 @@
                       "title": "Back Window",
                       "style": {
                         "left": "65%",
-                        "top": "97%"
+                        "top": "97%",
+                        "--mdc-icon-size": "36px"
                       }
                     }
                   ]
@@ -1565,7 +1574,8 @@
                       "title": "Colm",
                       "style": {
                         "left": "44%",
-                        "top": "18%"
+                        "top": "18%",
+                        "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
                         "action": "toggle"
@@ -1577,7 +1587,8 @@
                       "title": "Aoife",
                       "style": {
                         "left": "66%",
-                        "top": "22%"
+                        "top": "22%",
+                        "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
                         "action": "toggle"
@@ -1589,7 +1600,8 @@
                       "title": "Cian",
                       "style": {
                         "left": "38%",
-                        "top": "60%"
+                        "top": "60%",
+                        "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
                         "action": "toggle"
@@ -1601,7 +1613,8 @@
                       "title": "Office",
                       "style": {
                         "left": "65%",
-                        "top": "60%"
+                        "top": "60%",
+                        "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
                         "action": "toggle"
@@ -1613,7 +1626,8 @@
                       "title": "Landing",
                       "style": {
                         "left": "53%",
-                        "top": "41%"
+                        "top": "41%",
+                        "--mdc-icon-size": "36px"
                       },
                       "icon": "mdi:motion-sensor"
                     },
@@ -1623,7 +1637,8 @@
                       "title": "Landing",
                       "style": {
                         "left": "54%",
-                        "top": "48%"
+                        "top": "48%",
+                        "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
                         "action": "toggle"
@@ -1635,7 +1650,8 @@
                       "title": "Colm Window",
                       "style": {
                         "left": "44%",
-                        "top": "8%"
+                        "top": "8%",
+                        "--mdc-icon-size": "36px"
                       }
                     },
                     {
@@ -1644,7 +1660,8 @@
                       "title": "Aoife Window",
                       "style": {
                         "left": "68%",
-                        "top": "5%"
+                        "top": "5%",
+                        "--mdc-icon-size": "36px"
                       }
                     },
                     {
@@ -1653,7 +1670,8 @@
                       "title": "Cian Window",
                       "style": {
                         "left": "33%",
-                        "top": "82%"
+                        "top": "82%",
+                        "--mdc-icon-size": "36px"
                       }
                     },
                     {
@@ -1662,7 +1680,8 @@
                       "title": "Office Window",
                       "style": {
                         "left": "67%",
-                        "top": "82%"
+                        "top": "82%",
+                        "--mdc-icon-size": "36px"
                       }
                     }
                   ]
