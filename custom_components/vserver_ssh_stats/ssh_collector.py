@@ -11,11 +11,12 @@ import paramiko
 
 from .net_cache import EnergyStatsCache, NetStatsCache
 from .remote_script import REMOTE_SCRIPT
-from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT
+from .util import DEFAULT_COMMAND_TIMEOUT, DEFAULT_CONNECT_TIMEOUT, normalize_mac_addresses
 
 _LOGGER = logging.getLogger(__name__)
 
 net_cache = NetStatsCache()
+disk_io_cache = NetStatsCache()
 energy_cache = EnergyStatsCache()
 
 
@@ -96,6 +97,19 @@ def _safe_list(value: Any) -> list:
     return []
 
 
+def _temperature_status(value: Any) -> Optional[str]:
+    """Return a coarse temperature state independent of the raw temperature sensor."""
+
+    temp = _safe_float(value)
+    if temp is None:
+        return None
+    if temp >= 85:
+        return "critical"
+    if temp >= 70:
+        return "warning"
+    return "ok"
+
+
 WINDOWS_REMOTE_SCRIPT = (
     "powershell -NoProfile -NonInteractive -Command "
     "\"$boot=(Get-CimInstance Win32_OperatingSystem).LastBootUpTime; "
@@ -106,7 +120,12 @@ WINDOWS_REMOTE_SCRIPT = (
     "os='Windows';pkg_count=$null;pkg_list='';docker=0;containers='';"
     "load_1=$null;load_5=$null;load_15=$null;cpu_freq=$null;vnc='no';web='no';"
     "ssh='yes';power_w=$null;energy_uj=$null;energy_range_uj=$null;"
-    "container_stats=@();disk_stats=@();swap_usage=$null;swap_total=$null}; "
+    "container_stats=@();disk_stats=@();top_processes=@();mac_address='';"
+    "mac_addresses=@();swap_usage=$null;swap_total=$null;reboot_required=$false;"
+    "security_updates=$null;last_boot=$boot.ToUniversalTime().ToString('o');"
+    "kernel_version='Windows';primary_ip='';failed_systemd_units=$null;"
+    "failed_systemd_units_list=@();journal_errors=$null;root_fs_readonly=$null;"
+    "disk_read_bytes=$null;disk_write_bytes=$null}; "
     "$obj | ConvertTo-Json -Compress\""
 )
 
@@ -200,8 +219,20 @@ async def async_sample(
         net_in = round(net_in_raw, 2)
         net_out = round(net_out_raw, 2)
 
+    disk_read_bytes = _safe_int(data.get("disk_read_bytes"))
+    disk_write_bytes = _safe_int(data.get("disk_write_bytes"))
+    if disk_read_bytes is None or disk_write_bytes is None:
+        disk_io_read = disk_io_write = None
+    else:
+        read_raw, write_raw = disk_io_cache.compute(
+            host, disk_read_bytes, disk_write_bytes, now
+        )
+        disk_io_read = round(read_raw, 2)
+        disk_io_write = round(write_raw, 2)
+
     cont_stats = _safe_list(data.get("container_stats"))
     disk_stats = _safe_list(data.get("disk_stats"))
+    top_processes_raw = _safe_list(data.get("top_processes"))
 
     disk_total_bytes = _safe_int(data.get("disk_capacity_total"))
     disk_total_gib = (
@@ -230,13 +261,78 @@ async def async_sample(
     else:
         containers = containers_raw
 
+    processed_containers: list[Dict[str, Any]] = []
+    for container in cont_stats:
+        if not isinstance(container, dict):
+            continue
+        name = str(container.get("name") or "").strip()
+        if not name:
+            continue
+        processed_containers.append(
+            {
+                "name": name,
+                "cpu": _safe_float(container.get("cpu")),
+                "mem": _safe_float(container.get("mem")),
+                "image": str(container.get("image") or ""),
+                "status": str(container.get("status") or ""),
+                "restart_count": _safe_int(container.get("restart_count")),
+                "ports": str(container.get("ports") or ""),
+                "health_state": str(container.get("health_state") or ""),
+            }
+        )
+    if not containers and processed_containers:
+        containers = ", ".join(container["name"] for container in processed_containers)
+
+    docker_unhealthy_containers = 0
+    docker_restart_count_total = 0
+    for container in processed_containers:
+        health_state = str(container.get("health_state") or "").lower()
+        status = str(container.get("status") or "").lower()
+        if health_state in {"unhealthy", "dead", "exited"} or status.startswith("exited"):
+            docker_unhealthy_containers += 1
+        restart_count = _safe_int(container.get("restart_count"))
+        if restart_count is not None:
+            docker_restart_count_total += restart_count
+
+    mac_addresses = normalize_mac_addresses(data.get("mac_addresses"))
+    primary_mac = normalize_mac_addresses(data.get("mac_address"))
+    for mac in primary_mac:
+        if mac not in mac_addresses:
+            mac_addresses.insert(0, mac)
+
+    failed_units = [
+        str(unit).strip()
+        for unit in _safe_list(data.get("failed_systemd_units_list"))
+        if str(unit).strip()
+    ]
+
+    top_processes: list[Dict[str, Any]] = []
+    for process in top_processes_raw[:5]:
+        if not isinstance(process, dict):
+            continue
+        command = str(process.get("command") or "").strip()
+        if not command:
+            continue
+        top_processes.append(
+            {
+                "pid": _safe_int(process.get("pid")),
+                "command": command,
+                "cpu": _safe_float(process.get("cpu")),
+                "mem": _safe_float(process.get("mem")),
+            }
+        )
+    top_process_summary = ", ".join(process["command"] for process in top_processes)
+
     result: Dict[str, Any] = {
         "cpu": _safe_int(data.get("cpu")),
         "mem": _safe_int(data.get("mem")),
         "disk": _safe_int(data.get("disk")),
         "disk_capacity_total": disk_total_gib,
+        "disk_io_read": disk_io_read,
+        "disk_io_write": disk_io_write,
         "uptime": _safe_int(data.get("uptime")),
         "temp": _safe_float(data.get("temp")),
+        "cpu_temperature_status": _temperature_status(data.get("temp")),
         "net_in": net_in,
         "net_out": net_out,
         "ram": _safe_int(data.get("ram")),
@@ -244,8 +340,20 @@ async def async_sample(
         "os": data.get("os", ""),
         "pkg_count": _safe_int(data.get("pkg_count")),
         "pkg_list": data.get("pkg_list", ""),
+        "security_updates": _safe_int(data.get("security_updates")),
+        "last_boot": data.get("last_boot") or None,
+        "kernel_version": data.get("kernel_version") or None,
         "docker": _safe_int(data.get("docker")),
         "containers": containers,
+        "container_details": processed_containers,
+        "docker_unhealthy_containers": docker_unhealthy_containers,
+        "docker_restart_count_total": docker_restart_count_total,
+        "mac_address": mac_addresses[0] if mac_addresses else None,
+        "network_primary_mac": mac_addresses[0] if mac_addresses else None,
+        "mac_addresses": mac_addresses,
+        "primary_ip": data.get("primary_ip") or None,
+        "top_processes": top_process_summary,
+        "top_process_details": top_processes,
         "load_1": data.get("load_1"),
         "load_5": data.get("load_5"),
         "load_15": data.get("load_15"),
@@ -255,9 +363,15 @@ async def async_sample(
         "ssh": data.get("ssh", ""),
         "power_w": power_value,
         "energy_kwh_total": energy_total_kwh,
-        "container_stats": cont_stats,
+        "container_stats": processed_containers,
         "swap_usage": _safe_int(data.get("swap_usage")),
         "swap_total": swap_total_gib,
+        "reboot_required": bool(_safe_int(data.get("reboot_required"))),
+        "root_fs_readonly": bool(_safe_int(data.get("root_fs_readonly"))),
+        "failed_systemd_units": _safe_int(data.get("failed_systemd_units")),
+        "failed_systemd_units_list": ", ".join(failed_units),
+        "failed_systemd_units_details": failed_units,
+        "journal_errors": _safe_int(data.get("journal_errors")),
         "ssh_connect_time_ms": round(timing.get("connect_time_ms", 0), 2),
         "collection_time_ms": round(timing.get("collection_time_ms", 0), 2),
     }
@@ -297,7 +411,7 @@ async def async_sample(
         result[f"disk_{sanitized}_free"] = free_gib
     result["disk_stats"] = processed_disks
 
-    for container in cont_stats:
+    for container in processed_containers:
         cname = _sanitize(container.get("name", ""))
         if not cname:
             continue

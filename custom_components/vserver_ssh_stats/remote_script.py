@@ -9,7 +9,7 @@ trim_comma() {
 }
 
 json_escape() {
-  printf '%s' "$1" | sed 's/"/\\"/g'
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
 number_or_null() {
@@ -46,14 +46,34 @@ read_power_metrics() {
 }
 
 read_cpu_stats() {
-  read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
+  cpu=0
+  if [ ! -r /proc/stat ]; then
+    return 0
+  fi
+  read _cpu user nice system idle iowait irq softirq steal _guest _guest_nice < /proc/stat || return 0
+  user=${user:-0}
+  nice=${nice:-0}
+  system=${system:-0}
+  idle=${idle:-0}
+  iowait=${iowait:-0}
+  irq=${irq:-0}
+  softirq=${softirq:-0}
+  steal=${steal:-0}
   prev_total=$((user+nice+system+idle+iowait+irq+softirq+steal))
   prev_idle=$((idle+iowait))
   sleep 1
   if [ -n "$power_energy_file" ]; then
     power_energy_after=$(cat "$power_energy_file" 2>/dev/null || echo "")
   fi
-  read cpu user nice system idle iowait irq softirq steal guest < /proc/stat
+  read _cpu user nice system idle iowait irq softirq steal _guest _guest_nice < /proc/stat || return 0
+  user=${user:-0}
+  nice=${nice:-0}
+  system=${system:-0}
+  idle=${idle:-0}
+  iowait=${iowait:-0}
+  irq=${irq:-0}
+  softirq=${softirq:-0}
+  steal=${steal:-0}
   total=$((user+nice+system+idle+iowait+irq+softirq+steal))
   idle_all=$((idle+iowait))
   d_total=$((total-prev_total))
@@ -66,6 +86,13 @@ read_cpu_stats() {
 }
 
 read_mem_stats() {
+  mem=""
+  ram=""
+  swap_usage_json=null
+  swap_total_json=null
+  if [ ! -r /proc/meminfo ]; then
+    return 0
+  fi
   mem_total=""
   mem_avail=""
   swap_total=""
@@ -164,7 +191,12 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
 }
 
 read_load_and_freq() {
-  read load_1 load_5 load_15 _ < /proc/loadavg
+  load_1=""
+  load_5=""
+  load_15=""
+  if [ -r /proc/loadavg ]; then
+    read load_1 load_5 load_15 _ < /proc/loadavg || true
+  fi
   cpu_freq=""
   if [ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ]; then
     cpu_freq=$(awk '{printf "%.0f", $1/1000}' /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null)
@@ -182,6 +214,7 @@ read_os_info() {
 collect_pkg_updates() {
   pkg_count=0
   pkg_list=""
+  set +e
   if command -v apt-get >/dev/null 2>&1; then
     updates=$(apt-get -s upgrade 2>/dev/null | awk '/^Inst /{print $2}')
   elif command -v dnf >/dev/null 2>&1; then
@@ -197,6 +230,7 @@ collect_pkg_updates() {
   else
     updates=""
   fi
+  set -e
 
   if [ -n "$updates" ]; then
     pkg_count=$(echo "$updates" | grep -c . || true)
@@ -206,25 +240,134 @@ collect_pkg_updates() {
 }
 
 read_docker_stats() {
+  docker=0
+  containers=""
+  container_stats="[]"
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    set +e
     docker=1
     containers=$(docker ps --format '{{.Names}}' 2>/dev/null | tr '\n' ',' )
     containers=$(trim_comma "$containers")
     containers=${containers//,/, }
-    stats=$(docker stats --no-stream --format '{{.Name}}:{{.CPUPerc}}:{{.MemPerc}}' 2>/dev/null | sed 's/%//g' |
-awk -F: '{cpu=$2+0; mem=$3+0; printf "{\"name\":\"%s\",\"cpu\":%.2f,\"mem\":%.2f},", $1, cpu, mem}')
-    if [ -n "$stats" ]; then
-      container_stats="[${stats%,}]"
+    stats_lines=$(docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}' 2>/dev/null | sed 's/%//g' || true)
+    ps_lines=$(docker ps --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null || true)
+    inspect_lines=""
+    if [ -n "$ps_lines" ]; then
+      container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
+      inspect_lines=$(docker inspect --format '{{.Id}}|{{.RestartCount}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $container_ids 2>/dev/null || true)
+    fi
+    if [ -n "$ps_lines" ]; then
+      container_entries=""
+      while IFS='|' read -r container_id name image status ports; do
+        [ -z "$name" ] && continue
+        stats_match=$(printf '%s\n' "$stats_lines" |
+          awk -F'|' -v n="$name" '$1 == n {printf "%.2f|%.2f", $2+0, $3+0; exit}')
+        cpu=0
+        mem=0
+        if [ -n "$stats_match" ]; then
+          cpu=${stats_match%%|*}
+          mem=${stats_match#*|}
+        fi
+        inspect_match=$(printf '%s\n' "$inspect_lines" |
+          awk -F'|' -v id="$container_id" 'index($1, id) == 1 {print $2 "|" $3; exit}')
+        restart_count=""
+        health_state=""
+        if [ -n "$inspect_match" ]; then
+          restart_count=${inspect_match%%|*}
+          health_state=${inspect_match#*|}
+        fi
+        restart_count=${restart_count//[^0-9]/}
+        restart_count_json=$(number_or_null "$restart_count")
+        name_json=$(json_escape "$name")
+        image_json=$(json_escape "$image")
+        status_json=$(json_escape "$status")
+        ports_json=$(json_escape "$ports")
+        health_json=$(json_escape "$health_state")
+        container_entries="$container_entries{\"name\":\"$name_json\",\"cpu\":$cpu,\"mem\":$mem,\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\"},"
+      done < <(printf '%s\n' "$ps_lines")
+      if [ -n "$container_entries" ]; then
+        container_stats="[${container_entries%,}]"
+      else
+        container_stats="[]"
+      fi
     else
       container_stats="[]"
     fi
-  else
-    docker=0
-    containers=""
-    container_stats="[]"
+    set -e
   fi
   containers_json=$(json_escape "$containers")
   container_stats_json=$container_stats
+}
+
+read_mac_addresses() {
+  mac_address=""
+  mac_entries=""
+  seen_macs=","
+  default_iface=""
+  if command -v ip >/dev/null 2>&1; then
+    default_iface=$(ip route show default 2>/dev/null | awk '{print $5; exit}')
+  fi
+
+  add_mac() {
+    candidate=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+    case "$candidate" in
+      ""|"00:00:00:00:00:00") return ;;
+    esac
+    if ! printf '%s' "$candidate" | grep -Eq '^[0-9a-f]{2}(:[0-9a-f]{2}){5}$'; then
+      return
+    fi
+    case "$seen_macs" in
+      *",$candidate,"*) return ;;
+    esac
+    seen_macs="$seen_macs$candidate,"
+    [ -z "$mac_address" ] && mac_address="$candidate"
+    mac_entries="$mac_entries\"$candidate\","
+  }
+
+  if [ -n "$default_iface" ] && [ -r "/sys/class/net/$default_iface/address" ]; then
+    add_mac "$(cat "/sys/class/net/$default_iface/address" 2>/dev/null || echo "")"
+  fi
+
+  for netdev in /sys/class/net/*; do
+    [ -e "$netdev" ] || continue
+    iface=$(basename "$netdev")
+    [ "$iface" = "lo" ] && continue
+    [ -r "$netdev/address" ] || continue
+    add_mac "$(cat "$netdev/address" 2>/dev/null || echo "")"
+  done
+
+  if [ -n "$mac_entries" ]; then
+    mac_addresses_json="[${mac_entries%,}]"
+  else
+    mac_addresses_json="[]"
+  fi
+  mac_address_json=$(json_escape "$mac_address")
+}
+
+read_top_processes() {
+  top_processes_json="[]"
+  if command -v ps >/dev/null 2>&1; then
+    set +e
+    top_process_lines=$(ps -eo pid=,comm=,pcpu=,pmem= --sort=-pcpu 2>/dev/null | head -n 5 |
+      awk '{pid=$1; cpu=$(NF-1)+0; mem=$NF+0; command=$2; printf "%s\t%s\t%.2f\t%.2f\n", pid, command, cpu, mem}')
+    top_process_status=$?
+    set -e
+    if [ $top_process_status -eq 0 ] && [ -n "$top_process_lines" ]; then
+      tab=$(echo -ne '\t')
+      oldifs=$IFS
+      IFS=$tab
+      top_process_entries=""
+      while read -r pid command cpu mem; do
+        [ -z "$pid" ] && continue
+        command_json=$(json_escape "$command")
+        top_process_entries="$top_process_entries{\"pid\":$pid,\"command\":\"$command_json\",\"cpu\":$cpu,\"mem\":$mem},"
+      done < <(echo "$top_process_lines")
+      IFS=$oldifs
+      if [ -n "$top_process_entries" ]; then
+        top_processes_json="[${top_process_entries%,}]"
+      fi
+    fi
+  fi
 }
 
 read_service_status() {
@@ -266,8 +409,126 @@ read_temperature() {
 }
 
 read_network_bytes() {
-  rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/net/dev)
-  tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev)
+  rx=0
+  tx=0
+  if [ -r /proc/net/dev ]; then
+    rx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print rx+0}' /proc/net/dev 2>/dev/null || echo 0)
+    tx=$(awk -F'[: ]+' '/:/{if($1!="lo"){rx+=$3; tx+=$11}} END{print tx+0}' /proc/net/dev 2>/dev/null || echo 0)
+  fi
+}
+
+read_boot_and_kernel_status() {
+  reboot_required=0
+  last_boot=""
+  kernel_version=$(uname -r 2>/dev/null || echo "")
+
+  if [ -f /var/run/reboot-required ]; then
+    reboot_required=1
+  fi
+
+  if [ -r /proc/uptime ] && command -v date >/dev/null 2>&1; then
+    set +e
+    uptime_seconds=$(awk '{print int($1)}' /proc/uptime 2>/dev/null)
+    now_seconds=$(date +%s 2>/dev/null)
+    set -e
+    if [ -n "$uptime_seconds" ] && [ -n "$now_seconds" ]; then
+      boot_epoch=$((now_seconds - uptime_seconds))
+      last_boot=$(date -u -d "@$boot_epoch" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
+    fi
+  fi
+
+  last_boot_json=$(json_escape "$last_boot")
+  kernel_version_json=$(json_escape "$kernel_version")
+}
+
+read_primary_ip() {
+  primary_ip=""
+  if command -v ip >/dev/null 2>&1; then
+    set +e
+    primary_ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')
+    set -e
+  fi
+  if [ -z "$primary_ip" ] && command -v hostname >/dev/null 2>&1; then
+    set +e
+    primary_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    set -e
+  fi
+  primary_ip_json=$(json_escape "$primary_ip")
+}
+
+collect_security_updates() {
+  security_updates=0
+  set +e
+  if command -v apt-get >/dev/null 2>&1; then
+    security_updates=$(apt-get -s upgrade 2>/dev/null | awk '/^Inst / && ($0 ~ /security|Security|\/.*-security/) {count++} END{print count+0}')
+  elif command -v dnf >/dev/null 2>&1; then
+    security_updates=$(dnf -q updateinfo list security 2>/dev/null | awk 'NF {count++} END{print count+0}')
+  elif command -v yum >/dev/null 2>&1; then
+    security_updates=$(yum -q updateinfo list security 2>/dev/null | awk 'NF {count++} END{print count+0}')
+  elif command -v zypper >/dev/null 2>&1; then
+    security_updates=$(zypper --quiet lu --category security 2>/dev/null | awk '/^[[:alnum:]].*\|/ {count++} END{print count+0}')
+  fi
+  set -e
+  security_updates=${security_updates:-0}
+}
+
+read_systemd_failures() {
+  failed_systemd_units=0
+  failed_systemd_units_json="[]"
+  if command -v systemctl >/dev/null 2>&1; then
+    set +e
+    failed_units=$(systemctl --failed --no-legend --plain 2>/dev/null | awk '{print $1}' | head -n 20)
+    set -e
+    if [ -n "$failed_units" ]; then
+      failed_systemd_units=$(printf '%s\n' "$failed_units" | grep -c . || true)
+      unit_entries=""
+      while IFS= read -r unit; do
+        [ -z "$unit" ] && continue
+        unit_json=$(json_escape "$unit")
+        unit_entries="$unit_entries\"$unit_json\","
+      done < <(printf '%s\n' "$failed_units")
+      if [ -n "$unit_entries" ]; then
+        failed_systemd_units_json="[${unit_entries%,}]"
+      fi
+    fi
+  fi
+}
+
+read_journal_errors() {
+  journal_errors=0
+  if command -v journalctl >/dev/null 2>&1; then
+    set +e
+    journal_errors=$(journalctl -p err --since "15 min ago" --no-pager -q 2>/dev/null | grep -c .)
+    set -e
+    journal_errors=${journal_errors:-0}
+  fi
+}
+
+read_root_filesystem_status() {
+  root_fs_readonly=0
+  if [ -r /proc/mounts ]; then
+    root_mount_options=$(awk '$2 == "/" {print $4; exit}' /proc/mounts 2>/dev/null || echo "")
+    case ",$root_mount_options," in
+      *,ro,*) root_fs_readonly=1 ;;
+    esac
+  fi
+}
+
+read_disk_io_bytes() {
+  disk_read_bytes=0
+  disk_write_bytes=0
+  for stat_file in /sys/block/*/stat; do
+    [ -r "$stat_file" ] || continue
+    device=$(basename "$(dirname "$stat_file")")
+    case "$device" in
+      loop*|ram*|zram*) continue ;;
+    esac
+    read _reads _reads_merged sectors_read _read_ms _writes _writes_merged sectors_written _write_ms _ios _io_ms _weighted_ms < "$stat_file" || continue
+    sectors_read=${sectors_read:-0}
+    sectors_written=${sectors_written:-0}
+    disk_read_bytes=$((disk_read_bytes + sectors_read * 512))
+    disk_write_bytes=$((disk_write_bytes + sectors_written * 512))
+  done
 }
 
 compute_power() {
@@ -310,6 +571,13 @@ prepare_numeric_json_values() {
   docker_json=$(number_or_null "$docker")
   swap_usage_json=$(number_or_null "$swap_usage_json")
   swap_total_json=$(number_or_null "$swap_total_json")
+  reboot_required_json=$(number_or_null "$reboot_required")
+  security_updates_json=$(number_or_null "$security_updates")
+  failed_systemd_units_json_count=$(number_or_null "$failed_systemd_units")
+  journal_errors_json=$(number_or_null "$journal_errors")
+  root_fs_readonly_json=$(number_or_null "$root_fs_readonly")
+  disk_read_bytes_json=$(number_or_null "$disk_read_bytes")
+  disk_write_bytes_json=$(number_or_null "$disk_write_bytes")
 }
 
 # Run collectors (order matters for power deltas)
@@ -317,23 +585,34 @@ read_power_metrics
 read_cpu_stats
 read_mem_stats
 read_disk_stats
-uptime=$(awk '{print int($1)}' /proc/uptime)
-cores=$(nproc)
+uptime=$(awk '{print int($1)}' /proc/uptime 2>/dev/null || echo "")
+cores=$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo "")
 read_load_and_freq
 read_os_info
 collect_pkg_updates
 read_docker_stats
+read_mac_addresses
+read_top_processes
 read_service_status
 read_temperature
 read_network_bytes
+read_boot_and_kernel_status
+read_primary_ip
+collect_security_updates
+read_systemd_failures
+read_journal_errors
+read_root_filesystem_status
+read_disk_io_bytes
 compute_power
 prepare_numeric_json_values
 
 # restore permissions iff changed
 [[ "${changed:-0}" -eq 1 ]] && sudo chmod o-r /sys/class/powercap/*/energy_uj
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
-  "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json"
+  "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json" \
+  "$reboot_required_json" "$security_updates_json" "$last_boot_json" "$kernel_version_json" "$primary_ip_json" "$failed_systemd_units_json_count" "$failed_systemd_units_json" \
+  "$journal_errors_json" "$root_fs_readonly_json" "$disk_read_bytes_json" "$disk_write_bytes_json"
 '''
