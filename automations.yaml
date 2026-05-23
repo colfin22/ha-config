@@ -2041,18 +2041,22 @@
     entity_id: binary_sensor.landing_motion_sensor_occupancy
     to: 'on'
   conditions:
-  - condition: state
-    entity_id: sun.sun
-    state: below_horizon
+  - condition: or
+    conditions:
+    - condition: numeric_state
+      entity_id: sensor.landing_motion_sensor_illuminance
+      below: 20
+    - condition: state
+      entity_id: light.landing_1
+      state: 'on'
   actions:
   - choose:
     - conditions:
-      - condition: numeric_state
-        entity_id: sun.sun
-        attribute: elevation
-        above: -6
-      - condition: time
-        before: '22:00:00'
+      - condition: sun
+        after: sunrise
+        after_offset: 00:30:00
+        before: sunset
+        before_offset: -00:30:00
       sequence:
       - action: scene.turn_on
         target:
@@ -2083,18 +2087,22 @@
     entity_id: binary_sensor.hallway_motion_sensor_occupancy
     to: 'on'
   conditions:
-  - condition: state
-    entity_id: sun.sun
-    state: below_horizon
+  - condition: or
+    conditions:
+    - condition: numeric_state
+      entity_id: sensor.hallway_motion_sensor_illuminance
+      below: 20
+    - condition: state
+      entity_id: light.hallway_1
+      state: 'on'
   actions:
   - choose:
     - conditions:
-      - condition: numeric_state
-        entity_id: sun.sun
-        attribute: elevation
-        above: -6
-      - condition: time
-        before: '22:00:00'
+      - condition: sun
+        after: sunrise
+        after_offset: 00:30:00
+        before: sunset
+        before_offset: -00:30:00
       sequence:
       - action: scene.turn_on
         target:
