@@ -1,6 +1,8 @@
 - id: '1738415614884'
   alias: Frigate - Olivia Notify
-  description: ''
+  description: Sends Frigate alert notifications to Olivia for all cameras (front
+    car, van, rear door, shed, doorbell). Alert-severity events only, notifies once
+    with animated GIF preview. Also alerts on Android Auto.
   use_blueprint:
     path: SgtBatten/Stable.yaml
     input:
@@ -24,7 +26,9 @@
       android_auto: true
 - id: '1738415663458'
   alias: Frigate - Colm Notify
-  description: ''
+  description: Sends Frigate alert notifications to Colm for all cameras (front car,
+    van, rear door, shed, doorbell). Alert-severity events only, notifies once with
+    animated GIF preview. Also alerts on Android Auto.
   use_blueprint:
     path: SgtBatten/Stable.yaml
     input:
@@ -81,7 +85,8 @@
   mode: single
 - id: '1767011232807'
   alias: Brother Printer Auto Power Cycle
-  description: ''
+  description: Checks every 15 minutes (07:00–21:00) if the Brother printer is offline.
+    If so, power-cycles the socket with a 10s delay to reboot it.
   triggers:
   - minutes: '15'
     platform: time_pattern
@@ -119,7 +124,8 @@
   mode: single
 - id: '1767042274860'
   alias: Frigate to Shield Notification
-  description: ''
+  description: Sends a person-detected alert from the doorbell camera to the NVIDIA
+    Shield TV as a top-right overlay with snapshot and preview GIF.
   use_blueprint:
     path: SgtBatten/Stable.yaml
     input:
@@ -140,7 +146,9 @@
       - person
 - id: '1769600924498'
   alias: Dishwasher Notifications & Actions
-  description: ''
+  description: Monitors dishwasher power to detect cycle start/end. Notifies Colm
+    on start, both phones on finish with cycle cost. Announces via TTS, tracks energy
+    usage and cost, updates run status and cycle counter.
   use_blueprint:
     path: Blackshome/appliance-notifications.yaml
     input:
@@ -192,7 +200,9 @@
       - zone_end
 - id: '1769601039448'
   alias: Washing Machine Notifications & Actions
-  description: ''
+  description: Monitors washing machine power to detect cycle start/end. Notifies
+    Colm on start, both phones on finish with cycle cost. Announces via TTS, tracks
+    energy usage and cost, updates run status and cycle counter.
   use_blueprint:
     path: Blackshome/appliance-notifications.yaml
     input:
@@ -239,7 +249,9 @@
       notify_zone: zone.home
 - id: '1769601134185'
   alias: Tumble Dryer Notifications & Actions
-  description: ''
+  description: Monitors tumble dryer power to detect cycle start/end. Notifies Colm
+    on start, both phones on finish with cycle cost. Announces via TTS, tracks energy
+    usage and cost, updates run status and cycle counter.
   use_blueprint:
     path: Blackshome/appliance-notifications.yaml
     input:
@@ -358,7 +370,9 @@
   mode: single
 - id: '1771669072411'
   alias: Frigate Person Detected at Car Alert
-  description: ''
+  description: Overnight (23:00–06:30) person alert from front car and van cameras
+    in focus zones. Strobes sitting room and hallway lights 10 times and announces
+    via TTS to bedroom speaker.
   use_blueprint:
     path: SgtBatten/Stable.yaml
     input:
@@ -412,7 +426,8 @@
           message: Person detected on front camera at car
 - id: '1771748445702'
   alias: Low Battery Notifications & Actions
-  description: ''
+  description: Checks all device batteries every Sunday at 10:00 and notifies Colm
+    of any below 15%. Excludes hidden entities.
   use_blueprint:
     path: Blackshome/low-battery-notifications-and-actions.yaml
     input:
@@ -434,7 +449,8 @@
       - 002753768c371c4f05a272c7e1e0f93c
 - id: '1773057607414'
   alias: Office Hue Dimmer Switch
-  description: ''
+  description: Maps the Philips Hue dimmer switch in the office to light.office_ceiling
+    via Z2M. On/off, brightness step ±10%, long-press up for full brightness.
   use_blueprint:
     path: EPMatt/philips_324131092621.yaml
     input:
@@ -484,7 +500,9 @@
           brightness_pct: 100
 - id: '1775750149545'
   alias: Smart Parcel Box Notification
-  description: ''
+  description: Notifies both phones and announces via TTS when a parcel is delivered
+    to the smart box. Notifies Colm when the box is opened to collect. Uses front
+    door contact to confirm collection.
   use_blueprint:
     path: eroak/smart-mailbox.yaml
     input:
@@ -516,7 +534,8 @@
           message: The Parcel Box Has Been Opened
 - id: '1776186517558'
   alias: Offline Devices Report
-  description: ''
+  description: Sends Colm a daily report at 06:00 listing all offline devices. Adds
+    items to the Tasks to-do list and supports manual trigger via a button.
   use_blueprint:
     path: Ltek/offline-devices-report-ltek.yaml
     input:
@@ -539,7 +558,8 @@
       button_entity: input_button.offline_devices_report_button
 - id: '1776515291123'
   alias: Office Occupancy Lighting
-  description: ''
+  description: Controls office ceiling light based on presence sensor. Turns on when
+    occupied, dims after 2 minutes of no presence then turns off.
   use_blueprint:
     path: MajorLazer2142/Clean_and_Simple_Universal_Occupancy_Lighting_for_PIR_and_Radar_Sensors.yaml
     input:
@@ -1550,6 +1570,8 @@
   max: 3
 - id: '1778854433068'
   alias: NFC - Disarm Alarmo
+  description: Scans NFC tag to disarm Alarmo, but only if the alarm is not already
+    disarmed.
   triggers:
   - platform: tag
     tag_id: f195ee10-14a9-4b65-bd10-c53c9866bcdf
@@ -1566,6 +1588,7 @@
   mode: single
 - id: '1778870199308'
   alias: NFC - Night Scene
+  description: Scans NFC tag to activate the Kitchen Night scene.
   triggers:
   - platform: tag
     tag_id: 393b5201-6ab5-4b7e-a195-4cd26aa89776
