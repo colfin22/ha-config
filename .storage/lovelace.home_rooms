@@ -1051,6 +1051,20 @@
               "cards": [
                 {
                   "type": "heading",
+                  "heading": "Alarm"
+                },
+                {
+                  "type": "custom:alarmo-card",
+                  "entity": "alarm_control_panel.alarmo",
+                  "name": "Alarmo"
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
                   "heading": "Activity"
                 },
                 {
@@ -1075,20 +1089,6 @@
                     "binary_sensor.rear_door_person_occupancy",
                     "binary_sensor.rear_shed_person_occupancy"
                   ]
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Alarm"
-                },
-                {
-                  "type": "custom:alarmo-card",
-                  "entity": "alarm_control_panel.alarmo",
-                  "name": "Alarmo"
                 }
               ]
             },

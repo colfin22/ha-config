@@ -26,7 +26,12 @@ template:
           {% if s in ['none', 'unavailable', 'unknown'] %}
             none
           {% else %}
-            {{ state_attr('sensor.met_eireann_active_warnings', 'level') }}
+            {% set expiry = state_attr('sensor.met_eireann_active_warnings', 'expiry') %}
+            {% if expiry and now() < as_datetime(expiry) %}
+              {{ state_attr('sensor.met_eireann_active_warnings', 'level') }}
+            {% else %}
+              none
+            {% endif %}
           {% endif %}
         icon: >
           {% set s = states('sensor.met_eireann_active_warnings') %}
