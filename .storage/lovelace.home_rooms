@@ -615,8 +615,9 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "binary_sensor.hallway_motion",
-                  "name": "Hallway"
+                  "entity": "binary_sensor.hallway_motion_sensor_occupancy",
+                  "name": "Hallway",
+                  "icon": "mdi:motion-sensor"
                 },
                 {
                   "type": "tile",
@@ -792,7 +793,7 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "sensor.hue_motion_sensor_1_temperature",
+                  "entity": "sensor.hallway_motion_sensor_temperature",
                   "name": "Hallway"
                 },
                 {
@@ -1234,8 +1235,9 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "binary_sensor.hallway_motion",
-                  "name": "Hallway"
+                  "entity": "binary_sensor.hallway_motion_sensor_occupancy",
+                  "name": "Hallway",
+                  "icon": "mdi:motion-sensor"
                 },
                 {
                   "type": "tile",
@@ -1476,12 +1478,13 @@
                     },
                     {
                       "type": "state-icon",
-                      "entity": "binary_sensor.hallway_motion",
+                      "entity": "binary_sensor.hallway_motion_sensor_occupancy",
                       "title": "Hallway",
                       "style": {
                         "left": "60%",
                         "top": "44%"
-                      }
+                      },
+                      "icon": "mdi:motion-sensor"
                     },
                     {
                       "type": "state-icon",
@@ -1512,7 +1515,7 @@
                     },
                     {
                       "type": "state-icon",
-                      "entity": "light.hallway",
+                      "entity": "light.hallway_1",
                       "title": "Hallway",
                       "style": {
                         "left": "65%",
