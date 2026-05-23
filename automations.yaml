@@ -2041,14 +2041,9 @@
     entity_id: binary_sensor.landing_motion_sensor_occupancy
     to: 'on'
   conditions:
-  - condition: or
-    conditions:
-    - condition: numeric_state
-      entity_id: sensor.landing_motion_sensor_illuminance
-      below: 20
-    - condition: state
-      entity_id: sun.sun
-      state: below_horizon
+  - condition: state
+    entity_id: sun.sun
+    state: below_horizon
   actions:
   - choose:
     - conditions:
@@ -2088,14 +2083,9 @@
     entity_id: binary_sensor.hallway_motion_sensor_occupancy
     to: 'on'
   conditions:
-  - condition: or
-    conditions:
-    - condition: numeric_state
-      entity_id: sensor.hallway_motion_sensor_illuminance
-      below: 20
-    - condition: state
-      entity_id: sun.sun
-      state: below_horizon
+  - condition: state
+    entity_id: sun.sun
+    state: below_horizon
   actions:
   - choose:
     - conditions:
