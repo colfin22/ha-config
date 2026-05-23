@@ -16,3 +16,23 @@ rest:
           - "description"
           - "expiry"
           - "status"
+
+template:
+  - sensor:
+      - name: "Met Éireann Warning Level"
+        unique_id: met_eireann_warning_level
+        state: >
+          {% set s = states('sensor.met_eireann_active_warnings') %}
+          {% if s in ['none', 'unavailable', 'unknown'] %}
+            none
+          {% else %}
+            {{ state_attr('sensor.met_eireann_active_warnings', 'level') }}
+          {% endif %}
+        icon: >
+          {% set s = states('sensor.met_eireann_active_warnings') %}
+          {% if s in ['none', 'unavailable', 'unknown'] %}
+            mdi:weather-cloudy
+          {% else %}
+            {% set level = state_attr('sensor.met_eireann_active_warnings', 'level') %}
+            {% if level == 'Yellow' %}mdi:alert{% elif level == 'Orange' %}mdi:alert-circle{% elif level == 'Red' %}mdi:alert-octagon{% else %}mdi:weather-cloudy{% endif %}
+          {% endif %}

@@ -756,6 +756,69 @@
               "type": "grid",
               "cards": [
                 {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "sensor.met_eireann_warning_level",
+                      "state": "Yellow"
+                    }
+                  ],
+                  "card": {
+                    "type": "markdown",
+                    "content": "⚠️ **Yellow Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "card_mod": {
+                      "style": "ha-card {\n  background: rgba(255, 214, 0, 0.92) !important;\n  color: #1a1a1a !important;\n  --primary-text-color: #1a1a1a;\n  --secondary-text-color: #3a3a3a;\n  border: none;\n}\n"
+                    },
+                    "grid_options": {
+                      "columns": 12,
+                      "rows": "auto"
+                    }
+                  }
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "sensor.met_eireann_warning_level",
+                      "state": "Orange"
+                    }
+                  ],
+                  "card": {
+                    "type": "markdown",
+                    "content": "🟠 **Orange Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "card_mod": {
+                      "style": "ha-card {\n  background: rgba(245, 124, 0, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffe0c0;\n  border: none;\n}\n"
+                    },
+                    "grid_options": {
+                      "columns": 12,
+                      "rows": "auto"
+                    }
+                  }
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "sensor.met_eireann_warning_level",
+                      "state": "Red"
+                    }
+                  ],
+                  "card": {
+                    "type": "markdown",
+                    "content": "🔴 **Red Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "card_mod": {
+                      "style": "ha-card {\n  background: rgba(198, 40, 40, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffcdd2;\n  border: none;\n}\n"
+                    },
+                    "grid_options": {
+                      "columns": 12,
+                      "rows": "auto"
+                    }
+                  }
+                },
+                {
                   "type": "custom:atmospheric-weather-card",
                   "weather_entity": "weather.forecast_home",
                   "sun_entity": "sun.sun",
