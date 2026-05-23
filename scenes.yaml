@@ -23,7 +23,7 @@
   entities:
     light.landing_1:
       state: 'on'
-      brightness: 77
+      brightness: 13
 - id: hallway_dimmed
   name: Hallway Dimmed
   entities:
