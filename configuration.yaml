@@ -52,6 +52,7 @@ homeassistant:
   media_dirs:
     llmvision: /config/media/llmvision
 
+
 command_line:
   - sensor:
       name: "Frigate CCTV Disk Usage"
