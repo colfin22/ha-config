@@ -2033,9 +2033,9 @@
   mode: single
 - id: '1779464893871'
   alias: Landing - Occupancy Lighting
-  description: Activates landing light on motion when lux ≤ 2. Bright scene when sun
-    elevation > -6° and before 22:00, dimmed otherwise. Resets 3-min timer on re-trigger.
-    Fades off over 5s.
+  description: Activates landing light on motion when lux < 20 or light is already
+    on. Bright scene from 30min after sunrise to 30min before sunset; dimmed otherwise.
+    Timer restarts on re-trigger. Fades to off over 5s.
   triggers:
   - platform: state
     entity_id: binary_sensor.landing_motion_sensor_occupancy
@@ -2079,9 +2079,9 @@
   mode: restart
 - id: '1779543923168'
   alias: Hallway - Occupancy Lighting
-  description: Activates hallway light on motion when lux ≤ 2. Bright scene when sun
-    elevation > -6° and before 22:00, dimmed otherwise. Resets 3-min timer on re-trigger.
-    Fades off over 5s.
+  description: Activates hallway light on motion when lux < 20 or light is already
+    on. Bright scene from 30min after sunrise to 30min before sunset; dimmed otherwise.
+    Timer restarts on re-trigger. Fades to off over 5s.
   triggers:
   - platform: state
     entity_id: binary_sensor.hallway_motion_sensor_occupancy
