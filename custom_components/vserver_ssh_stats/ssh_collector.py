@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import socket
 import time
 from typing import Any, Dict, Optional
 
@@ -27,6 +28,7 @@ def _run_ssh(
     key: Optional[str],
     port: int,
     cmd: str,
+    stdin_data: Optional[str],
     connect_timeout: int,
     command_timeout: int,
 ) -> tuple[str, Dict[str, float]]:
@@ -45,11 +47,21 @@ def _run_ssh(
     )
     connected = time.monotonic()
     try:
-        _, stdout, stderr = ssh.exec_command(cmd, timeout=command_timeout)
-        out = stdout.read().decode("utf-8", "ignore")
-        err = stderr.read().decode("utf-8", "ignore")
-        if err and not out:
-            raise RuntimeError(err.strip())
+        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=command_timeout)
+        if stdin_data is not None:
+            stdin.write(stdin_data)
+            stdin.flush()
+            stdin.channel.shutdown_write()
+        try:
+            out = stdout.read().decode("utf-8", "ignore")
+            err = stderr.read().decode("utf-8", "ignore")
+            status = stdout.channel.recv_exit_status()
+        except socket.timeout as err:
+            raise TimeoutError(
+                f"Remote collector command timed out after {command_timeout} seconds"
+            ) from err
+        if status != 0 and not out:
+            raise RuntimeError(err.strip() or f"Remote collector exited with status {status}")
         finished = time.monotonic()
         return out, {
             "connect_time_ms": (connected - started) * 1000,
@@ -130,13 +142,21 @@ WINDOWS_REMOTE_SCRIPT = (
 )
 
 
-def _build_collection_commands(target_os: Optional[str]) -> list[str]:
+CollectionCommand = tuple[str, Optional[str]]
+
+
+def _build_collection_commands(target_os: Optional[str]) -> list[CollectionCommand]:
     """Return collection commands ordered by target OS preference."""
 
     normalized = (target_os or "auto").strip().lower()
+    linux_commands: list[CollectionCommand] = [
+        ("bash -s", REMOTE_SCRIPT),
+        ("/bin/bash -s", REMOTE_SCRIPT),
+    ]
+    windows_command: CollectionCommand = (WINDOWS_REMOTE_SCRIPT, None)
     if normalized == "windows":
-        return [WINDOWS_REMOTE_SCRIPT, REMOTE_SCRIPT]
-    return [REMOTE_SCRIPT, WINDOWS_REMOTE_SCRIPT]
+        return [windows_command, *linux_commands]
+    return [*linux_commands, windows_command]
 
 
 def _parse_json_output(output: str) -> Dict[str, Any]:
@@ -185,7 +205,7 @@ async def async_sample(
     data: Dict[str, Any] | None = None
     timing: Dict[str, float] = {}
     last_error: Exception | None = None
-    for cmd in _build_collection_commands(target_os):
+    for cmd, stdin_data in _build_collection_commands(target_os):
         try:
             out, timing = await asyncio.to_thread(
                 _run_ssh,
@@ -195,18 +215,21 @@ async def async_sample(
                 key,
                 port,
                 cmd,
+                stdin_data,
                 connect_timeout,
                 command_timeout,
             )
             data = _parse_json_output(out)
             break
-        except (RuntimeError, json.JSONDecodeError) as err:
+        except Exception as err:
             last_error = err
             _LOGGER.debug("Collector command failed for %s: %s", host, err)
 
     if data is None:
-        _LOGGER.error("Failed to collect SSH response from %s: %s", host, last_error)
-        return {}
+        _LOGGER.debug("Failed to collect SSH response from %s: %s", host, last_error)
+        data = {
+            "collection_error": str(last_error) if last_error else "No collector output",
+        }
     now = time.time()
 
     rx = _safe_int(data.get("rx"))
@@ -374,6 +397,8 @@ async def async_sample(
         "journal_errors": _safe_int(data.get("journal_errors")),
         "ssh_connect_time_ms": round(timing.get("connect_time_ms", 0), 2),
         "collection_time_ms": round(timing.get("collection_time_ms", 0), 2),
+        "collection_error": data.get("collection_error"),
+        "last_collection_failed": bool(data.get("collection_error")),
     }
 
     processed_disks: list[Dict[str, Any]] = []

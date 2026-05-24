@@ -15,7 +15,7 @@ except ImportError:  # pragma: no cover - compatibility with older Home Assistan
 
 DEFAULT_INTERVAL = 30
 DEFAULT_CONNECT_TIMEOUT = 10
-DEFAULT_COMMAND_TIMEOUT = 15
+DEFAULT_COMMAND_TIMEOUT = 45
 DEFAULT_ACTION_COMMAND_TIMEOUT = 300
 DEFAULT_COMMAND_ALLOWLIST = ""
 DEFAULT_BACKOFF_FAILURE_THRESHOLD = 3
@@ -75,17 +75,13 @@ def normalize_mac_addresses(value: object) -> list[str]:
 
 
 def build_device_info(domain: str, server: dict) -> DeviceInfo:
-    """Return device info with optional MAC connections for registry merging."""
+    """Return stable device info for one configured server."""
 
     host = server["host"]
     mac_addresses = normalize_mac_addresses(server.get("mac_addresses"))
-    if mac_addresses:
-        return DeviceInfo(
-            connections={(CONNECTION_NETWORK_MAC, mac) for mac in mac_addresses},
-            default_name=server.get("name") or host,
-        )
     return DeviceInfo(
         identifiers={(domain, host)},
+        connections={(CONNECTION_NETWORK_MAC, mac) for mac in mac_addresses},
         name=server.get("name") or host,
     )
 
