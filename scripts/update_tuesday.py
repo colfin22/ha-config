@@ -447,6 +447,14 @@ a:hover { text-decoration: underline; }
 .num-ok   { color: #3fb950; }
 .num-warn { color: #d29922; }
 .num-err  { color: #f85149; }
+@media (max-width: 768px) {
+  .page { padding: 12px 8px; }
+  .section-body { padding: 8px 0; overflow-x: auto; }
+  table { min-width: 560px; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .summary-num { font-size: 24px; }
+  td, th { padding: 6px 8px; }
+}
 @media print {
   body { background: white; color: #24292f; }
   .section { border-color: #d0d7de; page-break-inside: avoid; }
