@@ -680,13 +680,13 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
   <h1>Update Tuesday Report</h1>
   <p class="subtitle">Generated {date_str} &nbsp;·&nbsp; <button onclick="window.print()" style="background:#238636;color:#fff;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">Print / Save PDF</button></p>
   {summary}
+  {ha_section}
+  {truenas_section}
   {proxmox_section}
   {pbs_section}
-  {truenas_section}
   {ubuntu_section}
   {apps_section}
   {mikrotik_section}
-  {ha_section}
 </div>
 </body>
 </html>"""
