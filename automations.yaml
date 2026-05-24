@@ -2146,31 +2146,160 @@
     target:
       entity_id: light.hallway_1
   mode: restart
-
 - id: update_tuesday_report
   alias: Update Tuesday - Generate Report
-  description: >
-    Runs on the Monday before Update Tuesday (2nd Tuesday of month) at 7pm.
-    Generates a homelab update report and sends a notification.
+  description: 'Runs on the Monday before Update Tuesday (2nd Tuesday of month) at
+    7pm. Generates a homelab update report and sends a notification.
+
+    '
   trigger:
-    - platform: time
-      at: "19:00:00"
+  - platform: time
+    at: '19:00:00'
   condition:
-    - condition: template
-      value_template: >
-        {{ now().weekday() == 0 and 7 <= now().day <= 13 }}
+  - condition: template
+    value_template: '{{ now().weekday() == 0 and 7 <= now().day <= 13 }}
+
+      '
   action:
-    - alias: Generate the report
-      action: shell_command.generate_update_report
-    - delay: 00:00:45
-    - alias: Send notification to Colm
-      action: notify.mobile_app_np3
+  - alias: Generate the report
+    action: shell_command.generate_update_report
+  - delay: 00:00:45
+  - alias: Send notification to Colm
+    action: notify.mobile_app_np3
+    data:
+      title: U0001F4CB Update Tuesday is Tomorrow
+      message: 'Your homelab update report is ready. Tap to open the report.
+
+        '
       data:
-        title: U0001F4CB Update Tuesday is Tomorrow
-        message: >
-          Your homelab update report is ready.
-          Tap to open the report.
+        url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
+        clickAction: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
+  mode: single
+- id: '1779624020049'
+  alias: Cat Alarm - Cat Detected
+  description: TTS announcement on kitchen display when a cat is detected on rear
+    door or rear shed cameras
+  triggers:
+  - platform: state
+    entity_id:
+    - binary_sensor.rear_door_cat_occupancy
+    - binary_sensor.rear_shed_cat_occupancy
+    to: 'on'
+  actions:
+  - variables:
+      prior_volume: '{{ state_attr(''media_player.home_audio_group_cast'', ''volume_level'')
+        }}'
+  - action: media_player.volume_set
+    target:
+      entity_id: media_player.home_audio_group_cast
+    data:
+      volume_level: 1.0
+  - action: tts.cloud_say
+    target:
+      entity_id: media_player.home_audio_group_cast
+    data:
+      message: Cat detected at {% if trigger.entity_id == 'binary_sensor.rear_door_cat_occupancy'
+        %}the rear door{% else %}the rear shed{% endif %}.
+      cache: false
+  - wait_for_trigger:
+    - platform: state
+      entity_id: media_player.home_audio_group_cast
+      to: playing
+    timeout: 00:00:05
+    continue_on_timeout: true
+  - wait_for_trigger:
+    - platform: state
+      entity_id: media_player.home_audio_group_cast
+      to: idle
+    timeout: 00:00:15
+    continue_on_timeout: true
+  - action: media_player.volume_set
+    target:
+      entity_id: media_player.home_audio_group_cast
+    data:
+      volume_level: '{{ prior_volume }}'
+  mode: single
+- id: '1779624030487'
+  alias: Cat Alarm - NFC Toggle
+  description: Scan Cat Alarm NFC tag to enable or disable cat detection announcements
+    with TTS feedback
+  triggers:
+  - platform: tag
+    tag_id: da5e7dc7-7c28-4b7b-b79a-ec5a8f6959c6
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: automation.cat_alarm_cat_detected
+        state: 'on'
+      sequence:
+      - action: automation.turn_off
+        target:
+          entity_id: automation.cat_alarm_cat_detected
+      - variables:
+          prior_volume: '{{ state_attr(''media_player.kitchen_display_cast'', ''volume_level'')
+            }}'
+      - action: media_player.volume_set
+        target:
+          entity_id: media_player.kitchen_display_cast
         data:
-          url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
-          clickAction: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
+          volume_level: 1.0
+      - action: tts.cloud_say
+        target:
+          entity_id: media_player.kitchen_display_cast
+        data:
+          message: Cat alarm disabled.
+          cache: false
+      - wait_for_trigger:
+        - platform: state
+          entity_id: media_player.kitchen_display_cast
+          to: playing
+        timeout: 00:00:05
+        continue_on_timeout: true
+      - wait_for_trigger:
+        - platform: state
+          entity_id: media_player.kitchen_display_cast
+          to: idle
+        timeout: 00:00:15
+        continue_on_timeout: true
+      - action: media_player.volume_set
+        target:
+          entity_id: media_player.kitchen_display_cast
+        data:
+          volume_level: '{{ prior_volume }}'
+    default:
+    - action: automation.turn_on
+      target:
+        entity_id: automation.cat_alarm_cat_detected
+    - variables:
+        prior_volume: '{{ state_attr(''media_player.kitchen_display_cast'', ''volume_level'')
+          }}'
+    - action: media_player.volume_set
+      target:
+        entity_id: media_player.kitchen_display_cast
+      data:
+        volume_level: 1.0
+    - action: tts.cloud_say
+      target:
+        entity_id: media_player.kitchen_display_cast
+      data:
+        message: Cat alarm enabled.
+        cache: false
+    - wait_for_trigger:
+      - platform: state
+        entity_id: media_player.kitchen_display_cast
+        to: playing
+      timeout: 00:00:05
+      continue_on_timeout: true
+    - wait_for_trigger:
+      - platform: state
+        entity_id: media_player.kitchen_display_cast
+        to: idle
+      timeout: 00:00:15
+      continue_on_timeout: true
+    - action: media_player.volume_set
+      target:
+        entity_id: media_player.kitchen_display_cast
+      data:
+        volume_level: '{{ prior_volume }}'
   mode: single
