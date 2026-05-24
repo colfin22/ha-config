@@ -186,9 +186,8 @@
       include_custom_actions: []
       start_custom_actions: []
       end_custom_actions:
-      - action: tts.cloud_say
+      - action: script.tts_announce
         data:
-          entity_id: media_player.home_audio_group_cast
           message: The dishwasher cycle is now complete
       start_notify_data:
       - icon
@@ -234,9 +233,8 @@
       include_cycle_counter: enable_cycle_counter
       cycle_counter_helper: counter.washing_machine_cycle_counter
       end_custom_actions:
-      - action: tts.cloud_say
+      - action: script.tts_announce
         data:
-          entity_id: media_player.home_audio_group_cast
           message: The washing machine cycle is now complete
       include_custom_actions: []
       end_notify_data:
@@ -288,9 +286,8 @@
       cycle_counter_helper: counter.tumble_dryer_cycle_counter
       include_custom_actions: []
       end_custom_actions:
-      - action: tts.cloud_say
+      - action: script.tts_announce
         data:
-          entity_id: media_player.home_audio_group_cast
           message: The tumble dryer cycle is now complete
       start_notify_data:
       - icon
@@ -420,10 +417,10 @@
               - light.hallway
           - delay:
               seconds: 1.5
-      - action: tts.cloud_say
+      - action: script.tts_announce
         data:
-          entity_id: media_player.colm_bedroom_speaker_cast
           message: Person detected on front camera at car
+          target_player: media_player.colm_bedroom_speaker_cast
 - id: '1771748445702'
   alias: Low Battery Notifications & Actions
   description: Checks all device batteries every Sunday at 10:00 and notifies Colm
@@ -515,11 +512,8 @@
         metadata: {}
         data:
           message: A Package Has Been Delivered!
-      - action: tts.cloud_say
-        metadata: {}
+      - action: script.tts_announce
         data:
-          cache: false
-          entity_id: media_player.home_audio_group_cast
           message: A Package Has Been Delivered!
       - action: notify.mobile_app_pixel_6a
         metadata: {}
@@ -906,9 +900,8 @@
     to: Doorbell
   conditions: []
   actions:
-  - action: tts.cloud_say
+  - action: script.tts_announce
     data:
-      entity_id: media_player.home_audio_group_cast
       message: The postman has been detected. You have post or a package.
   mode: single
 - id: '1778233948678'
@@ -960,9 +953,8 @@
     above: 0
   conditions: []
   actions:
-  - action: tts.cloud_say
+  - action: script.tts_announce
     data:
-      entity_id: media_player.home_audio_group_cast
       message: '{{ courier_name }} has landed.'
   variables:
     courier_key: '{{ trigger.entity_id | replace(''sensor.front_car_'', '''') | replace(''sensor.front_van_'',
