@@ -2154,7 +2154,7 @@
     Generates a homelab update report and sends a notification.
   trigger:
     - platform: time
-      at: 19:00:00
+      at: "19:00:00"
   condition:
     - condition: template
       value_template: >
