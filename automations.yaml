@@ -398,25 +398,14 @@
       labels:
       - person
       custom_action_auto:
-      - repeat:
+      - action: script.strobe_lights
+        data:
+          lights:
+          - light.sitting_room
+          - light.hallway
           count: 10
-          sequence:
-          - action: light.turn_on
-            target:
-              entity_id:
-              - light.sitting_room
-              - light.hallway
-            data:
-              brightness_pct: 100
-          - delay:
-              seconds: 1.5
-          - action: light.turn_off
-            target:
-              entity_id:
-              - light.sitting_room
-              - light.hallway
-          - delay:
-              seconds: 1.5
+          on_seconds: 1.5
+          off_seconds: 1.5
       - action: script.tts_announce
         data:
           message: Person detected on front camera at car
