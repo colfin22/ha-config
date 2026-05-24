@@ -895,8 +895,8 @@
   mode: single
 - id: '1778233948678'
   alias: Frigate - Courier Delivery TTS Alert
-  description: When DPD, GLS, Amazon or UPS is detected on the front car or front
-    van camera, announce on all speakers.
+  description: When DPD, GLS, Amazon, UPS, FedEx, DHL, or An Post is detected on the
+    front car or front van camera, announce on all speakers.
   triggers:
   - entity_id: sensor.front_car_dpd_count
     above: 0
@@ -2141,8 +2141,8 @@
   mode: single
 - id: '1779624020049'
   alias: Cat Alarm - Cat Detected
-  description: TTS announcement on kitchen display when a cat is detected on rear
-    door or rear shed cameras
+  description: When Frigate detects a cat on the rear door or rear shed camera, announces
+    on the home audio group via script.tts_announce.
   triggers:
   - platform: state
     entity_id:
