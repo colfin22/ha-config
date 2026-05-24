@@ -2186,38 +2186,10 @@
     - binary_sensor.rear_shed_cat_occupancy
     to: 'on'
   actions:
-  - variables:
-      prior_volume: '{{ state_attr(''media_player.home_audio_group_cast'', ''volume_level'')
-        }}'
-  - action: media_player.volume_set
-    target:
-      entity_id: media_player.home_audio_group_cast
-    data:
-      volume_level: 1.0
-  - action: tts.cloud_say
-    target:
-      entity_id: media_player.home_audio_group_cast
+  - action: script.tts_announce
     data:
       message: Cat detected at {% if trigger.entity_id == 'binary_sensor.rear_door_cat_occupancy'
         %}the rear door{% else %}the rear shed{% endif %}.
-      cache: false
-  - wait_for_trigger:
-    - platform: state
-      entity_id: media_player.home_audio_group_cast
-      to: playing
-    timeout: 00:00:05
-    continue_on_timeout: true
-  - wait_for_trigger:
-    - platform: state
-      entity_id: media_player.home_audio_group_cast
-      to: idle
-    timeout: 00:00:15
-    continue_on_timeout: true
-  - action: media_player.volume_set
-    target:
-      entity_id: media_player.home_audio_group_cast
-    data:
-      volume_level: '{{ prior_volume }}'
   mode: single
 - id: '1779624030487'
   alias: Cat Alarm - NFC Toggle
@@ -2236,70 +2208,16 @@
       - action: automation.turn_off
         target:
           entity_id: automation.cat_alarm_cat_detected
-      - variables:
-          prior_volume: '{{ state_attr(''media_player.kitchen_display_cast'', ''volume_level'')
-            }}'
-      - action: media_player.volume_set
-        target:
-          entity_id: media_player.kitchen_display_cast
-        data:
-          volume_level: 1.0
-      - action: tts.cloud_say
-        target:
-          entity_id: media_player.kitchen_display_cast
+      - action: script.tts_announce
         data:
           message: Cat alarm disabled.
-          cache: false
-      - wait_for_trigger:
-        - platform: state
-          entity_id: media_player.kitchen_display_cast
-          to: playing
-        timeout: 00:00:05
-        continue_on_timeout: true
-      - wait_for_trigger:
-        - platform: state
-          entity_id: media_player.kitchen_display_cast
-          to: idle
-        timeout: 00:00:15
-        continue_on_timeout: true
-      - action: media_player.volume_set
-        target:
-          entity_id: media_player.kitchen_display_cast
-        data:
-          volume_level: '{{ prior_volume }}'
+          target_player: media_player.kitchen_display_cast
     default:
     - action: automation.turn_on
       target:
         entity_id: automation.cat_alarm_cat_detected
-    - variables:
-        prior_volume: '{{ state_attr(''media_player.kitchen_display_cast'', ''volume_level'')
-          }}'
-    - action: media_player.volume_set
-      target:
-        entity_id: media_player.kitchen_display_cast
-      data:
-        volume_level: 1.0
-    - action: tts.cloud_say
-      target:
-        entity_id: media_player.kitchen_display_cast
+    - action: script.tts_announce
       data:
         message: Cat alarm enabled.
-        cache: false
-    - wait_for_trigger:
-      - platform: state
-        entity_id: media_player.kitchen_display_cast
-        to: playing
-      timeout: 00:00:05
-      continue_on_timeout: true
-    - wait_for_trigger:
-      - platform: state
-        entity_id: media_player.kitchen_display_cast
-        to: idle
-      timeout: 00:00:15
-      continue_on_timeout: true
-    - action: media_player.volume_set
-      target:
-        entity_id: media_player.kitchen_display_cast
-      data:
-        volume_level: '{{ prior_volume }}'
+        target_player: media_player.kitchen_display_cast
   mode: single

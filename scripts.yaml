@@ -1,1 +1,46 @@
-{}
+tts_announce:
+  alias: TTS Announce
+  description: Saves volume, ramps to 100%, plays TTS, waits for playback, restores
+    volume. Queued so concurrent calls don't overlap.
+  icon: mdi:bullhorn
+  mode: queued
+  max: 5
+  fields:
+    message:
+      description: The message to announce
+      required: true
+      example: Motion detected at the front door
+      selector:
+        text: {}
+    target_player:
+      description: Media player to announce on. Defaults to home audio group.
+      required: false
+      default: media_player.home_audio_group_cast
+      example: media_player.kitchen_display_cast
+      selector:
+        entity:
+          domain: media_player
+  sequence:
+  - variables:
+      resolved_player: '{{ target_player | default(''media_player.home_audio_group_cast'')
+        }}'
+      prior_volume: '{{ state_attr(target_player | default(''media_player.home_audio_group_cast''),
+        ''volume_level'') | default(0.5) }}'
+  - action: media_player.volume_set
+    target:
+      entity_id: '{{ resolved_player }}'
+    data:
+      volume_level: 1
+  - action: tts.cloud_say
+    target:
+      entity_id: '{{ resolved_player }}'
+    data:
+      message: '{{ message }}'
+      cache: false
+  - delay:
+      seconds: 8
+  - action: media_player.volume_set
+    target:
+      entity_id: '{{ resolved_player }}'
+    data:
+      volume_level: '{{ prior_volume }}'
