@@ -224,11 +224,21 @@ def collect_truenas():
     }
 
 
+def http_get_text(url, timeout=15):
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    req = urllib.request.Request(url)
+    try:
+        with urllib.request.urlopen(req, context=ctx, timeout=timeout) as resp:
+            return resp.read().decode().strip()
+    except Exception:
+        return None
+
+
 def collect_frigate():
     log("Frigate version check...")
-    current = http_get("http://10.0.0.246:5000/api/version")
-    if isinstance(current, dict):
-        current = current.get("version", str(current))
+    current = http_get_text("http://10.0.0.246:5000/api/version")
     if not current:
         raw, _ = ssh_run("hassio", "10.0.0.246",
             "docker inspect frigate 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d[0]['Config']['Image'])\" 2>/dev/null", timeout=15)
