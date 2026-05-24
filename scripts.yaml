@@ -43,7 +43,7 @@ tts_announce:
     target:
       entity_id: '{{ resolved_player }}'
     data:
-      volume_level: '{{ prior_volume }}'
+      volume_level: '{{ prior_volume | float }}'
 strobe_lights:
   alias: Strobe Lights
   description: Snapshots light state, strobes lights a set number of times, then restores
