@@ -82,3 +82,6 @@ git_status.txt
 !.storage/tag
 !.storage/energy
 !.storage/homeassistant.exposed_entities
+
+# Update Tuesday generated output
+www/update_tuesday/
