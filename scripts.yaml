@@ -25,7 +25,7 @@ tts_announce:
       resolved_player: '{{ target_player | default(''media_player.home_audio_group_cast'')
         }}'
       prior_volume: '{{ state_attr(target_player | default(''media_player.home_audio_group_cast''),
-        ''volume_level'') | default(0.5) }}'
+        ''volume_level'') | float(0.5) }}'
   - action: media_player.volume_set
     target:
       entity_id: '{{ resolved_player }}'
