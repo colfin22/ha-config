@@ -417,6 +417,7 @@ h1 { font-size: 24px; font-weight: 700; color: #f0f6fc; margin-bottom: 4px; }
 .badge-crit { background: #3d1a1a; color: #f85149; border: 1px solid #da3633; }
 .badge-err  { background: #21262d; color: #8b949e; border: 1px solid #30363d; }
 .section-body { padding: 12px 16px; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; }
 th { text-align: left; padding: 6px 12px; color: #8b949e; font-size: 12px;
      font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;
@@ -449,8 +450,10 @@ a:hover { text-decoration: underline; }
 .num-err  { color: #f85149; }
 @media (max-width: 768px) {
   .page { padding: 12px 8px; }
-  .section-body { padding: 8px 0; overflow-x: auto; }
-  table { min-width: 560px; }
+  .section { overflow: visible; }
+  .section-body { padding: 8px 0; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 8px; }
+  table { min-width: 540px; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .summary-num { font-size: 24px; }
   td, th { padding: 6px 8px; }
@@ -587,10 +590,10 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
     <span class="section-title">{icon} {title}</span>
   </div>
   <div class="section-body">
-    <table>
+    <div class="table-scroll"><table>
       <thead><tr><th>Host</th><th>Status</th><th>Packages / Details</th></tr></thead>
       <tbody>{rows}</tbody>
-    </table>
+    </table></div>
   </div>
 </div>"""
 
