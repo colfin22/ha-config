@@ -101,26 +101,64 @@ strobe_lights:
           max: 10
           step: 0.1
           mode: box
+    while_entity:
+      description: If set, strobe runs while this entity is in while_state instead
+        of using count
+      required: false
+      example: alarm_control_panel.alarmo
+      selector:
+        entity: {}
+    while_state:
+      description: State to keep strobing while (used with while_entity)
+      required: false
+      default: triggered
+      example: triggered
+      selector:
+        text: {}
   sequence:
   - action: scene.create
     data:
       scene_id: strobe_lights_snapshot
       snapshot_entities: '{{ lights }}'
-  - repeat:
-      count: '{{ count | default(10) | int }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ while_entity | default('''') != '''' }}'
       sequence:
-      - action: light.turn_on
-        target:
-          entity_id: '{{ lights }}'
-        data:
-          brightness_pct: '{{ brightness_pct | default(100) | int }}'
-      - delay:
-          seconds: '{{ on_seconds | default(1.5) }}'
-      - action: light.turn_off
-        target:
-          entity_id: '{{ lights }}'
-      - delay:
-          seconds: '{{ off_seconds | default(1.5) }}'
+      - repeat:
+          while:
+          - condition: template
+            value_template: '{{ is_state(while_entity, while_state | default(''triggered''))
+              }}'
+          sequence:
+          - action: light.turn_on
+            target:
+              entity_id: '{{ lights }}'
+            data:
+              brightness_pct: '{{ brightness_pct | default(100) | int }}'
+          - delay:
+              seconds: '{{ on_seconds | default(1.5) }}'
+          - action: light.turn_off
+            target:
+              entity_id: '{{ lights }}'
+          - delay:
+              seconds: '{{ off_seconds | default(1.5) }}'
+    default:
+    - repeat:
+        count: '{{ count | default(10) | int }}'
+        sequence:
+        - action: light.turn_on
+          target:
+            entity_id: '{{ lights }}'
+          data:
+            brightness_pct: '{{ brightness_pct | default(100) | int }}'
+        - delay:
+            seconds: '{{ on_seconds | default(1.5) }}'
+        - action: light.turn_off
+          target:
+            entity_id: '{{ lights }}'
+        - delay:
+            seconds: '{{ off_seconds | default(1.5) }}'
   - action: scene.turn_on
     target:
       entity_id: scene.strobe_lights_snapshot
