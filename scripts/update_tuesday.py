@@ -234,19 +234,20 @@ def collect_frigate():
             "docker inspect frigate 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d[0]['Config']['Image'])\" 2>/dev/null", timeout=15)
         current = raw or "Unknown"
 
+    current_str = str(current)
+    # Extract version number (e.g. "0.17.1-416a9b7" → "0.17.1")
+    cur_base = current_str.split("-")[0] if "-" in current_str else current_str
+
     latest_tag, release_url = github_latest_release("blakeblackshear/frigate")
+    lat_base = re.sub(r"^v", "", str(latest_tag or "")).split("-")[0]
 
-    def ver_clean(v):
-        return re.sub(r"[^0-9.]", "", v.split("-")[0]) if v else ""
-
-    cur_clean = ver_clean(str(current))
-    lat_clean = ver_clean(str(latest_tag or ""))
+    update_available = bool(lat_base and cur_base and cur_base not in ("Unknown", "?") and lat_base != cur_base)
 
     return {
         "status": "ok",
-        "current_version": str(current),
+        "current_version": current_str,
         "latest_version": latest_tag or "Unknown",
-        "update_available": bool(lat_clean and cur_clean and lat_clean != cur_clean),
+        "update_available": update_available,
         "release_notes_url": release_url or "https://github.com/blakeblackshear/frigate/releases",
     }
 
@@ -502,7 +503,7 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
         hosts_with_updates += 1
         total_updates += 1
 
-    mk_updates = sum(1 for d in mikrotik if d.get("update_available"))
+    mk_updates = sum(1 for d in mikrotik if d.get("update_available") or d.get("firmware_update"))
     if mk_updates:
         hosts_with_updates += mk_updates
         total_updates += mk_updates
@@ -526,7 +527,7 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
     <div class="summary-label">Unreachable hosts</div>
   </div>
   <div class="summary-card">
-    <div class="summary-num num-ok">{len(ssh_results) + 4}</div>
+    <div class="summary-num num-ok">{len(ssh_results) + len(mikrotik) + 4}</div>
     <div class="summary-label">Systems checked</div>
   </div>
 </div>
@@ -584,8 +585,9 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
         tn_row = f'<tr><td><strong>TrueNAS SCALE</strong><br><span class="version">10.0.0.254</span></td><td>{err_badge()}</td><td class="status-err">API error</td></tr>'
     else:
         upd = truenas["update_available"]
-        upd_ver = truenas.get("update_version", "")
-        detail = f'Version {upd_ver} available · <a class="update-link" href="{truenas["release_notes_url"]}" target="_blank">Release notes ↗</a>' if upd else '<span class="status-ok">Up to date</span>'
+        upd_ver = truenas.get("update_version") or ""
+        ver_detail = f"Version {upd_ver} available" if upd_ver else "Update available (pre-downloaded)"
+        detail = f'{ver_detail} · <a class="update-link" href="{truenas["release_notes_url"]}" target="_blank">Release notes ↗</a>' if upd else '<span class="status-ok">Up to date</span>'
         tn_row = f"""<tr>
 <td><strong>TrueNAS SCALE</strong><br><span class="version">10.0.0.254 · {truenas['current_version']}</span></td>
 <td>{badge(upd)}</td>
