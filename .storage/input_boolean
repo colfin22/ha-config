@@ -13,6 +13,11 @@
         "id": "olivia_away",
         "name": "Olivia away",
         "icon": "mdi:eye"
+      },
+      {
+        "id": "patio_door_open",
+        "name": "Patio Door Open",
+        "icon": "mdi:door-open"
       }
     ]
   }
