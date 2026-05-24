@@ -2162,7 +2162,7 @@
   action:
     - alias: Generate the report
       action: shell_command.generate_update_report
-    - delay: 00:00:05
+    - delay: 00:00:45
     - alias: Send notification to Colm
       action: notify.mobile_app_np3
       data:
@@ -2171,6 +2171,6 @@
           Your homelab update report is ready.
           Tap to open the report.
         data:
-          url: http://10.0.0.252:8123/local/update_tuesday/report.html
-          clickAction: http://10.0.0.252:8123/local/update_tuesday/report.html
+          url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
+          clickAction: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
   mode: single
