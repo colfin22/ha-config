@@ -61,3 +61,12 @@ command_line:
       command: "ssh -i /config/.ssh/frigate_sensor -o StrictHostKeyChecking=no -o BatchMode=yes hassio@10.0.0.246 df /cctv_clips"
       scan_interval: 300
       value_template: "{{ value.split()[-2] | replace('%', '') | int }}"
+
+shell_command:
+  generate_update_report: >
+    ssh -i /config/.ssh/ha_to_addon
+    -o StrictHostKeyChecking=no
+    -o BatchMode=yes
+    -o ConnectTimeout=10
+    root@172.30.33.0
+    "bash /config/scripts/update_tuesday.sh"

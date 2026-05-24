@@ -2146,3 +2146,31 @@
     target:
       entity_id: light.hallway_1
   mode: restart
+
+- id: update_tuesday_report
+  alias: Update Tuesday - Generate Report
+  description: >
+    Runs on the Monday before Update Tuesday (2nd Tuesday of month) at 7pm.
+    Generates a homelab update report and sends a notification.
+  trigger:
+    - platform: time
+      at: 19:00:00
+  condition:
+    - condition: template
+      value_template: >
+        {{ now().weekday() == 0 and 7 <= now().day <= 13 }}
+  action:
+    - alias: Generate the report
+      action: shell_command.generate_update_report
+    - delay: 00:00:05
+    - alias: Send notification to Colm
+      action: notify.mobile_app_np3
+      data:
+        title: U0001F4CB Update Tuesday is Tomorrow
+        message: >
+          Your homelab update report is ready.
+          Tap to open the report.
+        data:
+          url: http://10.0.0.252:8123/local/update_tuesday/report.html
+          clickAction: http://10.0.0.252:8123/local/update_tuesday/report.html
+  mode: single
