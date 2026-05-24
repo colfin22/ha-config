@@ -24,6 +24,10 @@
       message: '{{ label }} detected - {{ camera_name }} at {{event[''after''][''start_time'']|timestamp_custom(''%H:%M'')}}'
       icon: mdi:cctv
       android_auto: true
+      master_condition:
+      - condition: template
+        value_template: '{{ not (is_state(''input_boolean.patio_door_open'', ''on'')
+          and camera | lower in [''rear_door'', ''rear_shed'']) }}'
 - id: '1738415663458'
   alias: Frigate - Colm Notify
   description: Sends Frigate alert notifications to Colm for all cameras (front car,
@@ -52,6 +56,10 @@
       icon: mdi:cctv
       final_update: false
       color: '#ffeb3b'
+      master_condition:
+      - condition: template
+        value_template: '{{ not (is_state(''input_boolean.patio_door_open'', ''on'')
+          and camera | lower in [''rear_door'', ''rear_shed'']) }}'
 - id: '1738945275489'
   alias: Bins Out Notification
   description: Notify which bins to put out the night before collection, listing all
@@ -2193,11 +2201,9 @@
   - platform: tag
     tag_id: f958aada-03e8-4db5-9ccf-7c8f539ccf76
   actions:
-  - action: switch.turn_off
+  - action: input_boolean.turn_on
     target:
-      entity_id:
-      - switch.rear_door_detect
-      - switch.rear_shed_detect
+      entity_id: input_boolean.patio_door_open
   - action: script.tts_announce
     data:
       message: Person detection on rear cameras disabled while the patio door is open.
@@ -2208,11 +2214,9 @@
       to: 'off'
     timeout: 04:00:00
     continue_on_timeout: true
-  - action: switch.turn_on
+  - action: input_boolean.turn_off
     target:
-      entity_id:
-      - switch.rear_door_detect
-      - switch.rear_shed_detect
+      entity_id: input_boolean.patio_door_open
   - action: script.tts_announce
     data:
       message: Person detection on rear cameras re-enabled.
