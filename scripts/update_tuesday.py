@@ -402,10 +402,11 @@ body {
 .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
 h1 { font-size: 24px; font-weight: 700; color: #f0f6fc; margin-bottom: 4px; }
 .subtitle { color: #8b949e; margin-bottom: 28px; font-size: 13px; }
-.section { margin-bottom: 24px; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+.section { margin-bottom: 24px; border: 1px solid #30363d; border-radius: 8px; }
 .section-header {
   background: #161b22; padding: 12px 16px; display: flex; align-items: center;
   justify-content: space-between; border-bottom: 1px solid #30363d;
+  border-radius: 8px 8px 0 0;
 }
 .section-title { font-weight: 600; font-size: 15px; color: #f0f6fc; }
 .badge {
@@ -450,9 +451,8 @@ a:hover { text-decoration: underline; }
 .num-err  { color: #f85149; }
 @media (max-width: 768px) {
   .page { padding: 12px 8px; }
-  .section { overflow: visible; }
   .section-body { padding: 8px 0; }
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 8px; }
+  .table-scroll { padding: 0 8px; }
   table { min-width: 540px; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .summary-num { font-size: 24px; }
