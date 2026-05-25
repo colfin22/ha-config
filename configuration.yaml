@@ -70,3 +70,8 @@ shell_command:
     -o ConnectTimeout=10
     root@172.30.33.0
     "bash /config/scripts/update_tuesday.sh"
+
+logger:
+  default: warning
+  logs:
+    urllib3.connectionpool: error

@@ -152,6 +152,7 @@
       message: '{{ label }} detected - {{ camera_name }} at {{event[''after''][''start_time'']|timestamp_custom(''%H:%M'')}}'
       labels:
       - person
+      color: cyan
 - id: '1769600924498'
   alias: Dishwasher Notifications & Actions
   description: Monitors dishwasher power to detect cycle start/end. Notifies Colm
