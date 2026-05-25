@@ -60,11 +60,6 @@
         "type": "module"
       },
       {
-        "id": "b7eb36f4ebf9458c83b63e98ba719c7a",
-        "url": "/hacsfiles/advanced-camera-card/advanced-camera-card.js?hacstag=3940825527170",
-        "type": "module"
-      },
-      {
         "id": "9fdab41b23ca40bfb76637ec2d5120bc",
         "url": "/hacsfiles/energy-sankey/energy-sankey.js?hacstag=8757988630027",
         "type": "css"
@@ -77,11 +72,6 @@
       {
         "id": "be3e797adf164098b8114a6a8a16e6b9",
         "url": "/hacsfiles/lovelace-state-switch/state-switch.js?hacstag=158756598196",
-        "type": "module"
-      },
-      {
-        "id": "d4813e780dc248ee97fd2eb78f9e2cf3",
-        "url": "/hacsfiles/tabbed-card/tabbed-card.js?hacstag=452866308033",
         "type": "module"
       },
       {
