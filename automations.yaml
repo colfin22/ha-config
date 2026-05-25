@@ -2226,3 +2226,41 @@
       message: Person detection on rear cameras re-enabled.
       target_player: media_player.kitchen_display_cast
   mode: single
+- id: '1779717963578'
+  alias: Zabbix - Alert Notify
+  description: Receives Zabbix webhook alerts and notifies NP3 with quiet hours 22:00-07:00
+  triggers:
+  - platform: webhook
+    webhook_id: zabbix-alert
+    local_only: true
+    allowed_methods:
+    - POST
+  actions:
+  - variables:
+      alert_time: '{{ now().strftime(''%H:%M'') }}'
+      alert_title: 'Zabbix {{ trigger.json.status }}: {{ trigger.json.name }}'
+      alert_message: '{{ trigger.json.host }} [{{ trigger.json.severity }}] — {{ trigger.json.message
+        }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: '{{ alert_title }}'
+        message: '{{ alert_message }}'
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: '{{ alert_title }} (triggered {{ alert_time }})'
+        message: '{{ alert_message }}'
+  mode: parallel
+  max: 20
