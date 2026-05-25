@@ -2169,8 +2169,7 @@
   mode: single
 - id: '1779624030487'
   alias: Cat Alarm - NFC Toggle
-  description: Scan Cat Alarm NFC tag to enable or disable cat detection announcements
-    with TTS feedback
+  description: Scan Cat Alarm NFC tag to enable or disable cat detection
   triggers:
   - platform: tag
     tag_id: da5e7dc7-7c28-4b7b-b79a-ec5a8f6959c6
@@ -2184,18 +2183,10 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.cat_alarm
-      - action: script.tts_announce
-        data:
-          message: Cat alarm disabled.
-          target_player: media_player.kitchen_display_cast
     default:
     - action: input_boolean.turn_on
       target:
         entity_id: input_boolean.cat_alarm
-    - action: script.tts_announce
-      data:
-        message: Cat alarm enabled.
-        target_player: media_player.kitchen_display_cast
   mode: single
 - id: '1779632326878'
   alias: Patio Door - Disable Rear Camera Detection
@@ -2264,3 +2255,31 @@
         message: '{{ alert_message }}'
   mode: parallel
   max: 20
+- id: '1779725056202'
+  alias: Cat Alarm - State Announce
+  description: Announce on kitchen display whenever cat alarm is enabled or disabled
+    from any source
+  triggers:
+  - platform: state
+    entity_id: input_boolean.cat_alarm
+    to: 'on'
+  - platform: state
+    entity_id: input_boolean.cat_alarm
+    to: 'off'
+  actions:
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.cat_alarm
+        state: 'on'
+      sequence:
+      - action: script.tts_announce
+        data:
+          message: Cat alarm enabled.
+          target_player: media_player.kitchen_display_cast
+    default:
+    - action: script.tts_announce
+      data:
+        message: Cat alarm disabled.
+        target_player: media_player.kitchen_display_cast
+  mode: single
