@@ -36315,6 +36315,16 @@
             "should_expose": false
           }
         }
+      },
+      "scene.strobe_lights_snapshot": {
+        "assistants": {
+          "conversation": {
+            "should_expose": true
+          },
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }
