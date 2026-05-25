@@ -2157,6 +2157,10 @@
     - binary_sensor.rear_door_cat_occupancy
     - binary_sensor.rear_shed_cat_occupancy
     to: 'on'
+  conditions:
+  - condition: state
+    entity_id: input_boolean.cat_alarm
+    state: 'on'
   actions:
   - action: script.tts_announce
     data:
@@ -2174,20 +2178,20 @@
   - choose:
     - conditions:
       - condition: state
-        entity_id: automation.cat_alarm_cat_detected
+        entity_id: input_boolean.cat_alarm
         state: 'on'
       sequence:
-      - action: automation.turn_off
+      - action: input_boolean.turn_off
         target:
-          entity_id: automation.cat_alarm_cat_detected
+          entity_id: input_boolean.cat_alarm
       - action: script.tts_announce
         data:
           message: Cat alarm disabled.
           target_player: media_player.kitchen_display_cast
     default:
-    - action: automation.turn_on
+    - action: input_boolean.turn_on
       target:
-        entity_id: automation.cat_alarm_cat_detected
+        entity_id: input_boolean.cat_alarm
     - action: script.tts_announce
       data:
         message: Cat alarm enabled.
