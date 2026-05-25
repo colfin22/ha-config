@@ -454,6 +454,9 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             return health["score"]
         if not self.coordinator.data:
             return None
+        if self.entity_description.key == "containers":
+            details = self.coordinator.data.get("container_details", [])
+            return len(details) if isinstance(details, list) else 0
         return self.coordinator.data.get(self.entity_description.key)
 
     @property
