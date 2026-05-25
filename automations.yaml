@@ -2284,3 +2284,13 @@
         message: Cat alarm disabled.
         target_player: media_player.kitchen_display_cast
   mode: single
+- id: '1779738353915'
+  alias: 'Immich: Refresh Pics for Display'
+  triggers:
+  - platform: time_pattern
+    minutes: /3
+  actions:
+  - action: homeassistant.update_entity
+    target:
+      entity_id: image.immich_pics_for_display
+  mode: single

@@ -1,0 +1,15 @@
+{
+  "domain": "immich",
+  "name": "Immich",
+  "codeowners": ["@outadoc"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/outadoc/immich-home-assistant",
+  "homekit": {},
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/outadoc/immich-home-assistant/issues",
+  "requirements": ["url-normalize==1.4.3"],
+  "ssdp": [],
+  "version": "0.2.0",
+  "zeroconf": []
+}

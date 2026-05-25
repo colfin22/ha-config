@@ -697,6 +697,25 @@
                 }
               ],
               "column_span": 1
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Photos",
+                  "icon": "mdi:image-multiple"
+                },
+                {
+                  "type": "picture-entity",
+                  "entity": "image.immich_pics_for_display",
+                  "show_state": false,
+                  "show_name": false,
+                  "tap_action": {
+                    "action": "more-info"
+                  }
+                }
+              ]
             }
           ],
           "badges": [
