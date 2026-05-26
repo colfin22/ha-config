@@ -1382,6 +1382,19 @@
               "cards": [
                 {
                   "type": "heading",
+                  "heading": "Export to Grid"
+                },
+                {
+                  "type": "markdown",
+                  "content": "{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) > 0 %}- 🥇 **{{ states(\"input_text.export_top_5_1st_date\") }}** — {{ states(\"input_number.export_top_5_1st_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_2nd_kwh\")|float(0) > 0 %}- 🥈 **{{ states(\"input_text.export_top_5_2nd_date\") }}** — {{ states(\"input_number.export_top_5_2nd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_3rd_kwh\")|float(0) > 0 %}- 🥉 **{{ states(\"input_text.export_top_5_3rd_date\") }}** — {{ states(\"input_number.export_top_5_3rd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_4th_kwh\")|float(0) > 0 %}- 4th &nbsp;**{{ states(\"input_text.export_top_5_4th_date\") }}** — {{ states(\"input_number.export_top_5_4th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_5th_kwh\")|float(0) > 0 %}- 5th &nbsp;**{{ states(\"input_text.export_top_5_5th_date\") }}** — {{ states(\"input_number.export_top_5_5th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) == 0 %}_No records yet — updates automatically each evening_{% endif %}"
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
                   "heading": "Energy Usage"
                 },
                 {

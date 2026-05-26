@@ -189,6 +189,56 @@
         "step": 0.001,
         "unit_of_measurement": "kWh",
         "mode": "box"
+      },
+      {
+        "id": "export_top_5_1st_kwh",
+        "name": "Export Top 5 — 1st kWh",
+        "icon": "mdi:transmission-tower-export",
+        "min": 0.0,
+        "max": 100.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "export_top_5_2nd_kwh",
+        "name": "Export Top 5 — 2nd kWh",
+        "icon": "mdi:transmission-tower-export",
+        "min": 0.0,
+        "max": 100.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "export_top_5_3rd_kwh",
+        "name": "Export Top 5 — 3rd kWh",
+        "icon": "mdi:transmission-tower-export",
+        "min": 0.0,
+        "max": 100.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "export_top_5_4th_kwh",
+        "name": "Export Top 5 — 4th kWh",
+        "icon": "mdi:transmission-tower-export",
+        "min": 0.0,
+        "max": 100.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
+      },
+      {
+        "id": "export_top_5_5th_kwh",
+        "name": "Export Top 5 — 5th kWh",
+        "icon": "mdi:transmission-tower-export",
+        "min": 0.0,
+        "max": 100.0,
+        "step": 0.001,
+        "unit_of_measurement": "kWh",
+        "mode": "box"
       }
     ]
   }

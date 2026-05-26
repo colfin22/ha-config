@@ -18,6 +18,46 @@
         "mode": "text",
         "min": 0,
         "max": 100
+      },
+      {
+        "id": "export_top_5_1st_date",
+        "name": "Export Top 5 — 1st Date",
+        "icon": "mdi:calendar",
+        "min": 0,
+        "mode": "text",
+        "max": 100
+      },
+      {
+        "id": "export_top_5_2nd_date",
+        "name": "Export Top 5 — 2nd Date",
+        "icon": "mdi:calendar",
+        "min": 0,
+        "mode": "text",
+        "max": 100
+      },
+      {
+        "id": "export_top_5_3rd_date",
+        "name": "Export Top 5 — 3rd Date",
+        "icon": "mdi:calendar",
+        "min": 0,
+        "mode": "text",
+        "max": 100
+      },
+      {
+        "id": "export_top_5_4th_date",
+        "name": "Export Top 5 — 4th Date",
+        "icon": "mdi:calendar",
+        "min": 0,
+        "mode": "text",
+        "max": 100
+      },
+      {
+        "id": "export_top_5_5th_date",
+        "name": "Export Top 5 — 5th Date",
+        "icon": "mdi:calendar",
+        "min": 0,
+        "mode": "text",
+        "max": 100
       }
     ]
   }
