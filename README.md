@@ -104,6 +104,7 @@
 - **Postman** — Doorbell Frigate detects post van → TTS announcement
 - **Person at car** — Frigate person detection at front car camera → mobile alert
 - **Low battery** — monitors all Zigbee devices, notifies when battery low
+- **Weather warning** — Met Éireann official warnings → immediate mobile alert
 
 ### 🎵 Audio
 - **TTS** — queued announcements with volume save/restore (`script.tts_announce`)
