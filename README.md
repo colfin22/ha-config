@@ -79,6 +79,7 @@
 | [Dawarich](https://dawarich.app/) | Location & travel tracking — TrueNAS app, fed from Home Assistant |
 | [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) | Panda Waste bin collection |
 | CalDAV | Calendar integration |
+| [HA Companion App](https://companion.home-assistant.io/) | Mobile app on all phones — presence, notifications, location |
 
 ---
 
