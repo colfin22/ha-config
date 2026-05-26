@@ -18,7 +18,7 @@
 |---|---|
 | **Host** | Proxmox VE — 2× Beelink S12 (Intel N100, 16GB DDR4, 500GB SSD) |
 | **HA** | Home Assistant OS — Proxmox VM |
-| **NAS** | TrueNAS SCALE — TRIGKEY N100 Mini PC (16GB DDR4, 500GB SSD), MainPool (2× mirror, WD Purple 6TB, 10.78 TiB usable) |
+| **NAS** | TrueNAS SCALE — TRIGKEY N100 Mini PC (32GB DDR4, 500GB SSD), MainPool (2× mirror, WD Purple 6TB, 10.78 TiB usable) |
 | **Network** | MikroTik router + 7× managed switches/APs |
 | **VLANs** | Home · IoT · Work · Guest |
 | **DNS** | Pi-hole × 2 (LXC 101 primary + TrueNAS app replica) |
