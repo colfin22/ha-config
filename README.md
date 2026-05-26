@@ -96,7 +96,7 @@
 - **Cameras** — person detection notifications from all cameras to Colm & Olivia with animated GIF preview
 - **Doorbell** — Frigate snapshot cast to kitchen display & Shield TV on ring
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
-- **Patio door** — input_boolean gate suppresses Frigate rear door & shed alerts for Colm and Olivia when patio door is open, preventing false alarms in the garden
+- **Patio door** — input_boolean gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
 
 ### 🎵 Audio
 - **TTS** — queued announcements with volume save/restore (`script.tts_announce`)
