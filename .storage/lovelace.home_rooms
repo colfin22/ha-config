@@ -1293,10 +1293,6 @@
                   "card": {
                     "type": "energy-distribution"
                   }
-                },
-                {
-                  "type": "heading",
-                  "heading_style": "title"
                 }
               ]
             },
@@ -1366,14 +1362,18 @@
               "cards": [
                 {
                   "type": "heading",
-                  "heading": "Solar Production"
+                  "heading_style": "title",
+                  "heading": "Top Days"
                 },
                 {
                   "type": "markdown",
-                  "content": "- 🥇 **Fri 11 Jul 2025** — 44 kWh\n- 🥇 **Sat 12 Jul 2025** — 44 kWh\n- 🥉 **Sat 09 May 2026** — 43 kWh\n- 4th &nbsp;**Wed 29 Apr 2026** — 42 kWh\n- 5th &nbsp;**Sun 24 May 2026** — 41 kWh"
+                  "content": "{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) > 0 %}- 🥇 **{{ states(\"input_text.export_top_5_1st_date\") }}** — {{ states(\"input_number.export_top_5_1st_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_2nd_kwh\")|float(0) > 0 %}- 🥈 **{{ states(\"input_text.export_top_5_2nd_date\") }}** — {{ states(\"input_number.export_top_5_2nd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_3rd_kwh\")|float(0) > 0 %}- 🥉 **{{ states(\"input_text.export_top_5_3rd_date\") }}** — {{ states(\"input_number.export_top_5_3rd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_4th_kwh\")|float(0) > 0 %}- 4th &nbsp;**{{ states(\"input_text.export_top_5_4th_date\") }}** — {{ states(\"input_number.export_top_5_4th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_5th_kwh\")|float(0) > 0 %}- 5th &nbsp;**{{ states(\"input_text.export_top_5_5th_date\") }}** — {{ states(\"input_number.export_top_5_5th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) == 0 %}_No records yet — updates automatically each evening_{% endif %}",
+                  "title": "Export to Grid"
                 },
                 {
-                  "type": "energy-solar-graph"
+                  "type": "markdown",
+                  "content": "- 🥇 **Fri 11 Jul 2025** — 44 kWh\n- 🥇 **Sat 12 Jul 2025** — 44 kWh\n- 🥉 **Sat 09 May 2026** — 43 kWh\n- 4th &nbsp;**Wed 29 Apr 2026** — 42 kWh\n- 5th &nbsp;**Sun 24 May 2026** — 41 kWh",
+                  "title": "Solar Production"
                 }
               ]
             },
@@ -1382,11 +1382,10 @@
               "cards": [
                 {
                   "type": "heading",
-                  "heading": "Export to Grid"
+                  "heading": "Solar Production"
                 },
                 {
-                  "type": "markdown",
-                  "content": "{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) > 0 %}- 🥇 **{{ states(\"input_text.export_top_5_1st_date\") }}** — {{ states(\"input_number.export_top_5_1st_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_2nd_kwh\")|float(0) > 0 %}- 🥈 **{{ states(\"input_text.export_top_5_2nd_date\") }}** — {{ states(\"input_number.export_top_5_2nd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_3rd_kwh\")|float(0) > 0 %}- 🥉 **{{ states(\"input_text.export_top_5_3rd_date\") }}** — {{ states(\"input_number.export_top_5_3rd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_4th_kwh\")|float(0) > 0 %}- 4th &nbsp;**{{ states(\"input_text.export_top_5_4th_date\") }}** — {{ states(\"input_number.export_top_5_4th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_5th_kwh\")|float(0) > 0 %}- 5th &nbsp;**{{ states(\"input_text.export_top_5_5th_date\") }}** — {{ states(\"input_number.export_top_5_5th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) == 0 %}_No records yet — updates automatically each evening_{% endif %}"
+                  "type": "energy-solar-graph"
                 }
               ]
             },
@@ -1399,45 +1398,6 @@
                 },
                 {
                   "type": "energy-usage-graph"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Power Sources"
-                },
-                {
-                  "type": "custom:apexcharts-card",
-                  "graph_span": "24h",
-                  "header": {
-                    "show": false
-                  },
-                  "series": [
-                    {
-                      "entity": "sensor.solar_power_production",
-                      "name": "Solar",
-                      "color": "#FFB300",
-                      "stroke_width": 2,
-                      "fill_raw": "last"
-                    },
-                    {
-                      "entity": "sensor.myenergi_harvi_2692504_power_ct_grid",
-                      "name": "Grid",
-                      "color": "#2196F3",
-                      "stroke_width": 2,
-                      "fill_raw": "last"
-                    },
-                    {
-                      "entity": "sensor.battery_flow_now",
-                      "name": "Battery",
-                      "color": "#4CAF50",
-                      "stroke_width": 2,
-                      "fill_raw": "last"
-                    }
-                  ]
                 }
               ]
             }
