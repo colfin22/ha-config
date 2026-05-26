@@ -71,7 +71,7 @@
 | Samsung TV | 65" sitting room TV |
 | Android TV | Aoife MiBox S + Cian MiTV |
 | Logitech Harmony | 2 hubs — KitchenHub + SittingRmHub |
-| [Navidrome](https://navidrome.org/) | Self-hosted music streaming — TrueNAS app, data in TrueNAS dataset |
+| [Navidrome](https://navidrome.org/) | Self-hosted music streaming — LXC 103, data in TrueNAS dataset |
 | [Calibre-Web](https://github.com/janeczku/calibre-web) | Self-hosted ebook library — LXC 114 |
 | [Paperless-ngx](https://docs.paperless-ngx.com/) | Document management — Docker (ubuntu-docker), data in TrueNAS dataset |
 | [Wallabag](https://wallabag.org/) | Read-it-later — Docker (ubuntu-docker), data in TrueNAS dataset |
