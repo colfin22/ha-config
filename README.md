@@ -67,7 +67,7 @@
 | Integration | Purpose |
 |---|---|
 | NVIDIA Shield TV | Living room media player — IoT VLAN |
-| Google Cast | Kitchen display, Google Home devices + whole-home audio |
+| Google Cast | Kitchen display, Google Home & Chromecast Audio devices — whole-home audio |
 | Samsung TV | 65" sitting room TV |
 | Android TV | Aoife MiBox S + Cian MiTV |
 | Logitech Harmony | 2 hubs — KitchenHub + SittingRmHub |
