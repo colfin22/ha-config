@@ -38,7 +38,9 @@
 | [Music Assistant](https://music-assistant.io/) | Multi-room audio — TuneIn (radio), Subsonic/Navidrome (local music), gPodder (podcasts) |
 | [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/vehicle detection |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Low-latency camera stream server (built into Frigate) |
+| [Reolink](https://reolink.com/) | Doorbell camera |
 | [Immich](https://immich.app/) | Self-hosted photo library, ML model cache on TrueNAS NFS |
+| [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) | AI camera analysis via Google Gemini |
 
 ### Network & Infrastructure
 | Integration | Purpose |
@@ -47,6 +49,9 @@
 | [Proxmox VE](https://github.com/doudz/homeassistant-proxmoxve) | VM/LXC status monitoring |
 | [TrueNAS](https://github.com/tomaae/homeassistant-truenas) | Pool health, disk temps, dataset usage |
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
+| MQTT | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
+| [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Ubuntu VM |
+| Speedtest.net | WAN speed monitoring |
 
 ### Energy & Environment
 | Integration | Purpose |
@@ -55,15 +60,23 @@
 | [myenergi](https://myenergi.com/) | Solar production, Eddi diverter — preferred for live stats (faster updates) |
 | [Netatmo](https://www.netatmo.com/) | Smart thermostat — heating control |
 | [Met Éireann](https://www.met.ie/) | Irish national weather warnings |
+| [Forecast.Solar](https://forecast.solar/) | Solar production forecast |
+| [Electricity Maps](https://www.electricitymaps.com/) | Grid CO2 intensity |
 
 ### Media & Lifestyle
 | Integration | Purpose |
 |---|---|
 | NVIDIA Shield TV | Living room media player — IoT VLAN |
-| Google Cast | Kitchen display + whole-home audio |
+| Google Cast | Kitchen display + whole-home audio cast devices |
+| Samsung TV | 65" sitting room TV |
+| Android TV | Aoife MiBox S + Cian MiTV |
+| Logitech Harmony | 2 hubs — KitchenHub + SittingRmHub |
 | [Navidrome](https://navidrome.org/) | Self-hosted music streaming |
 | [Calibre-Web](https://github.com/janeczku/calibre-web) | Self-hosted ebook library |
 | [Stremio](https://www.stremio.com/) | Streaming media |
+| [Dawarich](https://dawarich.app/) | Location & travel tracking — TrueNAS app |
+| [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) | Panda Waste bin collection |
+| CalDAV | Calendar integration |
 
 ---
 
@@ -146,11 +159,13 @@ All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zone
 - [browser_mod](https://github.com/thomasloven/hass-browser_mod) — browser control
 - [frigate](https://github.com/blakeblackshear/frigate-hass-integration) — camera NVR
 - [immich](https://github.com/outadoc/immich-home-assistant) — photo library
+- [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) — AI camera analysis
 - [mikrotik_router](https://github.com/tomaae/homeassistant-mikrotik_router) — network monitoring
 - [Music Assistant](https://music-assistant.io/) — multi-room audio engine (integration + Jukebox addon)
 - [myenergi](https://github.com/CJNE/ha-myenergi) — solar diverter (Eddi)
 - [proxmoxve](https://github.com/doudz/homeassistant-proxmoxve) — hypervisor monitoring
 - [truenas](https://github.com/tomaae/homeassistant-truenas) — NAS monitoring
+- [waste_collection_schedule](https://github.com/mampfes/hacs_waste_collection_schedule) — bin collection
 - [webrtc](https://github.com/AlexxIT/WebRTC) — low-latency camera streams
 
 ---
