@@ -39,7 +39,7 @@
 | [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/vehicle detection |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Low-latency camera stream server (built into Frigate) |
 | [Reolink](https://reolink.com/) | Doorbell camera |
-| [Immich](https://immich.app/) | Self-hosted photo library — TrueNAS app, data in TrueNAS dataset |
+| [Immich](https://immich.app/) | Self-hosted photo library — LXC 112, data in TrueNAS dataset |
 | [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) | AI camera analysis via Google Gemini |
 
 ### Network & Infrastructure
@@ -50,7 +50,7 @@
 | [TrueNAS](https://github.com/tomaae/homeassistant-truenas) | Pool health, disk temps, dataset usage |
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
 | MQTT | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
-| [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — TrueNAS app, data in TrueNAS dataset |
+| [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Ubuntu VM (nextcloud-vm), data in TrueNAS dataset |
 | Speedtest.net | WAN speed monitoring |
 
 ### Energy & Environment
@@ -73,8 +73,8 @@
 | Logitech Harmony | 2 hubs — KitchenHub + SittingRmHub |
 | [Navidrome](https://navidrome.org/) | Self-hosted music streaming — TrueNAS app, data in TrueNAS dataset |
 | [Calibre-Web](https://github.com/janeczku/calibre-web) | Self-hosted ebook library |
-| [Paperless-ngx](https://docs.paperless-ngx.com/) | Document management — TrueNAS app, data in TrueNAS dataset |
-| [Wallabag](https://wallabag.org/) | Read-it-later — TrueNAS app, data in TrueNAS dataset |
+| [Paperless-ngx](https://docs.paperless-ngx.com/) | Document management — Docker (ubuntu-docker), data in TrueNAS dataset |
+| [Wallabag](https://wallabag.org/) | Read-it-later — Docker (ubuntu-docker), data in TrueNAS dataset |
 | [Stremio](https://www.stremio.com/) | Streaming media |
 | [Dawarich](https://dawarich.app/) | Location & travel tracking — TrueNAS app |
 | [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) | Panda Waste bin collection |
