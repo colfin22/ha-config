@@ -51,7 +51,7 @@
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
 | [MQTT](https://mqtt.org) | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
 | [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Ubuntu VM (nextcloud-vm), data in TrueNAS dataset |
-| [Orb](https://orbnetwork.com/) | Network monitoring — Docker (ubuntu-docker) |
+| [Speedtest.net](https://www.speedtest.net) | WAN speed monitoring |
 
 ### Energy & Environment
 | Integration | Purpose |
