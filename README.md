@@ -20,7 +20,7 @@
 | **HA** | Home Assistant OS — Proxmox VM |
 | **NAS** | TrueNAS SCALE — TRIGKEY N100 Mini PC (32GB DDR4, 500GB SSD), MainPool (2× mirror, WD Purple 6TB, 10.78 TiB usable) |
 | **Network** | MikroTik router + 7× managed switches/APs |
-| **VLANs** | Home · IoT · Work · Guest |
+| **VLANs** | Home · IoT · Work · Guest · Mgmt |
 | **DNS** | Pi-hole × 2 (LXC 101 primary + TrueNAS app replica) |
 | **Cameras** | Frigate NVR — LXC 107, recordings on USB 3.0 RAID 0 enclosure at `/cctv_clips` |
 | **Monitoring** | Zabbix — TrueNAS hosted |
