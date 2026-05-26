@@ -1445,7 +1445,7 @@
                 },
                 {
                   "type": "picture-elements",
-                  "image": "/local/downstairs.png",
+                  "image": "/local/downstairs.png?v=2",
                   "aspect_ratio": "53:64",
                   "elements": [
                     {
@@ -1561,7 +1561,7 @@
                 },
                 {
                   "type": "picture-elements",
-                  "image": "/local/upstairs.png",
+                  "image": "/local/upstairs.png?v=2",
                   "aspect_ratio": "53:64",
                   "elements": [
                     {
