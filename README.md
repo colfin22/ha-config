@@ -93,7 +93,7 @@
 - **Sunrise/sunset** — scene transitions throughout the day
 
 ### 🔒 Security
-- **Alarm** — Alarmo multi-zone; strobe all lights on trigger (saves/restores state), notifies all phones
+- **Alarm** — Alarmo multi-zone; NFC tag to disarm on entry; strobe all lights on trigger (saves/restores state), notifies all phones
 - **Cameras** — person detection notifications from all cameras to Colm & Olivia with animated GIF preview
 - **Doorbell** — Frigate snapshot cast to kitchen display & Shield TV on ring
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
