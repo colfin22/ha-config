@@ -112,9 +112,10 @@
 
 ### ⚡ Energy
 - **Solar top 5** — best production days tracked on Energy dashboard
-- **Overnight alerts** — held until 07:00 with triggered-time in notification title
+- **Morning energy stats** — daily solar and energy summary pushed each morning
 
 ### 🏠 Infrastructure Monitoring
+- **Overnight alerts** — infrastructure alerts held until 07:00 with triggered-time in notification title
 - **8 infrastructure automations** — MikroTik, Pi-hole, Proxmox, TrueNAS, Netatmo; quiet hours 22:00–07:00
 - **Zigbee2MQTT watchdog** — auto-restart with 2 attempts, notifies on outcome
 - **Zabbix alerts** — webhook receiver → mobile push
