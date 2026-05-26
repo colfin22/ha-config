@@ -78,7 +78,7 @@
 | [Stremio](https://www.stremio.com/) | Streaming media |
 | [Dawarich](https://dawarich.app/) | Location & travel tracking — TrueNAS app, fed from HA Companion App on Android |
 | [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) | Panda Waste bin collection |
-| CalDAV | Calendar integration |
+| [CalDAV](https://www.home-assistant.io/integrations/caldav/) | Calendar integration |
 | [HA Companion App](https://companion.home-assistant.io/) | Mobile app on all phones — presence, notifications, location |
 
 ---
