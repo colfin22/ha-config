@@ -17,7 +17,7 @@
 | Component | Detail |
 |---|---|
 | **Host** | Proxmox VE — bare metal |
-| **HA** | Home Assistant OS — Proxmox LXC |
+| **HA** | Home Assistant OS — Proxmox VM |
 | **NAS** | TrueNAS SCALE — MainPool (2× mirror, WD Purple 6TB) |
 | **Network** | MikroTik router + 7× managed switches/APs |
 | **VLANs** | Main · IoT · Work · Guest |
