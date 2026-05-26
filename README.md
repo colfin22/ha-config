@@ -158,6 +158,7 @@ All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zone
 ## 🧩 Custom Components (via HACS)
 
 - [alarmo](https://github.com/nielsfaber/alarmo) — alarm management
+- [area_occupancy](https://github.com/constructiverobotics/ha-area-occupancy) — area occupancy detection
 - [browser_mod](https://github.com/thomasloven/hass-browser_mod) — browser control
 - [frigate](https://github.com/blakeblackshear/frigate-hass-integration) — camera NVR
 - [immich](https://github.com/outadoc/immich-home-assistant) — photo library
@@ -168,6 +169,7 @@ All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zone
 - [proxmoxve](https://github.com/doudz/homeassistant-proxmoxve) — hypervisor monitoring
 - [truenas](https://github.com/tomaae/homeassistant-truenas) — NAS monitoring
 - [waste_collection_schedule](https://github.com/mampfes/hacs_waste_collection_schedule) — bin collection
+- vserver_ssh_stats — SSH-based stats collection from VPS/remote servers
 - [webrtc](https://github.com/AlexxIT/WebRTC) — low-latency camera streams
 
 ---
