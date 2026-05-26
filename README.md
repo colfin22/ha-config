@@ -44,7 +44,7 @@
 | [MikroTik Router](https://github.com/tomaae/homeassistant-mikrotik_router) | Router stats, interface monitoring |
 | [Proxmox VE](https://github.com/doudz/homeassistant-proxmoxve) | VM/LXC status monitoring |
 | [TrueNAS](https://github.com/tomaae/homeassistant-truenas) | Pool health, disk temps, dataset usage |
-| Pi-hole | DNS query stats for two instances |
+| [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
 
 ### Energy & Environment
 | Integration | Purpose |
