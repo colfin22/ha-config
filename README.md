@@ -39,7 +39,7 @@
 | [Music Assistant](https://music-assistant.io/) | Multi-room audio — TuneIn (radio), Subsonic/Navidrome (local music), gPodder (podcasts) |
 | [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/vehicle detection |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Low-latency camera stream server (built into Frigate) |
-| [Reolink](https://reolink.com/) | Doorbell camera |
+| [Reolink](https://reolink.com/) | Doorbell camera — doorbell press events only; recording and detections handled by Frigate |
 | [Immich](https://immich.app/) | Self-hosted photo library — LXC 112, data in TrueNAS dataset |
 | [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) | AI camera analysis via Google Gemini |
 
