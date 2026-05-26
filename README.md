@@ -21,7 +21,7 @@
 | **NAS** | TrueNAS SCALE — MainPool (2× mirror, WD Purple 6TB) |
 | **Network** | MikroTik router + 7× managed switches/APs |
 | **VLANs** | Main · IoT · Work · Guest |
-| **DNS** | Pi-hole × 2 (primary + TrueNAS replica) |
+| **DNS** | Pi-hole × 2 (LXC 101 primary + TrueNAS app replica) |
 | **Cameras** | Frigate NVR — LXC 107, recordings on USB at `/cctv_clips` |
 | **Monitoring** | Zabbix — TrueNAS hosted |
 
