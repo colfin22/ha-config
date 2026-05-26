@@ -104,7 +104,6 @@
 | **Security** | Alarm panel, camera feeds, activity logbook |
 | **Energy** | Solar production, import/export, top-5 solar days |
 | **Floorplan** | SVG-based downstairs + upstairs with live entity overlays |
-| **Garden** | Outdoor sensors, weather warnings |
 
 ---
 
