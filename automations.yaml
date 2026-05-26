@@ -2292,3 +2292,53 @@
     target:
       entity_id: image.immich_pics_for_display
   mode: single
+- id: '1779807500000'
+  alias: TrueNAS Backup Notification
+  description: Receives webhook from Proxmox when TrueNAS config backup completes.
+    Notifies immediately 07:00-22:00, otherwise holds until 07:00.
+  triggers:
+  - platform: webhook
+    webhook_id: truenas_backup_result
+    allowed_methods:
+    - POST
+    local_only: true
+  actions:
+  - variables:
+      status: '{{ trigger.json.status }}'
+      size: '{{ trigger.json.size }}'
+      timestamp: '{{ trigger.json.timestamp }}'
+      title: >-
+        {% if trigger.json.status == "updated" %}
+          TrueNAS Backup Updated
+        {% elif trigger.json.status == "unchanged" %}
+          TrueNAS Backup Unchanged
+        {% else %}
+          TrueNAS Backup Failed
+        {% endif %}
+      message: >-
+        {% if trigger.json.status == "updated" %}
+          Config saved to GitHub ({{ size }}) at {{ timestamp }}.
+        {% elif trigger.json.status == "unchanged" %}
+          No changes since last backup ({{ timestamp }}).
+        {% else %}
+          {{ trigger.json.error | default("Unknown error") }}
+        {% endif %}
+  - choose:
+    - conditions:
+      - condition: time
+        after: 07:00:00
+        before: '22:00:00'
+      sequence:
+      - data:
+          title: '{{ title }}'
+          message: '{{ message }}'
+        action: notify.mobile_app_np3
+    default:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - data:
+        title: '{{ title }}'
+        message: '{{ message }}'
+      action: notify.mobile_app_np3
+  mode: single
