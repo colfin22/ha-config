@@ -76,7 +76,7 @@
 | [Paperless-ngx](https://docs.paperless-ngx.com/) | Document management — Docker (ubuntu-docker), data in TrueNAS dataset |
 | [Wallabag](https://wallabag.org/) | Read-it-later — Docker (ubuntu-docker), data in TrueNAS dataset |
 | [Stremio](https://www.stremio.com/) | Streaming media |
-| [Dawarich](https://dawarich.app/) | Location & travel tracking — TrueNAS app |
+| [Dawarich](https://dawarich.app/) | Location & travel tracking — TrueNAS app, fed from Home Assistant |
 | [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) | Panda Waste bin collection |
 | CalDAV | Calendar integration |
 
