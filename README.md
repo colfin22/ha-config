@@ -49,7 +49,7 @@
 | [Proxmox VE](https://github.com/doudz/homeassistant-proxmoxve) | VM/LXC status monitoring |
 | [TrueNAS](https://github.com/tomaae/homeassistant-truenas) | Pool health, disk temps, dataset usage |
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
-| MQTT | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
+| [MQTT](https://mqtt.org) | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
 | [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Ubuntu VM (nextcloud-vm), data in TrueNAS dataset |
 | Speedtest.net | WAN speed monitoring |
 
