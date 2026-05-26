@@ -101,7 +101,7 @@
 | **Home** | Room summary, security status, motion, presence |
 | **Rooms** | Per-room tiles — lights, sensors, media |
 | **Security** | Alarm panel, camera feeds, activity logbook |
-| **Energy** | Solar production, import/export, EV charging, top-5 solar days |
+| **Energy** | Solar production, import/export, top-5 solar days |
 | **Floorplan** | SVG-based downstairs + upstairs with live entity overlays |
 | **Garden** | Outdoor sensors, weather warnings |
 
@@ -143,7 +143,7 @@ All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zone
 - [immich](https://github.com/outadoc/immich-home-assistant) — photo library
 - [mikrotik_router](https://github.com/tomaae/homeassistant-mikrotik_router) — network monitoring
 - [Music Assistant](https://music-assistant.io/) — multi-room audio engine (integration + Jukebox addon)
-- [myenergi](https://github.com/CJNE/ha-myenergi) — solar / EV
+- [myenergi](https://github.com/CJNE/ha-myenergi) — solar diverter (Eddi)
 - [proxmoxve](https://github.com/doudz/homeassistant-proxmoxve) — hypervisor monitoring
 - [truenas](https://github.com/tomaae/homeassistant-truenas) — NAS monitoring
 - [webrtc](https://github.com/AlexxIT/WebRTC) — low-latency camera streams
