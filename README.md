@@ -24,6 +24,7 @@
 | **DNS** | Pi-hole × 2 (LXC 101 primary + TrueNAS app replica) |
 | **Cameras** | Frigate NVR — LXC 107, recordings on USB 3.0 RAID 0 enclosure at `/cctv_clips` |
 | **Monitoring** | Zabbix — TrueNAS hosted |
+| **Offsite (Daire's)** | Intel NUC7i3BNK (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox 3 — connected via WireGuard |
 
 ---
 
