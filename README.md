@@ -142,7 +142,7 @@ All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zone
 - [frigate](https://github.com/blakeblackshear/frigate-hass-integration) — camera NVR
 - [immich](https://github.com/outadoc/immich-home-assistant) — photo library
 - [mikrotik_router](https://github.com/tomaae/homeassistant-mikrotik_router) — network monitoring
-- [music_assistant_jukebox](https://music-assistant.io/) — audio engine
+- [Music Assistant](https://music-assistant.io/) — multi-room audio engine (integration + Jukebox addon)
 - [myenergi](https://github.com/CJNE/ha-myenergi) — solar / EV
 - [proxmoxve](https://github.com/doudz/homeassistant-proxmoxve) — hypervisor monitoring
 - [truenas](https://github.com/tomaae/homeassistant-truenas) — NAS monitoring
