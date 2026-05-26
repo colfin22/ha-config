@@ -55,7 +55,6 @@
       message: '{{ label }} detected - {{ camera_name }}'
       icon: mdi:cctv
       final_update: false
-      color: '#ffeb3b'
       master_condition:
       - condition: template
         value_template: '{{ not (is_state(''input_boolean.patio_door_open'', ''on'')
@@ -152,7 +151,6 @@
       message: '{{ label }} detected - {{ camera_name }} at {{event[''after''][''start_time'']|timestamp_custom(''%H:%M'')}}'
       labels:
       - person
-      color: cyan
 - id: '1769600924498'
   alias: Dishwasher Notifications & Actions
   description: Monitors dishwasher power to detect cycle start/end. Notifies Colm
