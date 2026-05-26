@@ -127,6 +127,7 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | TrueNAS | Proxmox cron → API `config/save` weekly Sunday 02:00 | `colfin22/truenas-config` |
 | Frigate | Git — `config.yml` | `colfin22/frigate-config` |
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
+| Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS | — |
 
 All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
 
