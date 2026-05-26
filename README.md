@@ -104,7 +104,7 @@
 - **Parcel delivery** — Smart Parcel Box sensor triggers mobile notification on delivery
 - **Courier van** — Frigate van detection at front → TTS announcement with courier name
 - **Postman** — Doorbell Frigate detects post van → TTS announcement
-- **Person at car** — Frigate person detection at front car camera → mobile alert
+- **Person at car** — Frigate person detection at front car camera → mobile alert (night only)
 - **Low battery** — monitors all Zigbee devices, notifies when battery low
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
 
