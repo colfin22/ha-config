@@ -49,7 +49,7 @@
 ### Energy & Environment
 | Integration | Purpose |
 |---|---|
-| [myenergi](https://myenergi.com/) | Solar production, Zappi EV charger |
+| [myenergi](https://myenergi.com/) | Solar production, Eddi solar diverter |
 | [Netatmo](https://www.netatmo.com/) | Weather station — indoor/outdoor sensors |
 | [Met Éireann](https://www.met.ie/) | Irish national weather warnings |
 
