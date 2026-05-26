@@ -113,7 +113,7 @@
 - **Today FM** — one-tap play on kitchen display via Music Assistant
 
 ### ⚡ Energy
-- **Solar top 5** — best production days tracked on Energy dashboard
+- **Top days** — solar production and grid export top 5 best days tracked on Energy dashboard; export ranking updates automatically each evening
 - **Morning energy stats** — daily solar and energy summary pushed each morning
 
 ### 🏠 Infrastructure Monitoring
@@ -132,7 +132,7 @@
 | **Climate** | Heating, Netatmo thermostat, temperature sensors |
 | **Weather** | Met Éireann warnings, forecast, outdoor conditions |
 | **Security** | Alarm panel, camera feeds, activity logbook |
-| **Solar** | Solar production, import/export, Eddi diverter, top-5 solar days |
+| **Solar** | Solar production, import/export, Eddi diverter, top 5 solar days & top 5 export days |
 | **Floorplan** | SVG-based downstairs + upstairs with live entity overlays |
 | **Appliances** | Washing machine, dishwasher and other appliance monitoring |
 | **Map** | Device tracker map — household presence |
