@@ -64,7 +64,6 @@ git_status.txt
 !.storage/lovelace.dashboard_map
 !.storage/lovelace_dashboards
 !.storage/lovelace_resources
-!.storage/alarmo.storage
 !.storage/core.area_registry
 !.storage/core.floor_registry
 !.storage/core.category_registry
@@ -77,7 +76,6 @@ git_status.txt
 !.storage/counter
 !.storage/timer
 !.storage/schedule
-!.storage/zone
 !.storage/person
 !.storage/tag
 !.storage/energy
