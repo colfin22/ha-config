@@ -50,7 +50,7 @@
 | Integration | Purpose |
 |---|---|
 | [myenergi](https://myenergi.com/) | Solar production, Eddi solar diverter |
-| [Netatmo](https://www.netatmo.com/) | Weather station — indoor/outdoor sensors |
+| [Netatmo](https://www.netatmo.com/) | Smart thermostat — heating control |
 | [Met Éireann](https://www.met.ie/) | Irish national weather warnings |
 
 ### Media & Lifestyle
