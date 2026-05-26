@@ -1477,7 +1477,7 @@
                       "title": "Sitting Room",
                       "style": {
                         "left": "45%",
-                        "top": "28%",
+                        "top": "24%",
                         "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
@@ -1489,8 +1489,8 @@
                       "entity": "light.kitchen",
                       "title": "Kitchen",
                       "style": {
-                        "left": "48%",
-                        "top": "65%",
+                        "left": "49%",
+                        "top": "62%",
                         "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
@@ -1503,7 +1503,7 @@
                       "title": "Hallway",
                       "style": {
                         "left": "60%",
-                        "top": "44%",
+                        "top": "42.0%",
                         "--mdc-icon-size": "36px"
                       },
                       "icon": "mdi:motion-sensor"
@@ -1514,7 +1514,7 @@
                       "title": "Front Door",
                       "style": {
                         "left": "66%",
-                        "top": "13%",
+                        "top": "10%",
                         "--mdc-icon-size": "36px"
                       }
                     },
@@ -1524,7 +1524,7 @@
                       "title": "Patio Door",
                       "style": {
                         "left": "39%",
-                        "top": "78%",
+                        "top": "74%",
                         "--mdc-icon-size": "36px"
                       }
                     },
@@ -1534,7 +1534,7 @@
                       "title": "Back Door",
                       "style": {
                         "left": "47%",
-                        "top": "81%",
+                        "top": "77%",
                         "--mdc-icon-size": "36px"
                       }
                     },
@@ -1543,8 +1543,8 @@
                       "entity": "light.hallway_1",
                       "title": "Hallway",
                       "style": {
-                        "left": "65%",
-                        "top": "39%",
+                        "left": "66.0%",
+                        "top": "37.0%",
                         "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
@@ -1557,7 +1557,7 @@
                       "title": "Sitting Room Window",
                       "style": {
                         "left": "44%",
-                        "top": "9%",
+                        "top": "4%",
                         "--mdc-icon-size": "36px"
                       }
                     },
@@ -1566,8 +1566,8 @@
                       "entity": "binary_sensor.back_window_contact",
                       "title": "Back Window",
                       "style": {
-                        "left": "65%",
-                        "top": "97%",
+                        "left": "66%",
+                        "top": "95%",
                         "--mdc-icon-size": "36px"
                       }
                     }
@@ -1592,8 +1592,8 @@
                       "entity": "light.colm_bedroom",
                       "title": "Colm",
                       "style": {
-                        "left": "44%",
-                        "top": "18%",
+                        "left": "43.0%",
+                        "top": "28.5%",
                         "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
@@ -1605,8 +1605,8 @@
                       "entity": "light.aoife_bedroom",
                       "title": "Aoife",
                       "style": {
-                        "left": "66%",
-                        "top": "22%",
+                        "left": "64.0%",
+                        "top": "30.5%",
                         "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
@@ -1618,8 +1618,8 @@
                       "entity": "light.cian_bedroom",
                       "title": "Cian",
                       "style": {
-                        "left": "38%",
-                        "top": "60%",
+                        "left": "36.0%",
+                        "top": "70.5%",
                         "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
@@ -1631,8 +1631,8 @@
                       "entity": "light.office_ceiling",
                       "title": "Office",
                       "style": {
-                        "left": "65%",
-                        "top": "60%",
+                        "left": "70.0%",
+                        "top": "69.5%",
                         "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
@@ -1645,7 +1645,7 @@
                       "title": "Landing",
                       "style": {
                         "left": "53%",
-                        "top": "41%",
+                        "top": "46.5%",
                         "--mdc-icon-size": "36px"
                       },
                       "icon": "mdi:motion-sensor"
@@ -1655,8 +1655,8 @@
                       "entity": "light.landing_1",
                       "title": "Landing",
                       "style": {
-                        "left": "54%",
-                        "top": "48%",
+                        "left": "54.5%",
+                        "top": "53.5%",
                         "--mdc-icon-size": "36px"
                       },
                       "tap_action": {
@@ -1668,8 +1668,8 @@
                       "entity": "binary_sensor.colm_window_contact",
                       "title": "Colm Window",
                       "style": {
-                        "left": "44%",
-                        "top": "8%",
+                        "left": "43.5%",
+                        "top": "3.5%",
                         "--mdc-icon-size": "36px"
                       }
                     },
@@ -1678,8 +1678,8 @@
                       "entity": "binary_sensor.aoife_window_contact",
                       "title": "Aoife Window",
                       "style": {
-                        "left": "68%",
-                        "top": "5%",
+                        "left": "67.0%",
+                        "top": "10.0%",
                         "--mdc-icon-size": "36px"
                       }
                     },
@@ -1689,7 +1689,7 @@
                       "title": "Cian Window",
                       "style": {
                         "left": "33%",
-                        "top": "82%",
+                        "top": "87.5%",
                         "--mdc-icon-size": "36px"
                       }
                     },
@@ -1699,7 +1699,7 @@
                       "title": "Office Window",
                       "style": {
                         "left": "67%",
-                        "top": "82%",
+                        "top": "87.0%",
                         "--mdc-icon-size": "36px"
                       }
                     }
@@ -3939,11 +3939,6 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "sensor.docker_docker_containers",
-                  "name": "Containers"
-                },
-                {
-                  "type": "tile",
                   "entity": "sensor.docker_network_in",
                   "name": "Net In"
                 },
@@ -3960,11 +3955,6 @@
                 {
                   "type": "heading",
                   "heading": "Firmware & Updates"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.mikrotik_router_update",
-                  "name": "RouterOS"
                 },
                 {
                   "type": "tile",
@@ -4005,6 +3995,11 @@
                   "type": "tile",
                   "entity": "sensor.docker_package_count",
                   "name": "Docker VM Packages"
+                },
+                {
+                  "type": "tile",
+                  "entity": "update.mikrotik_router_update",
+                  "name": "RouterOS"
                 }
               ]
             }
