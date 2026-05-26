@@ -100,10 +100,14 @@
 | Tab | Contents |
 |---|---|
 | **Home** | Room summary, security status, motion, presence |
-| **Rooms** | Per-room tiles — lights, sensors, media |
+| **Climate** | Heating, Netatmo thermostat, temperature sensors |
+| **Weather** | Met Éireann warnings, forecast, outdoor conditions |
 | **Security** | Alarm panel, camera feeds, activity logbook |
-| **Energy** | Solar production, import/export, top-5 solar days |
+| **Solar** | Solar production, import/export, Eddi diverter, top-5 solar days |
 | **Floorplan** | SVG-based downstairs + upstairs with live entity overlays |
+| **Appliances** | Washing machine, dishwasher and other appliance monitoring |
+| **Map** | Device tracker map — household presence |
+| **Network** | MikroTik stats, Pi-hole, infrastructure status |
 
 ---
 
