@@ -52,7 +52,6 @@
 | [myenergi](https://myenergi.com/) | Solar production, Zappi EV charger |
 | [Netatmo](https://www.netatmo.com/) | Weather station — indoor/outdoor sensors |
 | [Met Éireann](https://www.met.ie/) | Irish national weather warnings |
-| ESB Smart Meter | Electricity import/export tracking |
 
 ### Media & Lifestyle
 | Integration | Purpose |
