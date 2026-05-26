@@ -64,6 +64,7 @@ git_status.txt
 !.storage/lovelace.dashboard_map
 !.storage/lovelace_dashboards
 !.storage/lovelace_resources
+!.storage/zone
 !.storage/core.area_registry
 !.storage/core.floor_registry
 !.storage/core.category_registry
