@@ -95,7 +95,7 @@
 - **Alarm** — Alarmo multi-zone; strobe all lights on trigger (saves/restores state), notifies all phones
 - **Doorbell** — Frigate snapshot cast to kitchen display on ring
 - **Cat alarm** — NFC-toggled; Frigate detects cat at rear door/shed → TTS announcement on home audio group
-- **Patio door** — Frigate person detection at rear; conditional notifications to Colm and Olivia
+- **Patio door** — input_boolean gate suppresses Frigate rear door & shed alerts for Colm and Olivia when patio door is open, preventing false alarms in the garden
 
 ### 🎵 Audio
 - **TTS** — queued announcements with volume save/restore (`script.tts_announce`)
