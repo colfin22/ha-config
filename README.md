@@ -133,7 +133,7 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | Frigate | Git — `config.yml` | `colfin22/frigate-config` |
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house (LXC on encrypted Proxmox 3) | — |
-| TrueNAS Datasets | rsync — critical datasets synced to offsite server (Daire's house) | — |
+| TrueNAS Datasets | rsync — critical datasets synced to encrypted Proxmox 3 at Daire's house | — |
 
 All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
 
