@@ -50,7 +50,7 @@
 | [TrueNAS](https://github.com/tomaae/homeassistant-truenas) | Pool health, disk temps, dataset usage |
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
 | [MQTT](https://mqtt.org) | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
-| [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Docker (ubuntu-docker), data in TrueNAS dataset |
+| [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Docker (ubuntu-nextcloud), data in TrueNAS dataset |
 | [Speedtest.net](https://www.speedtest.net) | WAN speed monitoring |
 
 ### Energy & Environment
