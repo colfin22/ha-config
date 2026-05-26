@@ -98,6 +98,13 @@
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
 - **Patio door** — input_boolean gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
 
+### 📦 Alerts
+- **Parcel delivery** — Smart Parcel Box sensor triggers mobile notification on delivery
+- **Courier van** — Frigate van detection at front → TTS announcement
+- **Postman** — Doorbell Frigate detects post van → TTS announcement
+- **Person at car** — Frigate person detection at front car camera → mobile alert
+- **Low battery** — monitors all Zigbee devices, notifies when battery low
+
 ### 🎵 Audio
 - **TTS** — queued announcements with volume save/restore (`script.tts_announce`)
 - **Today FM** — one-tap play on kitchen display via Music Assistant
