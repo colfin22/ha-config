@@ -96,6 +96,7 @@
 - **Cameras** — person detection notifications from all cameras to Colm & Olivia with animated GIF preview
 - **Doorbell** — Frigate snapshot cast to kitchen display & Shield TV on ring
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
+- **Morning security report** — summary of overnight person detections delivered at 07:00
 - **Patio door** — NFC-toggled gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
 
 ### 📦 Alerts
