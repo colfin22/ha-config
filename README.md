@@ -37,6 +37,7 @@
 | [Zigbee2MQTT](https://www.zigbee2mqtt.io/) | Zigbee device bridge (lights, motion, contact sensors) |
 | [Music Assistant](https://music-assistant.io/) | Multi-room audio — TuneIn (radio), Subsonic/Navidrome (local music), gPodder (podcasts) |
 | [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/vehicle detection |
+| [go2rtc](https://github.com/AlexxIT/go2rtc) | Low-latency camera stream server (built into Frigate) |
 | [Immich](https://immich.app/) | Self-hosted photo library, ML model cache on TrueNAS NFS |
 
 ### Network & Infrastructure
