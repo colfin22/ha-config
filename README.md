@@ -22,7 +22,7 @@
 | **Network** | MikroTik router + 7× managed switches/APs |
 | **VLANs** | Home · IoT · Work · Guest |
 | **DNS** | Pi-hole × 2 (LXC 101 primary + TrueNAS app replica) |
-| **Cameras** | Frigate NVR — LXC 107, recordings on USB at `/cctv_clips` |
+| **Cameras** | Frigate NVR — LXC 107, recordings on USB 3.0 RAID 0 enclosure at `/cctv_clips` |
 | **Monitoring** | Zabbix — TrueNAS hosted |
 
 ---
