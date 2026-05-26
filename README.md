@@ -169,7 +169,7 @@ All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zone
 - [proxmoxve](https://github.com/doudz/homeassistant-proxmoxve) — hypervisor monitoring
 - [truenas](https://github.com/tomaae/homeassistant-truenas) — NAS monitoring
 - [waste_collection_schedule](https://github.com/mampfes/hacs_waste_collection_schedule) — bin collection
-- vserver_ssh_stats — SSH-based stats collection from VPS/remote servers
+- [vserver_ssh_stats](https://github.com/404GamerNotFound/vserver-ssh-stats) — SSH-based stats collection from VPS/remote servers
 - [webrtc](https://github.com/AlexxIT/WebRTC) — low-latency camera streams
 
 ---
