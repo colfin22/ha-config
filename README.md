@@ -49,7 +49,8 @@
 ### Energy & Environment
 | Integration | Purpose |
 |---|---|
-| [myenergi](https://myenergi.com/) | Solar production, Eddi solar diverter |
+| [Autarco](https://www.autarco.com/) | Solar inverter — cloud stats (slower polling) |
+| [myenergi](https://myenergi.com/) | Solar production, Eddi diverter — preferred for live stats (faster updates) |
 | [Netatmo](https://www.netatmo.com/) | Smart thermostat — heating control |
 | [Met Éireann](https://www.met.ie/) | Irish national weather warnings |
 
