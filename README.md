@@ -33,6 +33,7 @@
 | Integration | Purpose |
 |---|---|
 | [Alarmo](https://github.com/nielsfaber/alarmo) | Multi-zone alarm with Zigbee sensors |
+| [Philips Hue](https://www.philips-hue.com/) | Hue lights — slowly migrating to Zigbee2MQTT (WIP) |
 | [Zigbee2MQTT](https://www.zigbee2mqtt.io/) | Zigbee device bridge (lights, motion, contact sensors) |
 | [Music Assistant](https://music-assistant.io/) | Multi-room audio — Today FM, Spotify, local library |
 | [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/vehicle detection |
