@@ -67,10 +67,10 @@
 | Integration | Purpose |
 |---|---|
 | NVIDIA Shield TV | Living room media player — IoT VLAN |
-| Google Cast | Kitchen display, Google Home & Chromecast Audio devices — whole-home audio |
-| Samsung TV | 65" sitting room TV |
-| Android TV | Aoife MiBox S + Cian MiTV |
-| Logitech Harmony | 2 hubs — KitchenHub + SittingRmHub |
+| Google Cast | Kitchen display, Google Home & Chromecast Audio devices — whole-home audio — IoT VLAN |
+| Samsung TV | 65" sitting room TV — IoT VLAN |
+| Android TV | Aoife MiBox S + Cian MiTV — IoT VLAN |
+| Logitech Harmony | 2 hubs — KitchenHub + SittingRmHub — IoT VLAN |
 | [Navidrome](https://navidrome.org/) | Self-hosted music streaming — LXC 103, data in TrueNAS dataset |
 | [Calibre-Web](https://github.com/janeczku/calibre-web) | Self-hosted ebook library — LXC 114, data in TrueNAS dataset |
 | [Paperless-ngx](https://docs.paperless-ngx.com/) | Document management — Docker (ubuntu-docker), data in TrueNAS dataset |
