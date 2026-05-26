@@ -4,7 +4,7 @@ blueprint:
     a comprehensive Home Assistant blueprint which automatically manages your window
     coverings (such as roller shutters and blinds) based on time, the position of
     the sun, and weather conditions. It adapts intelligently to your preferences,
-    largely eliminating the need for manual adjustments.\n\n**Version**: 2026.05.24\n\n###
+    largely eliminating the need for manual adjustments.\n\n**Version**: 2026.05.26\n\n###
     \U0001F517 Resources & Support\n\U0001F4E2 **Latest Changes**: [Changelog](https://hvorragend.github.io/ha-blueprints/CHANGELOG)
     | ✨ **Highlights**: [Key Features](https://hvorragend.github.io/ha-blueprints/#-key-features)\n\U0001F680
     **Setup**: [Quick Start Guide](https://hvorragend.github.io/ha-blueprints/#-quick-start-5-steps)
@@ -1139,7 +1139,35 @@ blueprint:
       description: "<center><p><small>\n  Settings if the feature '\U0001F975 - Sun
         Protection / Shading — Partially close when sun shines on window' has been
         activated above.\n  <br />\n  All these settings are optional / The attributes
-        of default sun sensor (configured above) is used.\n</small></p></center>"
+        of default sun sensor (configured above) is used.\n</small></p></center>\n<details>
+        <summary><code><strong>CLICK HERE:</strong> How the shading process works
+        (two phases)</code></summary>\n\n**Phase 1 — Pending (trigger):**\nWhen ANY
+        configured shading trigger fires (sun azimuth, elevation, brightness, temperature,
+        forecast), the automation arms a \"pending\" timer. This sets the status to
+        <em>t_shading_start_pending</em> and starts the waiting time.\n\n**Phase 2
+        — Execution (after waiting time):**\nAfter the waiting time expires, the automation
+        re-evaluates ALL configured conditions. Only if they are <strong>still valid</strong>
+        at this point, the cover actually moves to the shading position.\n\n**Common
+        reasons why shading stays stuck at \"pending\":**\n- <strong>Forecast temperature
+        sensor misconfigured:</strong> If using a weather entity, make sure it provides
+        temperature data (check Developer Tools → States). If the forecast returns
+        \"unavailable\" or \"unknown\", the condition fails.\n- <strong>Time window
+        mismatch:</strong> Shading only executes within the configured daytime window
+        (between earliest opening time and latest closing time). If no time control
+        is configured, enable \"Disable Time Control\" or configure valid times.\n-
+        <strong>\"Additional Condition\" blocks execution:</strong> The \"Additional
+        Condition When Activating Sun Shading\" is checked at execution time. If configured,
+        it must be true for the cover to move.\n- <strong>Cover already at/below shading
+        position:</strong> If the cover is already at or below the shading position,
+        no movement occurs (but the state is saved).\n- <strong>Helper shows stale
+        data:</strong> Check the input_text helper entity in Developer Tools → States.
+        Look for <code>\"pnd\":\"beg\"</code> and verify that <code>\"ts.due\"</code>
+        is a valid future timestamp.\n\n**Debugging tip:** Enable the Logbook option
+        and check the automation trace after the waiting time expires. Look for the
+        <em>t_shading_start_execution</em> trigger — if it doesn't appear, the template
+        trigger may not be evaluating correctly. If it appears but the trace shows
+        \"conditions not met\", check which specific condition fails using Developer
+        Tools → Template.\n</details>"
       icon: mdi:shield-sun-outline
       collapsed: true
       input:
@@ -1174,6 +1202,13 @@ blueprint:
             - Leave others for OR list
 
             - Result: Sun must be in range, plus other criteria
+
+
+            **Important:** Conditions without a configured sensor are automatically
+            satisfied (skipped). You can safely leave all conditions selected — only
+            those with a matching sensor configured below will actually be evaluated.
+            However, if a sensor IS configured but returns "unavailable" or "unknown",
+            the condition will FAIL.
 
             </details>'
           default:
@@ -1647,7 +1682,12 @@ blueprint:
             system can compare this threshold against two sources:\n\n  - The forecasted
             temperature (this comparison is always active)\n\n  - Temperature Sensor
             2 (e.g. outdoor) (can be enabled via the checkbox in the next configuration
-            field)\n\n</details>"
+            field)\n\n\n  <strong>Troubleshooting:</strong> If this condition is in
+            your AND list, the forecast source (weather entity or temperature sensor
+            above) MUST provide a valid numeric temperature value. Check Developer
+            Tools → States that your weather entity or sensor shows a numeric temperature,
+            not \"unavailable\" or \"unknown\". If the forecast returns no data, this
+            condition will fail and block shading execution.\n\n</details>"
           default: []
           selector:
             number:
@@ -1755,10 +1795,14 @@ blueprint:
               mode: list
         shading_waitingtime_start:
           name: "\U0001F975 Sun Shading - Start Waiting Time"
-          description: To avoid overloading the motor, a waiting time can be defined
-            here for the start of shading. The shade will only start if <ins>all</ins>
-            mandatory conditions are fulfilled for the entire waiting time. This waiting
-            time is also used for the periodic condition checks within the retry loop.
+          description: Waiting time between the initial shading trigger and the actual
+            cover movement. After this time expires, <ins>all</ins> configured start
+            conditions (AND + OR) are re-checked. The cover only moves if conditions
+            are <strong>still valid</strong> at execution time. This waiting time
+            is also used for the periodic condition checks within the retry loop.
+            <br /><br /> <strong>If shading stays at "pending" and never executes:</strong>
+            The conditions were no longer met after the waiting time expired. Check
+            the automation trace for <em>t_shading_start_execution</em>.
           default: 300
           selector:
             number:
@@ -2497,7 +2541,7 @@ trigger_variables:
   - query failed
   - []
 variables:
-  version: 2026.05.24
+  version: 2026.05.26
   is_paused: '{{ force_pause != [] and states(force_pause) in [''on'', ''true''] }}'
   blind_entities: '{{ expand(blind) | map(attribute=''entity_id'') | list }}'
   current_position: "{% set source = position_source %} {% if source == 'current_position_attr'
@@ -2686,13 +2730,17 @@ variables:
     resident_present %} {% set allow_shade = 'resident_allow_shading' in resident_config
     or not resident_present %} {% set allow_open = 'resident_allow_opening' in resident_config
     or not resident_present %} {% set privacy_active = resident_present and 'resident_closing_enabled'
-    in resident_config %} {% if h.frc != 'non' %}\n  {{ h.frc }}\n{% elif h.win ==
-    'opn' %}\n  lock\n{% else %}\n  {% if privacy_active %}\n    {% set base_target
-    = 'cls' %}\n  {% elif h.shd | int == 1 and allow_shade %}\n    {% set base_target
-    = 'shd' %}\n  {% elif h.bas == 'opn' and not allow_open %}\n    {% set base_target
-    = 'cls' %}\n  {% else %}\n    {% set base_target = h.bas %}\n  {% endif %}\n  {%
-    if h.win == 'tlt' and allow_vent and base_target != 'opn' %}\n    vnt\n  {% else
-    %}\n    {{ base_target }}\n  {% endif %}\n{% endif %}"
+    in resident_config %} {% set s_opn = contact_window_opened != [] and states(contact_window_opened)
+    in ['true', 'on'] %} {% set s_tlt = contact_window_tilted != [] and states(contact_window_tilted)
+    in ['true', 'on'] %} {% set w = 'opn' if s_opn else 'tlt' if s_tlt else h.win
+    if (contact_window_opened == [] and contact_window_tilted == []) else 'cls' %}
+    {% if h.frc != 'non' %}\n  {{ h.frc }}\n{% elif w == 'opn' %}\n  lock\n{% else
+    %}\n  {% if privacy_active %}\n    {% set base_target = 'cls' %}\n  {% elif h.shd
+    | int == 1 and allow_shade %}\n    {% set base_target = 'shd' %}\n  {% elif h.bas
+    == 'opn' and not allow_open %}\n    {% set base_target = 'cls' %}\n  {% else %}\n
+    \   {% set base_target = h.bas %}\n  {% endif %}\n  {% if w == 'tlt' and allow_vent
+    and base_target != 'opn' %}\n    vnt\n  {% else %}\n    {{ base_target }}\n  {%
+    endif %}\n{% endif %}"
   helper_state_force: '{{ helper_json.frc | default(''non'') }}'
   helper_state_resident: '{{ helper_json.res | default(0) | int == 1 }}'
   helper_state_manual: '{{ helper_json.man | default(0) | int == 1 }}'
@@ -3005,31 +3053,31 @@ triggers:
   id: t_force_pause_disabled
 - trigger: template
   value_template: "{{\n  states(cover_status_helper) not in invalid_states and\n  states(cover_status_helper)
-    | regex_search('\"shd\"\\s*:\\s*1') and\n  state_attr(default_sun_sensor, 'elevation')
-    < shading_tilt_elevation_1\n}}"
+    | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]') and\n  state_attr(default_sun_sensor,
+    'elevation') < shading_tilt_elevation_1\n}}"
   enabled: '{{ is_shading_enabled and is_cover_tilt_enabled and default_sun_sensor
     != [] }}'
   id: t_shading_tilt_1
 - trigger: template
   value_template: "{{\n  states(cover_status_helper) not in invalid_states and\n  states(cover_status_helper)
-    | regex_search('\"shd\"\\s*:\\s*1') and\n  state_attr(default_sun_sensor, 'elevation')
-    < shading_tilt_elevation_2 and\n  state_attr(default_sun_sensor, 'elevation')
-    >= shading_tilt_elevation_1\n}}"
+    | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]') and\n  state_attr(default_sun_sensor,
+    'elevation') < shading_tilt_elevation_2 and\n  state_attr(default_sun_sensor,
+    'elevation') >= shading_tilt_elevation_1\n}}"
   enabled: '{{ is_shading_enabled and is_cover_tilt_enabled and default_sun_sensor
     != [] }}'
   id: t_shading_tilt_2
 - trigger: template
   value_template: "{{\n  states(cover_status_helper) not in invalid_states and\n  states(cover_status_helper)
-    | regex_search('\"shd\"\\s*:\\s*1') and\n  state_attr(default_sun_sensor, 'elevation')
-    < shading_tilt_elevation_3 and\n  state_attr(default_sun_sensor, 'elevation')
-    >= shading_tilt_elevation_2\n}}"
+    | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]') and\n  state_attr(default_sun_sensor,
+    'elevation') < shading_tilt_elevation_3 and\n  state_attr(default_sun_sensor,
+    'elevation') >= shading_tilt_elevation_2\n}}"
   enabled: '{{ is_shading_enabled and is_cover_tilt_enabled and default_sun_sensor
     != [] }}'
   id: t_shading_tilt_3
 - trigger: template
   value_template: "{{\n  states(cover_status_helper) not in invalid_states and\n  states(cover_status_helper)
-    | regex_search('\"shd\"\\s*:\\s*1') and\n  state_attr(default_sun_sensor, 'elevation')
-    >= shading_tilt_elevation_3\n}}"
+    | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]') and\n  state_attr(default_sun_sensor,
+    'elevation') >= shading_tilt_elevation_3\n}}"
   enabled: '{{ is_shading_enabled and is_cover_tilt_enabled and default_sun_sensor
     != [] }}'
   id: t_shading_tilt_4
@@ -3150,9 +3198,10 @@ conditions:
       or\n  calendar_close_title_lc in (state_attr(calendar_entity, 'message') | lower)\n}}"
 - condition: template
   value_template: "{% if trigger.id is match('^t_shading_start_pending_[1-6]$') %}\n
-    \ {{ states(cover_status_helper) | regex_search('\"shd\"\\s*:\\s*0') }}\n{% elif
-    trigger.id is match('^t_shading_end_pending_[1-6]$') %}\n  {{ states(cover_status_helper)
-    | regex_search('\"shd\"\\s*:\\s*1') }}\n{% else %}\n  true\n{% endif %}"
+    \ {{ not (states(cover_status_helper) not in invalid_states and states(cover_status_helper)
+    | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]')) }}\n{% elif trigger.id is match('^t_shading_end_pending_[1-6]$')
+    %}\n  {{ states(cover_status_helper) not in invalid_states and states(cover_status_helper)
+    | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]') }}\n{% else %}\n  true\n{% endif %}"
 actions:
 - variables:
     cover_move_action:
@@ -6901,6 +6950,7 @@ actions:
         - condition: !input auto_ventilate_condition
         - '{{ not (ventilation_flags.keep_open_on_full_to_tilt and helper_state_window
           == ''opn'' and position_comparisons.current_above_ventilate) }}'
+        - '{{ effective_state != ''opn'' }}'
         - or:
           - '{{ position_comparisons.current_below_ventilate }}'
           - and:
@@ -7087,6 +7137,7 @@ actions:
             - '{{ ventilation_flags.keep_open_on_full_to_tilt }}'
             - '{{ helper_state_window == ''opn'' }}'
             - '{{ position_comparisons.current_above_ventilate }}'
+          - '{{ effective_state == ''opn'' }}'
         sequence:
         - variables:
             update_values:

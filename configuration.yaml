@@ -76,3 +76,4 @@ logger:
   logs:
     urllib3.connectionpool: error
     homeassistant.components.rest.util: error
+
