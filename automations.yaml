@@ -2476,16 +2476,16 @@
       value: '{{ new_top5[4].date }}'
   mode: single
 - id: '1780000000003'
-  alias: Heating - Away Mode 9:15 to 12:45
+  alias: Heating - Away Mode 9:00 to 12:45
   description: >
-    At 9:15am sets Netatmo to away if both Colm and Olivia are out.
+    At 9:00am sets Netatmo to away if both Colm and Olivia are out.
     Olivia's tracker is unreliable so requires her not_home state to have
     been stable for 30+ minutes. Reverts to schedule at 12:45 or when
     either person returns home. Uses a flag to avoid reverting if the
     automation never set it away.
   triggers:
   - trigger: time
-    at: '09:15:00'
+    at: '09:00:00'
     id: morning_check
   - trigger: time
     at: '12:45:00'
@@ -2541,7 +2541,7 @@
             entity_id: input_boolean.heating_away_mode_active
             state: 'on'
           - condition: time
-            after: '09:15:00'
+            after: '09:00:00'
             before: '12:45:00'
         sequence:
           - action: climate.set_preset_mode
