@@ -2499,14 +2499,6 @@
     been stable for 30+ minutes. Reverts to schedule at 12:45 or when
     either person returns home. Uses a flag to avoid reverting if the
     automation never set it away.
-- id: '1780000000003'
-  alias: Heating - Away Mode 9:15 to 12:45
-  description: >
-    At 9:15am sets Netatmo to away if both Colm and Olivia are out.
-    Olivia's tracker is unreliable so requires her not_home state to have
-    been stable for 30+ minutes. Reverts to schedule at 12:45 or when
-    either person returns home. Uses a flag to avoid reverting if the
-    automation never set it away.
   triggers:
   - trigger: time
     at: '09:15:00'
