@@ -2491,3 +2491,89 @@
     data:
       value: '{{ new_top5[4].date }}'
   mode: single
+- id: '1780000000003'
+  alias: Heating - Away Mode 9:15 to 12:45
+  description: >
+    At 9:15am sets Netatmo to away if both Colm and Olivia are out.
+    Olivia's tracker is unreliable so requires her not_home state to have
+    been stable for 30+ minutes. Reverts to schedule at 12:45 or when
+    either person returns home. Uses a flag to avoid reverting if the
+    automation never set it away.
+- id: '1780000000003'
+  alias: Heating - Away Mode 9:15 to 12:45
+  description: >
+    At 9:15am sets Netatmo to away if both Colm and Olivia are out.
+    Olivia's tracker is unreliable so requires her not_home state to have
+    been stable for 30+ minutes. Reverts to schedule at 12:45 or when
+    either person returns home. Uses a flag to avoid reverting if the
+    automation never set it away.
+  triggers:
+  - trigger: time
+    at: '09:15:00'
+    id: morning_check
+  - trigger: time
+    at: '12:45:00'
+    id: afternoon_reset
+  - trigger: state
+    entity_id:
+      - person.colm_finn
+      - person.olivia_finn
+    to: home
+    id: person_home
+  actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: morning_check
+          - condition: state
+            entity_id: person.colm_finn
+            state: not_home
+          - condition: state
+            entity_id: person.olivia_finn
+            state: not_home
+          - condition: template
+            value_template: >
+              {{ (now() - states.person.olivia_finn.last_changed).total_seconds() > 1800 }}
+        sequence:
+          - action: climate.set_preset_mode
+            target:
+              entity_id: climate.hallway
+            data:
+              preset_mode: away
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.heating_away_mode_active
+      - conditions:
+          - condition: trigger
+            id: afternoon_reset
+          - condition: state
+            entity_id: input_boolean.heating_away_mode_active
+            state: 'on'
+        sequence:
+          - action: climate.set_preset_mode
+            target:
+              entity_id: climate.hallway
+            data:
+              preset_mode: schedule
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.heating_away_mode_active
+      - conditions:
+          - condition: trigger
+            id: person_home
+          - condition: state
+            entity_id: input_boolean.heating_away_mode_active
+            state: 'on'
+          - condition: time
+            after: '09:15:00'
+            before: '12:45:00'
+        sequence:
+          - action: climate.set_preset_mode
+            target:
+              entity_id: climate.hallway
+            data:
+              preset_mode: schedule
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.heating_away_mode_active
+  mode: single

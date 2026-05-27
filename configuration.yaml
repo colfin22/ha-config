@@ -77,6 +77,11 @@ logger:
     urllib3.connectionpool: error
     homeassistant.components.rest.util: error
 
+input_boolean:
+  heating_away_mode_active:
+    name: "Heating Away Mode Active"
+    icon: mdi:thermostat
+
 input_number:
   solar_top_5_1st_kwh:
     name: "Solar Top 5 — 1st kWh"
