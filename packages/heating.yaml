@@ -1,0 +1,4 @@
+input_boolean:
+  heating_away_mode_active:
+    name: "Heating Away Mode Active"
+    icon: mdi:thermostat
