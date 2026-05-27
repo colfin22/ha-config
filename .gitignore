@@ -85,3 +85,4 @@ git_status.txt
 # Update Tuesday generated output
 www/update_tuesday/
 www/snapshots/
+scripts/secrets_config.py

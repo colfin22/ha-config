@@ -9,6 +9,7 @@ import ssl
 import datetime
 import os
 import re
+from scripts.secrets_config import PVE_TOKEN, TRUENAS_TOKEN
 import sys
 
 # ─── CONFIGURATION ───────────────────────────────────────────────────────────
@@ -30,14 +31,14 @@ SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 PVE_API = {
     "host": "10.0.0.251",
     "port": 8006,
-    "token": "ha@pve!homeassistant=f015ab59-7235-4d78-ba44-9c2ed93eb376",
+    "token": PVE_TOKEN,
     "nodes": ["proxmox", "proxmox2"],
 }
 
 TRUENAS = {
     "host": "10.0.0.254",
     "port": 80,
-    "token": "5-OCVPw4x7QfTKo0zLa1d0VNb1p6TQFM4JxKLzSY8xTnCxjRJ55V1fO6l4qC2vjjT4",
+    "token": TRUENAS_TOKEN,
 }
 
 MIKROTIK_DEVICES = [
