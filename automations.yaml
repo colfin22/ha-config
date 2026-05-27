@@ -2553,3 +2553,38 @@
             target:
               entity_id: input_boolean.heating_away_mode_active
   mode: single
+- id: '1780000000004'
+  alias: Heating - Seasonal Schedule Switch
+  description: >
+    On 1st June switches Netatmo to Summer Schedule; on 1st September
+    switches back to Winter Schedule. Fires at 08:00 but only acts on the
+    target dates.
+  triggers:
+  - trigger: time
+    at: '08:00:00'
+  conditions:
+  - condition: template
+    value_template: >
+      {{ (now().month == 6 and now().day == 1) or
+         (now().month == 9 and now().day == 1) }}
+  actions:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: '{{ now().month == 6 }}'
+        sequence:
+          - action: select.select_option
+            target:
+              entity_id: select.home
+            data:
+              option: Summer Schedule
+      - conditions:
+          - condition: template
+            value_template: '{{ now().month == 9 }}'
+        sequence:
+          - action: select.select_option
+            target:
+              entity_id: select.home
+            data:
+              option: Winter Schedule
+  mode: single
