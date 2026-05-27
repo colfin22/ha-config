@@ -1,0 +1,18 @@
+light:
+  - platform: group
+    name: "Hallway"
+    unique_id: "light_group_hallway"
+    entities:
+      - light.hallway_1
+
+  - platform: group
+    name: "Landing"
+    unique_id: "light_group_landing"
+    entities:
+      - light.landing_1
+
+  - platform: group
+    name: "Aoife Bedroom"
+    unique_id: "light_group_aoife_bedroom"
+    entities:
+      - light.aoife_ceiling
