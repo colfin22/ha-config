@@ -472,25 +472,28 @@
           transition: 2
       action_button_up_short:
       - action: light.turn_on
-        metadata: {}
         target:
           entity_id: light.office_ceiling
         data:
-          brightness_step_pct: 10
-      action_button_down_short:
-      - action: light.turn_on
-        metadata: {}
-        target:
-          entity_id: light.office_ceiling
-        data:
-          brightness_step_pct: -10
+          brightness_step_pct: 15
       action_button_up_long:
       - action: light.turn_on
-        metadata: {}
         target:
           entity_id: light.office_ceiling
         data:
-          brightness_pct: 100
+          brightness_step_pct: 30
+      action_button_down_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.office_ceiling
+        data:
+          brightness_step_pct: -15
+      action_button_down_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.office_ceiling
+        data:
+          brightness_step_pct: -30
 - id: '1775750149545'
   alias: Smart Parcel Box Notification
   description: Notifies both phones and announces via TTS when a parcel is delivered
