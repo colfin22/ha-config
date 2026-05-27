@@ -2350,17 +2350,15 @@
   - platform: time
     at: '23:59:00'
   variables:
-    new_top5: >
-      {% set ranks = [
+    new_top5: >-
+      {{ ([
         {'kwh': states('input_number.export_top_5_1st_kwh') | float(0), 'date': states('input_text.export_top_5_1st_date')},
         {'kwh': states('input_number.export_top_5_2nd_kwh') | float(0), 'date': states('input_text.export_top_5_2nd_date')},
         {'kwh': states('input_number.export_top_5_3rd_kwh') | float(0), 'date': states('input_text.export_top_5_3rd_date')},
         {'kwh': states('input_number.export_top_5_4th_kwh') | float(0), 'date': states('input_text.export_top_5_4th_date')},
-        {'kwh': states('input_number.export_top_5_5th_kwh') | float(0), 'date': states('input_text.export_top_5_5th_date')}
-      ] %}
-      {% set today_kwh = states('input_number.yesterday_grid_export') | float(0) %}
-      {% set today_date = now().strftime('%a %-d %b %Y') %}
-      {{ ((ranks + [{'kwh': today_kwh, 'date': today_date}]) | sort(attribute='kwh', reverse=True))[:5] | to_json }}
+        {'kwh': states('input_number.export_top_5_5th_kwh') | float(0), 'date': states('input_text.export_top_5_5th_date')},
+        {'kwh': states('input_number.yesterday_grid_export') | float(0), 'date': now().strftime('%a %-d %b %Y')}
+      ] | sort(attribute='kwh', reverse=True))[:5] }}
   conditions:
   - condition: template
     value_template: >
@@ -2371,50 +2369,125 @@
     target:
       entity_id: input_number.export_top_5_1st_kwh
     data:
-      value: '{{ (new_top5 | from_json)[0].kwh }}'
+      value: '{{ new_top5[0].kwh }}'
   - action: input_text.set_value
     target:
       entity_id: input_text.export_top_5_1st_date
     data:
-      value: '{{ (new_top5 | from_json)[0].date }}'
+      value: '{{ new_top5[0].date }}'
   - action: input_number.set_value
     target:
       entity_id: input_number.export_top_5_2nd_kwh
     data:
-      value: '{{ (new_top5 | from_json)[1].kwh }}'
+      value: '{{ new_top5[1].kwh }}'
   - action: input_text.set_value
     target:
       entity_id: input_text.export_top_5_2nd_date
     data:
-      value: '{{ (new_top5 | from_json)[1].date }}'
+      value: '{{ new_top5[1].date }}'
   - action: input_number.set_value
     target:
       entity_id: input_number.export_top_5_3rd_kwh
     data:
-      value: '{{ (new_top5 | from_json)[2].kwh }}'
+      value: '{{ new_top5[2].kwh }}'
   - action: input_text.set_value
     target:
       entity_id: input_text.export_top_5_3rd_date
     data:
-      value: '{{ (new_top5 | from_json)[2].date }}'
+      value: '{{ new_top5[2].date }}'
   - action: input_number.set_value
     target:
       entity_id: input_number.export_top_5_4th_kwh
     data:
-      value: '{{ (new_top5 | from_json)[3].kwh }}'
+      value: '{{ new_top5[3].kwh }}'
   - action: input_text.set_value
     target:
       entity_id: input_text.export_top_5_4th_date
     data:
-      value: '{{ (new_top5 | from_json)[3].date }}'
+      value: '{{ new_top5[3].date }}'
   - action: input_number.set_value
     target:
       entity_id: input_number.export_top_5_5th_kwh
     data:
-      value: '{{ (new_top5 | from_json)[4].kwh }}'
+      value: '{{ new_top5[4].kwh }}'
   - action: input_text.set_value
     target:
       entity_id: input_text.export_top_5_5th_date
     data:
-      value: '{{ (new_top5 | from_json)[4].date }}'
+      value: '{{ new_top5[4].date }}'
+  mode: single
+- id: '1780000000002'
+  alias: Energy - Update Solar Top 5
+  description: At 23:59, checks if today's solar production beats any of the top 5
+    records and updates the leaderboard. Uses myenergi_eddi_generated_today via
+    input_number.yesterday_solar_generated.
+  triggers:
+  - platform: time
+    at: '23:59:00'
+  variables:
+    new_top5: >-
+      {{ ([
+        {'kwh': states('input_number.solar_top_5_1st_kwh') | float(0), 'date': states('input_text.solar_top_5_1st_date')},
+        {'kwh': states('input_number.solar_top_5_2nd_kwh') | float(0), 'date': states('input_text.solar_top_5_2nd_date')},
+        {'kwh': states('input_number.solar_top_5_3rd_kwh') | float(0), 'date': states('input_text.solar_top_5_3rd_date')},
+        {'kwh': states('input_number.solar_top_5_4th_kwh') | float(0), 'date': states('input_text.solar_top_5_4th_date')},
+        {'kwh': states('input_number.solar_top_5_5th_kwh') | float(0), 'date': states('input_text.solar_top_5_5th_date')},
+        {'kwh': states('input_number.yesterday_solar_generated') | float(0), 'date': now().strftime('%a %-d %b %Y')}
+      ] | sort(attribute='kwh', reverse=True))[:5] }}
+  conditions:
+  - condition: template
+    value_template: >
+      {{ states('input_number.yesterday_solar_generated') | float(0) >
+         states('input_number.solar_top_5_5th_kwh') | float(0) }}
+  actions:
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.solar_top_5_1st_kwh
+    data:
+      value: '{{ new_top5[0].kwh }}'
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.solar_top_5_1st_date
+    data:
+      value: '{{ new_top5[0].date }}'
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.solar_top_5_2nd_kwh
+    data:
+      value: '{{ new_top5[1].kwh }}'
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.solar_top_5_2nd_date
+    data:
+      value: '{{ new_top5[1].date }}'
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.solar_top_5_3rd_kwh
+    data:
+      value: '{{ new_top5[2].kwh }}'
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.solar_top_5_3rd_date
+    data:
+      value: '{{ new_top5[2].date }}'
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.solar_top_5_4th_kwh
+    data:
+      value: '{{ new_top5[3].kwh }}'
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.solar_top_5_4th_date
+    data:
+      value: '{{ new_top5[3].date }}'
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.solar_top_5_5th_kwh
+    data:
+      value: '{{ new_top5[4].kwh }}'
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.solar_top_5_5th_date
+    data:
+      value: '{{ new_top5[4].date }}'
   mode: single
