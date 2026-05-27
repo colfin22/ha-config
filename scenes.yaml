@@ -36,3 +36,15 @@
     light.hallway_1:
       state: 'on'
       brightness: 255
+- id: aoife_bedroom_bright
+  name: Aoife Bedroom Bright
+  entities:
+    light.aoife_ceiling:
+      state: 'on'
+      brightness: 255
+- id: aoife_bedroom_dimmed
+  name: Aoife Bedroom Dimmed
+  entities:
+    light.aoife_ceiling:
+      state: 'on'
+      brightness: 77
