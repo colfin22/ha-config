@@ -2480,7 +2480,7 @@
   description: >
     At 9:00am sets Netatmo to away if both Colm and Olivia are out.
     Olivia's tracker is unreliable so requires her not_home state to have
-    been stable for 30+ minutes. Reverts to schedule at 12:45 or when
+    been stable for 15+ minutes. Reverts to schedule at 12:45 or when
     either person returns home. Uses a flag to avoid reverting if the
     automation never set it away.
   triggers:
@@ -2509,7 +2509,7 @@
             state: not_home
           - condition: template
             value_template: >
-              {{ (now() - states.person.olivia_finn.last_changed).total_seconds() > 1800 }}
+              {{ (now() - states.person.olivia_finn.last_changed).total_seconds() > 900 }}
         sequence:
           - action: climate.set_preset_mode
             target:
