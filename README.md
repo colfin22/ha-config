@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.5.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-62-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/License-Private-red)](.)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -85,7 +85,7 @@
 
 ## 🤖 Automations
 
-60 automations across the home. Key highlights:
+63 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **Occupancy lighting** — hallway, landing, and rooms via Zigbee motion sensors + lux thresholds; scene-based (bright/dimmed), fade-to-off on exit
