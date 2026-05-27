@@ -716,19 +716,19 @@
         0) > midnight %}{% set dog_n.n = dog_n.n + 1 %}{% endif %}{% endfor %}{% set
         bird_n = namespace(n=0) %}{% for img in ['image.doorbell_bird','image.front_car_bird','image.front_van_bird','image.rear_door_bird','image.rear_shed_bird']
         %}{% if states(img) not in ('unknown','unavailable') and as_timestamp(states(img),
-        0) > midnight %}{% set bird_n.n = bird_n.n + 1 %}{% endif %}{% endfor %}{% set
-        fox_n = namespace(n=0) %}{% for img in ['image.doorbell_fox','image.front_car_fox','image.front_van_fox','image.rear_door_fox','image.rear_shed_fox']
+        0) > midnight %}{% set bird_n.n = bird_n.n + 1 %}{% endif %}{% endfor %}{%
+        set fox_n = namespace(n=0) %}{% for img in ['image.doorbell_fox','image.front_car_fox','image.front_van_fox','image.rear_door_fox','image.rear_shed_fox']
         %}{% if states(img) not in ('unknown','unavailable') and as_timestamp(states(img),
-        0) > midnight %}{% set fox_n.n = fox_n.n + 1 %}{% endif %}{% endfor %}{%
-        set parts = namespace(list=[]) %}{% if cat_n.n > 0 %}{% set parts.list = parts.list
+        0) > midnight %}{% set fox_n.n = fox_n.n + 1 %}{% endif %}{% endfor %}{% set
+        parts = namespace(list=[]) %}{% if cat_n.n > 0 %}{% set parts.list = parts.list
         + ['\U0001F431 Cat' + (' ×' + cat_n.n | string if cat_n.n > 1 else '')] %}{%
         endif %}{% if dog_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F436
         Dog' + (' ×' + dog_n.n | string if dog_n.n > 1 else '')] %}{% endif %}{% if
-        fox_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F98A Fox' + (' ×'
-        + fox_n.n | string if fox_n.n > 1 else '')] %}{% endif %}{% if
-        bird_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F426 Bird' + (' ×'
-        + bird_n.n | string if bird_n.n > 1 else '')] %}{% endif %}{{ parts.list |
-        join('  ·  ') }}"
+        fox_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F98A Fox' + (' ×' +
+        fox_n.n | string if fox_n.n > 1 else '')] %}{% endif %}{% if bird_n.n > 0
+        %}{% set parts.list = parts.list + ['\U0001F426 Bird' + (' ×' + bird_n.n |
+        string if bird_n.n > 1 else '')] %}{% endif %}{{ parts.list | join('  ·  ')
+        }}"
   - if:
     - condition: template
       value_template: '{{ person_count > 0 }}'
@@ -739,8 +739,8 @@
       data:
         title: "\U0001F6A8 Person Detected Overnight"
         message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
-          > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count >
-          2 else '''' }}){% endif %}{% if other_line != '''' %}
+          > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count > 2
+          else '''' }}){% endif %}{% if other_line != '''' %}
 
 
           Also overnight: {{ other_line }}{% endif %}'
@@ -750,8 +750,8 @@
       data:
         title: "\U0001F6A8 Person Detected Overnight"
         message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
-          > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count >
-          2 else '''' }}){% endif %}{% if other_line != '''' %}
+          > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count > 2
+          else '''' }}){% endif %}{% if other_line != '''' %}
 
 
           Also overnight: {{ other_line }}{% endif %}'
@@ -780,11 +780,11 @@
           No other activity detected.{% endif %}'
   mode: single
   variables:
-    person_count: "{{ states('sensor.frigate_overnight_person_count') | int(0) }}"
-    best_camera: "{{ states('sensor.frigate_overnight_best_camera') }}"
-    best_time: "{{ states('sensor.frigate_overnight_best_time') | float(0) | timestamp_custom('%-I:%M\
-      \ %p') }}"
-    camera_count: "{{ states('sensor.frigate_overnight_camera_count') | int(0) }}"
+    person_count: '{{ states(''sensor.frigate_overnight_person_count'') | int(0) }}'
+    best_camera: '{{ states(''sensor.frigate_overnight_best_camera'') }}'
+    best_time: '{{ states(''sensor.frigate_overnight_best_time'') | float(0) | timestamp_custom(''%-I:%M
+      %p'') }}'
+    camera_count: '{{ states(''sensor.frigate_overnight_camera_count'') | int(0) }}'
 - id: '1778228718912'
   alias: Energy - Snapshot Daily Totals
   description: At 23:58 each night, saves today's energy sensor values to helpers
@@ -2296,22 +2296,13 @@
       status: '{{ trigger.json.status }}'
       size: '{{ trigger.json.size }}'
       timestamp: '{{ trigger.json.timestamp }}'
-      title: >-
-        {% if trigger.json.status == "updated" %}
-          TrueNAS Backup Updated
-        {% elif trigger.json.status == "unchanged" %}
-          TrueNAS Backup Unchanged
-        {% else %}
-          TrueNAS Backup Failed
-        {% endif %}
-      message: >-
-        {% if trigger.json.status == "updated" %}
-          Config saved to GitHub ({{ size }}) at {{ timestamp }}.
-        {% elif trigger.json.status == "unchanged" %}
-          No changes since last backup ({{ timestamp }}).
-        {% else %}
-          {{ trigger.json.error | default("Unknown error") }}
-        {% endif %}
+      title: "{% if trigger.json.status == \"updated\" %}\n  TrueNAS Backup Updated\n{%
+        elif trigger.json.status == \"unchanged\" %}\n  TrueNAS Backup Unchanged\n{%
+        else %}\n  TrueNAS Backup Failed\n{% endif %}"
+      message: "{% if trigger.json.status == \"updated\" %}\n  Config saved to GitHub
+        ({{ size }}) at {{ timestamp }}.\n{% elif trigger.json.status == \"unchanged\"
+        %}\n  No changes since last backup ({{ timestamp }}).\n{% else %}\n  {{ trigger.json.error
+        | default(\"Unknown error\") }}\n{% endif %}"
   - choose:
     - conditions:
       - condition: time
@@ -2339,20 +2330,18 @@
   - platform: time
     at: '23:59:00'
   variables:
-    new_top5: >-
-      {{ ([
-        {'kwh': states('input_number.export_top_5_1st_kwh') | float(0), 'date': states('input_text.export_top_5_1st_date')},
-        {'kwh': states('input_number.export_top_5_2nd_kwh') | float(0), 'date': states('input_text.export_top_5_2nd_date')},
-        {'kwh': states('input_number.export_top_5_3rd_kwh') | float(0), 'date': states('input_text.export_top_5_3rd_date')},
-        {'kwh': states('input_number.export_top_5_4th_kwh') | float(0), 'date': states('input_text.export_top_5_4th_date')},
-        {'kwh': states('input_number.export_top_5_5th_kwh') | float(0), 'date': states('input_text.export_top_5_5th_date')},
-        {'kwh': states('input_number.yesterday_grid_export') | float(0), 'date': now().strftime('%a %-d %b %Y')}
-      ] | sort(attribute='kwh', reverse=True))[:5] }}
+    new_top5: "{{ ([\n  {'kwh': states('input_number.export_top_5_1st_kwh') | float(0),
+      'date': states('input_text.export_top_5_1st_date')},\n  {'kwh': states('input_number.export_top_5_2nd_kwh')
+      | float(0), 'date': states('input_text.export_top_5_2nd_date')},\n  {'kwh':
+      states('input_number.export_top_5_3rd_kwh') | float(0), 'date': states('input_text.export_top_5_3rd_date')},\n
+      \ {'kwh': states('input_number.export_top_5_4th_kwh') | float(0), 'date': states('input_text.export_top_5_4th_date')},\n
+      \ {'kwh': states('input_number.export_top_5_5th_kwh') | float(0), 'date': states('input_text.export_top_5_5th_date')},\n
+      \ {'kwh': states('input_number.yesterday_grid_export') | float(0), 'date': now().strftime('%a
+      %-d %b %Y')}\n] | sort(attribute='kwh', reverse=True))[:5] }}"
   conditions:
   - condition: template
-    value_template: >
-      {{ states('input_number.yesterday_grid_export') | float(0) >
-         states('input_number.export_top_5_5th_kwh') | float(0) }}
+    value_template: "{{ states('input_number.yesterday_grid_export') | float(0) >\n
+      \  states('input_number.export_top_5_5th_kwh') | float(0) }}\n"
   actions:
   - action: input_number.set_value
     target:
@@ -2408,26 +2397,23 @@
 - id: '1780000000002'
   alias: Energy - Update Solar Top 5
   description: At 23:59, checks if today's solar production beats any of the top 5
-    records and updates the leaderboard. Uses myenergi_eddi_generated_today via
-    input_number.yesterday_solar_generated.
+    records and updates the leaderboard. Uses myenergi_eddi_generated_today via input_number.yesterday_solar_generated.
   triggers:
   - platform: time
     at: '23:59:00'
   variables:
-    new_top5: >-
-      {{ ([
-        {'kwh': states('input_number.solar_top_5_1st_kwh') | float(0), 'date': states('input_text.solar_top_5_1st_date')},
-        {'kwh': states('input_number.solar_top_5_2nd_kwh') | float(0), 'date': states('input_text.solar_top_5_2nd_date')},
-        {'kwh': states('input_number.solar_top_5_3rd_kwh') | float(0), 'date': states('input_text.solar_top_5_3rd_date')},
-        {'kwh': states('input_number.solar_top_5_4th_kwh') | float(0), 'date': states('input_text.solar_top_5_4th_date')},
-        {'kwh': states('input_number.solar_top_5_5th_kwh') | float(0), 'date': states('input_text.solar_top_5_5th_date')},
-        {'kwh': states('input_number.yesterday_solar_generated') | float(0), 'date': now().strftime('%a %-d %b %Y')}
-      ] | sort(attribute='kwh', reverse=True))[:5] }}
+    new_top5: "{{ ([\n  {'kwh': states('input_number.solar_top_5_1st_kwh') | float(0),
+      'date': states('input_text.solar_top_5_1st_date')},\n  {'kwh': states('input_number.solar_top_5_2nd_kwh')
+      | float(0), 'date': states('input_text.solar_top_5_2nd_date')},\n  {'kwh': states('input_number.solar_top_5_3rd_kwh')
+      | float(0), 'date': states('input_text.solar_top_5_3rd_date')},\n  {'kwh': states('input_number.solar_top_5_4th_kwh')
+      | float(0), 'date': states('input_text.solar_top_5_4th_date')},\n  {'kwh': states('input_number.solar_top_5_5th_kwh')
+      | float(0), 'date': states('input_text.solar_top_5_5th_date')},\n  {'kwh': states('input_number.yesterday_solar_generated')
+      | float(0), 'date': now().strftime('%a %-d %b %Y')}\n] | sort(attribute='kwh',
+      reverse=True))[:5] }}"
   conditions:
   - condition: template
-    value_template: >
-      {{ states('input_number.yesterday_solar_generated') | float(0) >
-         states('input_number.solar_top_5_5th_kwh') | float(0) }}
+    value_template: "{{ states('input_number.yesterday_solar_generated') | float(0)
+      >\n   states('input_number.solar_top_5_5th_kwh') | float(0) }}\n"
   actions:
   - action: input_number.set_value
     target:
@@ -2482,114 +2468,154 @@
   mode: single
 - id: '1780000000003'
   alias: Heating - Away Mode 9:00 to 12:45
-  description: >
-    At 9:00am sets Netatmo to away if both Colm and Olivia are out.
-    Olivia's tracker is unreliable so requires her not_home state to have
-    been stable for 15+ minutes. Reverts to schedule at 12:45 or when
-    either person returns home. Uses a flag to avoid reverting if the
-    automation never set it away.
+  description: 'At 9:00am sets Netatmo to away if both Colm and Olivia are out. Olivia''s
+    tracker is unreliable so requires her not_home state to have been stable for 15+
+    minutes. Reverts to schedule at 12:45 or when either person returns home. Uses
+    a flag to avoid reverting if the automation never set it away.
+
+    '
   triggers:
   - trigger: time
-    at: '09:00:00'
+    at: 09:00:00
     id: morning_check
   - trigger: time
     at: '12:45:00'
     id: afternoon_reset
   - trigger: state
     entity_id:
-      - person.colm_finn
-      - person.olivia_finn
+    - person.colm_finn
+    - person.olivia_finn
     to: home
     id: person_home
   actions:
   - choose:
-      - conditions:
-          - condition: trigger
-            id: morning_check
-          - condition: state
-            entity_id: person.colm_finn
-            state: not_home
-          - condition: state
-            entity_id: person.olivia_finn
-            state: not_home
-          - condition: template
-            value_template: >
-              {{ (now() - states.person.olivia_finn.last_changed).total_seconds() > 900 }}
-        sequence:
-          - action: climate.set_preset_mode
-            target:
-              entity_id: climate.hallway
-            data:
-              preset_mode: away
-          - action: input_boolean.turn_on
-            target:
-              entity_id: input_boolean.heating_away_mode_active
-      - conditions:
-          - condition: trigger
-            id: afternoon_reset
-          - condition: state
-            entity_id: input_boolean.heating_away_mode_active
-            state: 'on'
-        sequence:
-          - action: climate.set_preset_mode
-            target:
-              entity_id: climate.hallway
-            data:
-              preset_mode: schedule
-          - action: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.heating_away_mode_active
-      - conditions:
-          - condition: trigger
-            id: person_home
-          - condition: state
-            entity_id: input_boolean.heating_away_mode_active
-            state: 'on'
-          - condition: time
-            after: '09:00:00'
-            before: '12:45:00'
-        sequence:
-          - action: climate.set_preset_mode
-            target:
-              entity_id: climate.hallway
-            data:
-              preset_mode: schedule
-          - action: input_boolean.turn_off
-            target:
-              entity_id: input_boolean.heating_away_mode_active
+    - conditions:
+      - condition: trigger
+        id: morning_check
+      - condition: state
+        entity_id: person.colm_finn
+        state: not_home
+      - condition: state
+        entity_id: person.olivia_finn
+        state: not_home
+      - condition: template
+        value_template: '{{ (now() - states.person.olivia_finn.last_changed).total_seconds()
+          > 900 }}
+
+          '
+      sequence:
+      - action: climate.set_preset_mode
+        target:
+          entity_id: climate.hallway
+        data:
+          preset_mode: away
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.heating_away_mode_active
+    - conditions:
+      - condition: trigger
+        id: afternoon_reset
+      - condition: state
+        entity_id: input_boolean.heating_away_mode_active
+        state: 'on'
+      sequence:
+      - action: climate.set_preset_mode
+        target:
+          entity_id: climate.hallway
+        data:
+          preset_mode: schedule
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.heating_away_mode_active
+    - conditions:
+      - condition: trigger
+        id: person_home
+      - condition: state
+        entity_id: input_boolean.heating_away_mode_active
+        state: 'on'
+      - condition: time
+        after: 09:00:00
+        before: '12:45:00'
+      sequence:
+      - action: climate.set_preset_mode
+        target:
+          entity_id: climate.hallway
+        data:
+          preset_mode: schedule
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.heating_away_mode_active
   mode: single
 - id: '1780000000004'
   alias: Heating - Seasonal Schedule Switch
-  description: >
-    On 1st June switches Netatmo to Summer Schedule; on 1st September
-    switches back to Winter Schedule. Fires at 08:00 but only acts on the
-    target dates.
+  description: 'On 1st June switches Netatmo to Summer Schedule; on 1st September
+    switches back to Winter Schedule. Fires at 08:00 but only acts on the target dates.
+
+    '
   triggers:
   - trigger: time
-    at: '08:00:00'
+    at: 08:00:00
   conditions:
   - condition: template
-    value_template: >
-      {{ (now().month == 6 and now().day == 1) or
-         (now().month == 9 and now().day == 1) }}
+    value_template: "{{ (now().month == 6 and now().day == 1) or\n   (now().month
+      == 9 and now().day == 1) }}\n"
   actions:
   - choose:
-      - conditions:
-          - condition: template
-            value_template: '{{ now().month == 6 }}'
-        sequence:
-          - action: select.select_option
-            target:
-              entity_id: select.home
-            data:
-              option: Summer Schedule
-      - conditions:
-          - condition: template
-            value_template: '{{ now().month == 9 }}'
-        sequence:
-          - action: select.select_option
-            target:
-              entity_id: select.home
-            data:
-              option: Winter Schedule
+    - conditions:
+      - condition: template
+        value_template: '{{ now().month == 6 }}'
+      sequence:
+      - action: select.select_option
+        target:
+          entity_id: select.home
+        data:
+          option: Summer Schedule
+    - conditions:
+      - condition: template
+        value_template: '{{ now().month == 9 }}'
+      sequence:
+      - action: select.select_option
+        target:
+          entity_id: select.home
+        data:
+          option: Winter Schedule
   mode: single
+- id: '1779870330029'
+  alias: Aoife Bedroom Hue Dimmer Switch
+  description: ''
+  use_blueprint:
+    path: patpac9/Hue_Dimmer_Switch_Easy_Custom_Buttons.yaml
+    input:
+      controller: Aoife Bedroom Dimmer Switch
+      on_released:
+      - action: light.toggle
+        target:
+          entity_id: light.aoife_ceiling
+      up_pressed:
+      - action: light.turn_on
+        target:
+          entity_id: light.aoife_ceiling
+        data:
+          brightness_step_pct: 15
+      up_held:
+      - action: light.turn_on
+        target:
+          entity_id: light.aoife_ceiling
+        data:
+          brightness_step_pct: 30
+      down_pressed:
+      - action: light.turn_on
+        target:
+          entity_id: light.aoife_ceiling
+        data:
+          brightness_step_pct: -15
+      down_held:
+      - action: light.turn_on
+        target:
+          entity_id: light.aoife_ceiling
+        data:
+          brightness_step_pct: -30
+      off_pressed:
+      - action: light.turn_off
+        target:
+          entity_id: light.aoife_ceiling
