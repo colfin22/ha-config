@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.5.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-60-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-62-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/License-Private-red)](.)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -111,8 +111,11 @@
 - **TTS** — queued announcements with volume save/restore (`script.tts_announce`)
 - **Today FM** — one-tap play on kitchen display via Music Assistant
 
+### 🌡️ Climate
+- **Heating away mode** — at 09:15 sets Netatmo thermostat to away preset if both Colm and Olivia are out; reverts to schedule at 12:45 or immediately when either returns home. Olivia's tracker requires 30 min stable `not_home` before trusting it. Uses a flag so the 12:45 reset only fires if this automation set it away
+
 ### ⚡ Energy
-- **Top days** — solar production and grid export top 5 best days tracked on Energy dashboard; export ranking updates automatically each evening
+- **Top days** — solar production and grid export top 5 best days tracked independently; both leaderboards update automatically each evening at 23:59 using myenergi sensors
 - **Morning energy stats** — daily solar and energy summary pushed each morning
 
 ### 🏠 Infrastructure Monitoring
