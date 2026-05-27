@@ -53,6 +53,56 @@ homeassistant:
     llmvision: /config/media/llmvision
 
 
+rest:
+  - resource_template: "http://10.0.0.246:5000/api/events?label=person&after={{ today_at('00:00') | as_timestamp | int }}&has_snapshot=1&limit=100"
+    scan_interval: 300
+    sensor:
+      - name: "Frigate Overnight Person Count"
+        unique_id: frigate_overnight_person_count
+        value_template: >
+          {% set ns = namespace(n=0) %}
+          {% for e in value_json %}
+            {% if e.data and e.data.max_severity == 'alert' %}
+              {% set ns.n = ns.n + 1 %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.n }}
+        icon: mdi:motion-sensor
+      - name: "Frigate Overnight Best Camera"
+        unique_id: frigate_overnight_best_camera
+        value_template: >
+          {% set ns = namespace(cam='', ts=0) %}
+          {% for e in value_json %}
+            {% if e.data and e.data.max_severity == 'alert' and e.start_time | float(0) > ns.ts %}
+              {% set ns.cam = e.camera | replace('_', ' ') %}
+              {% set ns.ts = e.start_time | float(0) %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.cam }}
+        icon: mdi:cctv
+      - name: "Frigate Overnight Best Time"
+        unique_id: frigate_overnight_best_time
+        value_template: >
+          {% set ns = namespace(ts=0) %}
+          {% for e in value_json %}
+            {% if e.data and e.data.max_severity == 'alert' and e.start_time | float(0) > ns.ts %}
+              {% set ns.ts = e.start_time | float(0) %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ts }}
+        icon: mdi:clock
+      - name: "Frigate Overnight Camera Count"
+        unique_id: frigate_overnight_camera_count
+        value_template: >
+          {% set ns = namespace(cams=[]) %}
+          {% for e in value_json %}
+            {% if e.data and e.data.max_severity == 'alert' and e.camera not in ns.cams %}
+              {% set ns.cams = ns.cams + [e.camera] %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.cams | length }}
+        icon: mdi:cctv
+
 command_line:
   - sensor:
       name: "Frigate CCTV Disk Usage"

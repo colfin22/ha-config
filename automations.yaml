@@ -726,21 +726,15 @@
         join('  ·  ') }}"
   - if:
     - condition: template
-      value_template: '{{ best_image != '''' }}'
+      value_template: '{{ person_count > 0 }}'
     then:
     - action: notify.send_message
       target:
         entity_id: notify.np3
       data:
         title: "\U0001F6A8 Person Detected Overnight"
-        message: '{% set cam = state_attr(best_image, ''friendly_name'') | replace(''
-          Person'', '''') %}
-
-          {% set t = as_timestamp(states(best_image)) | timestamp_custom(''%-I:%M
-          %p'') %}
-
-          Person spotted on {{ cam }} at {{ t }}{% if camera_count | int > 1 %} (+{{
-          (camera_count | int) - 1 }} other camera{{ ''s'' if camera_count | int >
+        message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
+          > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count >
           2 else '''' }}){% endif %}{% if other_line != '''' %}
 
 
@@ -750,14 +744,8 @@
         entity_id: notify.pixel_6a
       data:
         title: "\U0001F6A8 Person Detected Overnight"
-        message: '{% set cam = state_attr(best_image, ''friendly_name'') | replace(''
-          Person'', '''') %}
-
-          {% set t = as_timestamp(states(best_image)) | timestamp_custom(''%-I:%M
-          %p'') %}
-
-          Person spotted on {{ cam }} at {{ t }}{% if camera_count | int > 1 %} (+{{
-          (camera_count | int) - 1 }} other camera{{ ''s'' if camera_count | int >
+        message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
+          > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count >
           2 else '''' }}){% endif %}{% if other_line != '''' %}
 
 
@@ -787,15 +775,11 @@
           No other activity detected.{% endif %}'
   mode: single
   variables:
-    best_image: "{% set ns = namespace(entity='', ts=0) %}\n{% for img in ['image.doorbell_person','image.front_car_person','image.front_van_person','image.rear_door_person','image.rear_shed_person']
-      %}\n  {% set s = states(img) %}\n  {% if s not in ('unknown','unavailable')
-      %}\n    {% set t = as_timestamp(s, 0) %}\n    {% if t > (today_at('00:00') |
-      as_timestamp) and t > ns.ts %}\n      {% set ns.entity = img %}\n      {% set
-      ns.ts = t %}\n    {% endif %}\n  {% endif %}\n{% endfor %}\n{{ ns.entity }}"
-    camera_count: "{% set ns = namespace(n=0) %}\n{% for img in ['image.doorbell_person','image.front_car_person','image.front_van_person','image.rear_door_person','image.rear_shed_person']
-      %}\n  {% set s = states(img) %}\n  {% if s not in ('unknown','unavailable')
-      and as_timestamp(s, 0) > (today_at('00:00') | as_timestamp) %}\n    {% set ns.n
-      = ns.n + 1 %}\n  {% endif %}\n{% endfor %}\n{{ ns.n }}"
+    person_count: "{{ states('sensor.frigate_overnight_person_count') | int(0) }}"
+    best_camera: "{{ states('sensor.frigate_overnight_best_camera') }}"
+    best_time: "{{ states('sensor.frigate_overnight_best_time') | float(0) | timestamp_custom('%-I:%M\
+      \ %p') }}"
+    camera_count: "{{ states('sensor.frigate_overnight_camera_count') | int(0) }}"
 - id: '1778228718912'
   alias: Energy - Snapshot Daily Totals
   description: At 23:58 each night, saves today's energy sensor values to helpers
