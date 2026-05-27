@@ -7,5 +7,6 @@
         - unavailable
   binary_sensor:
     - name: front_doorbell_motion_detected
+      unique_id: front_doorbell_motion_detected
       auto_off: 15
-      state: "true"
+      state: 'true'
