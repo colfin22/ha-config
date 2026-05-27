@@ -117,7 +117,7 @@
 
 ### 🌡️ Climate
 - **Heating away mode** — at 09:00 sets Netatmo thermostat to away preset if both Colm and Olivia are out; reverts to schedule at 12:45 or immediately when either returns home. Olivia's tracker requires 15 min stable `not_home` before trusting it. Uses a flag so the 12:45 reset only fires if this automation set it away
-- **Seasonal schedule** — switches `select.home` to Summer Schedule on 1st June and back to Winter Schedule on 1st September
+- **Seasonal schedule** — switches Netatmo thermostat schedule to Summer Schedule on 1st June and back to Winter Schedule on 1st September
 
 ### ⚡ Energy
 - **Top days** — solar production and grid export top 5 best days tracked independently; both leaderboards update automatically each evening at 23:59 using myenergi sensors
