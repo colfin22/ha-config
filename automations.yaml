@@ -716,11 +716,16 @@
         0) > midnight %}{% set dog_n.n = dog_n.n + 1 %}{% endif %}{% endfor %}{% set
         bird_n = namespace(n=0) %}{% for img in ['image.doorbell_bird','image.front_car_bird','image.front_van_bird','image.rear_door_bird','image.rear_shed_bird']
         %}{% if states(img) not in ('unknown','unavailable') and as_timestamp(states(img),
-        0) > midnight %}{% set bird_n.n = bird_n.n + 1 %}{% endif %}{% endfor %}{%
+        0) > midnight %}{% set bird_n.n = bird_n.n + 1 %}{% endif %}{% endfor %}{% set
+        fox_n = namespace(n=0) %}{% for img in ['image.doorbell_fox','image.front_car_fox','image.front_van_fox','image.rear_door_fox','image.rear_shed_fox']
+        %}{% if states(img) not in ('unknown','unavailable') and as_timestamp(states(img),
+        0) > midnight %}{% set fox_n.n = fox_n.n + 1 %}{% endif %}{% endfor %}{%
         set parts = namespace(list=[]) %}{% if cat_n.n > 0 %}{% set parts.list = parts.list
         + ['\U0001F431 Cat' + (' ×' + cat_n.n | string if cat_n.n > 1 else '')] %}{%
         endif %}{% if dog_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F436
         Dog' + (' ×' + dog_n.n | string if dog_n.n > 1 else '')] %}{% endif %}{% if
+        fox_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F98A Fox' + (' ×'
+        + fox_n.n | string if fox_n.n > 1 else '')] %}{% endif %}{% if
         bird_n.n > 0 %}{% set parts.list = parts.list + ['\U0001F426 Bird' + (' ×'
         + bird_n.n | string if bird_n.n > 1 else '')] %}{% endif %}{{ parts.list |
         join('  ·  ') }}"

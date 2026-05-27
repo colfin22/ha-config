@@ -37,7 +37,7 @@
 | [Philips Hue](https://www.philips-hue.com/) | Hue lights — slowly migrating to Zigbee2MQTT (WIP) |
 | [Zigbee2MQTT](https://www.zigbee2mqtt.io/) | Zigbee device bridge (lights, motion, contact sensors) |
 | [Music Assistant](https://music-assistant.io/) | Multi-room audio — TuneIn (radio), Subsonic/Navidrome (local music), gPodder (podcasts) |
-| [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/vehicle detection |
+| [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/fox/vehicle detection |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Low-latency camera stream server (built into Frigate) |
 | [Reolink](https://reolink.com/) | Doorbell camera — doorbell press events only; recording and detections handled by Frigate |
 | [Immich](https://immich.app/) | Self-hosted photo library — LXC 112, data in TrueNAS dataset |
@@ -96,7 +96,7 @@
 - **Cameras** — person detection notifications from all cameras to Colm & Olivia with animated GIF preview
 - **Doorbell** — Frigate snapshot cast to kitchen display & Shield TV on ring
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
-- **Morning security report** — summary of overnight person detections delivered at 07:00
+- **Morning security report** — summary of overnight person detections delivered at 07:00; also notes any cats, foxes, dogs or birds spotted overnight
 - **Patio door** — NFC-toggled gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
 
 ### 🌤️ Weather
