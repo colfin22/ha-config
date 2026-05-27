@@ -1,3 +1,12 @@
+command_line:
+  - sensor:
+      name: "Frigate CCTV Disk Usage"
+      unique_id: frigate_cctv_disk_usage
+      unit_of_measurement: "%"
+      command: "ssh -i /config/.ssh/frigate_sensor -o StrictHostKeyChecking=no -o BatchMode=yes hassio@10.0.0.246 df /cctv_clips"
+      scan_interval: 300
+      value_template: "{{ value.split()[-2] | replace('%', '') | int }}"
+
 rest:
   - resource_template: "http://10.0.0.246:5000/api/events?label=person&after={{ today_at('00:00') | as_timestamp | int }}&has_snapshot=1&limit=100"
     scan_interval: 300

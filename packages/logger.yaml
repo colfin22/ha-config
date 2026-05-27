@@ -1,0 +1,5 @@
+logger:
+  default: warning
+  logs:
+    urllib3.connectionpool: error
+    homeassistant.components.rest.util: error

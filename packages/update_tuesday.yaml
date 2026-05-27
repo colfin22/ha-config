@@ -1,0 +1,8 @@
+shell_command:
+  generate_update_report: >
+    ssh -i /config/.ssh/ha_to_addon
+    -o StrictHostKeyChecking=no
+    -o BatchMode=yes
+    -o ConnectTimeout=10
+    root@172.30.33.0
+    "bash /config/scripts/update_tuesday.sh"
