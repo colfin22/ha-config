@@ -99,6 +99,10 @@
 - **Morning security report** — summary of overnight person detections delivered at 07:00
 - **Patio door** — NFC-toggled gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
 
+### 🌤️ Weather
+- **Morning forecast** — daily weather summary pushed to all phones at 08:30 with emoji-coded conditions; if Colm or Olivia is more than 100km from home a second block is added for their away location
+- **Evening forecast** — tomorrow's forecast pushed at 21:00 each night with the same away-location logic
+
 ### 📦 Alerts
 - **Parcel delivery** — Smart Parcel Box sensor triggers mobile notification on delivery
 - **Courier van** — Frigate van detection at front → TTS announcement with courier name
