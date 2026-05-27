@@ -16,3 +16,9 @@ light:
     unique_id: "light_group_aoife_bedroom"
     entities:
       - light.aoife_ceiling
+
+  - platform: group
+    name: "Office"
+    unique_id: "light_group_office"
+    entities:
+      - light.office_ceiling
