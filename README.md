@@ -4,7 +4,7 @@
 
 [![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.5.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
-[![License](https://img.shields.io/badge/License-Private-red)](.)
+[![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
 
@@ -175,7 +175,7 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house (LXC on encrypted Proxmox 3) | — |
 | TrueNAS Datasets | rsync — critical datasets synced to encrypted Proxmox 3 at Daire's house | — |
 
-All repos are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
+This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
 
 ---
 
