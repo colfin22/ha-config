@@ -1362,6 +1362,26 @@
               "cards": [
                 {
                   "type": "heading",
+                  "heading_style": "title",
+                  "heading": "Top Days"
+                },
+                {
+                  "type": "markdown",
+                  "content": "{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) > 0 %}- 🥇 **{{ states(\"input_text.export_top_5_1st_date\") }}** — {{ states(\"input_number.export_top_5_1st_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_2nd_kwh\")|float(0) > 0 %}- 🥈 **{{ states(\"input_text.export_top_5_2nd_date\") }}** — {{ states(\"input_number.export_top_5_2nd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_3rd_kwh\")|float(0) > 0 %}- 🥉 **{{ states(\"input_text.export_top_5_3rd_date\") }}** — {{ states(\"input_number.export_top_5_3rd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_4th_kwh\")|float(0) > 0 %}- 4th &nbsp;**{{ states(\"input_text.export_top_5_4th_date\") }}** — {{ states(\"input_number.export_top_5_4th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_5th_kwh\")|float(0) > 0 %}- 5th &nbsp;**{{ states(\"input_text.export_top_5_5th_date\") }}** — {{ states(\"input_number.export_top_5_5th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) == 0 %}_No records yet — updates automatically each evening_{% endif %}",
+                  "title": "Export to Grid"
+                },
+                {
+                  "type": "markdown",
+                  "content": "- 🥇 **Fri 11 Jul 2025** — 44 kWh\n- 🥇 **Sat 12 Jul 2025** — 44 kWh\n- 🥉 **Sat 09 May 2026** — 43 kWh\n- 4th &nbsp;**Wed 29 Apr 2026** — 42 kWh\n- 5th &nbsp;**Sun 24 May 2026** — 41 kWh",
+                  "title": "Solar Production"
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
                   "heading": "Official Meter (ESB Networks)",
                   "icon": "mdi:meter-electric-outline"
                 },
@@ -1424,26 +1444,6 @@
                     "columns": 12,
                     "rows": "auto"
                   }
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading_style": "title",
-                  "heading": "Top Days"
-                },
-                {
-                  "type": "markdown",
-                  "content": "{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) > 0 %}- 🥇 **{{ states(\"input_text.export_top_5_1st_date\") }}** — {{ states(\"input_number.export_top_5_1st_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_2nd_kwh\")|float(0) > 0 %}- 🥈 **{{ states(\"input_text.export_top_5_2nd_date\") }}** — {{ states(\"input_number.export_top_5_2nd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_3rd_kwh\")|float(0) > 0 %}- 🥉 **{{ states(\"input_text.export_top_5_3rd_date\") }}** — {{ states(\"input_number.export_top_5_3rd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_4th_kwh\")|float(0) > 0 %}- 4th &nbsp;**{{ states(\"input_text.export_top_5_4th_date\") }}** — {{ states(\"input_number.export_top_5_4th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_5th_kwh\")|float(0) > 0 %}- 5th &nbsp;**{{ states(\"input_text.export_top_5_5th_date\") }}** — {{ states(\"input_number.export_top_5_5th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) == 0 %}_No records yet — updates automatically each evening_{% endif %}",
-                  "title": "Export to Grid"
-                },
-                {
-                  "type": "markdown",
-                  "content": "- 🥇 **Fri 11 Jul 2025** — 44 kWh\n- 🥇 **Sat 12 Jul 2025** — 44 kWh\n- 🥉 **Sat 09 May 2026** — 43 kWh\n- 4th &nbsp;**Wed 29 Apr 2026** — 42 kWh\n- 5th &nbsp;**Sun 24 May 2026** — 41 kWh",
-                  "title": "Solar Production"
                 }
               ]
             },
