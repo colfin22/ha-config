@@ -36472,6 +36472,20 @@
             "should_expose": false
           }
         }
+      },
+      "update.blueprints_updater_update": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "switch.blueprints_updater_pre_release": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }

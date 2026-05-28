@@ -4,8 +4,8 @@ blueprint:
     a comprehensive Home Assistant blueprint which automatically manages your window
     coverings (such as roller shutters and blinds) based on time, the position of
     the sun, and weather conditions. It adapts intelligently to your preferences,
-    largely eliminating the need for manual adjustments.\n\n**Version**: 2026.05.26\n\n###
-    \U0001F517 Resources & Support\n\U0001F4E2 **Latest Changes**: [Changelog](https://hvorragend.github.io/ha-blueprints/CHANGELOG)
+    largely eliminating the need for manual adjustments.\n\n**Version**: 2026.05.27
+    V2\n\n### \U0001F517 Resources & Support\n\U0001F4E2 **Latest Changes**: [Changelog](https://hvorragend.github.io/ha-blueprints/CHANGELOG)
     | ✨ **Highlights**: [Key Features](https://hvorragend.github.io/ha-blueprints/#-key-features)\n\U0001F680
     **Setup**: [Quick Start Guide](https://hvorragend.github.io/ha-blueprints/#-quick-start-5-steps)
     | [Prerequisites](https://hvorragend.github.io/ha-blueprints/#-essential-prerequisites)\n\U0001F4DA
@@ -67,26 +67,32 @@ blueprint:
             manage.\n*Not sure? The defaults (Morning Opening, Evening Closing, Time
             Control) work for most setups.*\n\n<details> <summary><code><strong>\U0001F4D6
             CLICK HERE:</strong> How these options work together</code></summary>\n\n**Basic
-            Controls (When to move):**\nEnable morning opening and/or evening closing.\n\n**Fine-Tuning
-            (When to trigger):**\nControl whether time, brightness, and sun elevation
-            influence opening and closing. Set the condition logic (AND/OR) when both
-            brightness and sun elevation are active. Configure thresholds and sensors
-            in the dedicated sections below.\n\n**Advanced Features (How to react):**\nAdd
-            ventilation mode and/or sun protection for situational behavior.\n\n**Sun
-            Elevation vs. Sun Protection are two different things!**\n- **Sun Elevation**
-            (☀️) = Opens/closes based on sunrise/sunset — configure thresholds in
-            *Sun Elevation Settings* below\n- **Sun Protection** (\U0001F975) = Partially
-            closes the cover during midday when the sun shines directly on the window\n\n**Example
-            of a summer day**\n- **6:00** — Sun Elevation triggers opening (sun rose
-            above your threshold)\n- **7:00** — Time-based opening would have happened
-            (but cover is already open)\n- **12:00** — Sun Protection activates (sun
-            now shines directly on window → partial close)\n- **18:00** — Sun Protection
-            deactivates (sun moved away → cover opens again)\n- **21:00** — Sun Elevation
-            triggers closing (sun dropped below your threshold)\n\n**Notes on multiple
-            triggering**\nEven if multiple opening, closing, shading, etc. is activated,
-            this only works if a trigger is available. However, the numeric state
-            triggers only trigger under certain circumstances. See: [FAQ: Why are
-            my numeric triggers not firing?](https://hvorragend.github.io/ha-blueprints/FAQ#q-why-are-my-numeric-triggers-not-firing)\n\n</details>"
+            Controls (When to move):**\n- **Morning Opening / Evening Closing** —
+            Enable automatic opening and/or closing.\n\n**Fine-Tuning (When to trigger):**\n-
+            **⏲️ Time Control** — Defines the Early/Late time windows that constrain
+            *all* other triggers. Keep this ON even when using Brightness or Sun Elevation
+            — the time fields set the boundaries. Early = earliest the cover may move;
+            Late = guaranteed move (safety net).\n- **\U0001F505 Brightness** / **☀️
+            Sun Elevation** — Additional triggers that fire *within* the time window.
+            Set the condition logic (AND/OR) when both are active. Configure thresholds
+            and sensors in the dedicated sections below.\n\n**Advanced Features (How
+            to react):**\n- **\U0001F4A8 Ventilation** — React to open/tilted windows,
+            prevent lockout.\n- **\U0001F975 Sun Protection** — Partially close when
+            sun shines directly on the window (midday heat).\n\n**☀️ Sun Elevation
+            vs. \U0001F975 Sun Protection are two different things!**\n- **Sun Elevation**
+            = *When* to open/close (sunrise/sunset trigger) — configure in *Sun Elevation
+            Settings*\n- **Sun Protection** = *Shading* during midday when the sun
+            shines directly on the window\n\n**Example: Sun Elevation + Time Control
+            (most common setup)**\n- **6:00** — Early time reached → Sun Elevation
+            trigger is now allowed\n- **6:30** — Sun rises above threshold → cover
+            opens\n- **8:00** — Late time → cover would open now regardless (but it's
+            already open)\n- **20:00** — Early closing time reached → Sun Elevation
+            trigger is now allowed\n- **21:00** — Sun drops below threshold → cover
+            closes\n- **22:00** — Late closing time → cover would close regardless
+            (safety net)\n\n**Notes on multiple triggering**\nEven if multiple opening,
+            closing, shading, etc. is activated, this only works if a trigger is available.
+            However, the numeric state triggers only trigger under certain circumstances.
+            See: [FAQ: Why are my numeric triggers not firing?](https://hvorragend.github.io/ha-blueprints/FAQ#q-why-are-my-numeric-triggers-not-firing)\n\n</details>"
           default:
           - auto_up_enabled
           - auto_down_enabled
@@ -94,25 +100,26 @@ blueprint:
           selector:
             select:
               options:
-              - label: "\U0001F53C Morning Opening — Automatically open based on configured
-                  time"
+              - label: "\U0001F53C Morning Opening — Automatically open the cover
+                  each morning"
                 value: auto_up_enabled
-              - label: "\U0001F53B Evening Closing — Automatically close based on
-                  configured time"
+              - label: "\U0001F53B Evening Closing — Automatically close the cover
+                  each evening"
                 value: auto_down_enabled
-              - label: ⏲️ Time Control — Enable time-based opening & closing triggers
+              - label: ⏲️ Time Control — Use time windows (Early/Late) to constrain
+                  when triggers fire
                 value: time_control_enabled
-              - label: "\U0001F505 Brightness Control — Open/close earlier based on
-                  ambient brightness"
+              - label: "\U0001F505 Brightness Control — Trigger opening/closing based
+                  on ambient brightness sensor"
                 value: auto_brightness_enabled
-              - label: ☀️ Sun Elevation Control — Open/close based on sun position
-                  (sunrise/sunset)
+              - label: ☀️ Sun Elevation Control — Trigger opening/closing based on
+                  sun position (sunrise/sunset)
                 value: auto_sun_enabled
               - label: "\U0001F4A8 Ventilation Mode — React to open/tilted windows,
                   prevent lockout"
                 value: auto_ventilate_enabled
               - label: "\U0001F975 Sun Protection / Shading — Partially close when
-                  sun shines on window"
+                  sun shines directly on window"
                 value: auto_shading_enabled
               multiple: true
               sort: false
@@ -124,14 +131,16 @@ blueprint:
             relevant when **Time Control** is enabled above.)*\n<details> <summary><code><strong>\U0001F4D6
             CLICK HERE:</strong> Further descriptions</code></summary> <br /> <ins>Input
             fields for time control</ins><br /><br /> The times for opening and closing
-            the cover are configured in the Time Control section below. Even if you
-            only want to control the covers using brightness values or the sun elevation,
-            it is important to specify times — they are used to define the \"morning\"
-            (up) and \"evening\" (down) windows. <br /><br /> <ins>Calendar Control</ins><br
-            /> You can use a Home Assistant calendar to define when covers should
-            be open or closed. Create calendar events with titles \"Open Cover\" (for
-            daytime) or \"Close Cover\" (for evening). The automation reacts immediately
-            when events start or end.\n\n</details>"
+            the cover are configured in the Time Control section below. These time
+            fields define the <strong>Early</strong> and <strong>Late</strong> boundaries
+            — even when using Brightness or Sun Elevation as the actual trigger. Early
+            = earliest allowed trigger time; Late = guaranteed fallback. See the <a
+            href=\"https://hvorragend.github.io/ha-blueprints/TIME_CONTROL_VISUALIZATION\">Time
+            Control Guide</a> for a visual explanation. <br /><br /> <ins>Calendar
+            Control</ins><br /> You can use a Home Assistant calendar to define when
+            covers should be open or closed. Create calendar events with titles \"Open
+            Cover\" (for daytime) or \"Close Cover\" (for evening). The automation
+            reacts immediately when events start or end.\n\n</details>"
           default: time_control_input
           selector:
             select:
@@ -1043,36 +1052,47 @@ blueprint:
         auto_ventilate_options:
           name: "\U0001F4A8 Ventilation Configuration"
           description: "Various different ventilation options.\n<details> <summary><code><strong>CLICK
-            HERE:</strong> Further descriptions</code></summary>\n\n\n  - <ins>Enables
-            a calculated delay after the window is closed:</ins>\n    <br />\n    Normally,
-            when the window contact is closed, there is no delay in the upcoming drives.
-            If you do want this, you can activate it here.\n    <br /><br />\n    The
-            \"Fixed Drive Delay\" and \"Random Drive Delay\" settings which are already
-            used everywhere are then used.\n    <br /><br />\n  - <ins>Lower cover
-            to the ventilation position when the window tilts and cover is above:</ins>\n
-            \   <br />\n    When the window is tilted and the cover is currently above
-            the ventilation position, drive it <strong>down</strong> to the ventilation
-            position.\n    Without this option, the cover stays where it is in that
-            case.\n    <br />\n    Note: This option takes effect for any cover position
-            above the ventilation position. The dedicated full → tilt transition has
-            its own opt-out below.\n    <br /><br />\n  - <ins>Using the ventilation
-            position when the sun shade is ended:</ins>\n    <br />\n    The cover
-            can also be moved to the ventilation position when the sun protection/sun
-            shading is ended.\n    Normally, the cover would be fully opened when
-            the shading is ended.\n    <br />\n    To be honest, it makes no sense
-            to switch to the ventilation position during the day if more air can flow
-            in when the cover is open.\n    <br /><br />\n  - <ins>Keep cover at open
-            position when window goes from fully opened to tilted:</ins>\n    <br
-            />\n    When the window was previously fully opened (cover at the open
-            position) and is then tilted, the cover would normally\n    be lowered
-            to the partial ventilation position. Enable this option to keep the cover
-            at the open position in that case.\n    <br />\n    Useful e.g. for a
-            terrace door: after coming back inside and tilting the door, the cover
-            stays up instead of moving down.\n\n</details>"
+            HERE:</strong> Further descriptions</code></summary>\n\n\n  - <ins>Disables
+            the drive delay when ventilation starts (window opens/tilts):</ins>\n
+            \   <br />\n    By default, the \"Fixed Drive Delay\" and \"Random Drive
+            Delay\" are applied to all cover movements — including ventilation start.\n
+            \   If you use a large fixed delay to stagger many covers (e.g. for Somfy
+            RF queue limits), this can feel sluggish when only one or two covers need
+            to react to a window opening.\n    <br />\n    Enable this option to skip
+            the drive delay when a window opens or tilts. The delay still applies
+            to all other movements (open, close, shading).\n    <br /><br />\n  -
+            <ins>Enables a calculated delay after the window is closed:</ins>\n    <br
+            />\n    Normally, when the window contact is closed, there is no delay
+            in the upcoming drives. If you do want this, you can activate it here.\n
+            \   <br /><br />\n    The \"Fixed Drive Delay\" and \"Random Drive Delay\"
+            settings which are already used everywhere are then used.\n    <br /><br
+            />\n  - <ins>Lower cover to the ventilation position when the window tilts
+            and cover is above:</ins>\n    <br />\n    When the window is tilted and
+            the cover is currently above the ventilation position, drive it <strong>down</strong>
+            to the ventilation position.\n    Without this option, the cover stays
+            where it is in that case.\n    <br />\n    Note: This option takes effect
+            for any cover position above the ventilation position. The dedicated full
+            → tilt transition has its own opt-out below.\n    <br /><br />\n  - <ins>Using
+            the ventilation position when the sun shade is ended:</ins>\n    <br />\n
+            \   The cover can also be moved to the ventilation position when the sun
+            protection/sun shading is ended.\n    Normally, the cover would be fully
+            opened when the shading is ended.\n    <br />\n    To be honest, it makes
+            no sense to switch to the ventilation position during the day if more
+            air can flow in when the cover is open.\n    <br /><br />\n  - <ins>Keep
+            cover at open position when window goes from fully opened to tilted:</ins>\n
+            \   <br />\n    When the window was previously fully opened (cover at
+            the open position) and is then tilted, the cover would normally\n    be
+            lowered to the partial ventilation position. Enable this option to keep
+            the cover at the open position in that case.\n    <br />\n    Useful e.g.
+            for a terrace door: after coming back inside and tilting the door, the
+            cover stays up instead of moving down.\n\n</details>"
           default: []
           selector:
             select:
               options:
+              - label: "\U0001F4A8 Disables the drive delay when ventilation starts
+                  (window opens/tilts)"
+                value: ventilation_start_no_delay
               - label: "\U0001F4A8 Enables a calculated delay after the window is
                   closed"
                 value: ventilation_delay_enabled
@@ -2541,7 +2561,7 @@ trigger_variables:
   - query failed
   - []
 variables:
-  version: 2026.05.26
+  version: 2026.05.27 V2
   is_paused: '{{ force_pause != [] and states(force_pause) in [''on'', ''true''] }}'
   blind_entities: '{{ expand(blind) | map(attribute=''entity_id'') | list }}'
   current_position: "{% set source = position_source %} {% if source == 'current_position_attr'
@@ -2800,6 +2820,7 @@ variables:
   contact_delay_trigger: !input contact_delay_trigger
   contact_delay_status: !input contact_delay_status
   ventilation_flags:
+    start_no_delay: '{{ ''ventilation_start_no_delay'' in auto_ventilate_options }}'
     delay_enabled: '{{ ''ventilation_delay_enabled'' in auto_ventilate_options }}'
     if_lower_enabled: '{{ ''ventilation_if_lower_enabled'' in auto_ventilate_options
       }}'
@@ -3108,11 +3129,15 @@ triggers:
 - trigger: template
   value_template: "{{\n  (state_attr(default_sun_sensor, 'azimuth') | float(default=shading_azimuth_start)
     < shading_azimuth_start) or\n  (state_attr(default_sun_sensor, 'azimuth') | float(default=shading_azimuth_end)
-    > shading_azimuth_end) or\n  (state_attr(default_sun_sensor, 'elevation') | float(default=shading_elevation_max)
+    > shading_azimuth_end)\n}}"
+  enabled: '{{ is_shading_enabled and default_sun_sensor != [] }}'
+  id: t_shading_end_pending_5
+- trigger: template
+  value_template: "{{\n  (state_attr(default_sun_sensor, 'elevation') | float(default=shading_elevation_max)
     > shading_elevation_max) or\n  (state_attr(default_sun_sensor, 'elevation') |
     float(default=shading_elevation_min) < shading_elevation_min)\n}}"
   enabled: '{{ is_shading_enabled and default_sun_sensor != [] }}'
-  id: t_shading_end_pending_5
+  id: t_shading_end_pending_7
 - trigger: template
   value_template: '{{ states(shading_forecast_temp_sensor) not in invalid_states and
     states(shading_forecast_temp_sensor) | float(default=shading_forecast_temp) <
@@ -3199,7 +3224,7 @@ conditions:
 - condition: template
   value_template: "{% if trigger.id is match('^t_shading_start_pending_[1-6]$') %}\n
     \ {{ not (states(cover_status_helper) not in invalid_states and states(cover_status_helper)
-    | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]')) }}\n{% elif trigger.id is match('^t_shading_end_pending_[1-6]$')
+    | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]')) }}\n{% elif trigger.id is match('^t_shading_end_pending_[1-7]$')
     %}\n  {{ states(cover_status_helper) not in invalid_states and states(cover_status_helper)
     | regex_search('\"shd\"\\s*:\\s*1\\s*[,}]') }}\n{% else %}\n  true\n{% endif %}"
 actions:
@@ -3441,6 +3466,7 @@ actions:
     - '{{ trigger.id | regex_match(''^t_open'') }}'
     - '{{ trigger.id | regex_match(''^t_close'') }}'
     - '{{ trigger.id | regex_match(''^t_shading_start'') }}'
+    - '{{ trigger.id | regex_match(''^t_shading_end'') }}'
     - '{{ trigger.id | regex_match(''^t_calendar_event'') }}'
   then:
   - action: calendar.get_events
@@ -4359,9 +4385,12 @@ actions:
                 arm: 0
         - if: '{{ force_allows_ventilate }}'
           then:
-          - delay:
-              seconds: '{{ range(drive_delay_fix|int(0), drive_delay_fix|int(0) +
-                drive_delay_random|int(0) +1) | random }}'
+          - if:
+            - '{{ not ventilation_flags.start_no_delay }}'
+            then:
+            - delay:
+                seconds: '{{ range(drive_delay_fix|int(0), drive_delay_fix|int(0)
+                  + drive_delay_random|int(0) +1) | random }}'
           - choose: []
             default: !input auto_ventilate_action_before
           - sequence:
@@ -4856,15 +4885,22 @@ actions:
           - '{{ not helper_state_pending_end }}'
           sequence:
           - variables:
+              shading_start_due: "{% set wait_due = (as_timestamp(now()) + shading_waitingtime_start
+                | int) | int %} {% if is_time_control_disabled or is_shading_allowed_window
+                %}\n  {{ wait_due }}\n{% elif is_time_field_enabled %}\n  {{ [wait_due,
+                as_timestamp(today_at(time_up_early_today)) | int + 1] | max }}\n{%
+                elif is_calendar_enabled and calendar_open_start is not none %}\n
+                \ {{ [wait_due, calendar_open_start | int + 1] | max }}\n{% else %}\n
+                \ {{ wait_due }}\n{% endif %}"
               log_extra: shading start pending armed; wait={{ shading_waitingtime_start
-                | int }}s; max_duration={{ shading_start_max_duration | int }}s
+                | int }}s; due_in={{ (shading_start_due | int - as_timestamp(now())
+                | int) }}s; max_duration={{ shading_start_max_duration | int }}s
               update_values:
                 shd: 0
                 pnd: beg
                 ts:
                   shd: now
-                  due: '{{ (as_timestamp(now()) + shading_waitingtime_start | int)
-                    | int }}'
+                  due: '{{ shading_start_due | int }}'
                   arm: now
           - choose: []
             default:
@@ -5286,6 +5322,84 @@ actions:
                 - stop: 'Shading Start skipped: State saved'
             else:
             - choose:
+              - alias: Shading start blocked - waiting for time window
+                conditions:
+                - '{{ not is_shading_allowed_window }}'
+                sequence:
+                - variables:
+                    log_extra: blocked, waiting for time window; next_retry_in={{
+                      shading_waitingtime_start | int }}s
+                    update_values:
+                      shd: 0
+                      pnd: beg
+                      ts:
+                        due: '{{ (as_timestamp(now()) + shading_waitingtime_start
+                          | int) | int }}'
+                        arm: now
+                - choose: []
+                  default:
+                  - action: input_text.set_value
+                    data:
+                      entity_id: *id001
+                      value: "{% set current = helper_json %}\n{% set updates = update_values
+                        | default({}) %}\n{% set ts_now = as_timestamp(now()) | round(0)
+                        %}\n\n{% set new_bas = updates.bas | default(current.bas |
+                        default('opn')) %}\n{% set new_shd = updates.shd | default(current.shd
+                        | default(0)) | int %}\n{% set new_pnd = updates.pnd | default(current.pnd
+                        | default('non')) %}\n{% set new_win = updates.win | default(current.win
+                        | default('cls')) %}\n{% set new_frc = updates.frc | default(current.frc
+                        | default('non')) %}\n{% set new_res = updates.res | default(current.res
+                        | default(0)) | int %}\n{% set new_man = updates.man | default(current.man
+                        | default(0)) | int %}\n{% set current_ts = current.ts | default({})
+                        %}\n\n{% set merged_ts = namespace(data={}) %}\n{% for key
+                        in ['opn', 'cls', 'shd', 'due', 'arm', 'man'] %}\n  {% set
+                        merged_ts.data = dict(merged_ts.data, **{key: current_ts[key]
+                        | default(0) | int}) %}\n{% endfor %}\n{% if 'ts' in updates
+                        %}\n  {% for key, value in updates.ts.items() %}\n    {% set
+                        merged_ts.data = dict(merged_ts.data, **{key: (ts_now if value
+                        == 'now' else value) | int}) %}\n  {% endfor %}\n{% endif
+                        %}\n{% if new_shd == (current.shd | default(0) | int) and
+                        'ts' in updates and 'shd' in updates.ts %}\n  {% set merged_ts.data
+                        = dict(merged_ts.data, **{'shd': current_ts.shd | default(0)
+                        | int}) %}\n{% endif %}\n\n{% set dict_new = {\n  'bas': new_bas,\n
+                        \ 'shd': new_shd | int,\n  'pnd': new_pnd,\n  'win': new_win,\n
+                        \ 'frc': new_frc,\n  'res': new_res | int,\n  'man': new_man
+                        | int,\n  'ts': {\n    'opn': merged_ts.data.opn | default(0)
+                        | int,\n    'cls': merged_ts.data.cls | default(0) | int,\n
+                        \   'shd': merged_ts.data.shd | default(0) | int,\n    'due':
+                        merged_ts.data.due | default(0) | int,\n    'arm': merged_ts.data.arm
+                        | default(0) | int,\n    'man': merged_ts.data.man | default(0)
+                        | int\n  },\n  'v': 6,\n  't': ts_now | int\n} %}\n{{ dict_new
+                        | to_json }}"
+                  - if: '{{ enable_logbook }}'
+                    then:
+                    - action: logbook.log
+                      data:
+                        name: '{{ this.attributes.friendly_name }}'
+                        entity_id: '{{ this.entity_id }}'
+                        message: "Trigger: {{ trigger.id | default('manual') }} |
+                          \nEffective: {{ effective_state }} | \nPosition: {{ current_position
+                          }}% {% if is_cover_tilt_enabled %} / Tilt: {{ current_tilt_position
+                          }}%{% endif %} | \nHelper: bas={{ helper_json.bas | default('opn')
+                          }} shd={{ helper_json.shd | default(0) }} pnd={{ helper_json.pnd
+                          | default('non') }} win={{ helper_json.win | default('cls')
+                          }} frc={{ helper_json.frc | default('non') }} res={{ helper_json.res
+                          | default(0) }} man={{ helper_json.man | default(0) }} |
+                          \nStates: \nopn={{ states(contact_window_opened) if contact_window_opened
+                          != [] else '-' }} \ntlt={{ states(contact_window_tilted)
+                          if contact_window_tilted != [] else '-' }}\nres={{ state_resident
+                          }} \nsun_elev={{ current_sun_elevation | float(default=0)
+                          }}°({{ sun_elevation_up_current | float(default=0) | round(1)
+                          }}°/{{ sun_elevation_down_current | float(default=0) | round(1)
+                          }})° \nazim={{ current_sun_azimuth | float(default=0) |
+                          round(1) }}°\nbri={{ states(default_brightness_sensor) if
+                          default_brightness_sensor != [] else '-' }} \nt1={{ states(shading_temperatur_sensor1)
+                          if shading_temperatur_sensor1 != [] else '-' }} \nt2={{
+                          states(shading_temperatur_sensor2) if shading_temperatur_sensor2
+                          != [] else '-' }}\nupdate={{ update_values | default({})
+                          | to_json }} \n{% if log_extra is defined %} extra={{ log_extra
+                          }}{% endif %}"
+                - stop: 'Shading Start Pending: Waiting for time window (blocked)'
               - alias: Shading start blocked by additional condition or manual override
                   - check if we should continue
                 conditions:
@@ -5454,6 +5568,82 @@ actions:
                 - stop: 'Shading Start aborted: Timeout or invalid (blocked)'
       else:
       - choose:
+        - alias: Shading start execution - waiting for time window
+          conditions:
+          - '{{ trigger.id | regex_match(''^(t_shading_start_execution)'') }}'
+          - '{{ helper_state_pending_start }}'
+          - '{{ not is_shading_allowed_window }}'
+          sequence:
+          - variables:
+              log_extra: waiting for time window; next_retry_in={{ shading_waitingtime_start
+                | int }}s
+              update_values:
+                shd: 0
+                pnd: beg
+                ts:
+                  due: '{{ (as_timestamp(now()) + shading_waitingtime_start | int)
+                    | int }}'
+                  arm: now
+          - choose: []
+            default:
+            - action: input_text.set_value
+              data:
+                entity_id: *id001
+                value: "{% set current = helper_json %}\n{% set updates = update_values
+                  | default({}) %}\n{% set ts_now = as_timestamp(now()) | round(0)
+                  %}\n\n{% set new_bas = updates.bas | default(current.bas | default('opn'))
+                  %}\n{% set new_shd = updates.shd | default(current.shd | default(0))
+                  | int %}\n{% set new_pnd = updates.pnd | default(current.pnd | default('non'))
+                  %}\n{% set new_win = updates.win | default(current.win | default('cls'))
+                  %}\n{% set new_frc = updates.frc | default(current.frc | default('non'))
+                  %}\n{% set new_res = updates.res | default(current.res | default(0))
+                  | int %}\n{% set new_man = updates.man | default(current.man | default(0))
+                  | int %}\n{% set current_ts = current.ts | default({}) %}\n\n{%
+                  set merged_ts = namespace(data={}) %}\n{% for key in ['opn', 'cls',
+                  'shd', 'due', 'arm', 'man'] %}\n  {% set merged_ts.data = dict(merged_ts.data,
+                  **{key: current_ts[key] | default(0) | int}) %}\n{% endfor %}\n{%
+                  if 'ts' in updates %}\n  {% for key, value in updates.ts.items()
+                  %}\n    {% set merged_ts.data = dict(merged_ts.data, **{key: (ts_now
+                  if value == 'now' else value) | int}) %}\n  {% endfor %}\n{% endif
+                  %}\n{% if new_shd == (current.shd | default(0) | int) and 'ts' in
+                  updates and 'shd' in updates.ts %}\n  {% set merged_ts.data = dict(merged_ts.data,
+                  **{'shd': current_ts.shd | default(0) | int}) %}\n{% endif %}\n\n{%
+                  set dict_new = {\n  'bas': new_bas,\n  'shd': new_shd | int,\n  'pnd':
+                  new_pnd,\n  'win': new_win,\n  'frc': new_frc,\n  'res': new_res
+                  | int,\n  'man': new_man | int,\n  'ts': {\n    'opn': merged_ts.data.opn
+                  | default(0) | int,\n    'cls': merged_ts.data.cls | default(0)
+                  | int,\n    'shd': merged_ts.data.shd | default(0) | int,\n    'due':
+                  merged_ts.data.due | default(0) | int,\n    'arm': merged_ts.data.arm
+                  | default(0) | int,\n    'man': merged_ts.data.man | default(0)
+                  | int\n  },\n  'v': 6,\n  't': ts_now | int\n} %}\n{{ dict_new |
+                  to_json }}"
+            - if: '{{ enable_logbook }}'
+              then:
+              - action: logbook.log
+                data:
+                  name: '{{ this.attributes.friendly_name }}'
+                  entity_id: '{{ this.entity_id }}'
+                  message: "Trigger: {{ trigger.id | default('manual') }} | \nEffective:
+                    {{ effective_state }} | \nPosition: {{ current_position }}% {%
+                    if is_cover_tilt_enabled %} / Tilt: {{ current_tilt_position }}%{%
+                    endif %} | \nHelper: bas={{ helper_json.bas | default('opn') }}
+                    shd={{ helper_json.shd | default(0) }} pnd={{ helper_json.pnd
+                    | default('non') }} win={{ helper_json.win | default('cls') }}
+                    frc={{ helper_json.frc | default('non') }} res={{ helper_json.res
+                    | default(0) }} man={{ helper_json.man | default(0) }} | \nStates:
+                    \nopn={{ states(contact_window_opened) if contact_window_opened
+                    != [] else '-' }} \ntlt={{ states(contact_window_tilted) if contact_window_tilted
+                    != [] else '-' }}\nres={{ state_resident }} \nsun_elev={{ current_sun_elevation
+                    | float(default=0) }}°({{ sun_elevation_up_current | float(default=0)
+                    | round(1) }}°/{{ sun_elevation_down_current | float(default=0)
+                    | round(1) }})° \nazim={{ current_sun_azimuth | float(default=0)
+                    | round(1) }}°\nbri={{ states(default_brightness_sensor) if default_brightness_sensor
+                    != [] else '-' }} \nt1={{ states(shading_temperatur_sensor1) if
+                    shading_temperatur_sensor1 != [] else '-' }} \nt2={{ states(shading_temperatur_sensor2)
+                    if shading_temperatur_sensor2 != [] else '-' }}\nupdate={{ update_values
+                    | default({}) | to_json }} \n{% if log_extra is defined %} extra={{
+                    log_extra }}{% endif %}"
+          - stop: 'Shading Start Pending: Waiting for time window'
         - alias: Shading start conditions not met - check if we should continue
           conditions:
           - '{{ trigger.id | regex_match(''^(t_shading_start_execution)'') }}'
@@ -5761,8 +5951,9 @@ actions:
           - variables:
               local_waitingtime_end: '{% set local_waitingtime_end = shading_waitingtime_end
                 | int %} {% if (is_shading_end_immediate_by_sun_position | default(false))
-                | bool and trigger.id == ''t_shading_end_pending_5'' %} {% set local_waitingtime_end
-                = 20 %} {% endif %} {{ local_waitingtime_end }}
+                | bool and trigger.id in [''t_shading_end_pending_5'', ''t_shading_end_pending_7'']
+                %} {% set local_waitingtime_end = 20 %} {% endif %} {{ local_waitingtime_end
+                }}
 
                 '
               log_extra: shading end pending armed; wait={{ local_waitingtime_end
@@ -6738,15 +6929,14 @@ actions:
               win: opn
               man: '{{ 0 if force_allows_open else helper_json.man | default(0) |
                 int }}'
-              pnd: non
-              ts:
-                due: 0
-                arm: 0
         - if: '{{ force_allows_open }}'
           then:
-          - delay:
-              seconds: '{{ range(drive_delay_fix|int(0), drive_delay_fix|int(0) +
-                drive_delay_random|int(0) +1) | random }}'
+          - if:
+            - '{{ not ventilation_flags.start_no_delay }}'
+            then:
+            - delay:
+                seconds: '{{ range(drive_delay_fix|int(0), drive_delay_fix|int(0)
+                  + drive_delay_random|int(0) +1) | random }}'
           - choose: []
             default: !input auto_up_action_before
           - sequence:
@@ -6998,9 +7188,12 @@ actions:
                 arm: 0
         - if: '{{ force_allows_ventilate }}'
           then:
-          - delay:
-              seconds: '{{ range(drive_delay_fix|int(0), drive_delay_fix|int(0) +
-                drive_delay_random|int(0) +1) | random }}'
+          - if:
+            - '{{ not ventilation_flags.start_no_delay }}'
+            then:
+            - delay:
+                seconds: '{{ range(drive_delay_fix|int(0), drive_delay_fix|int(0)
+                  + drive_delay_random|int(0) +1) | random }}'
           - choose: []
             default: !input auto_ventilate_action_before
           - sequence:
@@ -7227,7 +7420,6 @@ actions:
         - or:
           - '{{ helper_state_window in [''tlt'', ''opn''] }}'
           - '{{ in_ventilate_position }}'
-          - '{{ in_open_position }}'
         - '{{ not (helper_state_manual and override_flags.ventilation) }}'
         - '{{ not resident_now or ''resident_allow_shading'' in resident_config }}'
         - condition: !input auto_ventilate_end_condition
@@ -7240,10 +7432,6 @@ actions:
               win: cls
               man: '{{ 0 if force_allows_shade else helper_json.man | default(0) |
                 int }}'
-              pnd: non
-              ts:
-                due: 0
-                arm: 0
         - if: '{{ force_allows_shade }}'
           then:
           - if:
@@ -7404,7 +7592,6 @@ actions:
         - or:
           - '{{ helper_state_window in [''tlt'', ''opn''] }}'
           - '{{ in_ventilate_position }}'
-          - '{{ in_open_position }}'
         - '{{ not (helper_state_manual and override_flags.ventilation) }}'
         - condition: !input auto_ventilate_end_condition
         sequence:
@@ -7415,10 +7602,6 @@ actions:
               win: cls
               man: '{{ 0 if not prevent_flags.opening_after_ventilation_end and force_allows_open
                 else helper_json.man | default(0) | int }}'
-              pnd: non
-              ts:
-                due: 0
-                arm: 0
         - if: '{{ not prevent_flags.opening_after_ventilation_end and force_allows_open
             }}'
           then:
@@ -7581,7 +7764,6 @@ actions:
         - or:
           - '{{ helper_state_window in [''tlt'', ''opn''] }}'
           - '{{ in_ventilate_position }}'
-          - '{{ in_open_position }}'
         - '{{ not (helper_state_manual and override_flags.ventilation) }}'
         - condition: !input auto_ventilate_end_condition
         sequence:
@@ -7592,10 +7774,6 @@ actions:
               win: cls
               man: '{{ 0 if force_allows_close else helper_json.man | default(0) |
                 int }}'
-              pnd: non
-              ts:
-                due: 0
-                arm: 0
         - if: '{{ force_allows_close }}'
           then:
           - if:
