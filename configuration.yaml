@@ -52,4 +52,3 @@ homeassistant:
   media_dirs:
     llmvision: /config/media/llmvision
 
-
