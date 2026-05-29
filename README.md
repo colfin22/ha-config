@@ -156,7 +156,7 @@
 
 ## 📈 Long-term Data (InfluxDB + Grafana)
 
-HA's recorder purges after 7 days. InfluxDB (TrueNAS app, `10.0.0.254:30115`) stores everything long-term; Grafana (`10.0.0.254:30037`) provides dashboards on top of it with Zabbix as a second data source.
+HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long-term; Grafana (TrueNAS app) provides dashboards on top of it with Zabbix as a second data source.
 
 ### What's stored
 
@@ -200,7 +200,7 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | TrueNAS | Proxmox cron → API `config/save` weekly Sunday 02:00 | `colfin22/truenas-config` |
 | Frigate | Git — `config.yml` | `colfin22/frigate-config` |
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
-| InfluxDB | rsync — TrueNAS dataset → `root@10.0.10.5:/mnt/usb-backup/truenas/influxdb/`, 9am daily | — |
+| InfluxDB | rsync — TrueNAS dataset → offsite Proxmox (Daire's), 9am daily | — |
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house (LXC on encrypted Proxmox 3) | — |
 | TrueNAS Datasets | rsync — critical datasets synced to encrypted Proxmox 3 at Daire's house | — |
 
