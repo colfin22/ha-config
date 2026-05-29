@@ -52,7 +52,7 @@
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
 | [MQTT](https://mqtt.org) | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
 | [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Proxmox VM (ubuntu-nextcloud), data in TrueNAS dataset |
-| [InfluxDB](https://www.influxdata.com/) | Long-term time-series store — all HA entities written continuously; energy/solar history back to 2024 |
+| [InfluxDB](https://www.influxdata.com/) | Long-term time-series store — all HA entities written continuously; energy/solar history back to 2025, ESBN meter data back to 2024 |
 
 ### Energy & Environment
 | Integration | Purpose |
@@ -145,7 +145,7 @@
 | **Climate** | Heating, Netatmo thermostat, temperature sensors |
 | **Weather** | Met Éireann warnings, forecast, outdoor conditions |
 | **Security** | Alarm panel, camera feeds, activity logbook |
-| **Solar** | Solar production, import/export, Eddi diverter, top 5 solar days & top 5 export days |
+| **Solar** | Solar production, import/export, Eddi diverter, top 5 solar days & top 5 export days, ESB Networks official meter (esbn-to-mqtt) |
 | **Floorplan** | SVG-based downstairs + upstairs with live entity overlays |
 | **Appliances** | Washing machine, dishwasher and other appliance monitoring |
 | **Map** | Device tracker map — household presence |
@@ -168,9 +168,11 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app, `10.0.0.254:30115`) st
 | `esbn_halfhourly` | ESB Networks HDF | 2024-05-28 → ~3 days ago | Half-hourly import/export profile |
 | All HA entities | HA InfluxDB integration | 2026-05-28 → present | Every entity state written continuously — preserves history beyond recorder purge |
 
-### Grafana Energy dashboard
+### Grafana dashboards
 
-Five sections: Latest Complete Day (7 stat panels) · Daily Energy History (bar chart) · Half-Hourly Profile · Monthly Summary · Top Days (top 5 export + top 5 solar).
+**Energy** — Five sections: Latest Complete Day (7 stat panels) · Daily Energy History (bar chart) · Half-Hourly Profile · Monthly Summary · Top Days (top 5 export + top 5 solar).
+
+**Network** — Infrastructure services panel including InfluxDB query rate and Grafana HTTP stats alongside Zabbix-sourced network metrics.
 
 ---
 
