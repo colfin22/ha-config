@@ -52,6 +52,7 @@
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
 | [MQTT](https://mqtt.org) | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
 | [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Proxmox VM (ubuntu-nextcloud), data in TrueNAS dataset |
+| [Collabora Online](https://www.collaboraoffice.com/) | Self-hosted office suite — Docker on ubuntu-docker (`:9980`), WOPI integration with Nextcloud for in-browser document editing |
 | [InfluxDB](https://www.influxdata.com/) | Long-term time-series store — all HA entities written continuously; energy/solar history back to 2025, ESBN meter data back to 2024 |
 
 ### Energy & Environment
@@ -170,7 +171,9 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app, `10.0.0.254:30115`) st
 
 ### Grafana dashboards
 
-**Energy** — Five sections: Latest Complete Day (7 stat panels) · Daily Energy History (bar chart) · Half-Hourly Profile · Monthly Summary · Top Days (top 5 export + top 5 solar).
+**Energy — Current** — Today live running totals (myenergi timeseries, 5 series) · Latest Complete Day (3+3 stat panels: Solar Generated, Grid Import, Grid Export / Self-Consumed Solar, Eddi Hot Water, Self-Sufficiency %).
+
+**Energy — History** — Daily Energy timeseries (solar, import, export, consumption, hot water — stacked) · Half-Hourly Profile (ESBN 30-min resolution) · Monthly Summary (barchart) · Top Days (top 5 export + top 5 solar).
 
 **Network** — Infrastructure services panel including InfluxDB query rate and Grafana HTTP stats alongside Zabbix-sourced network metrics.
 
