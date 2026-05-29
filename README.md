@@ -23,7 +23,7 @@
 | **VLANs** | Home · IoT · Work · Guest · Mgmt · Stack |
 | **DNS** | Pi-hole × 2 (LXC 101 primary + TrueNAS app replica) |
 | **Cameras** | Frigate NVR — LXC 107, recordings on USB 3.0 RAID 0 enclosure at `/cctv_clips` |
-| **Monitoring** | Zabbix — TrueNAS hosted; InfluxDB 2.9.1 (`:30115`) + Grafana 13.0.1 (`:30037`) — TrueNAS apps, added 2026-05-28 |
+| **Monitoring** | Zabbix — TrueNAS hosted; InfluxDB 2.9.1 + Grafana 13.0.1 — TrueNAS apps, added 2026-05-28 |
 | **Offsite PVE (Daire's)** | Intel NUC7i3BNK (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox 3 — connected via WireGuard |
 
 ---
@@ -52,7 +52,7 @@
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
 | [MQTT](https://mqtt.org) | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
 | [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Proxmox VM (ubuntu-nextcloud), data in TrueNAS dataset |
-| [Collabora Online](https://www.collaboraoffice.com/) | Self-hosted office suite — Docker on ubuntu-docker (`:9980`), WOPI integration with Nextcloud for in-browser document editing |
+| [Collabora Online](https://www.collaboraoffice.com/) | Self-hosted office suite — Docker on ubuntu-docker, WOPI integration with Nextcloud for in-browser document editing |
 | [InfluxDB](https://www.influxdata.com/) | Long-term time-series store — all HA entities written continuously; energy/solar history back to 2025, ESBN meter data back to 2024 |
 
 ### Energy & Environment
