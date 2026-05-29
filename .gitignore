@@ -86,3 +86,6 @@ git_status.txt
 www/update_tuesday/
 www/snapshots/
 scripts/secrets_config.py
+
+# Control Centre dashboard (WIP — not ready to commit)
+www/ctrl/
