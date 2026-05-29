@@ -60,7 +60,7 @@
 | [Autarco](https://www.autarco.com/) | Solar inverter — cloud stats (slower polling) |
 | [myenergi](https://myenergi.com/) | Solar production, Eddi diverter — preferred for live stats (faster updates) |
 | [Netatmo](https://www.netatmo.com/) | Smart thermostat — heating control |
-| [Met Éireann](https://www.met.ie/) | Irish national weather warnings |
+| [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; template sensors extract severity, camera, and count; automation fires immediately on new alerts |
 | [Forecast.Solar](https://forecast.solar/) | Solar production forecast |
 | [Electricity Maps](https://www.electricitymaps.com/) | Grid CO2 intensity |
 | [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — signs into ESB Networks, downloads HDF smart meter data, publishes MQTT discovery sensors (import/export totals, diagnostics); polls every 6h; feeds the Official Meter section of the Solar dashboard and InfluxDB `esbn_daily`/`esbn_halfhourly` measurements |
