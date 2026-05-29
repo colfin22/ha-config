@@ -1444,6 +1444,72 @@
                     "columns": 12,
                     "rows": "auto"
                   }
+                },
+                {
+                  "type": "heading",
+                  "heading": "Tariff & Cost",
+                  "heading_style": "subtitle",
+                  "icon": "mdi:cash-clock"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.esbn_meter_6830cfea50b0_esbn_current_tariff",
+                  "name": "Current Tariff",
+                  "icon": "mdi:home-clock",
+                  "color": "amber",
+                  "state_color": false,
+                  "grid_options": {
+                    "columns": 6,
+                    "rows": "auto"
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.esbn_meter_6830cfea50b0_esbn_current_tariff_rate",
+                  "name": "Tariff Rate",
+                  "icon": "mdi:currency-eur",
+                  "color": "amber",
+                  "state_color": false,
+                  "grid_options": {
+                    "columns": 6,
+                    "rows": "auto"
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.esbn_meter_6830cfea50b0_esbn_today_import_cost",
+                  "name": "Today Cost",
+                  "icon": "mdi:cash-minus",
+                  "color": "deep-orange",
+                  "state_color": false,
+                  "grid_options": {
+                    "columns": 4,
+                    "rows": "auto"
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.esbn_meter_6830cfea50b0_esbn_current_month_import_cost",
+                  "name": "Month Cost",
+                  "icon": "mdi:calendar-month-outline",
+                  "color": "deep-orange",
+                  "state_color": false,
+                  "grid_options": {
+                    "columns": 4,
+                    "rows": "auto"
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.esbn_meter_6830cfea50b0_esbn_import_cost_total",
+                  "name": "Total Cost",
+                  "icon": "mdi:sigma",
+                  "color": "deep-orange",
+                  "state_color": false,
+                  "grid_options": {
+                    "columns": 4,
+                    "rows": "auto"
+                  }
                 }
               ]
             },
