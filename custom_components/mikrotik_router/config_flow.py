@@ -96,7 +96,7 @@ class MikrotikControllerConfigFlow(ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_options_flow(config_entry):
         """Get the options flow for this handler."""
-        return MikrotikControllerOptionsFlowHandler(config_entry)
+        return MikrotikControllerOptionsFlowHandler()
 
     async def async_step_import(self, user_input=None):
         """Occurs when a previously entry setup fails and is re-initiated."""
@@ -173,13 +173,14 @@ class MikrotikControllerConfigFlow(ConfigFlow, domain=DOMAIN):
 class MikrotikControllerOptionsFlowHandler(OptionsFlow):
     """Handle options."""
 
-    def __init__(self, config_entry):
+    def __init__(self):
         """Initialize options flow."""
-        self.config_entry = config_entry
-        self.options = dict(config_entry.options)
+        self.options = {}
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
+        if not self.options:
+            self.options = dict(self.config_entry.options)
         return await self.async_step_basic_options(user_input)
 
     async def async_step_basic_options(self, user_input=None):
