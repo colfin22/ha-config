@@ -23,7 +23,7 @@
 | **VLANs** | Home · IoT · Work · Guest · Mgmt · Stack |
 | **DNS** | Pi-hole × 2 (LXC 101 primary + TrueNAS app replica) |
 | **Cameras** | Frigate NVR — LXC 107, recordings on USB 3.0 RAID 0 enclosure at `/cctv_clips` |
-| **Monitoring** | Zabbix — TrueNAS hosted |
+| **Monitoring** | Zabbix — TrueNAS hosted; InfluxDB 2.9.1 (`:30115`) + Grafana 13.0.1 (`:30037`) — TrueNAS apps, added 2026-05-28 |
 | **Offsite PVE (Daire's)** | Intel NUC7i3BNK (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox 3 — connected via WireGuard |
 
 ---
@@ -52,6 +52,7 @@
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
 | [MQTT](https://mqtt.org) | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
 | [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Proxmox VM (ubuntu-nextcloud), data in TrueNAS dataset |
+| [InfluxDB](https://www.influxdata.com/) | Long-term time-series store — all HA entities written continuously; energy/solar history back to 2024 |
 
 ### Energy & Environment
 | Integration | Purpose |
@@ -151,6 +152,27 @@
 
 ---
 
+## 📈 Long-term Data (InfluxDB + Grafana)
+
+HA's recorder purges after 7 days. InfluxDB (TrueNAS app, `10.0.0.254:30115`) stores everything long-term; Grafana (`10.0.0.254:30037`) provides dashboards on top of it with Zabbix as a second data source.
+
+### What's stored
+
+| Measurement | Source | Range | Fields |
+|---|---|---|---|
+| `myenergi_daily` | myenergi Eddi CSV exports | 2025-06-11 → present | Solar generated, grid import, grid export, green energy, Eddi divert |
+| `myenergi_daily` | HA long-term stats (gap-fill) | 2026-03-24 → 2026-03-31 | Same fields — filled from HA WebSocket stats for 8-day cloud outage period |
+| `autarco_daily` | Autarco inverter | 2025-06-11 → present | Solar production, export, import, consumption |
+| `esbn_daily` | ESB Networks HDF (official meter) | 2024-05-28 → present | Import, export (3–4 day lag; recent days gap-filled from Autarco) |
+| `esbn_halfhourly` | ESB Networks HDF | 2024-05-28 → ~3 days ago | Half-hourly import/export profile |
+| All HA entities | HA InfluxDB integration | 2026-05-28 → present | Every entity state written continuously — preserves history beyond recorder purge |
+
+### Grafana Energy dashboard
+
+Five sections: Latest Complete Day (7 stat panels) · Daily Energy History (bar chart) · Half-Hourly Profile · Monthly Summary · Top Days (top 5 export + top 5 solar).
+
+---
+
 ## 👨‍👩‍👦 Household
 
 | Person | Phone | Notification priority |
@@ -172,6 +194,7 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | TrueNAS | Proxmox cron → API `config/save` weekly Sunday 02:00 | `colfin22/truenas-config` |
 | Frigate | Git — `config.yml` | `colfin22/frigate-config` |
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
+| InfluxDB | rsync — TrueNAS dataset → `root@10.0.10.5:/mnt/usb-backup/truenas/influxdb/`, 9am daily | — |
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house (LXC on encrypted Proxmox 3) | — |
 | TrueNAS Datasets | rsync — critical datasets synced to encrypted Proxmox 3 at Daire's house | — |
 
