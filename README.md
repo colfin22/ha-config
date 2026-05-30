@@ -2,7 +2,7 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![HA Version](https://img.shields.io/badge/Home%20Assistant-2026.5.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-running-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
@@ -21,10 +21,10 @@
 | **NAS** | TrueNAS SCALE — TRIGKEY N100 Mini PC (32GB DDR4, 500GB SSD), MainPool (2× mirror, WD Purple 6TB, 10.78 TiB usable) |
 | **Network** | MikroTik router + 7× managed switches/APs; wireless managed via MikroTik CAPsMAN |
 | **VLANs** | Home · IoT · Work · Guest · Mgmt · Stack |
-| **DNS** | Pi-hole × 2 (LXC 101 primary + TrueNAS app replica) |
-| **Cameras** | Frigate NVR — LXC 107, recordings on USB 3.0 RAID 0 enclosure at `/cctv_clips` |
-| **Monitoring** | Zabbix — TrueNAS hosted; InfluxDB 2.9.1 + Grafana 13.0.1 — TrueNAS apps, added 2026-05-28 |
-| **Offsite PVE (Daire's)** | Intel NUC7i3BNK (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox 3 — connected via WireGuard |
+| **DNS** | Pi-hole × 2 (Proxmox LXC primary + TrueNAS app replica) |
+| **Cameras** | Frigate NVR — Proxmox LXC, recordings on USB 3.0 RAID 0 enclosure |
+| **Monitoring** | Zabbix — TrueNAS hosted; InfluxDB + Grafana — TrueNAS apps |
+| **Offsite PVE (Daire's)** | Intel NUC7i3BNK (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox — connected via WireGuard |
 
 ---
 
@@ -40,7 +40,7 @@
 | [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/fox/vehicle detection |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Low-latency camera stream server (built into Frigate) |
 | [Reolink](https://reolink.com/) | Doorbell camera — doorbell press events only; recording and detections handled by Frigate |
-| [Immich](https://immich.app/) | Self-hosted photo library — LXC 112, data in TrueNAS dataset |
+| [Immich](https://immich.app/) | Self-hosted photo library — Proxmox LXC, data in TrueNAS dataset |
 | [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) | AI camera analysis via Google Gemini |
 
 ### Network & Infrastructure
@@ -50,9 +50,9 @@
 | [Proxmox VE](https://github.com/doudz/homeassistant-proxmoxve) | VM/LXC status monitoring |
 | [TrueNAS](https://github.com/tomaae/homeassistant-truenas) | Pool health, disk temps, dataset usage |
 | [Pi-hole](https://pi-hole.net) | DNS query stats for two instances |
-| [MQTT](https://mqtt.org) | Message broker — LXC 108, underpins Z2M, Frigate and Alarmo |
-| [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Proxmox VM (ubuntu-nextcloud), data in TrueNAS dataset |
-| [Collabora Online](https://www.collaboraoffice.com/) | Self-hosted office suite — Docker on ubuntu-docker, WOPI integration with Nextcloud for in-browser document editing |
+| [MQTT](https://mqtt.org) | Message broker — Proxmox LXC, underpins Z2M, Frigate and Alarmo |
+| [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Proxmox VM, data in TrueNAS dataset |
+| [Collabora Online](https://www.collaboraoffice.com/) | Self-hosted office suite — Ubuntu Docker, WOPI integration with Nextcloud for in-browser document editing |
 | [InfluxDB](https://www.influxdata.com/) | Long-term time-series store — all HA entities written continuously; energy/solar history back to 2025, ESBN meter data back to 2024 |
 
 ### Energy & Environment
@@ -61,10 +61,10 @@
 | [Autarco](https://www.autarco.com/) | Solar inverter — cloud stats (slower polling) |
 | [myenergi](https://myenergi.com/) | Solar production, Eddi diverter — preferred for live stats (faster updates) |
 | [Netatmo](https://www.netatmo.com/) | Smart thermostat — heating control |
-| [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; template sensors extract severity, camera, and count; automation fires immediately on new alerts |
+| [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; automation fires immediately on new alerts |
 | [Forecast.Solar](https://forecast.solar/) | Solar production forecast |
 | [Electricity Maps](https://www.electricitymaps.com/) | Grid CO2 intensity |
-| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — signs into ESB Networks, downloads HDF smart meter data, publishes MQTT discovery sensors (import/export totals, diagnostics); polls every 6h; feeds the Official Meter section of the Solar dashboard and InfluxDB `esbn_daily`/`esbn_halfhourly` measurements |
+| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — ESB Networks smart meter data via HDF; MQTT discovery sensors for import/export totals; feeds Solar dashboard and InfluxDB |
 
 ### Media & Lifestyle
 | Integration | Purpose |
@@ -73,11 +73,11 @@
 | Google Cast | Kitchen display, Google Home & Chromecast Audio devices — whole-home audio — IoT VLAN |
 | Samsung TV | 65" sitting room TV — IoT VLAN |
 | Android TV | Aoife MiBox S + Cian MiTV + Kitchen MiBox — IoT VLAN |
-| Logitech Harmony | 2 hubs — KitchenHub + SittingRmHub — IoT VLAN |
-| [Navidrome](https://navidrome.org/) | Self-hosted music streaming — LXC 103, data in TrueNAS dataset |
-| [Calibre-Web](https://github.com/janeczku/calibre-web) | Self-hosted ebook library — LXC 114, data in TrueNAS dataset |
-| [Paperless-ngx](https://docs.paperless-ngx.com/) | Document management — Docker (ubuntu-docker), data in TrueNAS dataset |
-| [Wallabag](https://wallabag.org/) | Read-it-later — Docker (ubuntu-docker), data in TrueNAS dataset |
+| Logitech Harmony | 2 hubs — IoT VLAN |
+| [Navidrome](https://navidrome.org/) | Self-hosted music streaming — Proxmox LXC, data in TrueNAS dataset |
+| [Calibre-Web](https://github.com/janeczku/calibre-web) | Self-hosted ebook library — Proxmox LXC, data in TrueNAS dataset |
+| [Paperless-ngx](https://docs.paperless-ngx.com/) | Document management — Ubuntu Docker, data in TrueNAS dataset |
+| [Wallabag](https://wallabag.org/) | Read-it-later — Ubuntu Docker, data in TrueNAS dataset |
 | [Stremio](https://www.stremio.com/) | Streaming media |
 | [Dawarich](https://dawarich.app/) | Location & travel tracking — TrueNAS app, fed from HA Companion App on Android |
 | [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) | Panda Waste bin collection — calendar alerts for upcoming collections |
@@ -162,20 +162,20 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 
 | Measurement | Source | Range | Fields |
 |---|---|---|---|
-| `myenergi_daily` | myenergi Eddi CSV exports | 2025-06-11 → present | Solar generated, grid import, grid export, green energy, Eddi divert |
-| `myenergi_daily` | HA long-term stats (gap-fill) | 2026-03-24 → 2026-03-31 | Same fields — filled from HA WebSocket stats for 8-day cloud outage period |
-| `autarco_daily` | Autarco inverter | 2025-06-11 → present | Solar production, export, import, consumption |
-| `esbn_daily` | ESB Networks HDF (official meter) | 2024-05-28 → present | Import, export (3–4 day lag; recent days gap-filled from Autarco) |
-| `esbn_halfhourly` | ESB Networks HDF | 2024-05-28 → ~3 days ago | Half-hourly import/export profile |
-| All HA entities | HA InfluxDB integration | 2026-05-28 → present | Every entity state written continuously — preserves history beyond recorder purge |
+| `myenergi_daily` | myenergi Eddi CSV exports | 11-06-2025 → present | Solar generated, grid import, grid export, green energy, Eddi divert |
+| `myenergi_daily` | HA long-term stats (gap-fill) | 24-03-2026 → 31-03-2026 | Same fields — filled from HA WebSocket stats for 8-day cloud outage period |
+| `autarco_daily` | Autarco inverter | 11-06-2025 → present | Solar production, export, import, consumption |
+| `esbn_daily` | ESB Networks HDF (official meter) | 28-05-2024 → present | Import, export (3–4 day lag; recent days gap-filled from Autarco) |
+| `esbn_halfhourly` | ESB Networks HDF | 28-05-2024 → ~3 days ago | Half-hourly import/export profile |
+| All HA entities | HA InfluxDB integration | 28-05-2026 → present | Every entity state written continuously — preserves history beyond recorder purge |
 
 ### Grafana dashboards
 
-**Energy — Current** — Today live running totals (myenergi timeseries, 5 series) · Latest Complete Day (3+3 stat panels: Solar Generated, Grid Import, Grid Export / Self-Consumed Solar, Eddi Hot Water, Self-Sufficiency %).
+**Energy — Current** — Live solar and import/export running totals; latest complete day summary stats.
 
-**Energy — History** — Daily Energy timeseries (solar, import, export, consumption, hot water — stacked) · Half-Hourly Profile (ESBN 30-min resolution) · Monthly Summary (barchart) · Top Days (top 5 export + top 5 solar).
+**Energy — History** — Daily energy timeseries, half-hourly profile, monthly summary, top days leaderboard.
 
-**Network** — Infrastructure services panel including InfluxDB query rate and Grafana HTTP stats alongside Zabbix-sourced network metrics.
+**Network** — Infrastructure services, network metrics, Zabbix-sourced host stats.
 
 ---
 
@@ -196,15 +196,17 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | System | Method | Repo |
 |---|---|---|
 | Home Assistant | Git — selective `.storage` files | `colfin22/ha-config` (this repo) |
+| Home Assistant VM | Proxmox hourly + daily snapshots — 24h/7d retention | — |
 | MikroTik | Proxmox cron → API export nightly at 02:00 | `colfin22/mikrotik-config` |
 | TrueNAS | Proxmox cron → API `config/save` weekly Sunday 02:00 | `colfin22/truenas-config` |
 | Frigate | Git — `config.yml` | `colfin22/frigate-config` |
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
+| InfluxDB + Grafana | Git — dashboards + provisioning config | `colfin22/influxdb-grafana-config` |
 | InfluxDB | rsync — TrueNAS dataset → offsite Proxmox (Daire's), 9am daily | — |
-| Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house (LXC on encrypted Proxmox 3) | — |
-| TrueNAS Datasets | rsync — critical datasets synced to encrypted Proxmox 3 at Daire's house | — |
+| Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house | — |
+| TrueNAS Datasets | rsync — critical datasets synced to encrypted Proxmox at Daire's house | — |
 
-This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
+This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
 
 ---
 
