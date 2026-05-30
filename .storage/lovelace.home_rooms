@@ -302,7 +302,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "⚠️ **Yellow Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "\u26a0\ufe0f **Yellow Weather Warning** \u2014 {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(255, 214, 0, 0.92) !important;\n  color: #1a1a1a !important;\n  --primary-text-color: #1a1a1a;\n  --secondary-text-color: #3a3a3a;\n  border: none;\n}\n"
                     },
@@ -323,7 +323,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🟠 **Orange Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "\ud83d\udfe0 **Orange Weather Warning** \u2014 {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(245, 124, 0, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffe0c0;\n  border: none;\n}\n"
                     },
@@ -344,7 +344,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🔴 **Red Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "\ud83d\udd34 **Red Weather Warning** \u2014 {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(198, 40, 40, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffcdd2;\n  border: none;\n}\n"
                     },
@@ -849,7 +849,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "⚠️ **Yellow Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "\u26a0\ufe0f **Yellow Weather Warning** \u2014 {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(255, 214, 0, 0.92) !important;\n  color: #1a1a1a !important;\n  --primary-text-color: #1a1a1a;\n  --secondary-text-color: #3a3a3a;\n  border: none;\n}\n"
                     },
@@ -870,7 +870,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🟠 **Orange Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "\ud83d\udfe0 **Orange Weather Warning** \u2014 {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(245, 124, 0, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffe0c0;\n  border: none;\n}\n"
                     },
@@ -891,7 +891,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🔴 **Red Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "\ud83d\udd34 **Red Weather Warning** \u2014 {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(198, 40, 40, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffcdd2;\n  border: none;\n}\n"
                     },
@@ -1367,12 +1367,12 @@
                 },
                 {
                   "type": "markdown",
-                  "content": "{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) > 0 %}- 🥇 **{{ states(\"input_text.export_top_5_1st_date\") }}** — {{ states(\"input_number.export_top_5_1st_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_2nd_kwh\")|float(0) > 0 %}- 🥈 **{{ states(\"input_text.export_top_5_2nd_date\") }}** — {{ states(\"input_number.export_top_5_2nd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_3rd_kwh\")|float(0) > 0 %}- 🥉 **{{ states(\"input_text.export_top_5_3rd_date\") }}** — {{ states(\"input_number.export_top_5_3rd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_4th_kwh\")|float(0) > 0 %}- 4th &nbsp;**{{ states(\"input_text.export_top_5_4th_date\") }}** — {{ states(\"input_number.export_top_5_4th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_5th_kwh\")|float(0) > 0 %}- 5th &nbsp;**{{ states(\"input_text.export_top_5_5th_date\") }}** — {{ states(\"input_number.export_top_5_5th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) == 0 %}_No records yet — updates automatically each evening_{% endif %}",
+                  "content": "{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) > 0 %}- \ud83e\udd47 **{{ states(\"input_text.export_top_5_1st_date\") }}** \u2014 {{ states(\"input_number.export_top_5_1st_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_2nd_kwh\")|float(0) > 0 %}- \ud83e\udd48 **{{ states(\"input_text.export_top_5_2nd_date\") }}** \u2014 {{ states(\"input_number.export_top_5_2nd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_3rd_kwh\")|float(0) > 0 %}- \ud83e\udd49 **{{ states(\"input_text.export_top_5_3rd_date\") }}** \u2014 {{ states(\"input_number.export_top_5_3rd_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_4th_kwh\")|float(0) > 0 %}- 4th &nbsp;**{{ states(\"input_text.export_top_5_4th_date\") }}** \u2014 {{ states(\"input_number.export_top_5_4th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_5th_kwh\")|float(0) > 0 %}- 5th &nbsp;**{{ states(\"input_text.export_top_5_5th_date\") }}** \u2014 {{ states(\"input_number.export_top_5_5th_kwh\")|float|round(1) }} kWh\n{% endif %}{% if states(\"input_number.export_top_5_1st_kwh\")|float(0) == 0 %}_No records yet \u2014 updates automatically each evening_{% endif %}",
                   "title": "Export to Grid"
                 },
                 {
                   "type": "markdown",
-                  "content": "- 🥇 **Fri 11 Jul 2025** — 44 kWh\n- 🥇 **Sat 12 Jul 2025** — 44 kWh\n- 🥉 **Sat 09 May 2026** — 43 kWh\n- 4th &nbsp;**Wed 29 Apr 2026** — 42 kWh\n- 5th &nbsp;**Sun 24 May 2026** — 41 kWh",
+                  "content": "- \ud83e\udd47 **Fri 11 Jul 2025** \u2014 44 kWh\n- \ud83e\udd47 **Sat 12 Jul 2025** \u2014 44 kWh\n- \ud83e\udd49 **Sat 09 May 2026** \u2014 43 kWh\n- 4th &nbsp;**Wed 29 Apr 2026** \u2014 42 kWh\n- 5th &nbsp;**Sun 24 May 2026** \u2014 41 kWh",
                   "title": "Solar Production"
                 }
               ]
@@ -1834,7 +1834,7 @@
               "cards": [
                 {
                   "type": "heading",
-                  "heading": "Energy — Last 7 Days",
+                  "heading": "Energy \u2014 Last 7 Days",
                   "icon": "mdi:chart-timeline-variant",
                   "badges": [
                     {
@@ -1862,7 +1862,7 @@
                   "chart_type": "donut",
                   "header": {
                     "show": true,
-                    "title": "Energy Split — Last 7 Days",
+                    "title": "Energy Split \u2014 Last 7 Days",
                     "show_states": true,
                     "colorize_states": true
                   },
@@ -1889,7 +1889,7 @@
                   "graph_span": "7d",
                   "header": {
                     "show": true,
-                    "title": "Energy — Last 7 Days (kWh)",
+                    "title": "Energy \u2014 Last 7 Days (kWh)",
                     "show_states": false,
                     "colorize_states": false
                   },
@@ -3590,7 +3590,7 @@
               "cards": [
                 {
                   "type": "heading",
-                  "heading": "Gateway — RB5009"
+                  "heading": "Gateway \u2014 RB5009"
                 },
                 {
                   "type": "tile",
@@ -3628,7 +3628,7 @@
               "cards": [
                 {
                   "type": "heading",
-                  "heading": "Core Switch — CRS125"
+                  "heading": "Core Switch \u2014 CRS125"
                 },
                 {
                   "type": "tile",
@@ -3657,7 +3657,7 @@
               "cards": [
                 {
                   "type": "heading",
-                  "heading": "VLANs — RB5009"
+                  "heading": "VLANs \u2014 RB5009"
                 },
                 {
                   "type": "tile",
@@ -3732,7 +3732,7 @@
               "cards": [
                 {
                   "type": "heading",
-                  "heading": "Key Ports — CRS125"
+                  "heading": "Key Ports \u2014 CRS125"
                 },
                 {
                   "type": "tile",
@@ -3929,14 +3929,14 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "binary_sensor.truenas_services_cifs",
-                  "name": "CIFS",
+                  "entity": "binary_sensor.truenas_services_nfs",
+                  "name": "NFS",
                   "state_color": true
                 },
                 {
                   "type": "tile",
-                  "entity": "binary_sensor.truenas_services_nfs",
-                  "name": "NFS",
+                  "entity": "binary_sensor.truenas_services_cifs",
+                  "name": "CIFS",
                   "state_color": true
                 },
                 {
@@ -3944,6 +3944,32 @@
                   "entity": "binary_sensor.truenas_services_ssh",
                   "name": "SSH",
                   "state_color": true
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.truenas_rsync_failures",
+                  "name": "Rsync",
+                  "state_color": true
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.truenas_system_cpu_usage",
+                  "name": "CPU"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.truenas_system_memory_usage",
+                  "name": "Memory"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.truenas_system_temperature",
+                  "name": "Temp"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.truenas_system_mainpool_free",
+                  "name": "Pool Free"
                 },
                 {
                   "type": "tile",
@@ -3959,8 +3985,20 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_collabora",
-                  "name": "Collabora",
+                  "entity": "binary_sensor.truenas_apps_grafana",
+                  "name": "Grafana",
+                  "state_color": true
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.truenas_apps_influxdb",
+                  "name": "InfluxDB",
+                  "state_color": true
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.truenas_apps_zabbix",
+                  "name": "Zabbix",
                   "state_color": true
                 },
                 {
@@ -3971,8 +4009,14 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_dockge",
-                  "name": "Dockge",
+                  "entity": "binary_sensor.truenas_apps_netbootxyz",
+                  "name": "NetbootXYZ",
+                  "state_color": true
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.truenas_apps_searxng",
+                  "name": "SearXNG",
                   "state_color": true
                 }
               ]
@@ -4243,6 +4287,11 @@
                   "type": "tile",
                   "entity": "update.mikrotik_router_update",
                   "name": "RouterOS"
+                },
+                {
+                  "type": "tile",
+                  "entity": "update.truenas_system",
+                  "name": "TrueNAS System"
                 }
               ]
             }
