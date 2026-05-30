@@ -162,7 +162,7 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 
 | Measurement | Source | Range | Fields |
 |---|---|---|---|
-| `myenergi_daily` | myenergi Eddi CSV exports | 11-06-2025 → present | Solar generated, grid import, grid export, green energy, Eddi divert (24–30 Mar 2026 are genuine zeros — Eddi hub was offline from the myenergi cloud during that period) |
+| `myenergi_daily` | myenergi Eddi CSV exports | 11-06-2025 → present | Solar generated, grid import, grid export, green energy, Eddi divert |
 | `autarco_daily` | Autarco inverter | 11-06-2025 → present | Solar production, export, import, consumption |
 | `esbn_daily` | ESB Networks HDF (official meter) | 28-05-2024 → present | Import, export (3–4 day lag; recent days gap-filled from Autarco) |
 | `esbn_halfhourly` | ESB Networks HDF | 28-05-2024 → ~3 days ago | Half-hourly import/export profile |
