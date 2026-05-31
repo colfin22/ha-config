@@ -123,6 +123,11 @@
         "id": "1ff8fec70dca4a128dcc393efc97256c",
         "url": "/hacsfiles/alarmo-card/alarmo-card.js?hacstag=391372854169",
         "type": "module"
+      },
+      {
+        "id": "9cd01019964645f7a4b53e0edf2105cc",
+        "url": "/hacsfiles/cat-thermostat-card/cat-thermostat-card.js?hacstag=11411278718090",
+        "type": "module"
       }
     ]
   }

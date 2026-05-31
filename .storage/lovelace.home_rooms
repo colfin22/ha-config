@@ -374,7 +374,7 @@
                 },
                 {
                   "type": "thermostat",
-                  "entity": "climate.hallway",
+                  "entity": "climate.netatmo_smart_thermostat",
                   "name": "Heating"
                 }
               ]
@@ -751,7 +751,7 @@
               "cards": [
                 {
                   "type": "thermostat",
-                  "entity": "climate.hallway",
+                  "entity": "climate.netatmo_smart_thermostat",
                   "name": "Heating"
                 }
               ]
