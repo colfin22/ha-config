@@ -777,7 +777,7 @@
                       "fill_raw": "last"
                     },
                     {
-                      "entity": "climate.hallway",
+                      "entity": "climate.netatmo_smart_thermostat",
                       "attribute": "temperature",
                       "name": "Target",
                       "color": "#2196F3",
