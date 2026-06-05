@@ -1948,7 +1948,7 @@
     conditions:
     - condition: numeric_state
       entity_id: sensor.landing_motion_sensor_illuminance
-      below: 10
+      below: 20
     - condition: state
       entity_id: light.landing_1
       state: 'on'
@@ -1994,7 +1994,7 @@
     conditions:
     - condition: numeric_state
       entity_id: sensor.hallway_motion_sensor_illuminance
-      below: 10
+      below: 20
     - condition: state
       entity_id: light.hallway_1
       state: 'on'
