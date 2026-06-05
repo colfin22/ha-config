@@ -2407,12 +2407,11 @@
   mode: single
 - id: '1780000000003'
   alias: Heating - Away Mode 9:00 to 12:45
-  description: 'At 9:00am sets Netatmo to away if both Colm and Olivia are out. Olivia''s
-    tracker is unreliable so requires her not_home state to have been stable for 15+
-    minutes. Reverts to schedule at 12:45 or when either person returns home. Uses
-    a flag to avoid reverting if the automation never set it away.
-
-    '
+  description: 'Sets Netatmo to away between 9:00 and 12:45 if both Colm and Olivia
+    are out. Checks at 9:00 and dynamically when either person leaves during the window.
+    Olivia''s tracker is unreliable — colm_left path requires her not_home stable
+    for 15+ min; olivia_left trigger has for: 15min. Reverts to schedule at 12:45
+    or when either person returns. Flag prevents spurious reverts.'
   triggers:
   - trigger: time
     at: 09:00:00
@@ -2426,6 +2425,16 @@
     - person.olivia_finn
     to: home
     id: person_home
+  - trigger: state
+    entity_id: person.colm_finn
+    to: not_home
+    id: colm_left
+  - trigger: state
+    entity_id: person.olivia_finn
+    to: not_home
+    for: 00:15:00
+    id: olivia_left
+  conditions: []
   actions:
   - choose:
     - conditions:
@@ -2439,9 +2448,52 @@
         state: not_home
       - condition: template
         value_template: '{{ (now() - states.person.olivia_finn.last_changed).total_seconds()
-          > 900 }}
-
-          '
+          > 900 }}'
+      sequence:
+      - action: climate.set_preset_mode
+        target:
+          entity_id: climate.hallway
+        data:
+          preset_mode: away
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.heating_away_mode_active
+    - conditions:
+      - condition: trigger
+        id: colm_left
+      - condition: state
+        entity_id: person.olivia_finn
+        state: not_home
+      - condition: template
+        value_template: '{{ (now() - states.person.olivia_finn.last_changed).total_seconds()
+          > 900 }}'
+      - condition: time
+        after: 09:00:00
+        before: '12:45:00'
+      - condition: state
+        entity_id: input_boolean.heating_away_mode_active
+        state: 'off'
+      sequence:
+      - action: climate.set_preset_mode
+        target:
+          entity_id: climate.hallway
+        data:
+          preset_mode: away
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.heating_away_mode_active
+    - conditions:
+      - condition: trigger
+        id: olivia_left
+      - condition: state
+        entity_id: person.colm_finn
+        state: not_home
+      - condition: time
+        after: 09:00:00
+        before: '12:45:00'
+      - condition: state
+        entity_id: input_boolean.heating_away_mode_active
+        state: 'off'
       sequence:
       - action: climate.set_preset_mode
         target:
