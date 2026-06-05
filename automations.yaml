@@ -1007,19 +1007,38 @@
 - id: '1778237018912'
   alias: Colm's Grand Return
   description: When Frigate face recognition detects Colm at the doorbell and he has
-    been away for more than 3 days, play a fanfare and announce his return on all
-    speakers.
+    been away for more than 3 days, or when he arrives home after 3+ days away, play
+    a fanfare and announce his return on all speakers.
   triggers:
-  - platform: state
+  - id: frigate
+    platform: state
     entity_id: sensor.frigate_colm_last_camera
     to: Doorbell
-  conditions:
-  - condition: state
+  - id: arrived_home
+    platform: state
     entity_id: person.colm_finn
-    state: not_home
-  - condition: template
-    value_template: '{{ (now() - states.person.colm_finn.last_changed).total_seconds()
-      > 259200 }}'
+    from: not_home
+    to: home
+  conditions:
+  - condition: or
+    conditions:
+    - condition: and
+      conditions:
+      - condition: trigger
+        id: frigate
+      - condition: state
+        entity_id: person.colm_finn
+        state: not_home
+      - condition: template
+        value_template: '{{ (now() - states.person.colm_finn.last_changed).total_seconds()
+          > 259200 }}'
+    - condition: and
+      conditions:
+      - condition: trigger
+        id: arrived_home
+      - condition: template
+        value_template: '{{ (now() - trigger.from_state.last_changed).total_seconds()
+          > 259200 }}'
   actions:
   - delay:
       minutes: 2
@@ -1034,7 +1053,7 @@
       - media_player.sitting_room_speaker_cast
       - media_player.kitchen_display_cast
     data:
-      volume_level: 1.0
+      volume_level: 1
   - action: media_player.play_media
     target:
       entity_id:
