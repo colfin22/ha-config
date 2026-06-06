@@ -205,6 +205,7 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | InfluxDB | rsync — TrueNAS dataset → offsite Proxmox (Daire's), 9am daily | — |
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house | — |
 | TrueNAS Datasets | rsync — critical datasets synced to encrypted Proxmox at Daire's house | — |
+| Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → encrypted offsite Proxmox (Daire's) daily | — |
 
 This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
 
