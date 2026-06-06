@@ -2,8 +2,8 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.5.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.0-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Automations](https://img.shields.io/badge/Automations-62-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -18,8 +18,8 @@
 |---|---|
 | **PVE** | Proxmox VE — 2× Beelink S12 Mini PC (Intel N100, 16GB DDR4, 500GB SSD) |
 | **HA** | Home Assistant OS — Proxmox VM |
-| **NAS** | TrueNAS SCALE — TRIGKEY N100 Mini PC (32GB DDR4, 500GB SSD), MainPool (2× mirror, WD Purple 6TB, 10.78 TiB usable) |
-| **Network** | MikroTik router + 7× managed switches/APs; wireless managed via MikroTik CAPsMAN |
+| **NAS** | TrueNAS SCALE — TRIGKEY N100 Mini PC (32GB DDR4, 500GB SSD), MainPool (2× mirror, 3× WD Purple 6TB + 1× WD Red 8TB, ~10.88 TiB usable — upgrading to full 8TB as disks are replaced) |
+| **Network** | MikroTik router + 6× managed switches/APs; wireless managed via MikroTik CAPsMAN |
 | **VLANs** | Home · IoT · Work · Guest · Mgmt · Stack |
 | **DNS** | Pi-hole × 2 (Proxmox LXC primary + TrueNAS app replica) |
 | **Cameras** | Frigate NVR — Proxmox LXC, recordings on USB 3.0 RAID 0 enclosure |
@@ -88,7 +88,7 @@
 
 ## 🤖 Automations
 
-63 automations across the home. Key highlights:
+62 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **Occupancy lighting** — hallway, landing, and rooms via Zigbee motion sensors + lux thresholds; scene-based (bright/dimmed), fade-to-off on exit
