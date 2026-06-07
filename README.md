@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.0-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-62-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -132,7 +132,8 @@
 
 ### 🏠 Infrastructure Monitoring
 - **Overnight alerts** — infrastructure alerts held until 07:00 with triggered-time in notification title
-- **8 infrastructure automations** — MikroTik, Pi-hole, Proxmox, TrueNAS, Netatmo; quiet hours 22:00–07:00
+- **9 infrastructure automations** — MikroTik, Pi-hole, Proxmox, TrueNAS, Netatmo; quiet hours 22:00–07:00
+- **Restic backup watchdog** — failure trap in each TrueNAS restic script fires HA webhook; same 07:00–22:00 quiet window
 - **Zigbee2MQTT watchdog** — auto-restart with 2 attempts, notifies on outcome
 - **Zabbix alerts** — webhook receiver → mobile push
 
@@ -202,9 +203,8 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
 | Ubuntu Docker | Git — all `docker-compose.yml` and env files, systemd timer daily 02:00 | `colfin22/ubuntu-docker-config` |
 | InfluxDB + Grafana | Git — dashboards + provisioning config | `colfin22/influxdb-grafana-config` |
-| InfluxDB | rsync — TrueNAS dataset → offsite Proxmox (Daire's), 9am daily | — |
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house | — |
-| TrueNAS Datasets | rsync — critical datasets synced to encrypted Proxmox at Daire's house | — |
+| TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Proxmox3 USB daily via sftp; failure alerts via HA | — |
 | Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → encrypted offsite Proxmox (Daire's) daily | — |
 
 This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
