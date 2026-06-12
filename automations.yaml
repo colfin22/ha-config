@@ -1060,9 +1060,9 @@
       - media_player.sitting_room_speaker_cast
       - media_player.kitchen_display_cast
     data:
-      media_content_id: https://upload.wikimedia.org/wikipedia/commons/e/e5/Trumpet_fanfare.ogg
+      media_content_id: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/trumpet_fanfare.mp3
       media_content_type: music
-  - delay: 00:00:06
+  - delay: 00:00:20
   - action: tts.cloud_say
     data:
       entity_id:
@@ -2610,3 +2610,42 @@
       - action: light.turn_off
         target:
           entity_id: light.aoife_ceiling
+- id: '1780820971979'
+  alias: Restic Backup Failure Notification
+  description: Receives webhook from TrueNAS restic backup scripts on failure. Notifies
+    NP3 immediately 07:00-22:00, holds until 07:00 overnight.
+  triggers:
+  - platform: webhook
+    webhook_id: restic-backup-failed
+    local_only: true
+    allowed_methods:
+    - POST
+  actions:
+  - variables:
+      alert_time: '{{ now().strftime(''%H:%M'') }}'
+      dataset: '{{ trigger.json.dataset | default(''unknown'') }}'
+  - if:
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: 'Restic backup failed: {{ dataset }}'
+        message: The restic backup for {{ dataset }} on TrueNAS failed. Check /mnt/MainPool/logs/restic_{{
+          dataset }}.log
+    else:
+    - wait_for_trigger:
+      - platform: time
+        at: 07:00:00
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: 'Restic backup failed: {{ dataset }} (triggered {{ alert_time }})'
+        message: The restic backup for {{ dataset }} on TrueNAS failed. Check /mnt/MainPool/logs/restic_{{
+          dataset }}.log
+  mode: parallel
+  max: 10
