@@ -2407,7 +2407,7 @@
   mode: single
 - id: '1780000000003'
   alias: Heating - Away Mode 9:00 to 12:45
-  description: 'Sets Netatmo to away between 9:00 and 12:45 if both Colm and Olivia
+  description: 'Sets Netatmo to night between 9:00 and 12:45 if both Colm and Olivia
     are out. Checks at 9:00 and dynamically when either person leaves during the window.
     Olivia''s tracker is unreliable — colm_left path requires her not_home stable
     for 15+ min; olivia_left trigger has for: 15min. Reverts to schedule at 12:45
@@ -2454,7 +2454,7 @@
         target:
           entity_id: climate.hallway
         data:
-          preset_mode: away
+          preset_mode: night
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.heating_away_mode_active
@@ -2478,7 +2478,7 @@
         target:
           entity_id: climate.hallway
         data:
-          preset_mode: away
+          preset_mode: night
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.heating_away_mode_active
@@ -2499,7 +2499,7 @@
         target:
           entity_id: climate.hallway
         data:
-          preset_mode: away
+          preset_mode: night
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.heating_away_mode_active
