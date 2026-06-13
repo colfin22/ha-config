@@ -24,7 +24,7 @@
 | **DNS** | Pi-hole × 2 (Proxmox LXC primary + TrueNAS app replica) |
 | **Cameras** | Frigate NVR — Proxmox LXC, recordings on USB 3.0 RAID 0 enclosure |
 | **Monitoring** | Zabbix — TrueNAS hosted; InfluxDB + Grafana — TrueNAS apps |
-| **Offsite PVE (Daire's)** | Intel NUC7i3BNK (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox — connected via WireGuard |
+| **Prox3 (Daire)** | Intel NUC7i3BNK (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox — connected via WireGuard |
 
 ---
 
@@ -203,9 +203,9 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
 | Ubuntu Docker | Git — all `docker-compose.yml` and env files, systemd timer daily 02:00 | `colfin22/ubuntu-docker-config` |
 | InfluxDB + Grafana | Git — dashboards + provisioning config | `colfin22/influxdb-grafana-config` |
-| Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house | — |
-| TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Daire's Proxmox USB daily via sftp; failure alerts via HA | — |
-| Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → encrypted offsite Proxmox (Daire's) daily | — |
+| Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Prox3 (Daire) | — |
+| TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Prox3 (Daire) USB daily via sftp; failure alerts via HA | — |
+| Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → Prox3 (Daire) daily | — |
 
 This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
 
