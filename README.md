@@ -113,6 +113,7 @@
 - **Person at car** — Frigate person detection at front car camera → mobile alert (night only)
 - **Low battery** — monitors all Zigbee devices, notifies when battery low
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
+- **Bins out** — evening reminder the night before Panda Waste collection; notifies which bin types are due the following morning
 
 ### 🎉 Fun
 - **Hello Olivia** — Frigate face recognition detects Olivia at the doorbell on weekdays 1–2pm; greets her on all speakers at full volume after a short delay
