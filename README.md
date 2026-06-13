@@ -88,7 +88,7 @@
 
 ## 🤖 Automations
 
-63 automations across the home. Key highlights:
+64 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **Occupancy lighting** — hallway, landing, and rooms via Zigbee motion sensors + lux thresholds; scene-based (bright/dimmed), fade-to-off on exit
