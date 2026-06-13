@@ -93,6 +93,7 @@
 ### 💡 Lighting
 - **Occupancy lighting** — hallway, landing, and rooms via Zigbee motion sensors + lux thresholds; scene-based (bright/dimmed), fade-to-off on exit
 - **Sunrise/sunset** — scene transitions throughout the day
+- **Sitting room power off** — turns off all Harmony devices after 30 minutes of no presence
 
 ### 🔒 Security
 - **Alarm** — Alarmo multi-zone; NFC tag to disarm on entry; strobe all lights on trigger (saves/restores state), notifies all phones
@@ -101,6 +102,7 @@
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
 - **Morning security report** — summary of overnight person detections delivered at 07:00; also notes any cats, foxes, dogs or birds spotted overnight
 - **Patio door** — NFC-toggled gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
+- **NFC disarm** — NFC tag at front door disarms the alarm; no-op if already disarmed
 
 ### 🌤️ Weather
 - **Morning forecast** — daily weather summary pushed to all phones at 08:30 with emoji-coded conditions; if Colm or Olivia is more than 100km from home a second block is added for their away location
@@ -114,6 +116,9 @@
 - **Low battery** — monitors all Zigbee devices, notifies when battery low
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
 - **Bins out** — evening reminder the night before Panda Waste collection; notifies which bin types are due the following morning
+- **Appliance notifications** — washing machine, dishwasher and tumble dryer; notifies on cycle start and finish with energy cost; TTS announcement on completion; 07:00–22:00 quiet window
+- **Devices offline report** — daily 06:00 report to Colm listing all offline devices; adds items to the Tasks to-do list
+- **Printer auto power cycle** — checks every 15 minutes (07:00–21:00) and power-cycles the Brother printer socket if it goes offline
 
 ### 🎉 Fun
 - **Hello Olivia** — Frigate face recognition detects Olivia at the doorbell on weekdays 1–2pm; greets her on all speakers at full volume after a short delay
@@ -130,6 +135,7 @@
 ### ⚡ Energy
 - **Top days** — solar production and grid export top 5 best days tracked independently; both leaderboards update automatically each evening at 23:59 using myenergi sensors
 - **Morning energy stats** — daily solar and energy summary pushed each morning
+- **Grid-free day** — notifies both phones at 20:00 if no grid electricity was imported after 8am; includes export total and estimated earnings
 
 ### 🏠 Infrastructure Monitoring
 - **Overnight alerts** — infrastructure alerts held until 07:00 with triggered-time in notification title
@@ -137,6 +143,7 @@
 - **Restic backup watchdog** — failure trap in each TrueNAS restic script fires HA webhook; same 07:00–22:00 quiet window
 - **Zigbee2MQTT watchdog** — auto-restart with 2 attempts, notifies on outcome
 - **Zabbix alerts** — webhook receiver → mobile push
+- **Update Tuesday** — generates the monthly homelab update report on the Monday before the 2nd Tuesday; notifies Colm with a link at 19:00
 
 ---
 
