@@ -2,7 +2,7 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.0-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.2-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
@@ -88,7 +88,7 @@
 
 ## 🤖 Automations
 
-62 automations across the home. Key highlights:
+63 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **Occupancy lighting** — hallway, landing, and rooms via Zigbee motion sensors + lux thresholds; scene-based (bright/dimmed), fade-to-off on exit
@@ -123,7 +123,7 @@
 - **Today FM** — one-tap play on kitchen display via Music Assistant
 
 ### 🌡️ Climate
-- **Heating away mode** — at 09:00 sets Netatmo thermostat to away preset if both Colm and Olivia are out; reverts to schedule at 12:45 or immediately when either returns home. Olivia's tracker requires 15 min stable `not_home` before trusting it. Uses a flag so the 12:45 reset only fires if this automation set it away
+- **Heating away mode** — sets Netatmo to night preset if both Colm and Olivia are out between 09:00–12:45; triggers at 09:00 and dynamically when either leaves during the window. Reverts to schedule at 12:45 or when either returns home.
 - **Seasonal schedule** — switches Netatmo thermostat schedule to Summer Schedule on 1st June and back to Winter Schedule on 1st September
 
 ### ⚡ Energy
@@ -198,13 +198,13 @@ All alert automations respect a **07:00–22:00 quiet window** — overnight eve
 | Home Assistant | Git — selective `.storage` files | `colfin22/ha-config` (this repo) |
 | Home Assistant VM | Proxmox hourly + daily snapshots — 24h/7d retention | — |
 | MikroTik | Proxmox cron → API export nightly at 02:00 | `colfin22/mikrotik-config` |
-| TrueNAS | Proxmox cron → API `config/save` weekly Sunday 02:00 | `colfin22/truenas-config` |
+| TrueNAS Config | Proxmox cron → API `config/save` weekly Sunday 02:00 | `colfin22/truenas-config` |
 | Frigate | Git — `config.yml` | `colfin22/frigate-config` |
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
 | Ubuntu Docker | Git — all `docker-compose.yml` and env files, systemd timer daily 02:00 | `colfin22/ubuntu-docker-config` |
 | InfluxDB + Grafana | Git — dashboards + provisioning config | `colfin22/influxdb-grafana-config` |
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Daire's house | — |
-| TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Proxmox3 USB daily via sftp; failure alerts via HA | `colfin22/truenas-config` |
+| TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Daire's Proxmox USB daily via sftp; failure alerts via HA | — |
 | Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → encrypted offsite Proxmox (Daire's) daily | — |
 
 This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
