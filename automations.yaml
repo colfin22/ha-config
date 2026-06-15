@@ -1083,8 +1083,10 @@
   mode: single
 - id: '1778240499637'
   alias: Zigbee2MQTT Down - Restart & Notify NP3
-  description: Always restart Z2M if down. Notify immediately 07:00-22:00, or queue
-    a morning notification with time and outcome if silenced.
+  description: 'If Z2M bridge drops: full stop -> wait (lets Ember NCP/TCP recover)
+    -> start, two escalating cycles. Notify immediately 07:00-22:00, else queue a
+    morning notification with time + outcome. If still down after both cycles the
+    coordinator (SLZB 10.0.0.214) likely needs a power-cycle.'
   triggers:
   - platform: state
     entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
@@ -1103,11 +1105,16 @@
     state:
     - 'off'
     - unavailable
-  - action: hassio.addon_restart
+  - action: hassio.addon_stop
     data:
       addon: 45df7312_zigbee2mqtt
   - delay:
-      seconds: 60
+      seconds: 45
+  - action: hassio.addon_start
+    data:
+      addon: 45df7312_zigbee2mqtt
+  - delay:
+      seconds: 75
   - choose:
     - conditions:
       - condition: state
@@ -1116,16 +1123,20 @@
         - 'off'
         - unavailable
       sequence:
-      - delay:
-          minutes: 1
-      - action: hassio.addon_restart
+      - action: hassio.addon_stop
         data:
           addon: 45df7312_zigbee2mqtt
       - delay:
-          seconds: 60
+          seconds: 90
+      - action: hassio.addon_start
+        data:
+          addon: 45df7312_zigbee2mqtt
+      - delay:
+          seconds: 75
   - variables:
       outcome: '{{ ''Recovered successfully'' if is_state(''binary_sensor.zigbee2mqtt_bridge_connection_state'',
-        ''on'') else ''Still down after 2 restart attempts'' }}'
+        ''on'') else ''STILL DOWN after 2 stop/start cycles - coordinator (SLZB 10.0.0.214)
+        likely needs a power-cycle'' }}'
   - choose:
     - conditions:
       - condition: time

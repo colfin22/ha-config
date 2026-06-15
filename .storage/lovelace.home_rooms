@@ -774,7 +774,11 @@
                       "name": "Current",
                       "color": "#FF5722",
                       "stroke_width": 2,
-                      "fill_raw": "last"
+                      "fill_raw": "last",
+                      "yaxis_id": "temp",
+                      "show": {
+                        "legend_value": false
+                      }
                     },
                     {
                       "entity": "climate.netatmo_smart_thermostat",
@@ -782,7 +786,40 @@
                       "name": "Target",
                       "color": "#2196F3",
                       "stroke_width": 2,
-                      "fill_raw": "last"
+                      "fill_raw": "last",
+                      "yaxis_id": "temp",
+                      "curve": "stepline",
+                      "show": {
+                        "legend_value": false
+                      }
+                    },
+                    {
+                      "entity": "climate.netatmo_smart_thermostat",
+                      "attribute": "hvac_action",
+                      "name": "Heating",
+                      "color": "#FF9800",
+                      "type": "area",
+                      "curve": "stepline",
+                      "stroke_width": 0,
+                      "opacity": 0.12,
+                      "yaxis_id": "heat",
+                      "transform": "return x === 'heating' ? 1 : 0;",
+                      "show": {
+                        "legend_value": false,
+                        "in_header": false
+                      }
+                    }
+                  ],
+                  "yaxis": [
+                    {
+                      "id": "temp",
+                      "decimals": 1
+                    },
+                    {
+                      "id": "heat",
+                      "show": false,
+                      "min": 0,
+                      "max": 1
                     }
                   ]
                 }
