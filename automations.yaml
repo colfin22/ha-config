@@ -527,7 +527,7 @@
           message: The Parcel Box Has Been Opened
 - id: '1776186517558'
   alias: Offline Devices Report
-  description: Sends Colm a daily report at 06:00 listing all offline devices. Adds
+  description: Sends Colm a daily report at 07:00 listing all offline devices. Adds
     items to the Tasks to-do list and supports manual trigger via a button.
   use_blueprint:
     path: Ltek/offline-devices-report-ltek.yaml
@@ -535,7 +535,7 @@
       include_easy_notify: enable_easy_notify
       notify_device:
       - 002753768c371c4f05a272c7e1e0f93c
-      time: 06:00:00
+      time: 07:00:00
       weekday_options:
       - sat
       - mon

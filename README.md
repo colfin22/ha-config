@@ -118,7 +118,7 @@
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
 - **Bins out** — evening reminder the night before Panda Waste collection; notifies which bin types are due the following morning
 - **Appliance notifications** — washing machine, dishwasher and tumble dryer; notifies on cycle start and finish with energy cost; TTS announcement on completion; 07:00–22:00 quiet window
-- **Devices offline report** — daily 06:00 report to Colm listing all offline devices; adds items to the Tasks to-do list
+- **Devices offline report** — daily 07:00 report to Colm listing all offline devices; adds items to the Tasks to-do list
 - **Printer auto power cycle** — checks every 15 minutes (07:00–21:00) and power-cycles the Brother printer socket if it goes offline
 
 ### 🎉 Fun
