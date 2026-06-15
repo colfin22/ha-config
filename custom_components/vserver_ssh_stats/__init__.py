@@ -2,41 +2,45 @@
 from __future__ import annotations
 
 import asyncio
-import logging
-import socket
 import json
+import logging
 import re
+import socket
 from datetime import UTC, datetime
 
+import paramiko
+import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
-import voluptuous as vol
-import paramiko
-
 from .util import (
     DEFAULT_ACTION_COMMAND_TIMEOUT,
     DEFAULT_COMMAND_ALLOWLIST,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_DOCKER_INTERVAL,
     DEFAULT_INTERVAL,
+    DEFAULT_PACKAGE_INTERVAL,
+    DEFAULT_SLOW_COMMAND_TIMEOUT,
     is_command_allowed,
-    parse_monitored_ports,
     parse_command_allowlist,
+    parse_monitored_ports,
     resolve_private_key_path,
 )
+
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "vserver_ssh_stats"
-PLATFORMS: list[str] = ["sensor", "binary_sensor", "button"]
+PLATFORMS: list[str] = ["sensor", "binary_sensor", "button", "switch"]
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 SUPPORTED_TARGET_OS = {"auto", "debian", "raspbian", "windows"}
 ACTION_STATUS_EVENT = f"{DOMAIN}_action_status"
 REMOTE_NAME_RE = re.compile(r"^[A-Za-z0-9_.@-]+$")
+DOCKER_RESTART_POLICIES = {"always", "no", "on-failure", "unless-stopped"}
 
 
 def _normalize_target_os(value: str | None) -> str:
@@ -211,13 +215,85 @@ def _build_restart_service_commands(target_os: str, service: str) -> list[str]:
     return [windows_cmd, linux_cmd] if target_os == "windows" else [linux_cmd, windows_cmd]
 
 
-def _build_docker_container_commands(action: str, container: str) -> list[str]:
-    """Return commands for Docker container actions."""
+def _build_docker_container_commands(
+    action: str,
+    container: str,
+    restore_restart_policy: str | None = None,
+) -> list[str]:
+    """Return Docker actions that verify the resulting running state."""
 
-    return [
-        f"docker {action} {container}",
-        f"sudo docker {action} {container}",
-    ]
+    expected_state = "false" if action == "stop" else "true"
+
+    def _command(docker_command: str) -> str:
+        if action == "stop":
+            return (
+                f"restart_policy=$({docker_command} inspect --format "
+                f"'{{{{.HostConfig.RestartPolicy.Name}}}}' {container} 2>/dev/null) "
+                "|| exit 1; "
+                "case \"$restart_policy\" in "
+                "no|always|unless-stopped|on-failure) ;; *) restart_policy=no ;; esac; "
+                f"compose_project=$({docker_command} inspect --format "
+                f"'{{{{index .Config.Labels \"com.docker.compose.project\"}}}}' "
+                f"{container} 2>/dev/null); "
+                f"compose_service=$({docker_command} inspect --format "
+                f"'{{{{index .Config.Labels \"com.docker.compose.service\"}}}}' "
+                f"{container} 2>/dev/null); "
+                f"compose_files=$({docker_command} inspect --format "
+                f"'{{{{index .Config.Labels \"com.docker.compose.project.config_files\"}}}}' "
+                f"{container} 2>/dev/null); "
+                f"compose_workdir=$({docker_command} inspect --format "
+                f"'{{{{index .Config.Labels \"com.docker.compose.project.working_dir\"}}}}' "
+                f"{container} 2>/dev/null); "
+                "if [ -n \"$compose_project\" ] && [ -n \"$compose_service\" ] "
+                f"&& {docker_command} compose version >/dev/null 2>&1; then "
+                "compose_file=${compose_files%%,*}; "
+                "if [ -n \"$compose_workdir\" ] && [ -d \"$compose_workdir\" ]; then "
+                "cd \"$compose_workdir\" || exit 1; fi; "
+                "if [ -n \"$compose_file\" ]; then "
+                f"{docker_command} compose -f \"$compose_file\" -p \"$compose_project\" "
+                "stop \"$compose_service\" >/dev/null 2>&1 || true; "
+                "else "
+                f"{docker_command} compose -p \"$compose_project\" "
+                "stop \"$compose_service\" >/dev/null 2>&1 || true; fi; fi; "
+                "if [ \"$restart_policy\" != \"no\" ]; then "
+                f"{docker_command} update --restart=no {container} >/dev/null || exit 1; "
+                "fi; "
+                f"{docker_command} stop {container} >/dev/null || exit 1; "
+                "stable=0; state=true; attempt=0; "
+                "while [ \"$attempt\" -lt 10 ]; do "
+                "sleep 2; "
+                f"state=$({docker_command} inspect --format "
+                f"'{{{{.State.Running}}}}' {container} 2>/dev/null) || exit 1; "
+                "if [ \"$state\" = \"false\" ]; then "
+                "stable=$((stable + 1)); "
+                "[ \"$stable\" -ge 2 ] && break; "
+                "else "
+                "stable=0; "
+                f"{docker_command} stop {container} >/dev/null 2>&1 || exit 1; "
+                "fi; "
+                "attempt=$((attempt + 1)); "
+                "done; "
+                f"printf 'container={container} running=%s stable_checks=%s "
+                "previous_restart_policy=%s compose_project=%s compose_service=%s\\n' "
+                '"$state" "$stable" "$restart_policy" "$compose_project" '
+                '"$compose_service"; '
+                '[ "$state" = "false" ] && [ "$stable" -ge 2 ]'
+            )
+        restore_policy_command = ""
+        if action == "start" and restore_restart_policy:
+            restore_policy_command = (
+                f" && {docker_command} update "
+                f"--restart={restore_restart_policy} {container} >/dev/null"
+            )
+        return (
+            f"{docker_command} {action} {container} >/dev/null && "
+            f"state=$({docker_command} inspect --format "
+            f"'{{{{.State.Running}}}}' {container} 2>/dev/null) && "
+            f"printf 'container={container} running=%s\\n' \"$state\" && "
+            f"[ \"$state\" = \"{expected_state}\" ]{restore_policy_command}"
+        )
+
+    return [_command("docker"), _command("sudo docker")]
 
 
 def _build_docker_prune_commands() -> list[str]:
@@ -546,10 +622,19 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 _store_action_status(hass, host, "refresh", output, False)
             return {"refreshed": 0, "success": False, "output": output}
 
+        for coordinator in coordinators:
+            if hasattr(coordinator, "force_slow_refresh"):
+                coordinator.force_slow_refresh()
+
         results = await asyncio.gather(
             *(coordinator.async_request_refresh() for coordinator in coordinators),
             return_exceptions=True,
         )
+        slow_results = await asyncio.gather(
+            *(coordinator.async_wait_for_slow_refresh() for coordinator in coordinators),
+            return_exceptions=True,
+        )
+        results.extend(slow_results)
         success = not any(isinstance(result, Exception) for result in results)
         output = f"Requested refresh for {len(coordinators)} coordinator(s)"
         for coordinator in coordinators:
@@ -598,13 +683,49 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     async def handle_docker_container_action(call: ServiceCall, action: str) -> ServiceResponse:
         """Run one Docker container action."""
 
-        commands = _build_docker_container_commands(action, call.data["container"])
-        return await _run_remote_action(
+        host = call.data["host"]
+        container_name = call.data["container"]
+        restart_policy_store = hass.data.setdefault(DOMAIN, {}).setdefault(
+            "docker_restart_policies",
+            {},
+        )
+        policy_key = f"{host}\0{container_name}"
+        restore_restart_policy = (
+            restart_policy_store.get(policy_key) if action == "start" else None
+        )
+        commands = _build_docker_container_commands(
+            action,
+            container_name,
+            restore_restart_policy,
+        )
+        response = await _run_remote_action(
             call,
             f"{action}_docker_container",
             commands,
             f"{action}_docker_container",
         )
+        if action == "stop":
+            policy_match = re.search(
+                r"previous_restart_policy=([A-Za-z-]+)",
+                str(response.get("output") or ""),
+            )
+            if policy_match and policy_match.group(1) in DOCKER_RESTART_POLICIES:
+                restart_policy_store[policy_key] = policy_match.group(1)
+        elif action == "start" and response.get("success"):
+            restart_policy_store.pop(policy_key, None)
+        if response.get("success"):
+            matching_coordinators = []
+            for entry_data in hass.data.get(DOMAIN, {}).values():
+                if not isinstance(entry_data, dict):
+                    continue
+                for coordinator in entry_data.get("coordinators", []) or []:
+                    if coordinator.server.get("host") != host:
+                        continue
+                    coordinator.apply_docker_action_state(container_name, action)
+                    matching_coordinators.append(coordinator)
+            for coordinator in matching_coordinators:
+                hass.async_create_task(coordinator.async_request_docker_refresh())
+        return response
 
     async def handle_start_docker_container(call: ServiceCall) -> ServiceResponse:
         """Start one Docker container."""
@@ -850,6 +971,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "interval": data.get("interval") or DEFAULT_INTERVAL,
         "connect_timeout": data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT,
         "command_timeout": data.get("command_timeout") or DEFAULT_COMMAND_TIMEOUT,
+        "package_interval": data.get("package_interval") or DEFAULT_PACKAGE_INTERVAL,
+        "docker_interval": data.get("docker_interval") or DEFAULT_DOCKER_INTERVAL,
+        "slow_command_timeout": data.get("slow_command_timeout")
+        or DEFAULT_SLOW_COMMAND_TIMEOUT,
         "command_allowlist": data.get("command_allowlist", DEFAULT_COMMAND_ALLOWLIST),
         "servers": servers,
     }

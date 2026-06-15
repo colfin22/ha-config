@@ -1,0 +1,71 @@
+automation:
+  - alias: "Alert - House empty, alarm not armed"
+    id: alert_house_empty_alarm_not_armed
+    description: "Notifies Colm and Olivia when both have left and the alarm is still disarmed"
+    trigger:
+      - platform: state
+        entity_id:
+          - person.colm_finn
+          - person.olivia_finn
+        to: "not_home"
+        for: "00:30:00"
+    condition:
+      - condition: state
+        entity_id: person.colm_finn
+        state: "not_home"
+      - condition: state
+        entity_id: person.olivia_finn
+        state: "not_home"
+      - condition: state
+        entity_id: alarm_control_panel.alarmo
+        state: "disarmed"
+    action:
+      - parallel:
+          - service: notify.mobile_app_np3
+            data:
+              title: "House is empty"
+              message: "Everyone has left but the alarm isn't armed."
+              data:
+                actions:
+                  - action: "ALARM_ARM_AWAY"
+                    title: "Arm Alarm"
+                  - action: "DISMISS"
+                    title: "Dismiss"
+                tag: "alarm-not-armed"
+          - service: notify.mobile_app_pixel_6a
+            data:
+              title: "House is empty"
+              message: "Everyone has left but the alarm isn't armed."
+              data:
+                actions:
+                  - action: "ALARM_ARM_AWAY"
+                    title: "Arm Alarm"
+                  - action: "DISMISS"
+                    title: "Dismiss"
+                tag: "alarm-not-armed"
+      - wait_for_trigger:
+          - platform: event
+            event_type: mobile_app_notification_action
+            event_data:
+              action: "ALARM_ARM_AWAY"
+        timeout: "00:15:00"
+        continue_on_timeout: false
+      - condition: state
+        entity_id: alarm_control_panel.alarmo
+        state: "disarmed"
+      - service: alarm_control_panel.alarm_arm_away
+        target:
+          entity_id: alarm_control_panel.alarmo
+      - parallel:
+          - service: notify.mobile_app_np3
+            data:
+              title: "Alarm armed"
+              message: "Alarm has been set to away mode."
+              data:
+                tag: "alarm-not-armed"
+          - service: notify.mobile_app_pixel_6a
+            data:
+              title: "Alarm armed"
+              message: "Alarm has been set to away mode."
+              data:
+                tag: "alarm-not-armed"

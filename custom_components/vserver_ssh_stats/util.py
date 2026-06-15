@@ -1,8 +1,8 @@
 """Utility helpers for the VServer SSH Stats integration."""
 from __future__ import annotations
 
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Optional
 
 from homeassistant.core import HomeAssistant
@@ -16,6 +16,9 @@ except ImportError:  # pragma: no cover - compatibility with older Home Assistan
 DEFAULT_INTERVAL = 30
 DEFAULT_CONNECT_TIMEOUT = 10
 DEFAULT_COMMAND_TIMEOUT = 45
+DEFAULT_PACKAGE_INTERVAL = 12 * 60 * 60
+DEFAULT_DOCKER_INTERVAL = 30 * 60
+DEFAULT_SLOW_COMMAND_TIMEOUT = 180
 DEFAULT_ACTION_COMMAND_TIMEOUT = 300
 DEFAULT_COMMAND_ALLOWLIST = ""
 DEFAULT_BACKOFF_FAILURE_THRESHOLD = 3
@@ -116,6 +119,25 @@ def build_device_info(domain: str, server: dict) -> DeviceInfo:
         identifiers={(domain, host)},
         connections={(CONNECTION_NETWORK_MAC, mac) for mac in mac_addresses},
         name=server.get("name") or host,
+    )
+
+
+def build_container_device_info(
+    domain: str,
+    server: dict,
+    container_name: str,
+    sanitized_name: str,
+) -> DeviceInfo:
+    """Return device info for one Docker container below its host."""
+
+    host = server["host"]
+    server_name = server.get("name") or host
+    return DeviceInfo(
+        identifiers={(domain, f"{host}_container_{sanitized_name}")},
+        name=f"{server_name} {container_name}",
+        manufacturer="Docker",
+        model="Container",
+        via_device=(domain, host),
     )
 
 

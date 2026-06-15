@@ -8,14 +8,38 @@ DOMAIN = "ha_mcp_tools"
 ALLOWED_READ_DIRS = ["www", "themes", "custom_templates", "dashboards"]
 ALLOWED_WRITE_DIRS = ["www", "themes", "custom_templates", "dashboards"]
 
+# NON-OVERRIDABLE deny floor for the user-configurable extra read/write
+# directories (issue #1567). The custom allowlist is applied ON TOP of the
+# built-in ALLOWED_*_DIRS, but a custom directory can NEVER grant access to
+# these. The floor is re-checked before any allow decision on every read,
+# write, list, and delete, so neither a stored entry nor an in-flight one can
+# punch through it.
+#
+# .storage holds HA's auth database (refresh/access tokens), hashed passwords,
+# and every integration's cleartext credentials (core.config_entries,
+# application_credentials, cloud) — including this component's OWN caller
+# token (.storage/ha_mcp_tools_auth). Letting a custom dir reach it would both
+# leak secrets and hand out the key to this component's own auth gate.
+DENY_PATH_SEGMENTS = frozenset({".storage"})
+
+# secrets.yaml is reachable ONLY as the canonical config-root file, where the
+# read handler masks its values. Any OTHER secrets.yaml surfaced via a custom
+# dir would be returned UNMASKED (masking keys off the literal root path), so
+# the floor blocks the basename everywhere except that one canonical location.
+DENY_READ_BASENAMES = frozenset({"secrets.yaml"})
+
 # Files allowed for managed YAML editing
 ALLOWED_YAML_CONFIG_FILES = ["configuration.yaml"]
 # Also allows packages/*.yaml via pattern matching
 
-# Top-level YAML keys allowed for editing.
+# Top-level YAML keys allowed for editing in any allowed file
+# (configuration.yaml or packages/*.yaml).
 # ONLY keys that have no UI/API alternative belong here.
 # Keys manageable via ha_config_set_helper (input_*, counter, timer, schedule)
-# or ha_config_set_automation/script/scene are intentionally excluded.
+# are intentionally excluded. automation/script/scene live in
+# PACKAGES_ONLY_YAML_KEYS below — they have storage-mode equivalents
+# (ha_config_set_automation/script/scene) but are still exposed in
+# packages/*.yaml for the YAML-packages workflow.
 ALLOWED_YAML_KEYS = frozenset(
     {
         "template",
@@ -37,10 +61,26 @@ ALLOWED_YAML_KEYS = frozenset(
     }
 )
 
+# Top-level YAML keys allowed ONLY inside packages/*.yaml files, never in
+# configuration.yaml. Storage-mode UI/API equivalents already exist
+# (ha_config_set_automation/script/scene), so these are exposed here only
+# for the YAML-packages workflow used by git-managed configs — where users
+# expect to keep automations/scripts/scenes alongside templates and other
+# YAML-defined items. Writes to configuration.yaml for these keys remain
+# rejected so storage-mode and YAML-mode collections don't collide.
+PACKAGES_ONLY_YAML_KEYS = frozenset(
+    {
+        "automation",
+        "script",
+        "scene",
+    }
+)
+
 # Post-edit action required for each YAML key.
-# Only template, mqtt, and group have YAML reload services in HA core
-# (verified against homeassistant/components/homeassistant/__init__.py,
-# async_handle_reload_all). All others require a full HA restart.
+# template, mqtt, group, automation, script, and scene have first-party
+# reload services in HA core. All others require a full HA restart.
+# ``TestPostActionTableContract`` pins the in-repo shape; the HA-core
+# side of the contract is a write-time snapshot, not a continuous check.
 YAML_KEY_POST_ACTIONS: dict[str, dict[str, str]] = {
     "template": {
         "post_action": "reload_available",
@@ -53,6 +93,18 @@ YAML_KEY_POST_ACTIONS: dict[str, dict[str, str]] = {
     "group": {
         "post_action": "reload_available",
         "reload_service": "group.reload",
+    },
+    "automation": {
+        "post_action": "reload_available",
+        "reload_service": "automation.reload",
+    },
+    "script": {
+        "post_action": "reload_available",
+        "reload_service": "script.reload",
+    },
+    "scene": {
+        "post_action": "reload_available",
+        "reload_service": "scene.reload",
     },
 }
 # Default for keys not in YAML_KEY_POST_ACTIONS:

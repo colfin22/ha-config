@@ -1762,6 +1762,12 @@
       "id": "umweltverbaende_at"
     },
     {
+      "title": "Dienten am Hochk\u00f6nig",
+      "module": "dienten_gv_at",
+      "default_params": {},
+      "id": "dienten_gv_at"
+    },
+    {
       "title": "Dobl-Zwaring",
       "module": "citiesapps_com",
       "default_params": {},
@@ -1790,6 +1796,12 @@
       "module": "citiesapps_com",
       "default_params": {},
       "id": "citiesapps_com"
+    },
+    {
+      "title": "Ebergassing",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
     },
     {
       "title": "Eberndorf",
@@ -1888,6 +1900,12 @@
       "id": "citiesapps_com"
     },
     {
+      "title": "Feld am See",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "Feldbach",
       "module": "citiesapps_com",
       "default_params": {},
@@ -1931,6 +1949,18 @@
     },
     {
       "title": "Finkenstein am Faaker See",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
+      "title": "Fischamend",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
+      "title": "Flattach",
       "module": "ics",
       "default_params": {},
       "id": "ics_muellapp_com"
@@ -1988,6 +2018,12 @@
       "module": "citiesapps_com",
       "default_params": {},
       "id": "citiesapps_com"
+    },
+    {
+      "title": "Fresach",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
     },
     {
       "title": "Friedberg",
@@ -2092,6 +2128,12 @@
       "id": "umweltverbaende_at"
     },
     {
+      "title": "Gerasdorf bei Wien",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "Gersdorf an der Feistritz",
       "module": "citiesapps_com",
       "default_params": {},
@@ -2168,6 +2210,12 @@
       "module": "citiesapps_com",
       "default_params": {},
       "id": "citiesapps_com"
+    },
+    {
+      "title": "Gramatneusiedl",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
     },
     {
       "title": "Gratkorn",
@@ -2384,6 +2432,12 @@
       "id": "citiesapps_com"
     },
     {
+      "title": "Haslau-Maria Ellend",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "Hausmannst\u00e4tten",
       "module": "hausmannstaetten_gv_at",
       "default_params": {},
@@ -2444,6 +2498,12 @@
       "id": "citiesapps_com"
     },
     {
+      "title": "Himberg",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "Hirm",
       "module": "citiesapps_com",
       "default_params": {},
@@ -2472,6 +2532,14 @@
       "module": "ics",
       "default_params": {},
       "id": "ics_abfallv_zerowaste_io"
+    },
+    {
+      "title": "Holding Graz",
+      "module": "abfall_io_graphql",
+      "default_params": {
+        "key": "1c230a689579b6d3ddb9ceb5a56c6072"
+      },
+      "id": "abfall_io_graphql"
     },
     {
       "title": "Hopfgarten im Brixental",
@@ -2656,6 +2724,12 @@
       "id": "ics_muellapp_com"
     },
     {
+      "title": "Klein-Neusiedl",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "Kleinm\u00fcrbisch",
       "module": "citiesapps_com",
       "default_params": {},
@@ -2812,6 +2886,12 @@
       "id": "citiesapps_com"
     },
     {
+      "title": "Lanzendorf",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "Leibnitz",
       "module": "citiesapps_com",
       "default_params": {},
@@ -2840,6 +2920,12 @@
       "module": "ics",
       "default_params": {},
       "id": "ics_gem2go_dev"
+    },
+    {
+      "title": "Leopoldsdorf",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
     },
     {
       "title": "Lesachtal",
@@ -2936,6 +3022,12 @@
       "module": "lipizzanerheimat_at",
       "default_params": {},
       "id": "lipizzanerheimat_at"
+    },
+    {
+      "title": "Maria Lanzendorf",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
     },
     {
       "title": "Maria Rain",
@@ -3094,6 +3186,12 @@
       "id": "citiesapps_com"
     },
     {
+      "title": "Moosbrunn",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "Moosburg",
       "module": "citiesapps_com",
       "default_params": {},
@@ -3239,6 +3337,12 @@
     },
     {
       "title": "Obertrum am See",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
+      "title": "Obervellach",
       "module": "ics",
       "default_params": {},
       "id": "ics_muellapp_com"
@@ -3484,6 +3588,12 @@
       "id": "ics_muellapp_com"
     },
     {
+      "title": "Rauchenwarth",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "Rechnitz",
       "module": "citiesapps_com",
       "default_params": {},
@@ -3647,6 +3757,12 @@
     },
     {
       "title": "Schwadorf",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
+      "title": "Schwadorf",
       "module": "citiesapps_com",
       "default_params": {},
       "id": "citiesapps_com"
@@ -3659,6 +3775,12 @@
     },
     {
       "title": "Schwaz",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
+      "title": "Schwechat",
       "module": "ics",
       "default_params": {},
       "id": "ics_muellapp_com"
@@ -3704,6 +3826,12 @@
       "module": "citiesapps_com",
       "default_params": {},
       "id": "citiesapps_com"
+    },
+    {
+      "title": "Seyring",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
     },
     {
       "title": "Siegendorf",
@@ -3860,6 +3988,12 @@
       "module": "citiesapps_com",
       "default_params": {},
       "id": "citiesapps_com"
+    },
+    {
+      "title": "St. P\u00f6lten",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
     },
     {
       "title": "St. Radegund bei Graz",
@@ -4464,6 +4598,12 @@
       "id": "citiesapps_com"
     },
     {
+      "title": "Zw\u00f6lfaxing",
+      "module": "ics",
+      "default_params": {},
+      "id": "ics_muellapp_com"
+    },
+    {
       "title": "\u00dcbelbach",
       "module": "citiesapps_com",
       "default_params": {},
@@ -4998,6 +5138,12 @@
       "id": "recyclecoach_com"
     },
     {
+      "title": "Notre-Dame-du-Bon-Conseil (Village)",
+      "module": "villagebonconseil_ca",
+      "default_params": {},
+      "id": "villagebonconseil_ca"
+    },
+    {
       "title": "Oak Bay (BC)",
       "module": "recyclecoach_com",
       "default_params": {},
@@ -5076,6 +5222,12 @@
         "split_at": "\\, (?:and )?|(?: and )"
       },
       "id": "ics_recollect"
+    },
+    {
+      "title": "Repentigny (QC)",
+      "module": "repentigny_ca",
+      "default_params": {},
+      "id": "repentigny_ca"
     },
     {
       "title": "Richmond Hill (ON)",
@@ -5631,6 +5783,14 @@
       "id": "cc-montesquieu_fr"
     },
     {
+      "title": "Communaut\u00e9 de Communes P\u00e9v\u00e8le Carembault",
+      "module": "publidata_fr",
+      "default_params": {
+        "instance_id": 1141
+      },
+      "id": "publidata_fr"
+    },
+    {
       "title": "Dietwiller",
       "module": "mulhouse_alsace_fr",
       "default_params": {
@@ -6124,6 +6284,12 @@
       "module": "sictom_lons_le_saunier_fr",
       "default_params": {},
       "id": "sictom_lons_le_saunier_fr"
+    },
+    {
+      "title": "SIVOM de la Vall\u00e9e de l'Yerres et des S\u00e9narts",
+      "module": "sivom_com",
+      "default_params": {},
+      "id": "sivom_com"
     },
     {
       "title": "SIVOM Rive Droite",
@@ -6727,7 +6893,7 @@
       "id": "ics_awb_landkreis_karlsruhe_de"
     },
     {
-      "title": "Abfallwirtschaftsbetrieb LK Mainz-Bingen",
+      "title": "Abfallwirtschaftsbetrieb LK Mainz-Bingen (Deprecated)",
       "module": "awb_mainz_bingen_de",
       "default_params": {},
       "id": "awb_mainz_bingen_de"
@@ -6835,6 +7001,12 @@
         "commune": "aholfing"
       },
       "id": "heimat_info_de"
+    },
+    {
+      "title": "AJL - Abfallwirtschaftsgesellschaft Jerichower Land mbH",
+      "module": "ajl_mbh_de",
+      "default_params": {},
+      "id": "ajl_mbh_de"
     },
     {
       "title": "ALBA Berlin",
@@ -6978,6 +7150,38 @@
         "municipality": "Amelsen"
       },
       "id": "nerdbridge_de"
+    },
+    {
+      "title": "Amt Bad Wilsnack/Weisen (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "1e9592418582666e2a5d1c62b2683435"
+      },
+      "id": "abfall_io"
+    },
+    {
+      "title": "Amt Lenzen-Elbtalaue (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "bb937857acd951dfc8de5be8b8a49f6d"
+      },
+      "id": "abfall_io"
+    },
+    {
+      "title": "Amt Meyenburg (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "4638881e7bebe6869e2e86de5f8aa09e"
+      },
+      "id": "abfall_io"
+    },
+    {
+      "title": "Amt Putlitz/Berge (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "4f06df48f154246415e57ce12b26abe5"
+      },
+      "id": "abfall_io"
     },
     {
       "title": "Andershausen",
@@ -7205,6 +7409,14 @@
       "module": "ics",
       "default_params": {},
       "id": "ics_mein_abfallkalender_online"
+    },
+    {
+      "title": "AWG Abfallwirtschaft Landkreis Calw",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "0813ea99f520c462373386564a99a51e"
+      },
+      "id": "abfall_io"
     },
     {
       "title": "AWG Bassum",
@@ -8789,12 +9001,28 @@
       "id": "cmcitymedia_de"
     },
     {
+      "title": "Gemeinde Gro\u00df Pankow (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "af91b65d2753a219309072837d8ea4e1"
+      },
+      "id": "abfall_io"
+    },
+    {
       "title": "Gemeinde Gr\u00fcndau",
       "module": "heimat_info_de",
       "default_params": {
         "commune": "gruendau"
       },
       "id": "heimat_info_de"
+    },
+    {
+      "title": "Gemeinde Gumtow (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "3cefa45ab357d231891bb497253c630f"
+      },
+      "id": "abfall_io"
     },
     {
       "title": "Gemeinde Kalletal",
@@ -8805,12 +9033,28 @@
       "id": "cmcitymedia_de"
     },
     {
+      "title": "Gemeinde Karst\u00e4dt (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "798f59a75627f5d7686dab0c7226c877"
+      },
+      "id": "abfall_io"
+    },
+    {
       "title": "Gemeinde Kranenburg",
       "module": "abfallnavi_de",
       "default_params": {
         "service": "kranenburg"
       },
       "id": "abfallnavi_de"
+    },
+    {
+      "title": "Gemeinde Plattenburg (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "a0461612534502273c518e28d4f6f1e4"
+      },
+      "id": "abfall_io"
     },
     {
       "title": "Gemeinde Roetgen",
@@ -9564,6 +9808,12 @@
         "municipality": "Katlenburg"
       },
       "id": "nerdbridge_de"
+    },
+    {
+      "title": "KAW Mainz und Mainz-Bingen A\u00f6R",
+      "module": "kaw_mainz_bingen_de",
+      "default_params": {},
+      "id": "kaw_mainz_bingen_de"
     },
     {
       "title": "KECL Kommunalentsorgung Chemnitzer Land",
@@ -11813,6 +12063,12 @@
       "id": "app_abfallplus_de"
     },
     {
+      "title": "Ostprignitz-Ruppin",
+      "module": "ostprignitz_ruppin_de",
+      "default_params": {},
+      "id": "ostprignitz_ruppin_de"
+    },
+    {
       "title": "Parensen",
       "module": "nerdbridge_de",
       "default_params": {
@@ -12162,12 +12418,10 @@
       "id": "123abfallkalender_de"
     },
     {
-      "title": "RSAG Rhein-Sieg-Kreis",
-      "module": "muellmax_de",
-      "default_params": {
-        "service": "Rsa"
-      },
-      "id": "muellmax_de"
+      "title": "RSAG Rhein-Sieg Abfallwirtschaftsgesellschaft",
+      "module": "rsag_de",
+      "default_params": {},
+      "id": "rsag_de"
     },
     {
       "title": "R\u00f6dermark",
@@ -12548,6 +12802,12 @@
       "id": "awido_de"
     },
     {
+      "title": "Stadt Gem\u00fcnden (Wohra)",
+      "module": "gemuenden_wohra_de",
+      "default_params": {},
+      "id": "gemuenden_wohra_de"
+    },
+    {
       "title": "Stadt Haltern am See",
       "module": "muellmax_de",
       "default_params": {
@@ -12660,6 +12920,30 @@
       "id": "ics_osnabrueck_de"
     },
     {
+      "title": "Stadt Perleberg (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "9fb3e2e5498e825250105ee272102a7b"
+      },
+      "id": "abfall_io"
+    },
+    {
+      "title": "Stadt Porta Westfalica",
+      "module": "abfallnavi_de",
+      "default_params": {
+        "service": "portawestfalica"
+      },
+      "id": "abfallnavi_de"
+    },
+    {
+      "title": "Stadt Pritzwalk (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "d92f59ef4066ae6d299478996d1d8430"
+      },
+      "id": "abfall_io"
+    },
+    {
       "title": "Stadt Regensburg",
       "module": "awido_de",
       "default_params": {
@@ -12708,6 +12992,14 @@
       "module": "ics",
       "default_params": {},
       "id": "ics_wetzlar_de"
+    },
+    {
+      "title": "Stadt Wittenberge (Landkreis Prignitz)",
+      "module": "abfall_io",
+      "default_params": {
+        "key": "b870ecfa6e1f882680758d374ba3fa2d"
+      },
+      "id": "abfall_io"
     },
     {
       "title": "Stadtbetrieb Frechen",
@@ -13895,6 +14187,14 @@
       "id": "junker_app"
     },
     {
+      "title": "Anzola dell'Emilia",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "7"
+      },
+      "id": "geovest_it"
+    },
+    {
       "title": "Aprica S.p.A.",
       "module": "apricaspa_it",
       "default_params": {},
@@ -13911,6 +14211,14 @@
       "module": "junker_app",
       "default_params": {},
       "id": "junker_app"
+    },
+    {
+      "title": "Argelato",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "12"
+      },
+      "id": "geovest_it"
     },
     {
       "title": "ARO Figulinas - DLR Ambiente - Ciclat",
@@ -14169,6 +14477,14 @@
       "id": "junker_app"
     },
     {
+      "title": "Calderara di Reno",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "8"
+      },
+      "id": "geovest_it"
+    },
+    {
       "title": "Calenzano",
       "module": "aliaserviziambientali_it",
       "default_params": {
@@ -14297,6 +14613,14 @@
       "module": "junker_app",
       "default_params": {},
       "id": "junker_app"
+    },
+    {
+      "title": "Castel Maggiore",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "10"
+      },
+      "id": "geovest_it"
     },
     {
       "title": "Castel Volturno - WM Magenta Srl",
@@ -14481,6 +14805,12 @@
       "id": "junker_app"
     },
     {
+      "title": "Comune.Digital",
+      "module": "comune_digital_it",
+      "default_params": {},
+      "id": "comune_digital_it"
+    },
+    {
       "title": "Comuni della Convenzione di Sesto Calende - Econord",
       "module": "junker_app",
       "default_params": {},
@@ -14567,6 +14897,14 @@
       "module": "junker_app",
       "default_params": {},
       "id": "junker_app"
+    },
+    {
+      "title": "Crevalcore",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "2"
+      },
+      "id": "geovest_it"
     },
     {
       "title": "Cupello - Pulchra Ambiente Srl",
@@ -14671,6 +15009,14 @@
       "id": "aliaserviziambientali_it"
     },
     {
+      "title": "Finale Emilia",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "1"
+      },
+      "id": "geovest_it"
+    },
+    {
       "title": "Firenze",
       "module": "aliaserviziambientali_it",
       "default_params": {
@@ -14765,6 +15111,12 @@
       "module": "junker_app",
       "default_params": {},
       "id": "junker_app"
+    },
+    {
+      "title": "Geovest",
+      "module": "geovest_it",
+      "default_params": {},
+      "id": "geovest_it"
     },
     {
       "title": "GESENU  Gestione Servizi Nettezza Urbana S.P.A",
@@ -15329,6 +15681,14 @@
       "id": "junker_app"
     },
     {
+      "title": "Nonantola",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "6"
+      },
+      "id": "geovest_it"
+    },
+    {
       "title": "Novara",
       "module": "junker_app",
       "default_params": {},
@@ -15541,6 +15901,14 @@
       "id": "junker_app"
     },
     {
+      "title": "Ravarino",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "9"
+      },
+      "id": "geovest_it"
+    },
+    {
       "title": "Ravello",
       "module": "junker_app",
       "default_params": {},
@@ -15645,6 +16013,14 @@
       "id": "junker_app"
     },
     {
+      "title": "Sala Bolognese",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "4"
+      },
+      "id": "geovest_it"
+    },
+    {
       "title": "Sala Consilina - SuperEco SRL",
       "module": "junker_app",
       "default_params": {},
@@ -15691,6 +16067,14 @@
       "id": "junker_app"
     },
     {
+      "title": "San Giovanni in Persiceto",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "5"
+      },
+      "id": "geovest_it"
+    },
+    {
       "title": "San Marcello Piteglio",
       "module": "aliaserviziambientali_it",
       "default_params": {
@@ -15703,6 +16087,14 @@
       "module": "junker_app",
       "default_params": {},
       "id": "junker_app"
+    },
+    {
+      "title": "Sant'Agata Bolognese",
+      "module": "geovest_it",
+      "default_params": {
+        "town_id": "13"
+      },
+      "id": "geovest_it"
     },
     {
       "title": "Santa Lucia del Mela",
@@ -16199,6 +16591,110 @@
       "module": "junker_app",
       "default_params": {},
       "id": "junker_app"
+    }
+  ],
+  "Japan": [
+    {
+      "title": "ThreeR",
+      "module": "delight_system_com",
+      "default_params": {},
+      "id": "delight_system_com"
+    }
+  ],
+  "Liechtenstein": [
+    {
+      "title": "Balzers",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "balzers"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Eschen Nendeln",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "eschen-nendeln"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "FL Abfalltransport AG",
+      "module": "abfalltransport_li",
+      "default_params": {},
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Gamprin Bendern",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "gamprin-bendern"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Mauren Schaanwald",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "mauren-schaanwald"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Planken",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "planken"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Ruggell",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "ruggell"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Schaan",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "schaan"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Schellenberg",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "schellenberg"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Triesen",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "triesen"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Triesenberg",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "triesenberg"
+      },
+      "id": "abfalltransport_li"
+    },
+    {
+      "title": "Vaduz",
+      "module": "abfalltransport_li",
+      "default_params": {
+        "municipality": "vaduz"
+      },
+      "id": "abfalltransport_li"
     }
   ],
   "Lithuania": [
@@ -16777,6 +17273,12 @@
       "id": "napier_govt_nz"
     },
     {
+      "title": "New Plymouth District Council",
+      "module": "npdc_govt_nz",
+      "default_params": {},
+      "id": "npdc_govt_nz"
+    },
+    {
       "title": "Porirua City",
       "module": "poriruacity_govt_nz",
       "default_params": {},
@@ -16787,6 +17289,12 @@
       "module": "rotorua_lakes_council_nz",
       "default_params": {},
       "id": "rotorua_lakes_council_nz"
+    },
+    {
+      "title": "Selwyn District Council",
+      "module": "selwyn_govt_nz",
+      "default_params": {},
+      "id": "selwyn_govt_nz"
     },
     {
       "title": "Taup\u014d District Council",
@@ -16879,6 +17387,12 @@
       "module": "remidt_no",
       "default_params": {},
       "id": "remidt_no"
+    },
+    {
+      "title": "Renovasjonsselskapet for Drammensregionen IKS (RfD)",
+      "module": "rfd_no",
+      "default_params": {},
+      "id": "rfd_no"
     },
     {
       "title": "ROAF (Romerike Avfallsforedling IKS)",
@@ -18000,6 +18514,12 @@
       "id": "fcc_group_eu"
     },
     {
+      "title": "KOSIT EAST",
+      "module": "kositeast_sk",
+      "default_params": {},
+      "id": "kositeast_sk"
+    },
+    {
       "title": "Odvoz Odpadu",
       "module": "ics",
       "default_params": {},
@@ -18302,14 +18822,6 @@
       "id": "molndal_se"
     },
     {
-      "title": "Nodra",
-      "module": "edpevent_se",
-      "default_params": {
-        "service_provider": "nodra"
-      },
-      "id": "edpevent_se"
-    },
-    {
       "title": "Norrtalje Vatten & Avfall",
       "module": "nvaa_se",
       "default_params": {},
@@ -18446,6 +18958,14 @@
       "module": "avfallsapp_se",
       "default_params": {
         "service_provider": "soderkoping"
+      },
+      "id": "avfallsapp_se"
+    },
+    {
+      "title": "Teknik i V\u00e4st (Arvika/Eda)",
+      "module": "avfallsapp_se",
+      "default_params": {
+        "service_provider": "teknikivast"
       },
       "id": "avfallsapp_se"
     },
@@ -19542,6 +20062,20 @@
       "id": "iapp_itouchvision_com"
     },
     {
+      "title": "Babergh and Mid Suffolk District Councils",
+      "module": "babergh_midsuffolk_gov_uk",
+      "default_params": {},
+      "id": "babergh_midsuffolk_gov_uk"
+    },
+    {
+      "title": "Babergh District Council",
+      "module": "babergh_midsuffolk_gov_uk",
+      "default_params": {
+        "council": "babergh"
+      },
+      "id": "babergh_midsuffolk_gov_uk"
+    },
+    {
       "title": "Barnsley Metropolitan Borough Council",
       "module": "barnsley_gov_uk",
       "default_params": {},
@@ -19652,6 +20186,12 @@
       "module": "broxbourne_gov_uk",
       "default_params": {},
       "id": "broxbourne_gov_uk"
+    },
+    {
+      "title": "Boston Borough Council",
+      "module": "boston_gov_uk",
+      "default_params": {},
+      "id": "boston_gov_uk"
     },
     {
       "title": "Bracknell Forest Council",
@@ -20576,6 +21116,14 @@
       "id": "mid_devon_gov_uk"
     },
     {
+      "title": "Mid Suffolk District Council",
+      "module": "babergh_midsuffolk_gov_uk",
+      "default_params": {
+        "council": "midsuffolk"
+      },
+      "id": "babergh_midsuffolk_gov_uk"
+    },
+    {
       "title": "Mid Sussex District Council (Whitespace WRP)",
       "module": "midsussex_gov_uk",
       "default_params": {},
@@ -21304,6 +21852,12 @@
       "id": "tmbc_gov_uk"
     },
     {
+      "title": "Torbay Council",
+      "module": "torbay_council_gov_uk",
+      "default_params": {},
+      "id": "torbay_council_gov_uk"
+    },
+    {
       "title": "Torridge Council",
       "module": "torridge_gov_uk",
       "default_params": {},
@@ -21562,6 +22116,12 @@
   ],
   "United States of America": [
     {
+      "title": "Abilene, TX",
+      "module": "abilene_tx_us",
+      "default_params": {},
+      "id": "abilene_tx_us"
+    },
+    {
       "title": "Albuquerque, New Mexico, USA",
       "module": "recyclecoach_com",
       "default_params": {
@@ -21577,6 +22137,12 @@
         "split_at": "\\, (?:and )?|(?: and )"
       },
       "id": "ics_recollect"
+    },
+    {
+      "title": "Baltimore County",
+      "module": "baltimore_county_md_us",
+      "default_params": {},
+      "id": "baltimore_county_md_us"
     },
     {
       "title": "Baton Rouge, LA",
@@ -21837,6 +22403,12 @@
       "module": "recyclecoach_com",
       "default_params": {},
       "id": "recyclecoach_com"
+    },
+    {
+      "title": "Red Bank, Tennessee",
+      "module": "red_bank_tn_us",
+      "default_params": {},
+      "id": "red_bank_tn_us"
     },
     {
       "title": "Republic Services",
