@@ -1083,10 +1083,10 @@
   mode: single
 - id: '1778240499637'
   alias: Zigbee2MQTT Down - Restart & Notify NP3
-  description: 'If Z2M bridge drops: full stop -> wait (lets Ember NCP/TCP recover)
+  description: 'If Z2M bridge drops: full stop -> wait (lets coordinator NCP/TCP recover)
     -> start, two escalating cycles. Notify immediately 07:00-22:00, else queue a
     morning notification with time + outcome. If still down after both cycles the
-    coordinator (SLZB 10.0.0.214) likely needs a power-cycle.'
+    Sonoff coordinator (10.0.0.214) likely needs a power-cycle.'
   triggers:
   - platform: state
     entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
@@ -1135,7 +1135,7 @@
           seconds: 75
   - variables:
       outcome: '{{ ''Recovered successfully'' if is_state(''binary_sensor.zigbee2mqtt_bridge_connection_state'',
-        ''on'') else ''STILL DOWN after 2 stop/start cycles - coordinator (SLZB 10.0.0.214)
+        ''on'') else ''STILL DOWN after 2 stop/start cycles - Sonoff coordinator (10.0.0.214)
         likely needs a power-cycle'' }}'
   - choose:
     - conditions:
