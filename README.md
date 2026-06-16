@@ -54,7 +54,7 @@
 | [Nextcloud](https://nextcloud.com/) | Self-hosted cloud — Proxmox VM, data in TrueNAS dataset |
 | [Collabora Online](https://www.collaboraoffice.com/) | Self-hosted office suite — Ubuntu Docker, WOPI integration with Nextcloud for in-browser document editing |
 | [InfluxDB](https://www.influxdata.com/) | Long-term time-series store — all HA entities written continuously; energy/solar history back to 2025, ESBN meter data back to 2024 |
-| [Node-RED](https://nodered.org/) | Flow-based automation engine — Proxmox LXC, connected to HA over the websocket API; runs the parcel-delivery concierge (Frigate package detection → snapshot push) and a nightly Proxmox backup watchdog (alerts if a backup fails) |
+| [Node-RED](https://nodered.org/) | Flow-based automation — Proxmox LXC; delivery alerts and backup monitoring |
 
 ### Energy & Environment
 | Integration | Purpose |
