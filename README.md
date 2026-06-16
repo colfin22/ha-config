@@ -118,7 +118,7 @@
 - **Low battery** — monitors all Zigbee devices, notifies when battery low
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
 - **Bins out** — evening reminder the night before Panda Waste collection; notifies which bin types are due the following morning
-- **Appliance notifications** — washing machine, dishwasher and tumble dryer; notifies on cycle start and finish with energy cost; TTS announcement on completion; 07:00–22:00 quiet window
+- **Appliance notifications** — washing machine, dishwasher and tumble dryer; notifies on cycle start and finish with energy cost; TTS announcement on completion; 22:00–07:00 quiet window
 - **Devices offline report** — daily 07:00 report to Colm listing all offline devices; adds items to the Tasks to-do list
 - **Printer auto power cycle** — checks every 15 minutes (07:00–21:00) and power-cycles the Brother printer socket if it goes offline
 
@@ -142,7 +142,7 @@
 ### 🏠 Infrastructure Monitoring
 - **Overnight alerts** — infrastructure alerts held until 07:00 with triggered-time in notification title
 - **9 infrastructure automations** — MikroTik, Pi-hole, Proxmox, TrueNAS, Netatmo; quiet hours 22:00–07:00
-- **Restic backup watchdog** — failure trap in each TrueNAS restic script fires HA webhook; same 07:00–22:00 quiet window
+- **Restic backup watchdog** — failure trap in each TrueNAS restic script fires HA webhook; same 22:00–07:00 quiet window
 - **Zigbee2MQTT watchdog** — auto-restart with 2 attempts, notifies on outcome
 - **Zabbix alerts** — webhook receiver → mobile push
 - **Update Tuesday** — generates the monthly homelab update report on the Monday before the 2nd Tuesday; notifies Colm with a link at 19:00
@@ -197,7 +197,7 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 | Olivia | `notify.mobile_app_pixel_6a` | Security + presence |
 | Cian | `notify.mobile_app_pixel_7a` | Selected |
 
-All alert automations respect a **07:00–22:00 quiet window** — overnight events are held and delivered with the original trigger time in the title.
+All alert automations respect a **22:00–07:00 quiet window** — overnight events are held and delivered with the original trigger time in the title.
 
 ---
 
