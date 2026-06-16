@@ -89,3 +89,6 @@ scripts/secrets_config.py
 
 # Control Centre dashboard (WIP — not ready to commit)
 www/ctrl/
+
+# Transient doorbell snapshot (Node-RED camera concierge cast)
+www/doorbell_snapshot.jpg

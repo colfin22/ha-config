@@ -2660,3 +2660,19 @@
           dataset }}.log
   mode: parallel
   max: 10
+- id: '1781598778402'
+  alias: Cat Alarm - Auto Disable at Sundown
+  description: Turns the cat alarm off at sunset if it is still on (any activation
+    source). The Cat Alarm state-announce automation then speaks the 'disabled' confirmation.
+  triggers:
+  - platform: sun
+    event: sunset
+  conditions:
+  - condition: state
+    entity_id: input_boolean.cat_alarm
+    state: 'on'
+  actions:
+  - target:
+      entity_id: input_boolean.cat_alarm
+    action: input_boolean.turn_off
+  mode: single
