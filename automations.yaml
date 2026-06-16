@@ -1,64 +1,3 @@
-- id: '1738415614884'
-  alias: Frigate - Olivia Notify
-  description: Sends Frigate alert notifications to Olivia for all cameras (front
-    car, van, rear door, shed, doorbell). Alert-severity events only, notifies once
-    with animated GIF preview. Also alerts on Android Auto.
-  use_blueprint:
-    path: SgtBatten/Stable.yaml
-    input:
-      presence_filter:
-      - ''
-      camera:
-      - camera.front_car
-      - camera.front_van
-      - camera.rear_door
-      - camera.rear_shed
-      - camera.doorbell
-      notify_device: 608a38b4b22a758514a74999ee616eb9
-      base_url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa
-      alert_once: true
-      attachment: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif'
-      attachment_2: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif'
-      review_severity:
-      - alert
-      message: '{{ label }} detected - {{ camera_name }} at {{event[''after''][''start_time'']|timestamp_custom(''%H:%M'')}}'
-      icon: mdi:cctv
-      android_auto: true
-      master_condition:
-      - condition: template
-        value_template: '{{ not (is_state(''input_boolean.patio_door_open'', ''on'')
-          and camera | lower in [''rear_door'', ''rear_shed'']) }}'
-- id: '1738415663458'
-  alias: Frigate - Colm Notify
-  description: Sends Frigate alert notifications to Colm for all cameras (front car,
-    van, rear door, shed, doorbell). Alert-severity events only, notifies once with
-    animated GIF preview. Also alerts on Android Auto.
-  use_blueprint:
-    path: SgtBatten/Stable.yaml
-    input:
-      presence_filter:
-      - ''
-      camera:
-      - camera.front_car
-      - camera.front_van
-      - camera.rear_door
-      - camera.rear_shed
-      - camera.doorbell
-      notify_device: 002753768c371c4f05a272c7e1e0f93c
-      base_url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa
-      alert_once: true
-      attachment: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif'
-      attachment_2: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif'
-      android_auto: true
-      review_severity:
-      - alert
-      message: '{{ label }} detected - {{ camera_name }}'
-      icon: mdi:cctv
-      final_update: false
-      master_condition:
-      - condition: template
-        value_template: '{{ not (is_state(''input_boolean.patio_door_open'', ''on'')
-          and camera | lower in [''rear_door'', ''rear_shed'']) }}'
 - id: '1738945275489'
   alias: Bins Out Notification
   description: Notify which bins to put out the night before collection, listing all
@@ -129,28 +68,6 @@
           entity_id: switch.brother_printer_socket
         action: switch.turn_on
   mode: single
-- id: '1767042274860'
-  alias: Frigate to Shield Notification
-  description: Sends a person-detected alert from the doorbell camera to the NVIDIA
-    Shield TV as a top-right overlay with snapshot and preview GIF.
-  use_blueprint:
-    path: SgtBatten/Stable.yaml
-    input:
-      camera:
-      - camera.doorbell
-      notify_group: notify.nvidia_shield
-      tv: true
-      tv_position: top-right
-      notify_device: 002753768c371c4f05a272c7e1e0f93c
-      base_url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa
-      attachment_2: '{{base_url}}/api/frigate{{client_id}}/notifications/{{id}}/snapshot.jpg'
-      video: '{{base_url}}/api/frigate{{client_id}}/notifications/{{review_id}}/review_preview.gif?format=ts'
-      attachment: '{{base_url}}/api/frigate{{client_id}}/notifications/{{id}}/snapshot.jpg'
-      tv_size: medium
-      final_update: true
-      message: '{{ label }} detected - {{ camera_name }} at {{event[''after''][''start_time'']|timestamp_custom(''%H:%M'')}}'
-      labels:
-      - person
 - id: '1769600924498'
   alias: Dishwasher Notifications & Actions
   description: Monitors dishwasher power to detect cycle start/end. Notifies Colm
@@ -878,78 +795,6 @@
     net_cost: '{{ (states(''input_number.yesterday_import_cost'') | float(0)) - (states(''input_number.yesterday_export_compensation'')
       | float(0)) }}'
     day_name: '{{ (now() - timedelta(days=1)).strftime(''%A'') }}'
-  mode: single
-- id: '1778233652235'
-  alias: Doorbell - Postman TTS Alert
-  description: When Frigate detects the postman at the doorbell, announce on all speakers.
-  triggers:
-  - platform: state
-    entity_id: sensor.frigate_postman_last_camera
-    to: Doorbell
-  conditions: []
-  actions:
-  - action: script.tts_announce
-    data:
-      message: The postman has been detected. You have post or a package.
-  mode: single
-- id: '1778233948678'
-  alias: Frigate - Courier Delivery TTS Alert
-  description: When DPD, GLS, Amazon, UPS, FedEx, DHL, or An Post is detected on the
-    front car or front van camera, announce on all speakers.
-  triggers:
-  - entity_id: sensor.front_car_dpd_count
-    above: 0
-    platform: numeric_state
-  - entity_id: sensor.front_van_dpd_count
-    above: 0
-    platform: numeric_state
-  - entity_id: sensor.front_car_gls_count
-    above: 0
-    platform: numeric_state
-  - entity_id: sensor.front_van_gls_count
-    above: 0
-    platform: numeric_state
-  - entity_id: sensor.front_car_amazon_count
-    above: 0
-    platform: numeric_state
-  - entity_id: sensor.front_van_amazon_count
-    above: 0
-    platform: numeric_state
-  - entity_id: sensor.front_car_ups_count
-    above: 0
-    platform: numeric_state
-  - entity_id: sensor.front_van_ups_count
-    above: 0
-    platform: numeric_state
-  - platform: numeric_state
-    entity_id: sensor.front_car_fedex_count
-    above: 0
-  - platform: numeric_state
-    entity_id: sensor.front_van_fedex_count
-    above: 0
-  - platform: numeric_state
-    entity_id: sensor.front_car_dhl_count
-    above: 0
-  - platform: numeric_state
-    entity_id: sensor.front_van_dhl_count
-    above: 0
-  - platform: numeric_state
-    entity_id: sensor.front_car_an_post_count
-    above: 0
-  - platform: numeric_state
-    entity_id: sensor.front_van_an_post_count
-    above: 0
-  conditions: []
-  actions:
-  - action: script.tts_announce
-    data:
-      message: '{{ courier_name }} has landed.'
-  variables:
-    courier_key: '{{ trigger.entity_id | replace(''sensor.front_car_'', '''') | replace(''sensor.front_van_'',
-      '''') | replace(''_count'', '''') }}'
-    courier_name: '{% set names = {''dpd'': ''DPD'', ''gls'': ''GLS'', ''amazon'':
-      ''Amazon'', ''ups'': ''UPS'', ''fedex'': ''FedEx'', ''dhl'': ''DHL'', ''an_post'':
-      ''An Post''} %}{{ names.get(courier_key, courier_key | upper) }}'
   mode: single
 - id: '1778234345312'
   alias: Doorbell - Hello Olivia TTS
@@ -1745,36 +1590,6 @@
           %}PBS remote VPN storage at {{ trigger.to_state.state | round(1) }}% — consider
           pruning backups{% endif %}'
   mode: single
-- id: '1779178937255'
-  alias: Doorbell - Person Snapshot on Kitchen Display
-  description: When Frigate detects a person at the doorbell, show the detection snapshot
-    with bounding box on the kitchen display for 20 seconds.
-  triggers:
-  - platform: mqtt
-    topic: frigate/events
-    value_template: '{{ value_json.type == ''new'' and value_json.after.camera ==
-      ''Doorbell'' and value_json.after.label == ''person'' }}'
-    payload: 'True'
-  conditions: []
-  actions:
-  - action: camera.snapshot
-    target:
-      entity_id: camera.doorbell
-    data:
-      filename: /config/www/doorbell_snapshot.jpg
-  - action: media_player.play_media
-    target:
-      entity_id: media_player.kitchen_display_cast
-    data:
-      media_content_id: http://10.0.0.252:8123/local/doorbell_snapshot.jpg?t={{ now().timestamp()
-        | int }}
-      media_content_type: image/jpeg
-  - delay:
-      seconds: 20
-  - action: media_player.turn_off
-    target:
-      entity_id: media_player.kitchen_display_cast
-  mode: restart
 - id: '1779369809621'
   alias: Nextcloud Problem Alerts
   description: Notify NP3 when Nextcloud VM goes offline, CPU/memory is strained,
