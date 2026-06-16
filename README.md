@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.2-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-58-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -89,7 +89,7 @@
 
 ## 🤖 Automations
 
-64 automations across the home. Key highlights:
+58 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **Occupancy lighting** — hallway, landing, and rooms via Zigbee motion sensors + lux thresholds; scene-based (bright/dimmed), fade-to-off on exit
@@ -98,8 +98,6 @@
 
 ### 🔒 Security
 - **Alarm** — Alarmo multi-zone; NFC tag to disarm on entry; strobe all lights on trigger (saves/restores state), notifies all phones
-- **Cameras** — person detection notifications from all cameras to Colm & Olivia with animated GIF preview
-- **Doorbell** — Frigate snapshot cast to kitchen display & Shield TV on ring
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
 - **Morning security report** — summary of overnight person detections delivered at 07:00; also notes any cats, foxes, dogs or birds spotted overnight
 - **Patio door** — NFC-toggled gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
@@ -112,8 +110,6 @@
 
 ### 📦 Alerts
 - **Parcel delivery** — Smart Parcel Box sensor triggers mobile notification on delivery
-- **Courier van** — Frigate van detection at front → TTS announcement with courier name
-- **Postman** — Doorbell Frigate detects post van → TTS announcement
 - **Person at car** — Frigate person detection at front car camera → mobile alert (night only)
 - **Low battery** — monitors all Zigbee devices, notifies when battery low
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
@@ -146,6 +142,16 @@
 - **Zigbee2MQTT watchdog** — auto-restart with 2 attempts, notifies on outcome
 - **Zabbix alerts** — webhook receiver → mobile push
 - **Update Tuesday** — generates the monthly homelab update report on the Monday before the 2nd Tuesday; notifies Colm with a link at 19:00
+
+---
+
+## 🔴 Node-RED Flows
+
+Complex, multi-input automation runs in **Node-RED** (separate Proxmox LXC) — full detail in [`colfin22/node-red-config`](https://github.com/colfin22/node-red-config).
+
+- **Camera Concierge** — Frigate detections → grouped, 3-stage (instant text → snapshot → GIF) phone alerts to Colm & Olivia. Grouped per zone (Front / Doorbell / Rear) and per type (person, vehicle, motorcycle, bicycle, package, umbrella); shows the priority camera's view; tapping opens the event clip. Also handles courier/postman TTS, doorbell cast to the kitchen display + Shield TV, and rear cameras suppressed by the patio-door NFC switch. (Replaced six former HA notify automations.)
+- **Backup Watchdog** — 07:30 daily; alerts Colm if a Proxmox backup failed or didn't run.
+- **Infra Watchdog** — escalating alerts off Uptime Kuma (service reachability), quiet-hours aware; TTS only when Colm is home.
 
 ---
 
