@@ -145,9 +145,9 @@
 
 ---
 
-## 🔴 Node-RED Flows
+## 🔴 Node-RED Workflows
 
-Complex, multi-input automation runs in **Node-RED** (separate Proxmox LXC) — full detail in [`colfin22/node-red-config`](https://github.com/colfin22/node-red-config).
+Complex, multi-input automation runs in **Node-RED** (Proxmox LXC).
 
 - **Camera Concierge** — Frigate detections → grouped, 3-stage (instant text → snapshot → GIF) phone alerts to Colm & Olivia. Grouped per zone (Front / Doorbell / Rear) and per type (person, vehicle, motorcycle, bicycle, package, umbrella); shows the priority camera's view; tapping opens the event clip. Also handles courier/postman TTS, doorbell cast to the kitchen display + Shield TV, and rear cameras suppressed by the patio-door NFC switch. (Replaced six former HA notify automations.)
 - **Backup Watchdog** — 07:30 daily; alerts Colm if a Proxmox backup failed or didn't run.
