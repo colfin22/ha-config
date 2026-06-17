@@ -53,3 +53,11 @@ light:
       - light.kitchen_2
       - light.kitchen_3
       - light.kitchen_tv_lightstrip
+
+  - platform: group
+    name: "Downstairs"
+    unique_id: "light_group_downstairs"
+    entities:
+      - light.hallway
+      - light.kitchen
+      - light.sitting_room
