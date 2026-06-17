@@ -61,3 +61,13 @@ light:
       - light.hallway
       - light.kitchen
       - light.sitting_room
+
+  - platform: group
+    name: "Upstairs"
+    unique_id: "light_group_upstairs"
+    entities:
+      - light.landing
+      - light.aoife_bedroom
+      - light.colm_bedroom
+      - light.cian_bedroom
+      - light.office
