@@ -275,6 +275,24 @@
         "max": 20.0,
         "step": 1.0,
         "mode": "box"
+      },
+      {
+        "id": "cian_bedroom_scene_index",
+        "name": "Cian Bedroom Scene Index",
+        "icon": "mdi:playlist-play",
+        "min": 0.0,
+        "max": 20.0,
+        "step": 1.0,
+        "mode": "box"
+      },
+      {
+        "id": "aoife_bedroom_scene_index",
+        "name": "Aoife Bedroom Scene Index",
+        "icon": "mdi:playlist-play",
+        "min": 0.0,
+        "max": 20.0,
+        "step": 1.0,
+        "mode": "box"
       }
     ]
   }

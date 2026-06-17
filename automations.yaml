@@ -2407,9 +2407,13 @@
     input:
       controller: Aoife Bedroom Dimmer Switch
       on_released:
-      - action: light.toggle
-        target:
-          entity_id: light.aoife_ceiling
+      - action: script.cycle_scenes
+        data:
+          light: light.aoife_bedroom
+          index_helper: input_number.aoife_bedroom_scene_index
+          scenes:
+          - scene.aoife_bedroom_dimmed
+          - scene.aoife_bedroom_bright
       up_pressed:
       - action: light.turn_on
         target:
@@ -2559,9 +2563,13 @@
     input:
       controller: Cian Bedroom Dimmer Switch
       on_released:
-      - action: light.toggle
-        target:
-          entity_id: light.cian_bedroom
+      - action: script.cycle_scenes
+        data:
+          light: light.cian_bedroom
+          index_helper: input_number.cian_bedroom_scene_index
+          scenes:
+          - scene.cian_bedroom_dimmed
+          - scene.cian_bedroom_bright
       up_pressed:
       - action: light.turn_on
         target:
