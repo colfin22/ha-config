@@ -3350,6 +3350,16 @@
                 },
                 {
                   "type": "tile",
+                  "entity": "light.aoife_bedroom",
+                  "name": "All Lights",
+                  "features": [
+                    {
+                      "type": "light-brightness"
+                    }
+                  ]
+                },
+                {
+                  "type": "tile",
                   "entity": "light.aoife_ceiling",
                   "name": "Ceiling"
                 }
@@ -3523,6 +3533,16 @@
                 {
                   "type": "heading",
                   "heading": "Lights"
+                },
+                {
+                  "type": "tile",
+                  "entity": "light.office",
+                  "name": "All Lights",
+                  "features": [
+                    {
+                      "type": "light-brightness"
+                    }
+                  ]
                 },
                 {
                   "type": "tile",
