@@ -2491,3 +2491,94 @@
       entity_id: input_boolean.cat_alarm
     action: input_boolean.turn_off
   mode: single
+- id: '1781701200000'
+  alias: Colm Bedroom Hue Dimmer Switch
+  description: Maps the Philips Hue dimmer switch (Gen 1, RWL021) in Colm's bedroom
+    to the light.colm_bedroom group via Z2M. On/off, brightness step +/-15% short and
+    +/-30% long, long-press on for full brightness.
+  use_blueprint:
+    path: EPMatt/philips_324131092621.yaml
+    input:
+      integration: Zigbee2MQTT
+      controller_device: 1bc8dc054c7a6cf4b14337496057306b
+      helper_last_controller_event: input_text.colm_bedroom_dimmer_helper_last_controller_event
+      action_button_on_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.colm_bedroom
+      action_button_on_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.colm_bedroom
+        data:
+          brightness_pct: 100
+      action_button_off_short:
+      - action: light.turn_off
+        target:
+          entity_id: light.colm_bedroom
+        data:
+          transition: 2
+      action_button_up_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.colm_bedroom
+        data:
+          brightness_step_pct: 15
+      action_button_up_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.colm_bedroom
+        data:
+          brightness_step_pct: 30
+      action_button_down_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.colm_bedroom
+        data:
+          brightness_step_pct: -15
+      action_button_down_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.colm_bedroom
+        data:
+          brightness_step_pct: -30
+- id: '1781702400000'
+  alias: Cian Bedroom Hue Dimmer Switch
+  description: Maps the Philips Hue dimmer switch (Gen 2, RWL022) in Cian's bedroom
+    to the light.cian_bedroom group via Z2M.
+  use_blueprint:
+    path: patpac9/Hue_Dimmer_Switch_Easy_Custom_Buttons.yaml
+    input:
+      controller: Cian Bedroom Dimmer Switch
+      on_released:
+      - action: light.toggle
+        target:
+          entity_id: light.cian_bedroom
+      up_pressed:
+      - action: light.turn_on
+        target:
+          entity_id: light.cian_bedroom
+        data:
+          brightness_step_pct: 15
+      up_held:
+      - action: light.turn_on
+        target:
+          entity_id: light.cian_bedroom
+        data:
+          brightness_step_pct: 30
+      down_pressed:
+      - action: light.turn_on
+        target:
+          entity_id: light.cian_bedroom
+        data:
+          brightness_step_pct: -15
+      down_held:
+      - action: light.turn_on
+        target:
+          entity_id: light.cian_bedroom
+        data:
+          brightness_step_pct: -30
+      off_pressed:
+      - action: light.turn_off
+        target:
+          entity_id: light.cian_bedroom

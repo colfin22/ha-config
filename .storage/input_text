@@ -58,6 +58,14 @@
         "min": 0,
         "mode": "text",
         "max": 100
+      },
+      {
+        "id": "colm_bedroom_dimmer_helper_last_controller_event",
+        "name": "Colm Bedroom Dimmer Helper Last Controller Event",
+        "icon": "mdi:gesture-tap-button",
+        "max": 255,
+        "mode": "text",
+        "min": 0
       }
     ]
   }

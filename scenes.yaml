@@ -48,3 +48,60 @@
     light.aoife_ceiling:
       state: 'on'
       brightness: 77
+- id: colm_bedroom_bright
+  name: Colm Bedroom Bright
+  entities:
+    light.colm_ceiling:
+      state: 'on'
+      brightness: 255
+    light.colm_bedside:
+      state: 'on'
+      brightness: 255
+    light.olivia_bedside:
+      state: 'on'
+      brightness: 255
+- id: colm_bedroom_dimmed
+  name: Colm Bedroom Dimmed
+  entities:
+    light.colm_ceiling:
+      state: 'on'
+      brightness: 77
+    light.colm_bedside:
+      state: 'on'
+      brightness: 77
+    light.olivia_bedside:
+      state: 'on'
+      brightness: 77
+- id: colm_bedroom_ceiling
+  name: Colm Bedroom ceiling
+  entities:
+    light.colm_ceiling:
+      state: 'on'
+      brightness: 50
+    light.colm_bedside:
+      state: 'off'
+    light.olivia_bedside:
+      state: 'off'
+- id: colm_bedroom_bedside
+  name: Colm Bedroom Bedside
+  entities:
+    light.colm_ceiling:
+      state: 'off'
+    light.colm_bedside:
+      state: 'on'
+      brightness: 50
+    light.olivia_bedside:
+      state: 'on'
+      brightness: 50
+- id: cian_bedroom_bright
+  name: Cian Bedroom Bright
+  entities:
+    light.cian_ceiling:
+      state: 'on'
+      brightness: 255
+- id: cian_bedroom_dimmed
+  name: Cian Bedroom Dimmed
+  entities:
+    light.cian_ceiling:
+      state: 'on'
+      brightness: 77

@@ -22,3 +22,17 @@ light:
     unique_id: "light_group_office"
     entities:
       - light.office_ceiling
+
+  - platform: group
+    name: "Colm Bedroom"
+    unique_id: "light_group_colm_bedroom"
+    entities:
+      - light.colm_ceiling
+      - light.colm_bedside
+      - light.olivia_bedside
+
+  - platform: group
+    name: "Cian Bedroom"
+    unique_id: "light_group_cian_bedroom"
+    entities:
+      - light.cian_ceiling

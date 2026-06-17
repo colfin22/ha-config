@@ -3050,7 +3050,7 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "light.spare",
+                  "entity": "light.olivia_bedside",
                   "name": "Olivia Bedside"
                 }
               ]

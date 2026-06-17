@@ -37081,6 +37081,363 @@
             "should_expose": false
           }
         }
+      },
+      "sensor.colm_ceiling_zigbee_connectivity": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.colm_ceiling": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.0x0017880104c96d70": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "select.0x0017880104c96d70_power_on_behavior": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "select.0x0017880104c96d70_effect": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "number.0x0017880104c96d70_effect_speed": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "text.0x0017880104c96d70_effect_color": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0x0017880104c96d70_linkquality": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "update.0x0017880104c96d70": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.colm_bedside_zigbee_connectivity": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.colm_bedside": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.0x0017880104a46259": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "select.0x0017880104a46259_power_on_behavior": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "select.0x0017880104a46259_effect": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "number.0x0017880104a46259_effect_speed": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "text.0x0017880104a46259_effect_color": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0x0017880104a46259_linkquality": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "update.0x0017880104a46259": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.spare_zigbee_connectivity": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.spare": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.colm_bedroom": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.0x00158d0005a27d99": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "select.0x00158d0005a27d99_effect": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "select.0x00158d0005a27d99_power_on_behavior": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0x00158d0005a27d99_linkquality": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.colm_bedroom_switch_battery": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.colm_bedroom_switch_zigbee_connectivity": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "event.colm_bedroom_switch_button_1": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "event.colm_bedroom_switch_button_2": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "event.colm_bedroom_switch_button_4": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "event.colm_bedroom_switch_button_3": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "scene.colm_bedroom_ceiling": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "scene.colm_bedroom_bedside": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.cian_ceiling_zigbee_connectivity": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.cian_ceiling": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.cian_bedroom": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.upstairs": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "light.0x00158d0002ff48a5": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "select.0x00158d0002ff48a5_effect": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "select.0x00158d0002ff48a5_power_on_behavior": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0x00158d0002ff48a5_linkquality": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.cian_bedroom_switch_battery": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.cian_bedroom_switch_zigbee_connectivity": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "event.cian_bedroom_switch_button_1": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "event.cian_bedroom_switch_button_3": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "event.cian_bedroom_switch_button_4": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "event.cian_bedroom_switch_button_2": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0x001788010b7a71fa_battery": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0x001788010b7a71fa_linkquality": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "update.0x001788010b7a71fa": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "scene.cian_bedroom_bright": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }
