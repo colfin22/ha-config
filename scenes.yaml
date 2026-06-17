@@ -105,3 +105,168 @@
     light.cian_ceiling:
       state: 'on'
       brightness: 77
+- id: sitting_room_tropical_butterfly
+  name: Sitting Room Tropical butterfly
+  entities:
+    light.sitting_room_stand:
+      state: 'on'
+      brightness: 144
+      xy_color: [0.518, 0.436]
+    light.sitting_room_tv_lightstrip:
+      state: 'on'
+      brightness: 144
+      xy_color: [0.567, 0.401]
+    light.sitting_room_lamp:
+      state: 'on'
+      brightness: 255
+      xy_color: [0.568, 0.401]
+- id: sitting_room_lake_placid
+  name: Sitting Room Lake Placid
+  entities:
+    light.sitting_room_stand:
+      state: 'on'
+      brightness: 102
+      xy_color: [0.464, 0.348]
+    light.sitting_room_tv_lightstrip:
+      state: 'on'
+      brightness: 102
+      xy_color: [0.398, 0.332]
+    light.sitting_room_lamp:
+      state: 'on'
+      brightness: 102
+      xy_color: [0.214, 0.133]
+- id: sitting_room_rolling_hills
+  name: Sitting Room Rolling hills
+  entities:
+    light.sitting_room_stand:
+      state: 'on'
+      brightness: 115
+      xy_color: [0.553, 0.394]
+    light.sitting_room_tv_lightstrip:
+      state: 'on'
+      brightness: 115
+      xy_color: [0.524, 0.403]
+    light.sitting_room_lamp:
+      state: 'on'
+      brightness: 115
+      xy_color: [0.501, 0.401]
+- id: sitting_room_movie
+  name: Sitting Room Movie
+  entities:
+    light.sitting_room_stand:
+      state: 'on'
+      brightness: 51
+      xy_color: [0.485, 0.376]
+    light.sitting_room_tv_lightstrip:
+      state: 'on'
+      brightness: 76
+      xy_color: [0.542, 0.386]
+    light.sitting_room_lamp:
+      state: 'off'
+- id: sitting_room_bright
+  name: Sitting Room Bright
+  entities:
+    light.sitting_room_stand:
+      state: 'on'
+      brightness: 255
+      color_temp_kelvin: 6410
+    light.sitting_room_tv_lightstrip:
+      state: 'on'
+      brightness: 255
+      color_temp_kelvin: 6410
+    light.sitting_room_lamp:
+      state: 'on'
+      brightness: 255
+      color_temp_kelvin: 6410
+- id: sitting_room_baltic_sunset
+  name: Sitting Room Baltic sunset
+  entities:
+    light.sitting_room_stand:
+      state: 'on'
+      brightness: 144
+      xy_color: [0.397, 0.323]
+    light.sitting_room_tv_lightstrip:
+      state: 'on'
+      brightness: 144
+      xy_color: [0.379, 0.325]
+    light.sitting_room_lamp:
+      state: 'on'
+      brightness: 255
+      xy_color: [0.387, 0.325]
+- id: kitchen_bright
+  name: Kitchen Bright
+  entities:
+    light.kitchen_1:
+      state: 'on'
+      brightness: 255
+    light.kitchen_2:
+      state: 'on'
+      brightness: 255
+    light.kitchen_tv_lightstrip:
+      state: 'on'
+      brightness: 255
+      color_temp_kelvin: 6535
+    light.kitchen_3:
+      state: 'on'
+      brightness: 255
+      color_temp_kelvin: 6535
+- id: kitchen_dimmed
+  name: Kitchen Dimmed
+  entities:
+    light.kitchen_1:
+      state: 'on'
+      brightness: 77
+    light.kitchen_2:
+      state: 'on'
+      brightness: 77
+    light.kitchen_tv_lightstrip:
+      state: 'on'
+      brightness: 77
+      color_temp_kelvin: 2725
+    light.kitchen_3:
+      state: 'on'
+      brightness: 77
+      color_temp_kelvin: 2725
+- id: kitchen_night
+  name: Kitchen Night
+  entities:
+    light.kitchen_1:
+      state: 'off'
+    light.kitchen_2:
+      state: 'off'
+    light.kitchen_tv_lightstrip:
+      state: 'on'
+      brightness: 192
+      color_temp_kelvin: 2257
+    light.kitchen_3:
+      state: 'on'
+      brightness: 75
+      color_temp_kelvin: 2242
+- id: kitchen_1_and_2
+  name: Kitchen 1 and 2
+  entities:
+    light.kitchen_1:
+      state: 'on'
+      brightness: 144
+    light.kitchen_2:
+      state: 'on'
+      brightness: 144
+    light.kitchen_tv_lightstrip:
+      state: 'off'
+    light.kitchen_3:
+      state: 'off'
+- id: kitchen_3_and_4
+  name: Kitchen 3 and 4
+  entities:
+    light.kitchen_1:
+      state: 'off'
+    light.kitchen_2:
+      state: 'off'
+    light.kitchen_tv_lightstrip:
+      state: 'on'
+      brightness: 144
+      color_temp_kelvin: 2237
+    light.kitchen_3:
+      state: 'on'
+      brightness: 144
+      color_temp_kelvin: 2237

@@ -2582,3 +2582,105 @@
       - action: light.turn_off
         target:
           entity_id: light.cian_bedroom
+- id: '1781703600000'
+  alias: Sitting Room Hue Dimmer Switch
+  description: Maps the Philips Hue dimmer switch (Gen 1, RWL021) in the sitting room
+    to the light.sitting_room group via Z2M. On/off, brightness step +/-15% short and
+    +/-30% long, long-press on for full brightness.
+  use_blueprint:
+    path: EPMatt/philips_324131092621.yaml
+    input:
+      integration: Zigbee2MQTT
+      controller_device: a6eb87a9b72f275bbf966a9065b13496
+      helper_last_controller_event: input_text.sitting_room_dimmer_helper_last_controller_event
+      action_button_on_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.sitting_room
+      action_button_on_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.sitting_room
+        data:
+          brightness_pct: 100
+      action_button_off_short:
+      - action: light.turn_off
+        target:
+          entity_id: light.sitting_room
+        data:
+          transition: 2
+      action_button_up_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.sitting_room
+        data:
+          brightness_step_pct: 15
+      action_button_up_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.sitting_room
+        data:
+          brightness_step_pct: 30
+      action_button_down_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.sitting_room
+        data:
+          brightness_step_pct: -15
+      action_button_down_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.sitting_room
+        data:
+          brightness_step_pct: -30
+- id: '1781704800000'
+  alias: Kitchen Hue Dimmer Switch
+  description: Maps the Philips Hue dimmer switch (Gen 1, RWL021) in the kitchen to
+    the light.kitchen group via Z2M. On/off, brightness step +/-15% short and +/-30%
+    long, long-press on for full brightness.
+  use_blueprint:
+    path: EPMatt/philips_324131092621.yaml
+    input:
+      integration: Zigbee2MQTT
+      controller_device: 985b48c9ed0bad6a79c851a7a70bea11
+      helper_last_controller_event: input_text.kitchen_dimmer_helper_last_controller_event
+      action_button_on_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.kitchen
+      action_button_on_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.kitchen
+        data:
+          brightness_pct: 100
+      action_button_off_short:
+      - action: light.turn_off
+        target:
+          entity_id: light.kitchen
+        data:
+          transition: 2
+      action_button_up_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.kitchen
+        data:
+          brightness_step_pct: 15
+      action_button_up_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.kitchen
+        data:
+          brightness_step_pct: 30
+      action_button_down_short:
+      - action: light.turn_on
+        target:
+          entity_id: light.kitchen
+        data:
+          brightness_step_pct: -15
+      action_button_down_long:
+      - action: light.turn_on
+        target:
+          entity_id: light.kitchen
+        data:
+          brightness_step_pct: -30

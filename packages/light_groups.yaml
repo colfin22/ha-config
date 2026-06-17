@@ -36,3 +36,20 @@ light:
     unique_id: "light_group_cian_bedroom"
     entities:
       - light.cian_ceiling
+
+  - platform: group
+    name: "Sitting Room"
+    unique_id: "light_group_sitting_room"
+    entities:
+      - light.sitting_room_stand
+      - light.sitting_room_tv_lightstrip
+      - light.sitting_room_lamp
+
+  - platform: group
+    name: "Kitchen"
+    unique_id: "light_group_kitchen"
+    entities:
+      - light.kitchen_1
+      - light.kitchen_2
+      - light.kitchen_3
+      - light.kitchen_tv_lightstrip

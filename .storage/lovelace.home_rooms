@@ -2284,7 +2284,7 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "light.cian_lamp",
+                  "entity": "light.kitchen_3",
                   "name": "Kitchen 3"
                 },
                 {
@@ -2596,7 +2596,7 @@
                 },
                 {
                   "type": "button",
-                  "entity": "scene.sitting_room_energise",
+                  "entity": "scene.sitting_room_bright",
                   "name": "Bright",
                   "icon": "mdi:brightness-7",
                   "show_state": false,
@@ -2606,7 +2606,7 @@
                 },
                 {
                   "type": "button",
-                  "entity": "scene.sitting_room_movie_2",
+                  "entity": "scene.sitting_room_movie",
                   "name": "Movie",
                   "icon": "mdi:movie-open-outline",
                   "show_state": false,
