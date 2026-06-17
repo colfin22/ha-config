@@ -34,8 +34,7 @@
 | Integration | Purpose |
 |---|---|
 | [Alarmo](https://github.com/nielsfaber/alarmo) | Multi-zone alarm with Zigbee sensors |
-| [Philips Hue](https://www.philips-hue.com/) | Hue lights — slowly migrating to Zigbee2MQTT (WIP) |
-| [Zigbee2MQTT](https://www.zigbee2mqtt.io/) | Zigbee device bridge (lights, motion, contact sensors) |
+| [Zigbee2MQTT](https://www.zigbee2mqtt.io/) | Zigbee device bridge — all household lights, dimmer switches, motion & contact sensors |
 | [Music Assistant](https://music-assistant.io/) | Multi-room audio — TuneIn (radio), Subsonic/Navidrome (local music), gPodder (podcasts) |
 | [Frigate](https://frigate.video/) | Local AI camera NVR — person/cat/fox/vehicle detection |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Low-latency camera stream server (built into Frigate) |
@@ -89,9 +88,11 @@
 
 ## 🤖 Automations
 
-58 automations across the home. Key highlights:
+63 automations across the home. Key highlights:
 
 ### 💡 Lighting
+- **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
+- **Dimmer switches** — per-room Hue dimmers (paired to Zigbee2MQTT) toggle and step brightness for each room
 - **Occupancy lighting** — hallway, landing, and rooms via Zigbee motion sensors + lux thresholds; scene-based (bright/dimmed), fade-to-off on exit
 - **Sunrise/sunset** — scene transitions throughout the day
 - **Sitting room power off** — turns off all Harmony devices after 30 minutes of no presence
