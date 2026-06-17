@@ -162,3 +162,51 @@ strobe_lights:
   - action: scene.turn_on
     target:
       entity_id: scene.strobe_lights_snapshot
+
+cycle_scenes:
+  alias: Cycle Scenes
+  description: Cycles a light group through an ordered list of scenes from a dimmer's
+    on button. First press from off turns the group on (last state); each further
+    press advances to the next scene, wrapping. Next-scene index stored in an input_number.
+  icon: mdi:playlist-play
+  mode: queued
+  max: 10
+  fields:
+    light:
+      description: Light group entity_id (e.g. light.kitchen)
+      required: true
+      example: light.kitchen
+    scenes:
+      description: Ordered list of scene entity_ids to cycle through
+      required: true
+      example: '[scene.kitchen_night, scene.kitchen_bright]'
+    index_helper:
+      description: input_number entity_id that stores the next scene index
+      required: true
+      example: input_number.kitchen_scene_index
+  sequence:
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ not is_state(light, ''on'') }}'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: '{{ light }}'
+      - action: input_number.set_value
+        target:
+          entity_id: '{{ index_helper }}'
+        data:
+          value: 0
+    default:
+    - variables:
+        n: '{{ scenes | length }}'
+        i: '{{ (states(index_helper) | int(0)) % (scenes | length) }}'
+    - action: scene.turn_on
+      target:
+        entity_id: '{{ scenes[i] }}'
+    - action: input_number.set_value
+      target:
+        entity_id: '{{ index_helper }}'
+      data:
+        value: '{{ (i + 1) % n }}'

@@ -2594,9 +2594,17 @@
       controller_device: a6eb87a9b72f275bbf966a9065b13496
       helper_last_controller_event: input_text.sitting_room_dimmer_helper_last_controller_event
       action_button_on_short:
-      - action: light.turn_on
-        target:
-          entity_id: light.sitting_room
+      - action: script.cycle_scenes
+        data:
+          light: light.sitting_room
+          index_helper: input_number.sitting_room_scene_index
+          scenes:
+          - scene.sitting_room_movie
+          - scene.sitting_room_lake_placid
+          - scene.sitting_room_rolling_hills
+          - scene.sitting_room_tropical_butterfly
+          - scene.sitting_room_baltic_sunset
+          - scene.sitting_room_bright
       action_button_on_long:
       - action: light.turn_on
         target:
@@ -2645,9 +2653,16 @@
       controller_device: 985b48c9ed0bad6a79c851a7a70bea11
       helper_last_controller_event: input_text.kitchen_dimmer_helper_last_controller_event
       action_button_on_short:
-      - action: light.turn_on
-        target:
-          entity_id: light.kitchen
+      - action: script.cycle_scenes
+        data:
+          light: light.kitchen
+          index_helper: input_number.kitchen_scene_index
+          scenes:
+          - scene.kitchen_night
+          - scene.kitchen_dimmed
+          - scene.kitchen_bright
+          - scene.kitchen_1_and_2
+          - scene.kitchen_3_and_4
       action_button_on_long:
       - action: light.turn_on
         target:
