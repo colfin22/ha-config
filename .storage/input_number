@@ -257,6 +257,24 @@
         "max": 20.0,
         "step": 1.0,
         "mode": "box"
+      },
+      {
+        "id": "office_scene_index",
+        "name": "Office Scene Index",
+        "icon": "mdi:playlist-play",
+        "min": 0.0,
+        "max": 20.0,
+        "step": 1.0,
+        "mode": "box"
+      },
+      {
+        "id": "colm_bedroom_scene_index",
+        "name": "Colm Bedroom Scene Index",
+        "icon": "mdi:playlist-play",
+        "min": 0.0,
+        "max": 20.0,
+        "step": 1.0,
+        "mode": "box"
       }
     ]
   }

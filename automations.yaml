@@ -368,11 +368,13 @@
       controller_device: f8d2538f89c131fa7bb7ecfc1eb0c502
       helper_last_controller_event: input_text.office_dimmer_helper_last_controller_event
       action_button_on_short:
-      - action: light.turn_on
-        metadata: {}
-        data: {}
-        target:
-          entity_id: light.office_ceiling
+      - action: script.cycle_scenes
+        data:
+          light: light.office
+          index_helper: input_number.office_scene_index
+          scenes:
+          - scene.office_dimmed
+          - scene.office_bright
       action_button_on_long:
       - action: light.turn_off
         metadata: {}
@@ -2503,9 +2505,15 @@
       controller_device: 1bc8dc054c7a6cf4b14337496057306b
       helper_last_controller_event: input_text.colm_bedroom_dimmer_helper_last_controller_event
       action_button_on_short:
-      - action: light.turn_on
-        target:
-          entity_id: light.colm_bedroom
+      - action: script.cycle_scenes
+        data:
+          light: light.colm_bedroom
+          index_helper: input_number.colm_bedroom_scene_index
+          scenes:
+          - scene.colm_bedroom_bedside
+          - scene.colm_bedroom_ceiling
+          - scene.colm_bedroom_dimmed
+          - scene.colm_bedroom_bright
       action_button_on_long:
       - action: light.turn_on
         target:
