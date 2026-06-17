@@ -17,17 +17,42 @@
       end_date_time: '{{ (now() + timedelta(hours=2)).strftime(''%Y-%m-%d'') }}T23:59:59'
     response_variable: collections
   - variables:
-      bins: '{{ collections[''calendar.panda_waste''][''events''] | map(attribute=''summary'')
-        | list | join('' & '') }}'
-  - action: notify.send_message
-    target:
-      entity_id:
-      - notify.np3
-      - notify.pixel_6a
+      bin_lines: "{% set events = collections['calendar.panda_waste']['events'] | map(attribute='summary')
+        | list %}{% set m = {'recycl':'♻️','waste':'🗑️','organic':'🟤','brown':'🟤','food':'🍂','glass':'🫙','garden':'🌿'}
+        %}{%- set ns = namespace(lines=[]) -%}{%- for b in events -%}{%- set key = b
+        | lower -%}{%- set icon = namespace(v='🗑️') -%}{%- for k,v in m.items() if
+        k in key -%}{%- set icon.v = v -%}{%- endfor -%}{%- set ns.lines = ns.lines
+        + [icon.v ~ ' ' ~ b] -%}{%- endfor -%}{{ ns.lines | join(' • ') }}"
+  - action: notify.mobile_app_np3
     data:
-      title: Bins Out Tonight
-      message: '{{ bins }} collection tomorrow morning — put the bins out before you
-        go to bed.'
+      title: 🗑️ Bins Out Tonight
+      message: |-
+        Out for collection tomorrow morning:
+        {{ bin_lines }}
+
+        Put them out before bed 🌙
+      data:
+        notification_icon: mdi:trash-can
+        color: '#43A047'
+        tag: bins-out
+        group: bins
+        channel: Bins
+        importance: high
+  - action: notify.mobile_app_pixel_6a
+    data:
+      title: 🗑️ Bins Out Tonight
+      message: |-
+        Out for collection tomorrow morning:
+        {{ bin_lines }}
+
+        Put them out before bed 🌙
+      data:
+        notification_icon: mdi:trash-can
+        color: '#43A047'
+        tag: bins-out
+        group: bins
+        channel: Bins
+        importance: high
   mode: single
 - id: '1767011232807'
   alias: Brother Printer Auto Power Cycle
