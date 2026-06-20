@@ -24,6 +24,11 @@
         "name": "Cat Alarm",
         "icon": "mdi:cat",
         "initial": false
+      },
+      {
+        "id": "heating_extended_away",
+        "name": "Heating Extended Away",
+        "icon": "mdi:home-thermometer-outline"
       }
     ]
   }

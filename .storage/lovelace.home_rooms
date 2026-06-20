@@ -412,8 +412,13 @@
                 },
                 {
                   "type": "custom:alarmo-card",
-                  "entity": "alarm_control_panel.alarmo",
-                  "name": "Alarmo"
+                  "entity": "alarm_control_panel.house",
+                  "name": "House"
+                },
+                {
+                  "type": "custom:alarmo-card",
+                  "entity": "alarm_control_panel.shed",
+                  "name": "Shed"
                 },
                 {
                   "type": "conditional",
@@ -1112,8 +1117,13 @@
                 },
                 {
                   "type": "custom:alarmo-card",
-                  "entity": "alarm_control_panel.alarmo",
-                  "name": "Alarmo"
+                  "entity": "alarm_control_panel.house",
+                  "name": "House"
+                },
+                {
+                  "type": "custom:alarmo-card",
+                  "entity": "alarm_control_panel.shed",
+                  "name": "Shed"
                 }
               ]
             },
@@ -1128,7 +1138,8 @@
                   "type": "logbook",
                   "hours_to_show": 24,
                   "entities": [
-                    "alarm_control_panel.alarmo",
+                    "alarm_control_panel.house",
+                    "alarm_control_panel.shed",
                     "binary_sensor.front_door_contact",
                     "binary_sensor.back_door_contact",
                     "binary_sensor.patio_door_contact",
@@ -1144,7 +1155,8 @@
                     "binary_sensor.front_van_person_occupancy",
                     "binary_sensor.front_car_person_occupancy",
                     "binary_sensor.rear_door_person_occupancy",
-                    "binary_sensor.rear_shed_person_occupancy"
+                    "binary_sensor.rear_shed_person_occupancy",
+                    "binary_sensor.shed_door_contact"
                   ]
                 }
               ]
@@ -1240,6 +1252,11 @@
                   "type": "tile",
                   "entity": "binary_sensor.patio_door_contact",
                   "name": "Patio Door"
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.shed_door_contact",
+                  "name": "Shed Door"
                 }
               ]
             },

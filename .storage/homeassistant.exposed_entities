@@ -38103,6 +38103,83 @@
             "should_expose": false
           }
         }
+      },
+      "binary_sensor.0xe406bffffeecd301_contact": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "binary_sensor.0xe406bffffeecd301_battery_low": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "binary_sensor.0xe406bffffeecd301_tamper": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0xe406bffffeecd301_battery": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0xe406bffffeecd301_voltage": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.0xe406bffffeecd301_linkquality": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "update.0xe406bffffeecd301": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.rear_shed_gate_closed_classification": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.nfc_disarm_alarmo": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.nfc_disarm_shed_alarm": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "input_boolean.shed_alarm_override": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }

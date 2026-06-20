@@ -17,20 +17,17 @@
       end_date_time: '{{ (now() + timedelta(hours=2)).strftime(''%Y-%m-%d'') }}T23:59:59'
     response_variable: collections
   - variables:
-      bin_lines: "{% set events = collections['calendar.panda_waste']['events'] | map(attribute='summary')
-        | list %}{% set m = {'recycl':'♻️','waste':'🗑️','organic':'🟤','brown':'🟤','food':'🍂','glass':'🫙','garden':'🌿'}
-        %}{%- set ns = namespace(lines=[]) -%}{%- for b in events -%}{%- set key = b
-        | lower -%}{%- set icon = namespace(v='🗑️') -%}{%- for k,v in m.items() if
-        k in key -%}{%- set icon.v = v -%}{%- endfor -%}{%- set ns.lines = ns.lines
+      bin_lines: "{% set events = collections['calendar.panda_waste']['events'] |
+        map(attribute='summary') | list %}{% set m = {'recycl':'♻️','waste':'\U0001F5D1️','organic':'\U0001F7E4','brown':'\U0001F7E4','food':'\U0001F342','glass':'\U0001FAD9','garden':'\U0001F33F'}
+        %}{%- set ns = namespace(lines=[]) -%}{%- for b in events -%}{%- set key =
+        b | lower -%}{%- set icon = namespace(v='\U0001F5D1️') -%}{%- for k,v in m.items()
+        if k in key -%}{%- set icon.v = v -%}{%- endfor -%}{%- set ns.lines = ns.lines
         + [icon.v ~ ' ' ~ b] -%}{%- endfor -%}{{ ns.lines | join(' • ') }}"
   - action: notify.mobile_app_np3
     data:
-      title: 🗑️ Bins Out Tonight
-      message: |-
-        Out for collection tomorrow morning:
-        {{ bin_lines }}
-
-        Put them out before bed 🌙
+      title: "\U0001F5D1️ Bins Out Tonight"
+      message: "Out for collection tomorrow morning:\n{{ bin_lines }}\n\nPut them
+        out before bed \U0001F319"
       data:
         notification_icon: mdi:trash-can
         color: '#43A047'
@@ -40,12 +37,9 @@
         importance: high
   - action: notify.mobile_app_pixel_6a
     data:
-      title: 🗑️ Bins Out Tonight
-      message: |-
-        Out for collection tomorrow morning:
-        {{ bin_lines }}
-
-        Put them out before bed 🌙
+      title: "\U0001F5D1️ Bins Out Tonight"
+      message: "Out for collection tomorrow morning:\n{{ bin_lines }}\n\nPut them
+        out before bed \U0001F319"
       data:
         notification_icon: mdi:trash-can
         color: '#43A047'
@@ -1433,24 +1427,6 @@
           entity_id: counter.tumble_dryer_weekly_cycles
   mode: parallel
   max: 3
-- id: '1778854433068'
-  alias: NFC - Disarm Alarmo
-  description: Scans NFC tag to disarm Alarmo, but only if the alarm is not already
-    disarmed.
-  triggers:
-  - platform: tag
-    tag_id: f195ee10-14a9-4b65-bd10-c53c9866bcdf
-  conditions:
-  - condition: not
-    conditions:
-    - condition: state
-      entity_id: alarm_control_panel.alarmo
-      state: disarmed
-  actions:
-  - action: alarm_control_panel.alarm_disarm
-    target:
-      entity_id: alarm_control_panel.alarmo
-  mode: single
 - id: '1778870199308'
   alias: NFC - Night Scene
   description: Scans NFC tag to activate the Kitchen Night scene.
@@ -2525,8 +2501,8 @@
 - id: '1781701200000'
   alias: Colm Bedroom Hue Dimmer Switch
   description: Maps the Philips Hue dimmer switch (Gen 1, RWL021) in Colm's bedroom
-    to the light.colm_bedroom group via Z2M. On/off, brightness step +/-15% short and
-    +/-30% long, long-press on for full brightness.
+    to the light.colm_bedroom group via Z2M. On/off, brightness step +/-15% short
+    and +/-30% long, long-press on for full brightness.
   use_blueprint:
     path: EPMatt/philips_324131092621.yaml
     input:
@@ -2626,8 +2602,8 @@
 - id: '1781703600000'
   alias: Sitting Room Hue Dimmer Switch
   description: Maps the Philips Hue dimmer switch (Gen 1, RWL021) in the sitting room
-    to the light.sitting_room group via Z2M. On/off, brightness step +/-15% short and
-    +/-30% long, long-press on for full brightness.
+    to the light.sitting_room group via Z2M. On/off, brightness step +/-15% short
+    and +/-30% long, long-press on for full brightness.
   use_blueprint:
     path: EPMatt/philips_324131092621.yaml
     input:
@@ -2740,3 +2716,35 @@
           entity_id: light.kitchen
         data:
           brightness_step_pct: -30
+- id: '1781878107633'
+  alias: Shed Door - 10pm Open Reminder
+  description: At 22:00 if the shed door is open, notify Colm + Olivia; at 22:05 if
+    still open, TTS reminder on all audio devices.
+  triggers:
+  - platform: time
+    at: '22:00:00'
+  conditions:
+  - condition: state
+    entity_id: binary_sensor.shed_door_contact
+    state: 'on'
+  actions:
+  - data:
+      title: "\U0001F513 Shed Door Open"
+      message: The shed door is open (10pm check). Don't forget to close it.
+    action: notify.mobile_app_np3
+  - data:
+      title: "\U0001F513 Shed Door Open"
+      message: The shed door is open (10pm check). Don't forget to close it.
+    action: notify.mobile_app_pixel_6a
+  - delay:
+      minutes: 5
+  - if:
+    - condition: state
+      entity_id: binary_sensor.shed_door_contact
+      state: 'on'
+    then:
+    - data:
+        message: Reminder. The shed door is still open. Please close it.
+        target_player: media_player.home_audio_group_cast
+      action: script.tts_announce
+  mode: single
