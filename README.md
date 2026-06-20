@@ -102,7 +102,6 @@
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
 - **Morning security report** — summary of overnight person detections delivered at 07:00; also notes any cats, foxes, dogs or birds spotted overnight
 - **Patio door** — NFC-toggled gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
-- **Alarm not armed on leaving** — notifies Colm and Olivia if both have been away for 30+ minutes and the alarm is still disarmed; actionable notification arms it remotely with one tap
 
 ### 🌤️ Weather
 - **Morning forecast** — daily weather summary pushed to all phones at 08:30 with emoji-coded conditions; if Colm or Olivia is more than 100km from home a second block is added for their away location
