@@ -98,11 +98,10 @@
 - **Sitting room power off** — turns off all Harmony devices after 30 minutes of no presence
 
 ### 🔒 Security
-- **Alarm** — Alarmo multi-zone; NFC tag to disarm on entry; strobe all lights on trigger (saves/restores state), notifies all phones
+- **Alarm** — Alarmo multi-zone (house + shed); strobe all lights on trigger (saves/restores state). Arming, disarming, NFC tags and notifications run in Node-RED (see below).
 - **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
 - **Morning security report** — summary of overnight person detections delivered at 07:00; also notes any cats, foxes, dogs or birds spotted overnight
 - **Patio door** — NFC-toggled gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
-- **NFC disarm** — NFC tag at front door disarms the alarm; no-op if already disarmed
 - **Alarm not armed on leaving** — notifies Colm and Olivia if both have been away for 30+ minutes and the alarm is still disarmed; actionable notification arms it remotely with one tap
 
 ### 🌤️ Weather
@@ -153,6 +152,8 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC).
 - **Camera Concierge** — Frigate detections → grouped, 3-stage (instant text → snapshot → GIF) phone alerts to Colm & Olivia. Grouped per zone (Front / Doorbell / Rear) and per type (person, vehicle, motorcycle, bicycle, package, umbrella); shows the priority camera's view; tapping opens the event clip. Also handles courier/postman TTS, doorbell cast to the kitchen display + Shield TV, and rear cameras suppressed by the patio-door NFC switch. (Replaced six former HA notify automations.)
 - **Backup Watchdog** — 07:30 daily; alerts Colm if a Proxmox backup failed or didn't run.
 - **Infra Watchdog** — escalating alerts off Uptime Kuma (service reachability), quiet-hours aware; TTS only when Colm is home.
+- **Alarm Auto-Arm & Announcements** — arms the house alarm automatically 30 minutes after everyone leaves (phone location plus a Wi-Fi presence check for Colm and Olivia) and disarms it the instant someone arrives. Every alarm event — armed, disarmed, triggered, cleared and failed-to-arm — across both the house and shed zones is pushed to Colm's and Olivia's phones and announced on all speakers, however the alarm was changed (phone, NFC or automatically).
+- **Alarm NFC Tags** — the front-door tag disarms the house; the back-door tag stands the shed alarm down for two hours, or re-arms it 15 minutes after the shed door has been opened and then closed.
 
 ---
 
