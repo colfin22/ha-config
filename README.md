@@ -108,8 +108,8 @@
 - **Evening forecast** — tomorrow's forecast pushed at 21:00 each night with the same away-location logic
 
 ### 📦 Alerts
-- **Parcel delivery** — Smart Parcel Box sensor triggers mobile notification on delivery
-- **Person at car** — Frigate person detection at front car camera → mobile alert (night only)
+- **Parcel delivery** — Smart Parcel Box sensor triggers a mobile notification + TTS announcement on delivery
+- **Person at car** — Frigate person detection at front car camera → mobile alert + TTS announcement (night only)
 - **Low battery** — monitors all Zigbee devices, notifies when battery low
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
 - **Bins out** — the night before a Panda Waste collection: a **19:00** reminder of which bin types are due (icons per type, from the calendar), then at **22:00** a check of Frigate's `waste_bin` object on the Front Van camera — if no bin is detected at the kerb, it announces a **TTS** reminder on the speakers and sends a **second phone alert** with a camera snapshot
