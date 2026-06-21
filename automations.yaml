@@ -2717,35 +2717,3 @@
           entity_id: light.kitchen
         data:
           brightness_step_pct: -30
-- id: '1781878107633'
-  alias: Shed Door - 10pm Open Reminder
-  description: At 22:00 if the shed door is open, notify Colm + Olivia; at 22:05 if
-    still open, TTS reminder on all audio devices.
-  triggers:
-  - platform: time
-    at: '22:00:00'
-  conditions:
-  - condition: state
-    entity_id: binary_sensor.shed_door_contact
-    state: 'on'
-  actions:
-  - data:
-      title: "\U0001F513 Shed Door Open"
-      message: The shed door is open (10pm check). Don't forget to close it.
-    action: notify.mobile_app_np3
-  - data:
-      title: "\U0001F513 Shed Door Open"
-      message: The shed door is open (10pm check). Don't forget to close it.
-    action: notify.mobile_app_pixel_6a
-  - delay:
-      minutes: 5
-  - if:
-    - condition: state
-      entity_id: binary_sensor.shed_door_contact
-      state: 'on'
-    then:
-    - data:
-        message: Reminder. The shed door is still open. Please close it.
-        target_player: media_player.home_audio_group_cast
-      action: script.tts_announce
-  mode: single
