@@ -38180,6 +38180,20 @@
             "should_expose": false
           }
         }
+      },
+      "automation.alert_house_empty_alarm_not_armed": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.shed_door_10pm_open_reminder": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }

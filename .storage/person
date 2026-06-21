@@ -16,7 +16,9 @@
       {
         "id": "daire_finn",
         "name": "Daire Finn",
-        "device_trackers": [],
+        "device_trackers": [
+          "device_tracker.pixel_9a"
+        ],
         "user_id": "848fa8f992bb47d6a23f498d73717814",
         "picture": "/api/image/serve/997583f78468bc297269eae3ba92c462/512x512"
       },
