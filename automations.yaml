@@ -874,8 +874,11 @@
   mode: single
 - id: '1778234345312'
   alias: Doorbell - Hello Olivia TTS
-  description: When Olivia is detected at the doorbell between 1pm and 2pm on weekdays,
-    greet her on all speakers after a short delay.
+  description: 'When Olivia is face-detected at the doorbell between 1-2pm on weekdays:
+    takes a doorbell snapshot, asks LLM Vision (Gemini 2.5-flash) for a short witty
+    compliment about how she looks today, then greets her with it on the kitchen +
+    sitting-room speakers after a 2-min delay (volume boosted then restored). Falls
+    back to a generic greeting if vision fails.'
   triggers:
   - platform: state
     entity_id: sensor.frigate_olivia_last_camera
@@ -891,6 +894,27 @@
     - thu
     - fri
   actions:
+  - action: llmvision.image_analyzer
+    data:
+      provider: 01K4FMFEXK56935CBS3A6F8R34
+      model: gemini-2.5-flash
+      image_entity:
+      - camera.doorbell
+      message: You are a charming, playful home assistant greeting Olivia, the lady
+        of the house, as she arrives home for lunch. Looking at her in the image,
+        give ONE short, warm, witty compliment about how lovely she looks today -
+        friendly and a touch cheeky, never unkind, and address her by name (Olivia).
+        If you cannot see her clearly, give a warm generic welcome-home compliment
+        instead. Reply with ONLY the spoken sentence, max 20 words, no quotes, no
+        emojis.
+      max_tokens: 500
+      temperature: 0.95
+    response_variable: greeting
+  - variables:
+      greet: '{% set r = greeting.response_text | default('''') | replace(''"'','''')
+        | trim %}{{ r if (r and ''error'' not in r|lower and ''unable'' not in r|lower
+        and ''couldn'' not in r|lower) else ''Hello Olivia, you are looking absolutely
+        amazing today!'' }}'
   - delay:
       minutes: 2
   - variables:
@@ -904,14 +928,13 @@
       - media_player.kitchen_display_cast
       - media_player.sitting_room_speaker_cast
     data:
-      volume_level: 1.0
+      volume_level: 1
   - action: tts.cloud_say
     data:
       entity_id:
       - media_player.kitchen_display_cast
       - media_player.sitting_room_speaker_cast
-      message: Hello Olivia. How are you? You're looking amazing today. I hope you
-        had a good day at work?
+      message: '{{ greet }}'
   - delay:
       seconds: 15
   - action: media_player.volume_set

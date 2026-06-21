@@ -118,7 +118,7 @@
 - **Printer auto power cycle** — checks every 15 minutes (07:00–21:00) and power-cycles the Brother printer socket if it goes offline
 
 ### 🎉 Fun
-- **Hello Olivia** — Frigate face recognition detects Olivia at the doorbell on weekdays 1–2pm; greets her on all speakers at full volume after a short delay
+- **Hello Olivia** — Frigate face-recognises Olivia at the doorbell on weekdays 1–2pm → LLM Vision (Gemini) writes a short, witty compliment about how she looks that day from the doorbell snapshot, spoken on the kitchen + sitting-room speakers after a short delay (volume boosted then restored, falls back to a generic greeting if vision fails)
 - **Colm's Grand Return** — Frigate face recognition detects Colm at the doorbell after 3+ days away; plays a trumpet fanfare and announces his return on all speakers
 
 ### 🎵 Audio
