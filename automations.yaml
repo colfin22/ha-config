@@ -1,52 +1,107 @@
 - id: '1738945275489'
   alias: Bins Out Notification
-  description: Notify which bins to put out the night before collection, listing all
-    bin types due that day
+  description: 'Evening-before bin reminders (Panda waste). 19:00 the night before
+    a collection: pushes Colm + Olivia which bins are due (icon per type, from calendar.panda_waste).
+    22:00: checks Frigate''s waste_bin object on the Front Van camera (binary_sensor.front_van_waste_bin_occupancy)
+    — if no bin is seen out front it announces a TTS reminder on the home speakers
+    + sends a second phone alert with a camera snapshot. Two calendar triggers on
+    calendar.panda_waste (offset -5h = 19:00, -2h = 22:00), branched by trigger id.'
   triggers:
+  - platform: calendar
+    event: start
+    offset: '-5:0:0'
+    entity_id: calendar.panda_waste
+    id: notify_7pm
   - platform: calendar
     event: start
     offset: '-2:0:0'
     entity_id: calendar.panda_waste
+    id: check_10pm
   conditions: []
   actions:
   - action: calendar.get_events
     target:
       entity_id: calendar.panda_waste
     data:
-      start_date_time: '{{ (now() + timedelta(hours=2)).strftime(''%Y-%m-%d'') }}T00:00:00'
-      end_date_time: '{{ (now() + timedelta(hours=2)).strftime(''%Y-%m-%d'') }}T23:59:59'
+      start_date_time: '{{ (now() + timedelta(days=1)).strftime(''%Y-%m-%d'') }}T00:00:00'
+      end_date_time: '{{ (now() + timedelta(days=1)).strftime(''%Y-%m-%d'') }}T23:59:59'
     response_variable: collections
   - variables:
       bin_lines: "{% set events = collections['calendar.panda_waste']['events'] |
-        map(attribute='summary') | list %}{% set m = {'recycl':'♻️','waste':'\U0001F5D1️','organic':'\U0001F7E4','brown':'\U0001F7E4','food':'\U0001F342','glass':'\U0001FAD9','garden':'\U0001F33F'}
+        map(attribute='summary') | list %}{% set m = {'recycl':'♻️','waste':'\U0001F5D1️','organic':'\U0001F7E4','brown':'\U0001F7E4','food':'\U0001F342','glass':'\U0001F96B','garden':'\U0001F33F'}
         %}{%- set ns = namespace(lines=[]) -%}{%- for b in events -%}{%- set key =
         b | lower -%}{%- set icon = namespace(v='\U0001F5D1️') -%}{%- for k,v in m.items()
         if k in key -%}{%- set icon.v = v -%}{%- endfor -%}{%- set ns.lines = ns.lines
         + [icon.v ~ ' ' ~ b] -%}{%- endfor -%}{{ ns.lines | join(' • ') }}"
-  - action: notify.mobile_app_np3
-    data:
-      title: "\U0001F5D1️ Bins Out Tonight"
-      message: "Out for collection tomorrow morning:\n{{ bin_lines }}\n\nPut them
-        out before bed \U0001F319"
-      data:
-        notification_icon: mdi:trash-can
-        color: '#43A047'
-        tag: bins-out
-        group: bins
-        channel: Bins
-        importance: high
-  - action: notify.mobile_app_pixel_6a
-    data:
-      title: "\U0001F5D1️ Bins Out Tonight"
-      message: "Out for collection tomorrow morning:\n{{ bin_lines }}\n\nPut them
-        out before bed \U0001F319"
-      data:
-        notification_icon: mdi:trash-can
-        color: '#43A047'
-        tag: bins-out
-        group: bins
-        channel: Bins
-        importance: high
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: notify_7pm
+      sequence:
+      - action: notify.mobile_app_np3
+        data:
+          title: "\U0001F5D1️ Bins Out Tonight"
+          message: "Out for collection tomorrow morning:\n{{ bin_lines }}\n\nPut them
+            out before bed \U0001F319"
+          data:
+            notification_icon: mdi:trash-can
+            color: '#43A047'
+            tag: bins-out
+            group: bins
+            channel: Bins
+            importance: high
+      - action: notify.mobile_app_pixel_6a
+        data:
+          title: "\U0001F5D1️ Bins Out Tonight"
+          message: "Out for collection tomorrow morning:\n{{ bin_lines }}\n\nPut them
+            out before bed \U0001F319"
+          data:
+            notification_icon: mdi:trash-can
+            color: '#43A047'
+            tag: bins-out
+            group: bins
+            channel: Bins
+            importance: high
+    - conditions:
+      - condition: trigger
+        id: check_10pm
+      sequence:
+      - if:
+        - condition: state
+          entity_id: binary_sensor.front_van_waste_bin_occupancy
+          state: 'off'
+        then:
+        - action: script.tts_announce
+          data:
+            message: Reminder. The bins do not appear to be out and collection is
+              tomorrow. Please put them out.
+            target_player: media_player.home_audio_group_cast
+        - action: notify.mobile_app_np3
+          data:
+            title: "\U0001F5D1️ Bins NOT out!"
+            message: Collection tomorrow ({{ bin_lines }}) but no bin is detected
+              out front at the kerb. Did they go out?
+            data:
+              image: /api/camera_proxy/camera.front_van
+              notification_icon: mdi:trash-can-outline
+              color: '#E53935'
+              tag: bins-out
+              group: bins
+              channel: Bins
+              importance: high
+        - action: notify.mobile_app_pixel_6a
+          data:
+            title: "\U0001F5D1️ Bins NOT out!"
+            message: Collection tomorrow ({{ bin_lines }}) but no bin is detected
+              out front at the kerb. Did they go out?
+            data:
+              image: /api/camera_proxy/camera.front_van
+              notification_icon: mdi:trash-can-outline
+              color: '#E53935'
+              tag: bins-out
+              group: bins
+              channel: Bins
+              importance: high
   mode: single
 - id: '1767011232807'
   alias: Brother Printer Auto Power Cycle
