@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.2-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-58-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -151,7 +151,7 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC).
 - **Camera Concierge** — Frigate detections → grouped, 3-stage (instant text → snapshot → GIF) phone alerts to Colm & Olivia. Grouped per zone (Front / Doorbell / Rear) and per type (person, vehicle, motorcycle, bicycle, package, umbrella); shows the priority camera's view; tapping opens the event clip. Also handles courier/postman TTS, doorbell cast to the kitchen display + Shield TV, and rear cameras suppressed by the patio-door NFC switch. (Replaced six former HA notify automations.)
 - **Backup Watchdog** — 07:30 daily; alerts Colm if a Proxmox backup failed or didn't run.
 - **Infra Watchdog** — escalating alerts off Uptime Kuma (service reachability), quiet-hours aware; TTS only when Colm is home.
-- **Alarm Auto-Arm & Announcements** — arms the house alarm automatically 30 minutes after everyone leaves (phone location plus a Wi-Fi presence check for Colm and Olivia) and disarms it the instant someone arrives. Every alarm event — armed, disarmed, triggered, cleared and failed-to-arm — across both the house and shed zones is pushed to Colm's and Olivia's phones and announced on all speakers, however the alarm was changed (phone, NFC or automatically).
+- **Alarm Auto-Arm & Announcements** — arms the house alarm automatically 20 minutes after everyone leaves (phone location plus a Wi-Fi presence check) and disarms it the instant someone arrives. Because presence is phone-based, it won't arm on someone whose phone has died — it holds off if indoor sensors still show movement or a resident's phone has gone offline, and it nudges you to charge a phone that drops below 15%. Every alarm event — armed, disarmed, triggered, cleared and failed-to-arm — across both the house and shed zones is pushed to Colm's and Olivia's phones and announced on all speakers, however the alarm was changed (phone, NFC or automatically).
 - **Alarm NFC Tags** — the front-door tag disarms the house; the back-door tag stands the shed alarm down for up to two hours. The shed re-arms 15 minutes after the door has been opened and then closed, or at the two-hour cap. If the shed is **left open** at the two-hour cap it stays disarmed and sends a reminder (push + spoken announcement). As a nightly safety net, at **10pm** the shed auto-arms if it's still disarmed and the door is closed.
 
 ---
