@@ -2,8 +2,8 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.2-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-63-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Automations](https://img.shields.io/badge/Automations-62-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -88,7 +88,7 @@
 
 ## 🤖 Automations
 
-63 automations across the home. Key highlights:
+62 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
@@ -99,7 +99,7 @@
 
 ### 🔒 Security
 - **Alarm** — Alarmo multi-zone (house + shed); strobe all lights on trigger (saves/restores state). Arming, disarming, NFC tags and notifications run in Node-RED (see below).
-- **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert
+- **Cat alarm** — protects Cian's cockatiel when cage is outside; NFC-toggled, Frigate cat detection → TTS alert; enabling it turns the kitchen TV lightstrip green (restored when disabled)
 - **Morning security report** — summary of overnight person detections delivered at 07:00; also notes any cats, foxes, dogs or birds spotted overnight
 - **Patio door** — NFC-toggled gate suppresses Frigate rear door & shed alerts when patio door is open; auto-disarms on door close
 
