@@ -553,6 +553,10 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             container = find_container(self.coordinator.data, self._container_key)
             if container is not None:
                 return container.get(self._container_metric)
+        if self.entity_description.key == "containers":
+            details = self.coordinator.data.get("container_details")
+            if isinstance(details, list):
+                return len(details)
         return self.coordinator.data.get(self.entity_description.key)
 
     @property

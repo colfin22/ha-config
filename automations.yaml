@@ -2795,3 +2795,54 @@
           entity_id: light.kitchen
         data:
           brightness_step_pct: -30
+- id: '1782548125867'
+  alias: Cat Alarm - Kitchen TV Lightstrip Green
+  description: When input_boolean.cat_alarm turns on, snapshot the Kitchen TV Lightstrip
+    then set it green; restore the snapshot when the alarm turns off.
+  triggers:
+  - platform: state
+    entity_id: input_boolean.cat_alarm
+    to: 'on'
+    id: enabled
+  - platform: state
+    entity_id: input_boolean.cat_alarm
+    to: 'off'
+    id: disabled
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: enabled
+      sequence:
+      - data:
+          scene_id: cat_alarm_lightstrip_restore
+          snapshot_entities:
+          - light.kitchen_tv_lightstrip
+        action: scene.create
+      - target:
+          entity_id: light.kitchen_tv_lightstrip
+        data:
+          rgb_color:
+          - 0
+          - 255
+          - 0
+          brightness_pct: 100
+        action: light.turn_on
+    - conditions:
+      - condition: trigger
+        id: disabled
+      sequence:
+      - choose:
+        - conditions:
+          - condition: template
+            value_template: '{{ states(''scene.cat_alarm_lightstrip_restore'') not
+              in [''unknown'',''unavailable''] }}'
+          sequence:
+          - target:
+              entity_id: scene.cat_alarm_lightstrip_restore
+            action: scene.turn_on
+        default:
+        - target:
+            entity_id: light.kitchen_tv_lightstrip
+          action: light.turn_off
+  mode: single
