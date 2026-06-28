@@ -88,7 +88,7 @@
 
 ## 🤖 Automations
 
-62 automations across the home. Key highlights:
+58 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)

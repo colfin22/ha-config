@@ -1161,9 +1161,10 @@
         %-d %B'') }}'
       notif_message: "{{ icon }} {{ condition | replace('-', ' ') | title }}\n\n\U0001F321️
         \ High {{ fc.temperature | default(0) | round | int }}°C  ·  Low {{ fc.templow
-        | default(0) | round | int }}°C\n\U0001F327️  Rain: {{ fc.precipitation_probability
-        | default(0) | round | int }}%  ({{ fc.precipitation | default(0) | round(1)
-        }}mm)\n\U0001F4A8  Wind: {{ fc.wind_speed | default(0) | round | int }} km/h"
+        | default(0) | round | int }}°C\n\U0001F327️  Rain: {% set mm = fc.precipitation
+        | default(0) | float %}{{ 'None' if mm == 0 else 'Low' if mm < 1 else 'Likely'
+        if mm < 5 else 'Heavy' if mm < 10 else 'Very heavy' }} · {{ mm | round(1)
+        }}mm\n\U0001F4A8  Wind: {{ fc.wind_speed | default(0) | round | int }} km/h"
   - if:
     - condition: template
       value_template: '{{ someone_away }}'
@@ -1267,9 +1268,10 @@
         }}'
       notif_message: "{{ icon }} {{ condition | replace('-', ' ') | title }}\n\n\U0001F321️
         \ High {{ fc.temperature | default(0) | round | int }}°C  ·  Low {{ fc.templow
-        | default(0) | round | int }}°C\n\U0001F327️  Rain: {{ fc.precipitation_probability
-        | default(0) | round | int }}%  ({{ fc.precipitation | default(0) | round(1)
-        }}mm)\n\U0001F4A8  Wind: {{ fc.wind_speed | default(0) | round | int }} km/h"
+        | default(0) | round | int }}°C\n\U0001F327️  Rain: {% set mm = fc.precipitation
+        | default(0) | float %}{{ 'None' if mm == 0 else 'Low' if mm < 1 else 'Likely'
+        if mm < 5 else 'Heavy' if mm < 10 else 'Very heavy' }} · {{ mm | round(1)
+        }}mm\n\U0001F4A8  Wind: {{ fc.wind_speed | default(0) | round | int }} km/h"
   - if:
     - condition: template
       value_template: '{{ someone_away }}'
@@ -1828,39 +1830,6 @@
           elif trigger.entity_id == ''sensor.docker_package_count'' %}Docker VM has
           {{ trigger.to_state.state }} pending package update(s){% endif %}'
   mode: single
-- id: '1779457541161'
-  alias: MikroTik Backup Notification
-  description: Receives webhook from Proxmox when MikroTik backup completes. Notifies
-    immediately 07:00-22:00, otherwise holds until 07:00.
-  triggers:
-  - platform: webhook
-    webhook_id: mikrotik-backup-result
-    allowed_methods:
-    - POST
-    local_only: true
-  actions:
-  - variables:
-      title: '{{ trigger.json.title }}'
-      message: '{{ trigger.json.message }}'
-  - choose:
-    - conditions:
-      - condition: time
-        after: 07:00:00
-        before: '22:00:00'
-      sequence:
-      - data:
-          title: '{{ title }}'
-          message: '{{ message }}'
-        action: notify.mobile_app_np3
-    default:
-    - wait_for_trigger:
-      - platform: time
-        at: 07:00:00
-    - data:
-        title: '{{ title }}'
-        message: '{{ message }}'
-      action: notify.mobile_app_np3
-  mode: single
 - id: '1779464893871'
   alias: Landing - Occupancy Lighting
   description: Activates landing light on motion when lux < 20 or light is already
@@ -2052,44 +2021,6 @@
       message: Person detection on rear cameras re-enabled.
       target_player: media_player.kitchen_display_cast
   mode: single
-- id: '1779717963578'
-  alias: Zabbix - Alert Notify
-  description: Receives Zabbix webhook alerts and notifies NP3 with quiet hours 22:00-07:00
-  triggers:
-  - platform: webhook
-    webhook_id: zabbix-alert
-    local_only: true
-    allowed_methods:
-    - POST
-  actions:
-  - variables:
-      alert_time: '{{ now().strftime(''%H:%M'') }}'
-      alert_title: 'Zabbix {{ trigger.json.status }}: {{ trigger.json.name }}'
-      alert_message: '{{ trigger.json.host }} [{{ trigger.json.severity }}] — {{ trigger.json.message
-        }}'
-  - if:
-    - condition: time
-      after: 07:00:00
-      before: '22:00:00'
-    then:
-    - action: notify.send_message
-      target:
-        entity_id: notify.np3
-      data:
-        title: '{{ alert_title }}'
-        message: '{{ alert_message }}'
-    else:
-    - wait_for_trigger:
-      - platform: time
-        at: 07:00:00
-    - action: notify.send_message
-      target:
-        entity_id: notify.np3
-      data:
-        title: '{{ alert_title }} (triggered {{ alert_time }})'
-        message: '{{ alert_message }}'
-  mode: parallel
-  max: 20
 - id: '1779725056202'
   alias: Cat Alarm - State Announce
   description: Announce on kitchen display whenever cat alarm is enabled or disabled
@@ -2127,47 +2058,6 @@
   - action: homeassistant.update_entity
     target:
       entity_id: image.immich_pics_for_display
-  mode: single
-- id: '1779807500000'
-  alias: TrueNAS Backup Notification
-  description: Receives webhook from Proxmox when TrueNAS config backup completes.
-    Notifies immediately 07:00-22:00, otherwise holds until 07:00.
-  triggers:
-  - platform: webhook
-    webhook_id: truenas_backup_result
-    allowed_methods:
-    - POST
-    local_only: true
-  actions:
-  - variables:
-      status: '{{ trigger.json.status }}'
-      size: '{{ trigger.json.size }}'
-      timestamp: '{{ trigger.json.timestamp }}'
-      title: "{% if trigger.json.status == \"updated\" %}\n  TrueNAS Backup Updated\n{%
-        elif trigger.json.status == \"unchanged\" %}\n  TrueNAS Backup Unchanged\n{%
-        else %}\n  TrueNAS Backup Failed\n{% endif %}"
-      message: "{% if trigger.json.status == \"updated\" %}\n  Config saved to GitHub
-        ({{ size }}) at {{ timestamp }}.\n{% elif trigger.json.status == \"unchanged\"
-        %}\n  No changes since last backup ({{ timestamp }}).\n{% else %}\n  {{ trigger.json.error
-        | default(\"Unknown error\") }}\n{% endif %}"
-  - choose:
-    - conditions:
-      - condition: time
-        after: 07:00:00
-        before: '22:00:00'
-      sequence:
-      - data:
-          title: '{{ title }}'
-          message: '{{ message }}'
-        action: notify.mobile_app_np3
-    default:
-    - wait_for_trigger:
-      - platform: time
-        at: 07:00:00
-    - data:
-        title: '{{ title }}'
-        message: '{{ message }}'
-      action: notify.mobile_app_np3
   mode: single
 - id: '1780000000001'
   alias: Energy - Update Export Top 5
@@ -2522,45 +2412,6 @@
       - action: light.turn_off
         target:
           entity_id: light.aoife_ceiling
-- id: '1780820971979'
-  alias: Restic Backup Failure Notification
-  description: Receives webhook from TrueNAS restic backup scripts on failure. Notifies
-    NP3 immediately 07:00-22:00, holds until 07:00 overnight.
-  triggers:
-  - platform: webhook
-    webhook_id: restic-backup-failed
-    local_only: true
-    allowed_methods:
-    - POST
-  actions:
-  - variables:
-      alert_time: '{{ now().strftime(''%H:%M'') }}'
-      dataset: '{{ trigger.json.dataset | default(''unknown'') }}'
-  - if:
-    - condition: time
-      after: 07:00:00
-      before: '22:00:00'
-    then:
-    - action: notify.send_message
-      target:
-        entity_id: notify.np3
-      data:
-        title: 'Restic backup failed: {{ dataset }}'
-        message: The restic backup for {{ dataset }} on TrueNAS failed. Check /mnt/MainPool/logs/restic_{{
-          dataset }}.log
-    else:
-    - wait_for_trigger:
-      - platform: time
-        at: 07:00:00
-    - action: notify.send_message
-      target:
-        entity_id: notify.np3
-      data:
-        title: 'Restic backup failed: {{ dataset }} (triggered {{ alert_time }})'
-        message: The restic backup for {{ dataset }} on TrueNAS failed. Check /mnt/MainPool/logs/restic_{{
-          dataset }}.log
-  mode: parallel
-  max: 10
 - id: '1781598778402'
   alias: Cat Alarm - Auto Disable at Sundown
   description: Turns the cat alarm off at sunset if it is still on (any activation
