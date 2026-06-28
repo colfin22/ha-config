@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-62-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-59-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -88,7 +88,7 @@
 
 ## 🤖 Automations
 
-57 automations across the home. Key highlights:
+59 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
@@ -109,7 +109,6 @@
 
 ### 📦 Alerts
 - **Parcel delivery** — Smart Parcel Box sensor triggers a mobile notification + TTS announcement on delivery
-- **Person at car** — Frigate person detection at front car camera → mobile alert + TTS announcement (night only)
 - **Low battery** — monitors all Zigbee devices, notifies when battery low
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
 - **Bins out** — the night before a Panda Waste collection: a **19:00** reminder of which bin types are due, then at **22:00** a check of Frigate's `waste_bin` object on the Front Van camera — if no bin is detected at the kerb, it announces a **TTS** reminder on the speakers and sends a **second phone alert** with a camera snapshot
@@ -135,11 +134,8 @@
 - **Grid-free day** — notifies both phones at 20:00 if no grid electricity was imported after 8am; includes export total and estimated earnings
 
 ### 🏠 Infrastructure Monitoring
-- **Overnight alerts** — infrastructure alerts held until 07:00 with triggered-time in notification title
-- **9 infrastructure automations** — MikroTik, Pi-hole, Proxmox, TrueNAS, Netatmo; quiet hours 22:00–07:00
-- **Restic backup watchdog** — failure trap in each TrueNAS restic script fires HA webhook; same 22:00–07:00 quiet window
+- **Health & backup alerts run in Node-RED** — the host/VM/pool/disk/Frigate health checks plus the TrueNAS-config, MikroTik-config, Restic and Zabbix alerts are consolidated into the Node-RED **Infra Health & Alerts** flow (see below). Each alert is tagged with its category, and during the 22:00–07:00 quiet window alerts are held and flushed at 07:00 with the triggered time in the title.
 - **Zigbee2MQTT watchdog** — auto-restart with 2 attempts, notifies on outcome
-- **Zabbix alerts** — webhook receiver → mobile push
 - **Update Tuesday** — generates the monthly homelab update report on the Monday before the 2nd Tuesday; notifies Colm with a link at 19:00
 
 ---
@@ -148,9 +144,10 @@
 
 Complex, multi-input automation runs in **Node-RED** (Proxmox LXC).
 
-- **Camera Concierge** — Frigate detections → grouped, 3-stage (instant text → snapshot → GIF) phone alerts to Colm & Olivia. Grouped per zone (Front / Doorbell / Rear) and per type (person, vehicle, motorcycle, bicycle, package, umbrella); shows the priority camera's view; tapping opens the event clip. Also handles courier/postman TTS, doorbell cast to the kitchen display + Shield TV, and rear cameras suppressed by the patio-door NFC switch. (Replaced six former HA notify automations.)
+- **Camera Concierge** — Frigate detections → grouped, 3-stage (instant text → snapshot → GIF) phone alerts to Colm & Olivia. Grouped per zone (Front / Doorbell / Rear) and per type (person, vehicle, motorcycle, bicycle, package, umbrella); shows the priority camera's view; tapping opens the event clip. Also handles courier/postman TTS, doorbell cast to the kitchen display + Shield TV, and rear cameras suppressed by the patio-door NFC switch. It also runs the **overnight "person at the car" deterrent** (23:00–06:30): a person in the front car/van focus zone strobes the sitting-room and hallway lights and announces a warning on the bedroom and sitting-room speakers. (Replaced seven former HA notify/alert automations.)
 - **Backup Watchdog** — 07:30 daily; alerts Colm if a Proxmox backup failed or didn't run.
 - **Infra Watchdog** — escalating alerts off Uptime Kuma (service reachability), quiet-hours aware; TTS only when Colm is home.
+- **Infra Health & Alerts** — the homelab's health and backup alerting, consolidated from Home Assistant into one flow: Proxmox / TrueNAS / Nextcloud / Ubuntu VM / Frigate health (CPU, memory, disk, pool, temperature, offline, updates) plus the TrueNAS-config, MikroTik-config, Restic and Zabbix alerts. Every notification is tagged with its category (Health / Backup / Monitoring) and sent to Colm, with a 22:00–07:00 quiet window flushed at 07:00.
 - **Alarm Auto-Arm & Announcements** — arms the house alarm automatically 20 minutes after everyone leaves (phone location plus a Wi-Fi presence check) and disarms it the instant someone arrives. Because presence is phone-based, it won't arm on someone whose phone has died — it holds off if indoor sensors still show movement or a resident's phone has gone offline, and it nudges you to charge a phone that drops below 15%. Every alarm event — armed, disarmed, triggered, cleared and failed-to-arm — across both the house and shed zones is pushed to Colm's and Olivia's phones and announced on all speakers, however the alarm was changed (phone, NFC or automatically).
 - **Alarm NFC Tags** — the front-door tag disarms the house; the back-door tag stands the shed alarm down for up to two hours. The shed re-arms 15 minutes after the door has been opened and then closed, or at the two-hour cap. If the shed is **left open** at the two-hour cap it stays disarmed and sends a reminder (push + spoken announcement). As a nightly safety net, at **10pm** the shed auto-arms if it's still disarmed and the door is closed.
 
@@ -222,7 +219,7 @@ All alert automations respect a **22:00–07:00 quiet window** — overnight eve
 | InfluxDB + Grafana | Git — dashboards + provisioning config | `colfin22/influxdb-grafana-config` |
 | Node-RED | Git — flows, settings, palette + docker-compose; systemd timer daily 02:30 | `colfin22/node-red-config` |
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Prox3 (Daire) | — |
-| TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Prox3 (Daire) daily via sftp; failure alerts via HA | — |
+| TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Prox3 (Daire) daily via sftp; failure alerts via Node-RED | — |
 | Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → Prox3 (Daire) daily | — |
 
 This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker, Node-RED) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
