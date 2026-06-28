@@ -363,51 +363,6 @@
       value: 0.37
     action: input_number.set_value
   mode: single
-- id: '1771669072411'
-  alias: Frigate Person Detected at Car Alert
-  description: Overnight (23:00–06:30) person alert from front car and van cameras
-    in focus zones. Strobes sitting room and hallway lights 10 times and announces
-    via TTS to bedroom speaker.
-  use_blueprint:
-    path: SgtBatten/Stable.yaml
-    input:
-      camera:
-      - camera.front_car
-      - camera.front_van
-      notify_device: 002753768c371c4f05a272c7e1e0f93c
-      review_severity:
-      - alert
-      master_condition:
-      - condition: time
-        after: '23:00:00'
-        before: 06:30:00
-        weekday:
-        - mon
-        - tue
-        - wed
-        - thu
-        - fri
-        - sat
-        - sun
-      zone_filter: true
-      zones:
-      - 182_focus_zone
-      - 162_focus_zone
-      labels:
-      - person
-      custom_action_auto:
-      - action: script.strobe_lights
-        data:
-          lights:
-          - light.sitting_room
-          - light.hallway
-          count: 10
-          on_seconds: 1.5
-          off_seconds: 1.5
-      - action: script.tts_announce
-        data:
-          message: Person detected on front camera at car
-          target_player: media_player.colm_bedroom_speaker_cast
 - id: '1771748445702'
   alias: Low Battery Notifications & Actions
   description: Checks all device batteries every Sunday at 10:00 and notifies Colm
