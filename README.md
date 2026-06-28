@@ -134,7 +134,7 @@
 - **Grid-free day** — notifies both phones at 20:00 if no grid electricity was imported after 8am; includes export total and estimated earnings
 
 ### 🏠 Infrastructure Monitoring
-- **Health & backup alerts run in Node-RED** — the host/VM/pool/disk/Frigate health checks plus the TrueNAS-config, MikroTik-config, Restic and Zabbix alerts are consolidated into the Node-RED **Infra Health & Alerts** flow (see below). Each alert is tagged with its category, and during the 22:00–07:00 quiet window alerts are held and flushed at 07:00 with the triggered time in the title.
+- **Infrastructure health & backup alerts** — migrated to Node-RED for more complex workflows; see the **Infra Health & Alerts** flow below.
 - **Zigbee2MQTT watchdog** — auto-restart with 2 attempts, notifies on outcome
 - **Update Tuesday** — generates the monthly homelab update report on the Monday before the 2nd Tuesday; notifies Colm with a link at 19:00
 
