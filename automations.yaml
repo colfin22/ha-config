@@ -2225,7 +2225,7 @@
         target:
           entity_id: climate.hallway
         data:
-          preset_mode: night
+          preset_mode: away
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.heating_away_mode_active
@@ -2249,7 +2249,7 @@
         target:
           entity_id: climate.hallway
         data:
-          preset_mode: night
+          preset_mode: away
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.heating_away_mode_active
@@ -2270,7 +2270,7 @@
         target:
           entity_id: climate.hallway
         data:
-          preset_mode: night
+          preset_mode: away
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.heating_away_mode_active
