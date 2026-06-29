@@ -1331,20 +1331,38 @@
         }}'
   mode: single
 - id: '1778349216347'
-  alias: Alarm - Strobe on Triggered
-  description: Strobe all downstairs lights when EITHER alarm (house or shed) is triggered.
-    Uses the Alarmo master panel so it covers both areas. Restores previous light
-    state after strobe. Siren to be added later.
+  alias: Alarm - Strobe on Triggered (House)
+  description: Strobe downstairs lights when house alarm is triggered. Stops when
+    house is disarmed.
   triggers:
   - platform: state
-    entity_id: alarm_control_panel.master
+    entity_id: alarm_control_panel.house
     to: triggered
   conditions: []
   actions:
   - action: script.strobe_lights
     data:
       lights: light.downstairs
-      while_entity: alarm_control_panel.master
+      while_entity: alarm_control_panel.house
+      while_state: triggered
+      on_seconds: 0.5
+      off_seconds: 0.5
+      brightness_pct: 100
+  mode: restart
+- id: '1778349216348'
+  alias: Alarm - Strobe on Triggered (Shed)
+  description: Strobe downstairs lights when shed alarm is triggered. Stops when
+    shed is disarmed.
+  triggers:
+  - platform: state
+    entity_id: alarm_control_panel.shed
+    to: triggered
+  conditions: []
+  actions:
+  - action: script.strobe_lights
+    data:
+      lights: light.downstairs
+      while_entity: alarm_control_panel.shed
       while_state: triggered
       on_seconds: 0.5
       off_seconds: 0.5
