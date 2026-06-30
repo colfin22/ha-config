@@ -38204,6 +38204,125 @@
             "should_expose": false
           }
         }
+      },
+      "update.orphan_entity_cleaner_update": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "switch.orphan_entity_cleaner_pre_release": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.truenas_backup_notification": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.mikrotik_backup_notification": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.restic_backup_failure_notification": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.zabbix_alert_notify": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.frigate_tts_on_person_detected_at_car": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "alarm_control_panel.master": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.pixel_6a_basal_body_temperature": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.pixel_6a_basal_metabolic_rate": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.pixel_6a_body_temperature": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.pixel_6a_body_water_mass": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.pixel_6a_bone_mass": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.pixel_6a_height": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.pixel_6a_daily_hydration": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "sensor.pixel_6a_lean_body_mass": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "weather.12_the_oaks": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }

@@ -11,8 +11,9 @@ from typing import Any, Dict, Optional
 
 import paramiko
 
-from .net_cache import EnergyStatsCache, NetStatsCache
+from .net_cache import EnergyStatsCache, NetStatsCache, ProcessPeakCache
 from .remote_script import REMOTE_SCRIPT
+from .ssh_security import configure_pinned_host_keys
 from .util import (
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
@@ -25,8 +26,56 @@ _LOGGER = logging.getLogger(__name__)
 net_cache = NetStatsCache()
 disk_io_cache = NetStatsCache()
 energy_cache = EnergyStatsCache()
+process_peak_cache = ProcessPeakCache()
 
 DEFAULT_PORT_CHECK_TIMEOUT = 3
+MAX_CUSTOM_COMMAND_OUTPUT = 16 * 1024
+
+
+def _read_custom_command_channel(
+    channel: Any,
+    command_timeout: int,
+) -> tuple[str, str, int, bool]:
+    """Drain stdout and stderr concurrently with bounded retained output."""
+
+    stdout_data = bytearray()
+    stderr_data = bytearray()
+    output_truncated = False
+    deadline = time.monotonic() + command_timeout
+    while True:
+        read_data = False
+        while channel.recv_ready():
+            chunk = channel.recv(4096)
+            read_data = True
+            remaining = MAX_CUSTOM_COMMAND_OUTPUT - len(stdout_data)
+            if remaining > 0:
+                stdout_data.extend(chunk[:remaining])
+            output_truncated |= len(chunk) > max(remaining, 0)
+        while channel.recv_stderr_ready():
+            chunk = channel.recv_stderr(4096)
+            read_data = True
+            remaining = MAX_CUSTOM_COMMAND_OUTPUT - len(stderr_data)
+            if remaining > 0:
+                stderr_data.extend(chunk[:remaining])
+        if channel.exit_status_ready() and not (
+            channel.recv_ready() or channel.recv_stderr_ready()
+        ):
+            break
+        if time.monotonic() >= deadline:
+            channel.close()
+            raise TimeoutError(
+                f"Custom command timed out after {command_timeout} seconds"
+            )
+        if not read_data:
+            time.sleep(0.01)
+
+    status = channel.recv_exit_status()
+    return (
+        stdout_data.decode("utf-8", "replace"),
+        stderr_data.decode("utf-8", "replace"),
+        status,
+        output_truncated,
+    )
 
 
 def _run_ssh(
@@ -39,9 +88,10 @@ def _run_ssh(
     stdin_data: Optional[str],
     connect_timeout: int,
     command_timeout: int,
+    host_key_fingerprints: object,
 ) -> tuple[str, Dict[str, float]]:
     ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    configure_pinned_host_keys(ssh, host_key_fingerprints)
     started = time.monotonic()
     ssh.connect(
         hostname=host,
@@ -77,6 +127,81 @@ def _run_ssh(
         }
     finally:
         ssh.close()
+
+
+def _run_custom_command(
+    host: str,
+    username: str,
+    password: Optional[str],
+    key: Optional[str],
+    port: int,
+    command: str,
+    connect_timeout: int,
+    command_timeout: int,
+    host_key_fingerprints: object,
+) -> tuple[str, Dict[str, Any]]:
+    """Run one configured command and return its stdout and timing data."""
+
+    ssh = paramiko.SSHClient()
+    configure_pinned_host_keys(ssh, host_key_fingerprints)
+    started = time.monotonic()
+    ssh.connect(
+        hostname=host,
+        port=port,
+        username=username,
+        password=password,
+        key_filename=key,
+        timeout=connect_timeout,
+        banner_timeout=connect_timeout,
+        auth_timeout=connect_timeout,
+    )
+    connected = time.monotonic()
+    try:
+        _, stdout, _ = ssh.exec_command(command, timeout=command_timeout)
+        output, error_output, status, output_truncated = _read_custom_command_channel(
+            stdout.channel,
+            command_timeout,
+        )
+        if status != 0:
+            detail = error_output.strip() or output.strip()
+            if len(detail) > MAX_CUSTOM_COMMAND_OUTPUT:
+                detail = detail[:MAX_CUSTOM_COMMAND_OUTPUT]
+            raise RuntimeError(detail or f"Custom command exited with status {status}")
+        finished = time.monotonic()
+        return output[:MAX_CUSTOM_COMMAND_OUTPUT], {
+            "connect_time_ms": (connected - started) * 1000,
+            "collection_time_ms": (finished - started) * 1000,
+            "output_truncated": output_truncated,
+        }
+    finally:
+        ssh.close()
+
+
+async def async_run_custom_command(
+    host: str,
+    username: str,
+    password: Optional[str],
+    key: Optional[str],
+    port: int,
+    command: str,
+    connect_timeout: int,
+    command_timeout: int,
+    host_key_fingerprints: object,
+) -> tuple[str, Dict[str, Any]]:
+    """Run one configured custom sensor command outside the event loop."""
+
+    return await asyncio.to_thread(
+        _run_custom_command,
+        host,
+        username,
+        password,
+        key,
+        port,
+        command,
+        connect_timeout,
+        command_timeout,
+        host_key_fingerprints,
+    )
 
 
 def _sanitize(name: str) -> str:
@@ -175,6 +300,10 @@ SLOW_RESULT_KEYS = {
     "container_stats",
     "docker_unhealthy_containers",
     "docker_restart_count_total",
+    "docker_images_size_bytes",
+    "docker_containers_size_bytes",
+    "docker_volumes_size_bytes",
+    "docker_build_cache_size_bytes",
 }
 
 
@@ -247,6 +376,7 @@ def _build_collection_commands(
     collector_mode: str = "base",
     pkg_timeout: int | None = None,
     docker_timeout: int | None = None,
+    storage_timeout: int | None = None,
 ) -> list[CollectionCommand]:
     """Return collection commands ordered by target OS preference."""
 
@@ -256,6 +386,8 @@ def _build_collection_commands(
         env_parts.append(f"VSERVER_SSH_STATS_PKG_TIMEOUT={int(pkg_timeout)}")
     if docker_timeout is not None:
         env_parts.append(f"VSERVER_SSH_STATS_DOCKER_TIMEOUT={int(docker_timeout)}")
+    if storage_timeout is not None:
+        env_parts.append(f"VSERVER_SSH_STATS_STORAGE_TIMEOUT={int(storage_timeout)}")
     env = " ".join(env_parts)
     linux_commands: list[CollectionCommand] = [
         (f"{env} bash -s", REMOTE_SCRIPT),
@@ -314,6 +446,8 @@ async def _async_collect_raw(
     collector_mode: str,
     pkg_timeout: int | None = None,
     docker_timeout: int | None = None,
+    storage_timeout: int | None = None,
+    host_key_fingerprints: object = None,
 ) -> tuple[Dict[str, Any] | None, Dict[str, float], Exception | None]:
     """Run one collector mode and return parsed remote JSON."""
 
@@ -325,6 +459,7 @@ async def _async_collect_raw(
         collector_mode,
         pkg_timeout,
         docker_timeout,
+        storage_timeout,
     ):
         try:
             out, timing = await asyncio.to_thread(
@@ -338,6 +473,7 @@ async def _async_collect_raw(
                 stdin_data,
                 connect_timeout,
                 command_timeout,
+                host_key_fingerprints,
             )
             data = _parse_json_output(out)
             break
@@ -371,6 +507,22 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
         name = str(container.get("name") or "").strip()
         if not name:
             continue
+        memory_usage_bytes = _safe_int(container.get("memory_usage_bytes"))
+        memory_limit_bytes = _safe_int(container.get("memory_limit_bytes"))
+        memory_limit_usage = (
+            round(memory_usage_bytes / memory_limit_bytes * 100, 2)
+            if memory_usage_bytes is not None
+            and memory_limit_bytes is not None
+            and memory_limit_bytes > 0
+            else None
+        )
+        memory_limit_reached = (
+            memory_usage_bytes >= memory_limit_bytes
+            if memory_usage_bytes is not None
+            and memory_limit_bytes is not None
+            and memory_limit_bytes > 0
+            else None
+        )
         running = _safe_bool(container.get("running"))
         if running is None:
             running = (
@@ -384,6 +536,24 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
                 "name": name,
                 "cpu": _safe_float(container.get("cpu")),
                 "mem": _safe_float(container.get("mem")),
+                "memory_usage_bytes": memory_usage_bytes,
+                "memory_limit_bytes": (
+                    memory_limit_bytes
+                    if memory_limit_bytes is not None and memory_limit_bytes > 0
+                    else None
+                ),
+                "memory_limit_usage": memory_limit_usage,
+                "memory_limit_reached": memory_limit_reached,
+                "pids": _safe_int(container.get("pids")),
+                "cpu_throttled_periods": _safe_int(
+                    container.get("cpu_throttled_periods")
+                ),
+                "cpu_throttled_seconds": (
+                    round(throttled_usec / 1_000_000, 3)
+                    if (throttled_usec := _safe_int(container.get("cpu_throttled_usec")))
+                    is not None
+                    else None
+                ),
                 "image": str(container.get("image") or ""),
                 "status": str(container.get("status") or ""),
                 "restart_count": _safe_int(container.get("restart_count")),
@@ -424,6 +594,14 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
         "docker_unhealthy_containers": docker_unhealthy_containers,
         "docker_restart_count_total": docker_restart_count_total,
         "container_stats": processed_containers,
+        "docker_images_size_bytes": _safe_int(data.get("docker_images_size_bytes")),
+        "docker_containers_size_bytes": _safe_int(
+            data.get("docker_containers_size_bytes")
+        ),
+        "docker_volumes_size_bytes": _safe_int(data.get("docker_volumes_size_bytes")),
+        "docker_build_cache_size_bytes": _safe_int(
+            data.get("docker_build_cache_size_bytes")
+        ),
     }
     for container in processed_containers:
         cname = _sanitize(container.get("name", ""))
@@ -431,7 +609,91 @@ def _process_docker_data(data: Dict[str, Any]) -> Dict[str, Any]:
             continue
         result[f"container_{cname}_cpu"] = _safe_float(container.get("cpu"))
         result[f"container_{cname}_mem"] = _safe_float(container.get("mem"))
+        result[f"container_{cname}_memory_usage_bytes"] = _safe_int(
+            container.get("memory_usage_bytes")
+        )
+        result[f"container_{cname}_memory_limit_bytes"] = _safe_int(
+            container.get("memory_limit_bytes")
+        )
+        result[f"container_{cname}_memory_limit_usage"] = _safe_float(
+            container.get("memory_limit_usage")
+        )
+        result[f"container_{cname}_memory_limit_reached"] = container.get(
+            "memory_limit_reached"
+        )
+        result[f"container_{cname}_pids"] = _safe_int(container.get("pids"))
+        result[f"container_{cname}_cpu_throttled_periods"] = _safe_int(
+            container.get("cpu_throttled_periods")
+        )
+        result[f"container_{cname}_cpu_throttled_seconds"] = _safe_float(
+            container.get("cpu_throttled_seconds")
+        )
     return result
+
+
+def _process_storage_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize SMART/NVMe and mdadm output into coordinator data."""
+
+    devices: list[Dict[str, Any]] = []
+    used_keys: set[str] = set()
+    failed_count = 0
+    for device in _safe_list(data.get("storage_devices")):
+        if not isinstance(device, dict):
+            continue
+        name = str(device.get("name") or "").strip()
+        if not name:
+            continue
+        serial = str(device.get("serial") or "").strip()
+        key = _sanitize(serial) or _sanitize(name)
+        if key in used_keys:
+            key = f"{key}_{_sanitize(name)}"
+        used_keys.add(key)
+        status = str(device.get("smart_status") or "unknown").lower()
+        if status == "failed":
+            failed_count += 1
+        normalized = {
+            "key": key,
+            "name": name,
+            "path": str(device.get("path") or ""),
+            "model": str(device.get("model") or ""),
+            "serial": serial,
+            "protocol": str(device.get("protocol") or ""),
+            "smart_status": status,
+            "temperature": _safe_float(device.get("temperature")),
+            "wear_percent": _safe_float(device.get("wear_percent")),
+            "media_errors": _safe_int(device.get("media_errors")),
+            "reallocated_sectors": _safe_int(device.get("reallocated_sectors")),
+            "pending_sectors": _safe_int(device.get("pending_sectors")),
+            "uncorrectable_sectors": _safe_int(device.get("uncorrectable_sectors")),
+            "power_on_hours": _safe_int(device.get("power_on_hours")),
+        }
+        devices.append(normalized)
+
+    storage_tools_available = bool(_safe_int(data.get("storage_tools_available")))
+    storage_stats_partial = bool(_safe_int(data.get("storage_stats_partial")))
+    storage_devices_seen = _safe_int(data.get("storage_devices_seen"))
+    storage_incomplete = storage_stats_partial or (
+        bool(storage_devices_seen) and not storage_tools_available
+    )
+
+    return {
+        "storage_devices": devices,
+        "storage_device_lookup": {device["key"]: device for device in devices},
+        "smart_failed_devices": failed_count,
+        "smart_failure_detected": (
+            True if failed_count > 0 else None if storage_incomplete else False
+        ),
+        "storage_tools_available": storage_tools_available,
+        "storage_stats_partial": storage_stats_partial,
+        "storage_devices_seen": storage_devices_seen,
+        "storage_devices_collected": _safe_int(data.get("storage_devices_collected")),
+        "storage_device_errors": _safe_int(data.get("storage_device_errors")),
+        "raid_detail_arrays": [
+            detail
+            for detail in _safe_list(data.get("raid_details"))
+            if isinstance(detail, dict)
+        ],
+    }
 
 
 def _has_usable_docker_metrics(result: Dict[str, Any]) -> bool:
@@ -471,6 +733,7 @@ async def async_sample(
     connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
     monitored_ports: object = None,
+    host_key_fingerprints: object = None,
 ) -> Dict[str, Any]:
     port_check_task = asyncio.create_task(
         _async_check_monitored_ports(host, monitored_ports, connect_timeout)
@@ -485,6 +748,7 @@ async def async_sample(
         connect_timeout,
         command_timeout,
         "base",
+        host_key_fingerprints=host_key_fingerprints,
     )
 
     if data is None:
@@ -571,6 +835,27 @@ async def async_sample(
         )
     top_process_summary = ", ".join(process["command"] for process in top_processes)
 
+    uptime_seconds = _safe_int(data.get("uptime"))
+    process_total = _safe_int(data.get("process_total"))
+    process_zombies = _safe_int(data.get("process_zombies"))
+    process_peak = None
+    if process_total is not None and uptime_seconds is not None:
+        process_peak = process_peak_cache.compute(host, process_total, uptime_seconds)
+
+    conntrack_count = _safe_int(data.get("conntrack_count"))
+    conntrack_max = _safe_int(data.get("conntrack_max"))
+    conntrack_usage = None
+    if conntrack_count is not None and conntrack_max:
+        conntrack_usage = round(conntrack_count / conntrack_max * 100, 2)
+
+    raid_arrays = [
+        raid
+        for raid in _safe_list(data.get("raid_arrays"))
+        if isinstance(raid, dict)
+    ]
+    raid_degraded = _safe_int(data.get("software_raid_degraded"))
+    raid_rebuild_active = _safe_int(data.get("software_raid_rebuild_active"))
+
     result: Dict[str, Any] = {
         "cpu": _safe_int(data.get("cpu")),
         "mem": _safe_int(data.get("mem")),
@@ -578,7 +863,7 @@ async def async_sample(
         "disk_capacity_total": disk_total_gib,
         "disk_io_read": disk_io_read,
         "disk_io_write": disk_io_write,
-        "uptime": _safe_int(data.get("uptime")),
+        "uptime": uptime_seconds,
         "temp": _safe_float(data.get("temp")),
         "cpu_temperature_status": _temperature_status(data.get("temp")),
         "net_in": net_in,
@@ -594,6 +879,37 @@ async def async_sample(
         "primary_ip": data.get("primary_ip") or None,
         "top_processes": top_process_summary,
         "top_process_details": top_processes,
+        "process_total": process_total,
+        "process_running": _safe_int(data.get("process_running")),
+        "process_zombies": process_zombies,
+        "process_peak_since_boot": process_peak,
+        "zombie_processes_detected": (
+            process_zombies > 0 if process_zombies is not None else None
+        ),
+        "tcp_established": _safe_int(data.get("tcp_established")),
+        "tcp_time_wait": _safe_int(data.get("tcp_time_wait")),
+        "sockets_used": _safe_int(data.get("sockets_used")),
+        "tcp_sockets_in_use": _safe_int(data.get("tcp_sockets_in_use")),
+        "conntrack_count": conntrack_count,
+        "conntrack_max": conntrack_max,
+        "conntrack_usage": conntrack_usage,
+        "conntrack_near_capacity": (
+            conntrack_usage >= 80 if conntrack_usage is not None else None
+        ),
+        "software_raid_arrays": _safe_int(data.get("software_raid_arrays")),
+        "software_raid_degraded": (
+            bool(raid_degraded) if raid_degraded is not None else None
+        ),
+        "software_raid_rebuild_active": (
+            bool(raid_rebuild_active) if raid_rebuild_active is not None else None
+        ),
+        "software_raid_rebuild_progress": _safe_float(
+            data.get("software_raid_rebuild_progress")
+        ),
+        "software_raid_rebuild_remaining_minutes": _safe_float(
+            data.get("software_raid_rebuild_remaining_minutes")
+        ),
+        "raid_arrays": raid_arrays,
         "load_1": data.get("load_1"),
         "load_5": data.get("load_5"),
         "load_15": data.get("load_15"),
@@ -670,6 +986,7 @@ async def async_sample_packages(
     target_os: Optional[str] = "auto",
     connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
+    host_key_fingerprints: object = None,
 ) -> Dict[str, Any]:
     """Collect package update metrics with the slow collector mode."""
 
@@ -684,6 +1001,7 @@ async def async_sample_packages(
         command_timeout,
         "packages",
         pkg_timeout=command_timeout,
+        host_key_fingerprints=host_key_fingerprints,
     )
     if data is None:
         return {
@@ -718,6 +1036,7 @@ async def async_sample_docker(
     target_os: Optional[str] = "auto",
     connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
+    host_key_fingerprints: object = None,
 ) -> Dict[str, Any]:
     """Collect Docker metrics with the slow collector mode."""
 
@@ -734,6 +1053,7 @@ async def async_sample_docker(
         outer_timeout,
         "docker",
         docker_timeout=command_timeout,
+        host_key_fingerprints=host_key_fingerprints,
     )
     if data is None:
         return {
@@ -760,4 +1080,60 @@ async def async_sample_docker(
     else:
         result["docker_collection_error"] = None
     result["docker_collection_time_ms"] = round(timing.get("collection_time_ms", 0), 2)
+    return result
+
+
+async def async_sample_storage(
+    host: str,
+    username: str,
+    password: Optional[str],
+    key: Optional[str],
+    port: int,
+    target_os: Optional[str] = "auto",
+    connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
+    command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
+    host_key_fingerprints: object = None,
+) -> Dict[str, Any]:
+    """Collect SMART, NVMe, and mdadm metrics with a slow collector mode."""
+
+    per_command_timeout = min(max(command_timeout, 1), 20)
+    data, timing, last_error = await _async_collect_raw(
+        host,
+        username,
+        password,
+        key,
+        port,
+        target_os,
+        connect_timeout,
+        command_timeout,
+        "storage",
+        storage_timeout=per_command_timeout,
+        host_key_fingerprints=host_key_fingerprints,
+    )
+    if data is None:
+        return {
+            "storage_collection_error": (
+                str(last_error) if last_error else "No storage collector output"
+            )
+        }
+    if _safe_int(data.get("storage_stats_complete")) != 1:
+        return {"storage_collection_error": "Storage health collection did not complete"}
+
+    result = _process_storage_data(data)
+    devices_seen = result.get("storage_devices_seen") or 0
+    device_errors = result.get("storage_device_errors") or 0
+    if result.get("storage_stats_partial"):
+        result["storage_collection_error"] = (
+            f"Storage health collection was partial: {device_errors} of "
+            f"{devices_seen} devices could not be read"
+        )
+    elif devices_seen > 0 and not result.get("storage_tools_available"):
+        result["storage_collection_error"] = (
+            "No SMART/NVMe collection tool is available on the remote host"
+        )
+    else:
+        result["storage_collection_error"] = None
+    result["storage_collection_time_ms"] = round(
+        timing.get("collection_time_ms", 0), 2
+    )
     return result

@@ -30,6 +30,17 @@
           "All Done!",
           "Drying"
         ]
+      },
+      {
+        "id": "house_mode",
+        "name": "House Mode",
+        "icon": "mdi:home-account",
+        "options": [
+          "Home",
+          "Away",
+          "Sleeping"
+        ],
+        "initial": "Home"
       }
     ]
   }

@@ -289,6 +289,36 @@
               "cards": [
                 {
                   "type": "heading",
+                  "heading": "House Mode"
+                },
+                {
+                  "type": "entities",
+                  "entities": [
+                    {
+                      "entity": "input_select.house_mode",
+                      "name": "Mode"
+                    },
+                    {
+                      "entity": "input_boolean.guest_mode",
+                      "name": "Guest"
+                    },
+                    {
+                      "entity": "input_boolean.storm_mode",
+                      "name": "Storm"
+                    },
+                    {
+                      "entity": "input_boolean.maintenance_mode",
+                      "name": "Maintenance"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
                   "heading": "Weather"
                 },
                 {

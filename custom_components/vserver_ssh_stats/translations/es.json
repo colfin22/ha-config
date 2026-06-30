@@ -9,6 +9,7 @@
           "name": "Nombre del servidor",
           "host": "Host",
           "port": "Puerto SSH",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
           "username": "Usuario",
           "password": "Contraseña",
           "key": "Archivo de clave",
@@ -23,6 +24,7 @@
       "duplicate_host": "Este host ya se añadió",
       "host_in_use": "Este host ya está configurado",
       "key_missing": "Archivo de clave SSH no encontrado",
+      "invalid_host_key_fingerprints": "Introduce al menos una huella SHA256 de clave de host OpenSSH válida",
       "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
     }
   },
@@ -35,12 +37,16 @@
           "command_timeout": "Tiempo de espera del comando de recolección (segundos)",
           "package_interval": "Intervalo de métricas de paquetes (segundos)",
           "docker_interval": "Intervalo de métricas de Docker (segundos)",
+          "storage_interval": "Intervalo de métricas SMART/NVMe (segundos, 0 desactiva)",
           "slow_command_timeout": "Tiempo de espera de recolectores lentos (segundos)",
           "command_allowlist": "Entradas run_command permitidas (una por línea, sufijo * opcional para prefijos)",
           "edit_server": "Editar un servidor existente",
           "add_server": "Agregar otro servidor",
           "remove_server": "Eliminar un servidor",
-          "reconfigure_servers": "Reemplazar toda la lista de servidores"
+          "reconfigure_servers": "Reemplazar toda la lista de servidores",
+          "add_custom_sensor": "Añadir un sensor de comando personalizado",
+          "edit_custom_sensor": "Editar un sensor de comando personalizado",
+          "remove_custom_sensor": "Eliminar un sensor de comando personalizado"
         }
       },
       "select_server": {
@@ -56,6 +62,7 @@
           "name": "Nombre del servidor",
           "host": "Host",
           "port": "Puerto SSH",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
           "username": "Usuario",
           "password": "Contraseña (vacía para conservar la actual)",
           "clear_password": "Eliminar contraseña almacenada",
@@ -72,6 +79,7 @@
           "name": "Nombre del servidor",
           "host": "Host",
           "port": "Puerto SSH",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
           "username": "Usuario",
           "password": "Contraseña",
           "key": "Archivo de clave",
@@ -87,6 +95,41 @@
           "confirm_remove": "Confirmar eliminación"
         }
       },
+      "select_custom_sensor": {
+        "title": "Seleccionar sensor personalizado",
+        "data": {
+          "custom_sensor": "Sensor personalizado"
+        }
+      },
+      "add_custom_sensor": {
+        "title": "Añadir sensor de comando personalizado",
+        "description": "El comando se ejecuta con las credenciales SSH del servidor seleccionado. Configura solo comandos de confianza.",
+        "data": {
+          "name": "Nombre del sensor",
+          "server_host": "Servidor",
+          "command": "Comando",
+          "interval": "Intervalo de recolección (segundos)",
+          "timeout": "Tiempo de espera del comando (segundos)"
+        }
+      },
+      "edit_custom_sensor": {
+        "title": "Editar sensor de comando personalizado",
+        "description": "El comando se ejecuta con las credenciales SSH del servidor seleccionado. Configura solo comandos de confianza.",
+        "data": {
+          "name": "Nombre del sensor",
+          "server_host": "Servidor",
+          "command": "Comando",
+          "interval": "Intervalo de recolección (segundos)",
+          "timeout": "Tiempo de espera del comando (segundos)"
+        }
+      },
+      "remove_custom_sensor": {
+        "title": "Eliminar sensor de comando personalizado",
+        "data": {
+          "custom_sensor": "Sensor personalizado",
+          "confirm_remove": "Confirmar eliminación"
+        }
+      },
       "servers": {
         "title": "VServer SSH Stats",
         "description": "Agrega servidores uno a uno. Selecciona 'Agregar otro servidor después de este' para seguir introduciendo hosts.",
@@ -94,6 +137,7 @@
           "name": "Nombre del servidor",
           "host": "Host",
           "port": "Puerto SSH",
+          "host_key_fingerprints": "Huellas SHA256 de la clave de host SSH (una por línea)",
           "username": "Usuario",
           "password": "Contraseña",
           "key": "Archivo de clave",
@@ -108,11 +152,21 @@
       "duplicate_host": "Este host ya se añadió",
       "host_in_use": "Este host ya está configurado",
       "key_missing": "Archivo de clave SSH no encontrado",
-      "single_action": "Elige solo una acción de servidor a la vez",
+      "invalid_host_key_fingerprints": "Introduce al menos una huella SHA256 de clave de host OpenSSH válida",
+      "single_action": "Elige solo una acción de configuración a la vez",
       "no_servers": "No se encontró ningún servidor configurado",
+      "no_custom_sensors": "No se encontró ningún sensor de comando personalizado",
+      "duplicate_custom_sensor": "Ya existe un sensor personalizado con este nombre para el servidor seleccionado",
       "cannot_remove_last_server": "Debe quedar al menos un servidor configurado",
-      "confirm_remove": "Confirma que se debe eliminar el servidor seleccionado",
+      "confirm_remove": "Confirma la eliminación del elemento seleccionado",
       "invalid_ports": "Introduce puertos TCP válidos entre 1 y 65535, separados por comas, espacios o saltos de línea"
+    }
+  },
+  "entity": {
+    "button": {
+      "purge_history": {
+        "name": "Purgar historial"
+      }
     }
   },
   "services": {
@@ -152,6 +206,10 @@
           "name": "Archivo de clave",
           "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
         },
+        "host_key_fingerprints": {
+          "name": "Huellas de clave de host SSH",
+          "description": "Huellas OpenSSH SHA256 fijadas. Son obligatorias para hosts no configurados."
+        },
         "port": {
           "name": "Puerto SSH",
           "description": "Puerto SSH."
@@ -185,6 +243,10 @@
         "key": {
           "name": "Archivo de clave",
           "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "Huellas de clave de host SSH",
+          "description": "Huellas OpenSSH SHA256 fijadas. Son obligatorias para hosts no configurados."
         },
         "port": {
           "name": "Puerto SSH",
@@ -223,6 +285,10 @@
         "key": {
           "name": "Archivo de clave",
           "description": "Ruta a la clave privada SSH (p. ej. /config/ssh/id_rsa)."
+        },
+        "host_key_fingerprints": {
+          "name": "Huellas de clave de host SSH",
+          "description": "Huellas OpenSSH SHA256 fijadas. Son obligatorias para hosts no configurados."
         },
         "port": {
           "name": "Puerto SSH",

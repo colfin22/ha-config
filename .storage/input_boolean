@@ -29,6 +29,21 @@
         "id": "heating_extended_away",
         "name": "Heating Extended Away",
         "icon": "mdi:home-thermometer-outline"
+      },
+      {
+        "id": "guest_mode",
+        "name": "Guest Mode",
+        "icon": "mdi:account-group"
+      },
+      {
+        "id": "storm_mode",
+        "name": "Storm Mode",
+        "icon": "mdi:weather-lightning-rainy"
+      },
+      {
+        "id": "maintenance_mode",
+        "name": "Maintenance Mode",
+        "icon": "mdi:tools"
       }
     ]
   }

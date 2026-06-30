@@ -6,15 +6,22 @@ import logging
 import re
 import socket
 import time
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from . import DOMAIN
-from .ssh_collector import async_sample, async_sample_docker, async_sample_packages
+from .ssh_collector import (
+    async_run_custom_command,
+    async_sample,
+    async_sample_docker,
+    async_sample_packages,
+    async_sample_storage,
+)
 from .util import (
     DEFAULT_BACKOFF_FAILURE_THRESHOLD,
     DEFAULT_BACKOFF_MAX_INTERVAL,
@@ -24,11 +31,14 @@ from .util import (
     DEFAULT_INTERVAL,
     DEFAULT_PACKAGE_INTERVAL,
     DEFAULT_SLOW_COMMAND_TIMEOUT,
+    DEFAULT_STORAGE_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
 COORDINATORS_KEY = "coordinators"
 COORDINATOR_LOCK_KEY = "coordinators_lock"
+CUSTOM_COORDINATORS_KEY = "custom_sensor_coordinators"
+CUSTOM_COORDINATOR_LOCK_KEY = "custom_sensor_coordinators_lock"
 
 
 class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -43,6 +53,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         command_timeout: int,
         package_interval: int,
         docker_interval: int,
+        storage_interval: int,
         slow_command_timeout: int,
     ) -> None:
         """Initialize the coordinator."""
@@ -58,11 +69,13 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.command_timeout = command_timeout
         self.package_interval = package_interval
         self.docker_interval = docker_interval
+        self.storage_interval = storage_interval
         self.slow_command_timeout = slow_command_timeout
         self.consecutive_failures = 0
         self.current_interval = interval
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
+        self._last_storage_attempt = 0.0
         self._slow_refresh_task: asyncio.Task[None] | None = None
         self._docker_state_revision = 0
 
@@ -79,6 +92,7 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 self.connect_timeout,
                 self.command_timeout,
                 self.server.get("monitored_ports"),
+                self.server.get("host_key_fingerprints"),
             )
             data = self._merge_base_data(base_data)
             if not data.get("collection_error"):
@@ -141,16 +155,40 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "docker_restart_count_total",
             "docker_collection_error",
             "docker_collection_time_ms",
+            "docker_images_size_bytes",
+            "docker_containers_size_bytes",
+            "docker_volumes_size_bytes",
+            "docker_build_cache_size_bytes",
         }
         for key in list(data):
             if key in docker_keys or key.startswith("container_"):
                 data.pop(key, None)
 
+    def _clear_storage_data(self, data: dict[str, Any]) -> None:
+        """Remove stale SMART/NVMe fields before applying a fresh sample."""
+
+        for key in (
+            "storage_devices",
+            "storage_device_lookup",
+            "smart_failed_devices",
+            "smart_failure_detected",
+            "storage_tools_available",
+            "storage_stats_partial",
+            "storage_devices_seen",
+            "storage_devices_collected",
+            "storage_device_errors",
+            "raid_detail_arrays",
+            "storage_collection_error",
+            "storage_collection_time_ms",
+        ):
+            data.pop(key, None)
+
     def force_slow_refresh(self) -> None:
-        """Make the next refresh run slow package and Docker collectors."""
+        """Make the next refresh run all slow collectors."""
 
         self._last_package_attempt = 0.0
         self._last_docker_attempt = 0.0
+        self._last_storage_attempt = 0.0
 
     async def async_wait_for_slow_refresh(self) -> None:
         """Wait until a slow collector scheduled by the latest refresh finishes."""
@@ -227,6 +265,9 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._slow_data_due(self._last_package_attempt, self.package_interval, now):
             self._last_package_attempt = now
             due_collectors.append("package")
+        if self._slow_data_due(self._last_storage_attempt, self.storage_interval, now):
+            self._last_storage_attempt = now
+            due_collectors.append("storage")
         if not due_collectors:
             return
 
@@ -253,8 +294,9 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.server.get("target_os", "auto"),
                             self.connect_timeout,
                             self.slow_command_timeout,
+                            self.server.get("host_key_fingerprints"),
                         )
-                    else:
+                    elif collector == "docker":
                         result = await async_sample_docker(
                             self.server["host"],
                             self.server["username"],
@@ -264,7 +306,22 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                             self.server.get("target_os", "auto"),
                             self.connect_timeout,
                             self.slow_command_timeout,
+                            self.server.get("host_key_fingerprints"),
                         )
+                    elif collector == "storage":
+                        result = await async_sample_storage(
+                            self.server["host"],
+                            self.server["username"],
+                            self.server.get("password"),
+                            self.server.get("key"),
+                            self.server.get("port", 22),
+                            self.server.get("target_os", "auto"),
+                            self.connect_timeout,
+                            self.slow_command_timeout,
+                            self.server.get("host_key_fingerprints"),
+                        )
+                    else:
+                        continue
                 except Exception as err:
                     _LOGGER.debug(
                         "%s collector failed for %s: %s",
@@ -291,6 +348,8 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 merged = dict(self.data or {})
                 if collector == "docker" and "docker" in result:
                     self._clear_docker_data(merged)
+                if collector == "storage" and "storage_devices" in result:
+                    self._clear_storage_data(merged)
                 merged.update(result)
                 self.async_set_updated_data(merged)
         finally:
@@ -324,6 +383,73 @@ class VServerCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.update_interval = timedelta(seconds=interval)
 
 
+class CustomCommandCoordinator(DataUpdateCoordinator[dict[str, Any]]):
+    """Coordinator that runs one user-configured SSH command."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        server: dict[str, Any],
+        definition: dict[str, Any],
+        connect_timeout: int,
+    ) -> None:
+        """Initialize a custom command coordinator."""
+
+        interval = max(5, int(definition["interval"]))
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=f"{server['name']} custom sensor {definition['name']}",
+            update_interval=timedelta(seconds=interval),
+        )
+        self.server = server
+        self.definition = definition
+        self.connect_timeout = connect_timeout
+        self.command_timeout = max(1, min(3600, int(definition["timeout"])))
+
+    async def _async_update_data(self) -> dict[str, Any]:
+        """Execute the configured command and publish its output."""
+
+        try:
+            output, timing = await async_run_custom_command(
+                self.server["host"],
+                self.server["username"],
+                self.server.get("password"),
+                self.server.get("key"),
+                self.server.get("port", 22),
+                self.definition["command"],
+                self.connect_timeout,
+                self.command_timeout,
+                self.server.get("host_key_fingerprints"),
+            )
+        except Exception as err:
+            message = str(err) or err.__class__.__name__
+            raise UpdateFailed(
+                f"Custom sensor {self.definition['name']} failed on "
+                f"{self.server['host']}: {message}"
+            ) from err
+        return {
+            "output": output.strip(),
+            "updated_at": datetime.now(UTC).isoformat(),
+            **timing,
+        }
+
+
+def _schedule_initial_refresh(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinators: list[DataUpdateCoordinator],
+) -> None:
+    """Start remote polling only after Home Assistant finished startup."""
+
+    async def _async_refresh(_hass: HomeAssistant) -> None:
+        await asyncio.gather(
+            *(coordinator.async_request_refresh() for coordinator in coordinators)
+        )
+
+    entry.async_on_unload(async_at_started(hass, _async_refresh))
+
+
 async def async_get_or_create_coordinators(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -346,6 +472,9 @@ async def async_get_or_create_coordinators(
         command_timeout = max(configured_command_timeout, DEFAULT_COMMAND_TIMEOUT)
         package_interval = entry_data.get("package_interval") or DEFAULT_PACKAGE_INTERVAL
         docker_interval = entry_data.get("docker_interval") or DEFAULT_DOCKER_INTERVAL
+        storage_interval = entry_data.get("storage_interval")
+        if storage_interval is None:
+            storage_interval = DEFAULT_STORAGE_INTERVAL
         slow_command_timeout = (
             entry_data.get("slow_command_timeout") or DEFAULT_SLOW_COMMAND_TIMEOUT
         )
@@ -362,11 +491,59 @@ async def async_get_or_create_coordinators(
                     command_timeout,
                     package_interval,
                     docker_interval,
+                    storage_interval,
                     slow_command_timeout,
                 )
             )
 
         entry_data[COORDINATORS_KEY] = coordinators
-        for coordinator in coordinators:
-            hass.async_create_task(coordinator.async_request_refresh())
+        _schedule_initial_refresh(hass, entry, coordinators)
+        return coordinators
+
+
+async def async_get_or_create_custom_sensor_coordinators(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+) -> list[CustomCommandCoordinator]:
+    """Return one independent coordinator per configured custom sensor."""
+
+    entry_data = hass.data[DOMAIN][entry.entry_id]
+    coordinators = entry_data.get(CUSTOM_COORDINATORS_KEY)
+    if coordinators is not None:
+        return coordinators
+
+    lock = entry_data.setdefault(CUSTOM_COORDINATOR_LOCK_KEY, asyncio.Lock())
+    async with lock:
+        coordinators = entry_data.get(CUSTOM_COORDINATORS_KEY)
+        if coordinators is not None:
+            return coordinators
+
+        servers = {
+            server.get("host"): server
+            for server in entry_data.get("servers", [])
+            if server.get("host") and server.get("name")
+        }
+        connect_timeout = entry_data.get("connect_timeout") or DEFAULT_CONNECT_TIMEOUT
+        coordinators = []
+        for definition in entry_data.get("custom_sensors", []):
+            if not isinstance(definition, dict):
+                continue
+            server = servers.get(definition.get("server_host"))
+            if not server or not all(
+                definition.get(key)
+                for key in ("id", "name", "command", "interval", "timeout")
+            ):
+                continue
+            try:
+                coordinators.append(
+                    CustomCommandCoordinator(hass, server, definition, connect_timeout)
+                )
+            except (KeyError, TypeError, ValueError):
+                _LOGGER.warning(
+                    "Ignoring invalid custom sensor definition %s",
+                    definition.get("id"),
+                )
+
+        entry_data[CUSTOM_COORDINATORS_KEY] = coordinators
+        _schedule_initial_refresh(hass, entry, coordinators)
         return coordinators
