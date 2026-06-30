@@ -1370,28 +1370,18 @@
   mode: restart
 - id: '1778352065342'
   alias: Met Éireann Weather Warning
-  description: Notifies when Met Éireann issues a new official weather warning
+  description: Notifies when Met Éireann issues a new Connacht/nationwide weather warning
   triggers:
   - platform: state
-    entity_id: sensor.met_eireann_active_warnings
+    entity_id: sensor.met_eireann_warning_level
     not_to:
     - unknown
     - unavailable
     - none
-  conditions:
-  - condition: template
-    value_template: '{% set old = trigger.from_state.state %}
-
-      {% set old_ids = [] if old in [''none'', ''unknown'', ''unavailable''] else
-      old.split('','') %}
-
-      {% set new_ids = trigger.to_state.state.split('','') %}
-
-      {{ (new_ids | reject(''in'', old_ids) | list | length) > 0 }}'
+  conditions: []
   actions:
   - variables:
-      level: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''level'') | default(''Weather'')
-        }}'
+      level: '{{ trigger.to_state.state }}'
       headline: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''headline'')
         | default('''') }}'
       expiry: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''expiry'') |

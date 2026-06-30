@@ -5,7 +5,27 @@ rest:
       - name: "Met Éireann Active Warnings"
         unique_id: met_eireann_active_warnings
         value_template: >
-          {{ value_json | map(attribute='id') | sort | join(',') if value_json | length > 0 else 'none' }}
+          {% set roscommon = ['EI24'] %}
+          {% set ns = namespace(best='none', score=0) %}
+          {% for w in value_json %}
+            {% if now() < as_datetime(w.expiry) and w.regions is defined and 'Blight' not in w.headline %}
+              {% set hit = namespace(found=false) %}
+              {% for r in w.regions %}
+                {% if r in roscommon %}{% set hit.found = true %}{% endif %}
+              {% endfor %}
+              {% if hit.found %}
+                {% if w.level == 'Red' %}{% set s = 3 %}
+                {% elif w.level == 'Orange' %}{% set s = 2 %}
+                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% else %}{% set s = 0 %}{% endif %}
+                {% if s > ns.score %}
+                  {% set ns.score = s %}
+                  {% set ns.best = w.level %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.best }}
         json_attributes_path: "$[0]"
         json_attributes:
           - "level"
@@ -21,23 +41,7 @@ template:
   - sensor:
       - name: "Met Éireann Warning Level"
         unique_id: met_eireann_warning_level
-        state: >
-          {% set s = states('sensor.met_eireann_active_warnings') %}
-          {% if s in ['none', 'unavailable', 'unknown'] %}
-            none
-          {% else %}
-            {% set expiry = state_attr('sensor.met_eireann_active_warnings', 'expiry') %}
-            {% if expiry and now() < as_datetime(expiry) %}
-              {{ state_attr('sensor.met_eireann_active_warnings', 'level') }}
-            {% else %}
-              none
-            {% endif %}
-          {% endif %}
+        state: "{{ states('sensor.met_eireann_active_warnings') }}"
         icon: >
           {% set s = states('sensor.met_eireann_active_warnings') %}
-          {% if s in ['none', 'unavailable', 'unknown'] %}
-            mdi:weather-cloudy
-          {% else %}
-            {% set level = state_attr('sensor.met_eireann_active_warnings', 'level') %}
-            {% if level == 'Yellow' %}mdi:alert{% elif level == 'Orange' %}mdi:alert-circle{% elif level == 'Red' %}mdi:alert-octagon{% else %}mdi:weather-cloudy{% endif %}
-          {% endif %}
+          {% if s == 'Yellow' %}mdi:alert{% elif s == 'Orange' %}mdi:alert-circle{% elif s == 'Red' %}mdi:alert-octagon{% else %}mdi:weather-cloudy{% endif %}
