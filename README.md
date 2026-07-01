@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-50-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-51-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -88,7 +88,7 @@
 
 ## 🤖 Automations
 
-50 automations across the home. Key highlights:
+51 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
@@ -106,6 +106,7 @@
 ### 🌤️ Weather
 - **Morning forecast** — daily weather summary pushed to all phones at 08:30 with emoji-coded conditions; if Colm or Olivia is more than 100km from home a second block is added for their away location
 - **Evening forecast** — tomorrow's forecast pushed at 21:00 each night with the same away-location logic
+- **Frost warning** — each weekday morning at 07:30, if the outdoor temperature is at or below freezing a push goes to Colm and Olivia to allow extra time to scrape the car windscreen
 
 ### 📦 Alerts
 - **Parcel delivery** — Smart Parcel Box sensor triggers a mobile notification + TTS announcement on delivery

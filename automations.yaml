@@ -2205,3 +2205,40 @@
             entity_id: light.kitchen_tv_lightstrip
           action: light.turn_off
   mode: single
+- id: '1782929355416'
+  alias: Frost Warning - Car Windscreen
+  description: 'Weekday 07:30 check: if the lower of Met.no/Met Eireann outdoor temp
+    is <=0C, push both phones to allow time to scrape the windscreen.'
+  triggers:
+  - platform: time
+    at: 07:30:00
+  conditions:
+  - condition: time
+    weekday:
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+  - condition: template
+    value_template: '{% set t1 = state_attr(''weather.forecast_home_2'',''temperature'')
+      %}{% set t2 = state_attr(''weather.forecast_home'',''temperature'') %}{% set
+      temps = [t1, t2] | reject(''none'') | list %}{{ (temps | min) <= 0 if temps
+      | count > 0 else false }}'
+  actions:
+  - data:
+      title: ❄️ Frost warning
+      message: It's {{ tmin }}°C out — the car windscreen will be iced. Allow extra
+        time to scrape before you leave.
+    action: notify.mobile_app_np3
+  - data:
+      title: ❄️ Frost warning
+      message: It's {{ tmin }}°C out — the car windscreen will be iced. Allow extra
+        time to scrape before you leave.
+    action: notify.mobile_app_pixel_6a
+  mode: single
+  variables:
+    tmin: '{% set t1 = state_attr(''weather.forecast_home_2'',''temperature'') %}{%
+      set t2 = state_attr(''weather.forecast_home'',''temperature'') %}{% set temps
+      = [t1, t2] | reject(''none'') | list %}{{ temps | min if temps | count > 0 else
+      ''below zero'' }}'
