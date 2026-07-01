@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-59-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-50-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -88,7 +88,7 @@
 
 ## 🤖 Automations
 
-59 automations across the home. Key highlights:
+50 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
