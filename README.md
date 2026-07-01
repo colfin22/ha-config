@@ -200,6 +200,7 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 | Colm | `notify.mobile_app_np3` | All alerts |
 | Olivia | `notify.mobile_app_pixel_6a` | Security + presence |
 | Cian | `notify.mobile_app_pixel_7a` | Selected |
+| Daire (visitor) | `notify.mobile_app_pixel_9a` | Only when at the house |
 
 All alert automations respect a **22:00–07:00 quiet window** — overnight events are held and delivered with the original trigger time in the title.
 
