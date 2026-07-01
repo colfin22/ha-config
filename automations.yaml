@@ -2242,3 +2242,33 @@
       set t2 = state_attr(''weather.forecast_home'',''temperature'') %}{% set temps
       = [t1, t2] | reject(''none'') | list %}{{ temps | min if temps | count > 0 else
       ''below zero'' }}'
+- id: '1782932115960'
+  alias: Fog Warning - Commute
+  description: 'Weekday 07:30 check: if either weather source reports fog, push both
+    phones to allow extra time on the commute.'
+  triggers:
+  - platform: time
+    at: 07:30:00
+  conditions:
+  - condition: time
+    weekday:
+    - mon
+    - tue
+    - wed
+    - thu
+    - fri
+  - condition: template
+    value_template: '{{ ''fog'' in [states(''weather.forecast_home''), states(''weather.forecast_home_2'')]
+      }}'
+  actions:
+  - data:
+      title: "\U0001F32B️ Fog warning"
+      message: Fog about this morning — visibility will be poor. Allow extra time
+        on the commute and use dipped headlights.
+    action: notify.mobile_app_np3
+  - data:
+      title: "\U0001F32B️ Fog warning"
+      message: Fog about this morning — visibility will be poor. Allow extra time
+        on the commute and use dipped headlights.
+    action: notify.mobile_app_pixel_6a
+  mode: single
