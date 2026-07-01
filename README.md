@@ -18,13 +18,13 @@
 |---|---|
 | **PVE** | Proxmox VE — 2× Beelink S12 Mini PC (Intel N100, 16GB DDR4, 500GB SSD) |
 | **HA** | Home Assistant OS — Proxmox VM |
-| **NAS** | TrueNAS SCALE — TRIGKEY N100 Mini PC (32GB DDR4, 500GB SSD), MainPool (2× mirror, 3× WD Purple 6TB + 1× WD Red 8TB, ~10.88 TiB usable — upgrading to full 8TB as disks are replaced) |
+| **NAS** | TrueNAS SCALE — N100 Mini PC (32GB DDR4, 500GB SSD), MainPool (2× mirror, 4× 8TB, ~10.88 TiB usable) |
 | **Network** | MikroTik router + 6× managed switches/APs; wireless managed via MikroTik CAPsMAN |
 | **VLANs** | Home · IoT · Work · Guest · Mgmt · Stack |
 | **DNS** | Pi-hole × 2 (Proxmox LXC primary + TrueNAS app replica) |
 | **Cameras** | Frigate NVR — Proxmox LXC, recordings on USB 3.0 RAID 0 enclosure |
 | **Monitoring** | Zabbix — TrueNAS hosted; InfluxDB + Grafana — TrueNAS apps |
-| **Prox3 (Daire)** | Intel NUC7i3BNK (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox — connected via WireGuard |
+| **Prox3 (Daire)** | Intel NUC (i3-7100U, 4GB RAM, 256GB SSD) running encrypted Proxmox — connected via WireGuard |
 
 ---
 
@@ -64,7 +64,7 @@
 | [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; automation fires immediately on new alerts |
 | [Forecast.Solar](https://forecast.solar/) | Solar production forecast |
 | [Electricity Maps](https://www.electricitymaps.com/) | Grid CO2 intensity |
-| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — ESB Networks smart meter data via HDF; MQTT discovery sensors for import/export totals; feeds Solar dashboard and InfluxDB |
+| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — ESB Networks smart meter data via HDF - feeds Solar dashboard and InfluxDB |
 
 ### Media & Lifestyle
 | Integration | Purpose |
