@@ -2,7 +2,7 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.5-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![Automations](https://img.shields.io/badge/Automations-51-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
