@@ -115,7 +115,6 @@
 - **Weather warning** — Met Éireann official warnings → immediate mobile alert
 - **Bins out** — the night before a Panda Waste collection: a **19:00** reminder of which bin types are due, then at **22:00** a check of Frigate's `waste_bin` object on the Front Van camera — if no bin is detected at the kerb, it announces a **TTS** reminder on the speakers and sends a **second phone alert** with a camera snapshot
 - **Appliance notifications** — washing machine, dishwasher and tumble dryer; notifies on cycle start and finish with energy cost; TTS announcement on completion; 22:00–07:00 quiet window
-- **Devices offline report** — daily 07:00 report to Colm listing all offline devices; adds items to the Tasks to-do list
 - **Printer auto power cycle** — checks every 15 minutes (07:00–21:00) and power-cycles the Brother printer socket if it goes offline
 
 ### 🎉 Fun

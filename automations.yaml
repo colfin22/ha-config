@@ -2,10 +2,12 @@
   alias: Bins Out Notification
   description: 'Evening-before bin reminders (Panda waste). 19:00 the night before
     a collection: pushes Colm + Olivia which bins are due (icon per type, from calendar.panda_waste).
-    22:00: checks Frigate''s waste_bin object on the Front Van camera (binary_sensor.front_van_waste_bin_occupancy)
-    — if no bin is seen out front it announces a TTS reminder on the home speakers
-    + sends a second phone alert with a camera snapshot. Two calendar triggers on
-    calendar.panda_waste (offset -5h = 19:00, -2h = 22:00), branched by trigger id.'
+    22:00: checks Frigate''s waste_bin count on the Front Van camera (sensor.front_van_waste_bin_count)
+    — alerts only when the count is 0 (includes stationary bins at the kerb; the old
+    occupancy sensor missed parked bins) — if no bin is seen out front it announces
+    a TTS reminder on the home speakers + sends a second phone alert with a camera
+    snapshot. Two calendar triggers on calendar.panda_waste (offset -5h = 19:00, -2h
+    = 22:00), branched by trigger id.'
   triggers:
   - platform: calendar
     event: start
@@ -67,9 +69,9 @@
         id: check_10pm
       sequence:
       - if:
-        - condition: state
-          entity_id: binary_sensor.front_van_waste_bin_occupancy
-          state: 'off'
+        - condition: template
+          value_template: '{{ states(''sensor.front_van_waste_bin_count'') | int(-1)
+            == 0 }}'
         then:
         - action: script.tts_announce
           data:
@@ -85,7 +87,7 @@
               image: /api/camera_proxy/camera.front_van
               notification_icon: mdi:trash-can-outline
               color: '#E53935'
-              tag: bins-out
+              tag: bins-not-out
               group: bins
               channel: Bins
               importance: high
@@ -98,7 +100,7 @@
               image: /api/camera_proxy/camera.front_van
               notification_icon: mdi:trash-can-outline
               color: '#E53935'
-              tag: bins-out
+              tag: bins-not-out
               group: bins
               channel: Bins
               importance: high
