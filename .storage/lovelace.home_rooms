@@ -310,7 +310,10 @@
                       "entity": "input_boolean.maintenance_mode",
                       "name": "Maintenance"
                     }
-                  ]
+                  ],
+                  "card_mod": {
+                    "style": "#states > *:nth-child(3), #states > *:nth-child(4) { pointer-events: none; opacity: 0.6; }\n"
+                  }
                 }
               ]
             },
@@ -788,17 +791,6 @@
                   "type": "thermostat",
                   "entity": "climate.netatmo_smart_thermostat",
                   "name": "Heating"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Heating",
-                  "heading_style": "title",
-                  "icon": "mdi:radiator"
                 },
                 {
                   "type": "tile",
