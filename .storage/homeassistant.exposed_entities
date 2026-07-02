@@ -38323,6 +38323,76 @@
             "should_expose": false
           }
         }
+      },
+      "automation.nextcloud_problem_alerts": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.proxmox_problem_alerts": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.truenas_problem_alerts": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.ubuntu_vm_problem_alerts": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.offline_devices_report": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.frigate_disk_space_warning": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.frigate_system_offline": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.frigate_camera_offline": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.heating_away_mode_9_15_to_12_45": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.heating_seasonal_schedule_switch": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }

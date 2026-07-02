@@ -825,6 +825,10 @@ class VServerSensor(CoordinatorEntity[VServerCoordinator], SensorEntity):
             if isinstance(device, dict):
                 return device.get(self._storage_metric)
             return None
+        if self.entity_description.key == "containers":
+            details = self.coordinator.data.get("container_details")
+            if isinstance(details, list):
+                return len(details)
         return self.coordinator.data.get(self.entity_description.key)
 
     @property
