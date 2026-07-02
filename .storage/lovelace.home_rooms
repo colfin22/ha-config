@@ -795,6 +795,30 @@
               "type": "grid",
               "cards": [
                 {
+                  "type": "heading",
+                  "heading": "Heating",
+                  "heading_style": "title",
+                  "icon": "mdi:radiator"
+                },
+                {
+                  "type": "tile",
+                  "entity": "input_boolean.heating_extended_away",
+                  "name": "Away 24h+ → 12°C",
+                  "icon": "mdi:home-thermometer-outline",
+                  "state_color": true,
+                  "features_position": "inline",
+                  "features": [
+                    {
+                      "type": "toggle"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
                   "type": "custom:apexcharts-card",
                   "graph_span": "24h",
                   "header": {
