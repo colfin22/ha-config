@@ -116,9 +116,10 @@ class ImmichHub:
             async with aiohttp.ClientSession() as session:
                 url = urljoin(self.host, "/api/search/metadata")
                 headers = {"Accept": "application/json", _HEADER_API_KEY: self.api_key}
-                data = {"isFavorite": "true"}
+                # Immich v3 requires a JSON body with a real boolean (was form-encoded "true")
+                data = {"isFavorite": True}
 
-                async with session.post(url=url, headers=headers, data=data) as response:
+                async with session.post(url=url, headers=headers, json=data) as response:
                     if response.status != 200:
                         raw_result = await response.text()
                         _LOGGER.error("Error from API: body=%s", raw_result)
@@ -157,26 +158,44 @@ class ImmichHub:
             raise CannotConnect from exception
 
     async def list_album_images(self, album_id: str) -> list[dict]:
-        """List all images in an album."""
+        """List all images in an album.
+
+        Immich v3's GET /api/albums/{id} no longer returns the assets array,
+        so fetch them via the paginated metadata search filtered by album id.
+        """
         try:
             async with aiohttp.ClientSession() as session:
-                url = urljoin(self.host, f"/api/albums/{album_id}")
+                url = urljoin(self.host, "/api/search/metadata")
                 headers = {"Accept": "application/json", _HEADER_API_KEY: self.api_key}
 
-                async with session.get(url=url, headers=headers) as response:
-                    if response.status != 200:
-                        raw_result = await response.text()
-                        _LOGGER.error("Error from API: body=%s", raw_result)
-                        raise ApiError()
+                filtered_assets: list[dict] = []
+                page = 1
 
-                    album_info: dict = await response.json()
-                    assets: list[dict] = album_info["assets"]
+                while True:
+                    data = {"albumIds": [album_id], "page": page}
 
-                    filtered_assets: list[dict] = [
-                        asset for asset in assets if asset["type"] == "IMAGE"
-                    ]
+                    async with session.post(
+                        url=url, headers=headers, json=data
+                    ) as response:
+                        if response.status != 200:
+                            raw_result = await response.text()
+                            _LOGGER.error("Error from API: body=%s", raw_result)
+                            raise ApiError()
 
-                    return filtered_assets
+                        result = await response.json()
+                        assets_page: dict = result["assets"]
+                        items: list[dict] = assets_page.get("items", [])
+
+                        filtered_assets += [
+                            asset for asset in items if asset["type"] == "IMAGE"
+                        ]
+
+                        next_page = assets_page.get("nextPage")
+                        if not next_page:
+                            break
+                        page = int(next_page)
+
+                return filtered_assets
         except aiohttp.ClientError as exception:
             _LOGGER.error("Error connecting to the API: %s", exception)
             raise CannotConnect from exception
