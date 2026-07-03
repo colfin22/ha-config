@@ -73,7 +73,7 @@
       state: 'on'
       brightness: 77
 - id: colm_bedroom_ceiling
-  name: Colm Bedroom ceiling
+  name: Colm Bedroom Ceiling
   entities:
     light.colm_ceiling:
       state: 'on'
@@ -111,56 +111,78 @@
     light.sitting_room_stand:
       state: 'on'
       brightness: 144
-      xy_color: [0.518, 0.436]
+      xy_color:
+      - 0.518
+      - 0.436
     light.sitting_room_tv_lightstrip:
       state: 'on'
       brightness: 144
-      xy_color: [0.567, 0.401]
+      xy_color:
+      - 0.567
+      - 0.401
     light.sitting_room_lamp:
       state: 'on'
       brightness: 255
-      xy_color: [0.568, 0.401]
+      xy_color:
+      - 0.568
+      - 0.401
 - id: sitting_room_lake_placid
   name: Sitting Room Lake Placid
   entities:
     light.sitting_room_stand:
       state: 'on'
       brightness: 102
-      xy_color: [0.464, 0.348]
+      xy_color:
+      - 0.464
+      - 0.348
     light.sitting_room_tv_lightstrip:
       state: 'on'
       brightness: 102
-      xy_color: [0.398, 0.332]
+      xy_color:
+      - 0.398
+      - 0.332
     light.sitting_room_lamp:
       state: 'on'
       brightness: 102
-      xy_color: [0.214, 0.133]
+      xy_color:
+      - 0.214
+      - 0.133
 - id: sitting_room_rolling_hills
   name: Sitting Room Rolling hills
   entities:
     light.sitting_room_stand:
       state: 'on'
       brightness: 115
-      xy_color: [0.553, 0.394]
+      xy_color:
+      - 0.553
+      - 0.394
     light.sitting_room_tv_lightstrip:
       state: 'on'
       brightness: 115
-      xy_color: [0.524, 0.403]
+      xy_color:
+      - 0.524
+      - 0.403
     light.sitting_room_lamp:
       state: 'on'
       brightness: 115
-      xy_color: [0.501, 0.401]
+      xy_color:
+      - 0.501
+      - 0.401
 - id: sitting_room_movie
   name: Sitting Room Movie
   entities:
     light.sitting_room_stand:
       state: 'on'
       brightness: 51
-      xy_color: [0.485, 0.376]
+      xy_color:
+      - 0.485
+      - 0.376
     light.sitting_room_tv_lightstrip:
       state: 'on'
       brightness: 76
-      xy_color: [0.542, 0.386]
+      xy_color:
+      - 0.542
+      - 0.386
     light.sitting_room_lamp:
       state: 'off'
 - id: sitting_room_bright
@@ -184,15 +206,21 @@
     light.sitting_room_stand:
       state: 'on'
       brightness: 144
-      xy_color: [0.397, 0.323]
+      xy_color:
+      - 0.397
+      - 0.323
     light.sitting_room_tv_lightstrip:
       state: 'on'
       brightness: 144
-      xy_color: [0.379, 0.325]
+      xy_color:
+      - 0.379
+      - 0.325
     light.sitting_room_lamp:
       state: 'on'
       brightness: 255
-      xy_color: [0.387, 0.325]
+      xy_color:
+      - 0.387
+      - 0.325
 - id: kitchen_bright
   name: Kitchen Bright
   entities:
