@@ -158,8 +158,8 @@ action:
 - variables:
     controller: !input controller
 - choose:
-  - conditions: '{{(''hold'' in trigger.payload_json.action) or (''release'' in trigger.payload_json.action)
-      or ''press'' in trigger.payload_json.action}}'
+  - conditions: '{{ trigger.payload_json.action is defined and ((''hold'' in trigger.payload_json.action) or (''release'' in trigger.payload_json.action)
+      or ''press'' in trigger.payload_json.action) }}'
     sequence:
     - choose:
       - conditions: '{{ trigger.payload_json.action == "on_press" or trigger.payload_json.action
