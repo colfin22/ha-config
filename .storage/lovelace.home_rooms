@@ -303,16 +303,36 @@
                       "name": "Guest"
                     },
                     {
-                      "entity": "input_boolean.storm_mode",
-                      "name": "Storm"
-                    },
-                    {
-                      "entity": "input_boolean.maintenance_mode",
-                      "name": "Maintenance"
+                      "type": "buttons",
+                      "entities": [
+                        {
+                          "entity": "input_boolean.storm_mode",
+                          "name": "Storm",
+                          "icon": "mdi:weather-lightning",
+                          "show_icon": true,
+                          "show_name": true
+                        },
+                        {
+                          "entity": "input_boolean.maintenance_mode",
+                          "name": "Maintenance",
+                          "icon": "mdi:wrench",
+                          "show_icon": true,
+                          "show_name": true
+                        }
+                      ]
                     }
                   ],
                   "card_mod": {
-                    "style": "#states > *:nth-child(3), #states > *:nth-child(4) { pointer-events: none; opacity: 0.6; }\n"
+                    "style": {
+                      ".": "#states hui-buttons-row { pointer-events: none; }\n#states > *:nth-child(2) { --state-input_boolean-on-color: #2e7d32; --state-active-color: #2e7d32; --switch-checked-button-color: #2e7d32; --switch-checked-track-color: #2e7d32; }",
+                      "hui-buttons-row": {
+                        "$": {
+                          "hui-buttons-base": {
+                            "$": "ha-chip-set { width: 100%; justify-content: space-between; pointer-events: none; } ha-assist-chip { --ha-assist-chip-container-height: 36px; --md-assist-chip-label-text-size: 1.05em; pointer-events: none; cursor: default; } state-badge { width: 26px; height: 26px; line-height: 26px; --mdc-icon-size: 22px; } ha-assist-chip:first-of-type { --state-input_boolean-on-color: {% set l = states('sensor.met_eireann_warning_level')|lower %}{{ '#d32f2f' if 'red' in l else '#ff8100' }}; --state-active-color: {% set l = states('sensor.met_eireann_warning_level')|lower %}{{ '#d32f2f' if 'red' in l else '#ff8100' }}; } ha-assist-chip:last-of-type { --state-input_boolean-on-color: #d32f2f; --state-active-color: #d32f2f; }"
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               ]
