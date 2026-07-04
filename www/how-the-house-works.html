@@ -10,9 +10,9 @@
   html, body { height:100%; margin:0; }
   body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink);
          background:var(--bg); line-height:1.5; -webkit-overflow-scrolling:touch; }
-  .page { display:none; min-height:100%; padding:20px 16px 90px; max-width:760px; margin:0 auto; }
   .idx { display:block; min-height:100%; padding:20px 16px 90px; max-width:760px; margin:0 auto; }
   body:has(.page:target) .idx { display:none; }
+  .page { display:none; min-height:100%; padding:20px 16px 90px; max-width:760px; margin:0 auto; }
   .page:target { display:block; }
   h1 { font-size:1.7em; margin:8px 0 2px; }
   .sub { color:var(--soft); margin:0 0 20px; }
@@ -31,6 +31,7 @@
   .cap { text-align:center; font-size:.83em; color:var(--soft); margin:2px 0 10px; }
   .mode { font-weight:600; }
   .m-home{color:#2e7d32;} .m-away{color:#1565c0;} .m-sleep{color:#6a5acd;}
+  .btns th { white-space:nowrap; }
   .toc { list-style:none; padding:0; margin:8px 0; }
   .toc a { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink);
            background:var(--card); border-radius:10px; padding:13px 16px; margin:8px 0;
@@ -54,11 +55,12 @@
     <li><a href="#p1"><span class="n">1</span> House Mode — the brain <span class="arr">›</span></a></li>
     <li><a href="#p2"><span class="n">2</span> Guests staying over <span class="arr">›</span></a></li>
     <li><a href="#p3"><span class="n">3</span> Heating &amp; boost <span class="arr">›</span></a></li>
-    <li><a href="#p4"><span class="n">4</span> Alarm <span class="arr">›</span></a></li>
-    <li><a href="#p5"><span class="n">5</span> Cameras &amp; the doorbell <span class="arr">›</span></a></li>
-    <li><a href="#p6"><span class="n">6</span> The talking house <span class="arr">›</span></a></li>
-    <li><a href="#p7"><span class="n">7</span> Phone notifications <span class="arr">›</span></a></li>
-    <li><a href="#p8"><span class="n">8</span> Quick &ldquo;how do I&hellip;&rdquo; <span class="arr">›</span></a></li>
+    <li><a href="#p4"><span class="n">4</span> Lights &amp; dimmer switches <span class="arr">›</span></a></li>
+    <li><a href="#p5"><span class="n">5</span> Alarm <span class="arr">›</span></a></li>
+    <li><a href="#p6"><span class="n">6</span> Cameras &amp; the doorbell <span class="arr">›</span></a></li>
+    <li><a href="#p7"><span class="n">7</span> The talking house <span class="arr">›</span></a></li>
+    <li><a href="#p8"><span class="n">8</span> Phone notifications <span class="arr">›</span></a></li>
+    <li><a href="#p9"><span class="n">9</span> Quick &ldquo;how do I&hellip;&rdquo; <span class="arr">›</span></a></li>
   </ul>
 </div>
 
@@ -112,11 +114,30 @@
   <img class="shot" src="heating.png" alt="The heating card">
   <p class="cap">The ring shows the current temperature (dot = target) and glows
   <span style="color:var(--accent)"><b>orange</b></span> while the boiler is heating.</p>
-  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p4">Next: Alarm &rsaquo;</a></div>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p4">Next: Lights &rsaquo;</a></div>
 </div>
 
 <div class="page" id="p4">
-  <h2>4. Alarm</h2>
+  <h2>4. Lights &amp; dimmer switches</h2>
+  <p>Most rooms have a little <b>dimmer switch</b> on the wall for the lights. There are
+  <b>two types</b> around the house — an older rounded one and a newer squarer one — but they
+  <b>work exactly the same way</b>, with four buttons:</p>
+  <img class="shot" src="dimmer.jpg" alt="The two Hue dimmer switch types" style="max-width:340px">
+  <p class="cap">The two types — same four buttons, top to bottom.</p>
+  <table class="btns">
+    <tr><th>Button</th><th>What it does</th></tr>
+    <tr><td><b>Top — On</b></td><td>Turns the room's lights on. Press it <b>again</b> to cycle
+        through the room's moods (bright, dimmed, night…). <b>Hold</b> for full brightness.</td></tr>
+    <tr><td><b>▲ Up</b></td><td>Brighter — hold to brighten faster.</td></tr>
+    <tr><td><b>▼ Down</b></td><td>Dimmer — hold to dim faster.</td></tr>
+    <tr><td><b>Bottom — Off</b></td><td>Turns the room's lights off.</td></tr>
+  </table>
+  <p>Each dimmer controls the lights in its own room.</p>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p5">Next: Alarm &rsaquo;</a></div>
+</div>
+
+<div class="page" id="p5">
+  <h2>5. Alarm</h2>
   <ul>
     <li><b>Arms and disarms itself</b> with House Mode (see section 1).</li>
     <li><b>Front door tag:</b> a backup — disarming normally happens automatically when you arrive;
@@ -129,11 +150,11 @@
   <img class="shot" src="alarm.png" alt="The alarm panels">
   <p class="cap">The House and Shed panels — normally you never need them (it follows House Mode),
   but they're there for manual arming or disarming.</p>
-  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p5">Next: Cameras &rsaquo;</a></div>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p6">Next: Cameras &rsaquo;</a></div>
 </div>
 
-<div class="page" id="p5">
-  <h2>5. Cameras &amp; the doorbell</h2>
+<div class="page" id="p6">
+  <h2>6. Cameras &amp; the doorbell</h2>
   <ul>
     <li><b>Phone alerts with pictures:</b> anyone at the front, doorbell or back garden sends us both
         a notification — text, then photo, then a moving clip. Tap it to watch the footage.</li>
@@ -146,11 +167,11 @@
     <li><b>While Sleeping</b>, anyone at the cars sets off a light show and a spoken warning —
         automatic.</li>
   </ul>
-  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p6">Next: Announcements &rsaquo;</a></div>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p7">Next: Announcements &rsaquo;</a></div>
 </div>
 
-<div class="page" id="p6">
-  <h2>6. The talking house</h2>
+<div class="page" id="p7">
+  <h2>7. The talking house</h2>
   <p>What the speakers tell you:</p>
   <ul>
     <li>Deliveries and the postman (daytime only).</li>
@@ -160,11 +181,11 @@
     <li><b>Cat alarm:</b> when the bird's cage is outside, tap the cage tag — if a cat appears the
         house shouts about it. The kitchen TV light glows green while it's on guard.</li>
   </ul>
-  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p7">Next: Notifications &rsaquo;</a></div>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p8">Next: Notifications &rsaquo;</a></div>
 </div>
 
-<div class="page" id="p7">
-  <h2>7. Phone notifications</h2>
+<div class="page" id="p8">
+  <h2>8. Phone notifications</h2>
   <table>
     <tr><th>Notification</th><th>What it is</th></tr>
     <tr><td>Morning weather (8:30)</td><td>Today's forecast; 9:30pm one for tomorrow</td></tr>
@@ -174,15 +195,16 @@
         (electricity is dearer then)</td></tr>
     <tr><td>⚠️ Cameras Away</td><td>Urgent: someone at the house while it's empty</td></tr>
   </table>
-  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p8">Next: How do I&hellip; &rsaquo;</a></div>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p9">Next: How do I&hellip; &rsaquo;</a></div>
 </div>
 
-<div class="page" id="p8">
-  <h2>8. Quick &ldquo;how do I&hellip;&rdquo;</h2>
+<div class="page" id="p9">
+  <h2>9. Quick &ldquo;how do I&hellip;&rdquo;</h2>
   <table>
     <tr><th>I want to…</th><th>Do this</th></tr>
     <tr><td>Make it warmer for a while</td><td>Home tab → slider + <b>Boost 2 h</b> (or dial up)</td></tr>
     <tr><td>Stop a boost</td><td><b>Cancel</b> on the card, or turn the dial down</td></tr>
+    <tr><td>Change the lights</td><td>The wall dimmer — top for on/moods, up/down for brightness</td></tr>
     <tr><td>Have guests stay</td><td><b>Guest Mode</b> on; off when they go</td></tr>
     <tr><td>Go to the shed</td><td>Tap the back-door tag first</td></tr>
     <tr><td>Garden without camera alerts</td><td>Tap the patio tag; closing the door turns it back on</td></tr>
