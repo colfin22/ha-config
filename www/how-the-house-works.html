@@ -11,8 +11,8 @@
   body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink);
          background:var(--bg); line-height:1.5; -webkit-overflow-scrolling:touch; }
   .page { display:none; min-height:100%; padding:20px 16px 90px; max-width:760px; margin:0 auto; }
-  #index { display:block; }
-  body:has(.page:target) #index { display:none; }
+  .idx { display:block; min-height:100%; padding:20px 16px 90px; max-width:760px; margin:0 auto; }
+  body:has(.page:target) .idx { display:none; }
   .page:target { display:block; }
   h1 { font-size:1.7em; margin:8px 0 2px; }
   .sub { color:var(--soft); margin:0 0 20px; }
@@ -46,7 +46,7 @@
 </head>
 <body>
 
-<div class="page" id="index">
+<div class="idx" id="index">
   <h1>How the House Works 🏡</h1>
   <p class="sub">A quick guide to what the house does by itself, and the few things worth knowing
   how to drive. Tap a section to begin.</p>
