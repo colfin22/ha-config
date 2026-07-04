@@ -7,6 +7,16 @@
       {
         "id": "offline_devices_report_button",
         "name": "Offline_Devices_Report_Button"
+      },
+      {
+        "id": "heating_boost_start",
+        "name": "Heating Boost Start",
+        "icon": "mdi:fire"
+      },
+      {
+        "id": "heating_boost_cancel",
+        "name": "Heating Boost Cancel",
+        "icon": "mdi:fire-off"
       }
     ]
   }

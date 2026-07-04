@@ -82,6 +82,14 @@
         "max": 255,
         "mode": "text",
         "min": 0
+      },
+      {
+        "id": "heating_status",
+        "name": "Heating Status",
+        "icon": "mdi:radiator",
+        "max": 100,
+        "min": 0,
+        "mode": "text"
       }
     ]
   }
