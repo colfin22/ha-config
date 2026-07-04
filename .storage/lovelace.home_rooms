@@ -787,52 +787,7 @@
               "type": "grid",
               "cards": [
                 {
-                  "type": "thermostat",
-                  "entity": "climate.netatmo_smart_thermostat",
-                  "features": [
-                    {
-                      "type": "target-temperature"
-                    }
-                  ]
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_text.heating_status",
-                  "name": "Status",
-                  "hide_state": false,
-                  "vertical": false,
-                  "grid_options": {
-                    "columns": "full"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_number.heating_boost_temperature",
-                  "name": "Boost temperature",
-                  "features": [
-                    {
-                      "type": "numeric-input",
-                      "style": "slider"
-                    }
-                  ]
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_button.heating_boost_start",
-                  "name": "Boost for 2 hours",
-                  "color": "orange",
-                  "tap_action": {
-                    "action": "toggle"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_button.heating_boost_cancel",
-                  "name": "Cancel boost",
-                  "color": "grey",
-                  "tap_action": {
-                    "action": "toggle"
-                  }
+                  "type": "custom:heating-boost-card"
                 },
                 {
                   "type": "tile",
