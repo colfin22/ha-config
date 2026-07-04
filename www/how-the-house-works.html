@@ -6,149 +6,193 @@
 <title>How the House Works</title>
 <style>
   :root { --accent:#ff8100; --ink:#222; --soft:#666; --bg:#faf8f5; --card:#fff; }
-  html, body { height: 100%; }
-  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color:var(--ink);
-         background:var(--bg); margin:0; padding:0 16px 60px; line-height:1.55;
-         overflow-y: auto; -webkit-overflow-scrolling: touch; box-sizing: border-box; }
-  .wrap { max-width:760px; margin:0 auto; }
-  h1 { font-size:1.9em; margin:28px 0 4px; }
-  .sub { color:var(--soft); margin-bottom:28px; }
-  h2 { font-size:1.25em; border-bottom:2px solid var(--accent); padding-bottom:4px; margin-top:36px; }
-  h3 { font-size:1.05em; margin-bottom:4px; }
-  .card { background:var(--card); border-radius:12px; padding:14px 18px; margin:14px 0;
+  * { box-sizing: border-box; }
+  html, body { height:100%; margin:0; }
+  body { font-family:-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink);
+         background:var(--bg); line-height:1.5; -webkit-overflow-scrolling:touch; }
+  .page { display:none; min-height:100%; padding:20px 16px 90px; max-width:760px; margin:0 auto; }
+  #index { display:block; }
+  body:has(.page:target) #index { display:none; }
+  .page:target { display:block; }
+  h1 { font-size:1.7em; margin:8px 0 2px; }
+  .sub { color:var(--soft); margin:0 0 20px; }
+  h2 { font-size:1.3em; color:var(--accent); margin:6px 0 12px; }
+  h3 { font-size:1.03em; margin-bottom:4px; }
+  .card { background:var(--card); border-radius:12px; padding:12px 16px; margin:12px 0;
           box-shadow:0 1px 3px rgba(0,0,0,.08); }
   .tip { border-left:4px solid var(--accent); }
-  table { width:100%; border-collapse:collapse; margin:12px 0; background:var(--card);
+  table { width:100%; border-collapse:collapse; margin:10px 0; background:var(--card);
           border-radius:8px; overflow:hidden; font-size:.95em; }
-  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid #eee; vertical-align:top; }
+  th,td { text-align:left; padding:8px 11px; border-bottom:1px solid #eee; vertical-align:top; }
   th { background:#f3efe9; }
-  code { background:#f0ece6; padding:1px 6px; border-radius:5px; font-size:.9em; }
-  .mode { font-weight:600; }
-  .m-home { color:#2e7d32; } .m-away { color:#1565c0; } .m-sleep { color:#6a5acd; }
   ul { padding-left:20px; } li { margin:4px 0; }
-  .shot { display:block; margin:14px auto 4px; max-width:320px; width:100%;
-          border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.25); }
-  .cap { text-align:center; font-size:.85em; color:var(--soft); margin:2px 0 12px; }
+  .shot { display:block; margin:12px auto 4px; max-width:300px; width:100%;
+          border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.22); }
+  .cap { text-align:center; font-size:.83em; color:var(--soft); margin:2px 0 10px; }
+  .mode { font-weight:600; }
+  .m-home{color:#2e7d32;} .m-away{color:#1565c0;} .m-sleep{color:#6a5acd;}
+  .toc { list-style:none; padding:0; margin:8px 0; }
+  .toc a { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--ink);
+           background:var(--card); border-radius:10px; padding:13px 16px; margin:8px 0;
+           box-shadow:0 1px 3px rgba(0,0,0,.08); font-size:1.05em; }
+  .toc a .n { color:var(--accent); font-weight:700; min-width:20px; }
+  .toc a .arr { margin-left:auto; color:var(--soft); }
+  .nav { display:flex; justify-content:space-between; align-items:center; gap:12px;
+         margin-top:24px; padding-top:14px; border-top:1px solid #e6e0d8; }
+  .nav a { text-decoration:none; font-size:1em; padding:10px 16px; border-radius:10px; }
+  .nav .ix { color:var(--soft); background:var(--card); box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .nav .nx { color:#fff; background:var(--accent); font-weight:600; margin-left:auto; }
 </style>
 </head>
-<body><div class="wrap">
+<body>
 
-<h1>How the House Works 🏡</h1>
-<p class="sub">A guide to what the house does by itself, and the few things worth knowing how to drive.</p>
-
-<h2>1. House Mode — the brain</h2>
-<p>The house keeps track of one overall state, and almost everything else follows it. You never
-normally need to set it — it works itself out from who's home and what's happening.</p>
-<table>
-  <tr><th>Mode</th><th>When</th><th>What happens</th></tr>
-  <tr><td class="mode m-home">Home</td><td>At least one of us is in</td>
-      <td>Alarm off, heating comfortable (warmest in the evening)</td></tr>
-  <tr><td class="mode m-away">Away</td><td>Both of us out ~20 minutes and no movement inside</td>
-      <td>Alarm arms fully, heating eases right back, camera alerts become urgent</td></tr>
-  <tr><td class="mode m-sleep">Sleeping</td><td>Late evening: TVs off, lights off, no movement for 20 min</td>
-      <td>Alarm arms the perimeter for the night, heating drops to the night temperature</td></tr>
-</table>
-<div class="card tip"><b>Coming home from Away:</b> the moment one of us arrives, the house switches
-to Home and the alarm disarms itself — you'll hear a welcome-home announcement. Nothing to do.</div>
-<img class="shot" src="house_mode.png" alt="The House Mode card">
-<p class="cap">The House Mode card on the Home tab — Mode and Guest are yours to change;
-Storm and Maintenance light up by themselves when active.</p>
-
-<h2>2. Guests staying over</h2>
-<p>Flip <b>Guest Mode</b> on (Home tab of the app, the House Mode card) when anyone is staying:</p>
-<ul>
-  <li>The alarm won't fully arm if we both nip out and leave guests in the house.</li>
-  <li>The heating never drops to the "empty house" setting — guests won't be left cold.</li>
-  <li>The night-time arming still happens as normal, so the house is still secure overnight.</li>
-</ul>
-<p>Just remember to turn it off when they leave.</p>
-
-<h2>3. Heating</h2>
-<p>Fully automatic, using three set temperatures:</p>
-<ul>
-  <li><b>20°</b> — comfort, through the day</li>
-  <li><b>20.5°</b> — evening heat, from 7pm</li>
-  <li><b>19.5°</b> — night, while Sleeping</li>
-</ul>
-<p>It eases right back when nobody's home. It even starts warming when one of us
-is driving home, and gets up earlier on cold mornings based on the forecast.</p>
-<h3>Want it warmer right now? Boost.</h3>
-<div class="card">
-  On the <b>Home tab</b>, the heating card has a <b>Boost temperature</b> slider and a
-  <b>Boost 2 h</b> button — pick a temperature, tap Boost, and it holds for two hours, then goes
-  back to the schedule by itself. <b>Cancel</b> ends it early.<br><br>
-  The dial on the hallway thermostat works too: turn it <b>up</b> = a two-hour boost;
-  turn it <b>down</b> = cancel and back to schedule. <i>No need for the Netatmo app — don't use it.</i>
+<div class="page" id="index">
+  <h1>How the House Works 🏡</h1>
+  <p class="sub">A quick guide to what the house does by itself, and the few things worth knowing
+  how to drive. Tap a section to begin.</p>
+  <ul class="toc">
+    <li><a href="#p1"><span class="n">1</span> House Mode — the brain <span class="arr">›</span></a></li>
+    <li><a href="#p2"><span class="n">2</span> Guests staying over <span class="arr">›</span></a></li>
+    <li><a href="#p3"><span class="n">3</span> Heating &amp; boost <span class="arr">›</span></a></li>
+    <li><a href="#p4"><span class="n">4</span> Alarm <span class="arr">›</span></a></li>
+    <li><a href="#p5"><span class="n">5</span> Cameras &amp; the doorbell <span class="arr">›</span></a></li>
+    <li><a href="#p6"><span class="n">6</span> The talking house <span class="arr">›</span></a></li>
+    <li><a href="#p7"><span class="n">7</span> Phone notifications <span class="arr">›</span></a></li>
+    <li><a href="#p8"><span class="n">8</span> Quick &ldquo;how do I&hellip;&rdquo; <span class="arr">›</span></a></li>
+  </ul>
 </div>
-<p>The card's ring shows the current temperature and glows <span style="color:var(--accent)"><b>orange</b></span>
-while the boiler is actually heating; the little dot is the target.</p>
-<img class="shot" src="heating.png" alt="The heating card with boost controls">
-<p class="cap">The heating card — current temperature in the ring (dot = target), status line,
-boost slider and the Boost / Cancel buttons.</p>
 
-<h2>4. Alarm</h2>
-<ul>
-  <li><b>Arms and disarms itself</b> with House Mode — see the table above.</li>
-  <li><b>Front door NFC tag:</b> a backup — disarming normally happens automatically when you arrive home; tap your phone on the tag if it hasn't.</li>
-  <li><b>Shed:</b> tap the back-door tag before going to the shed — it stands the shed alarm down for
-      up to two hours and re-arms itself after you're done. It also re-arms itself at 10pm regardless.</li>
-  <li><b>If it triggers:</b> every light in the house strobes and both our phones get alerts, and it
-      announces on the speakers. Disarm from the app or the front-door tag; the lights go back to how they were.</li>
-</ul>
-<img class="shot" src="alarm.png" alt="The House and Shed alarm panels">
-<p class="cap">The alarm panels in the app — House and Shed. Normally you never need them
-(it all follows House Mode), but they're there for manual arming or disarming.</p>
+<div class="page" id="p1">
+  <h2>1. House Mode — the brain</h2>
+  <p>The house keeps one overall state, and almost everything follows it. You never normally need to
+  set it — it works itself out from who's home and what's happening.</p>
+  <table>
+    <tr><th>Mode</th><th>When</th><th>What happens</th></tr>
+    <tr><td class="mode m-home">Home</td><td>At least one of us is in</td>
+        <td>Alarm off, heating comfortable (warmest in the evening)</td></tr>
+    <tr><td class="mode m-away">Away</td><td>Both out ~20 min, no movement inside</td>
+        <td>Alarm arms fully, heating eases back, camera alerts become urgent</td></tr>
+    <tr><td class="mode m-sleep">Sleeping</td><td>Late: TVs &amp; lights off, still 20 min</td>
+        <td>Alarm arms the perimeter, heating drops to the night temperature</td></tr>
+  </table>
+  <div class="card tip"><b>Coming home from Away:</b> the moment one of us arrives, the house
+  switches to Home and disarms itself — you'll hear a welcome-home announcement. Nothing to do.</div>
+  <img class="shot" src="house_mode.png" alt="The House Mode card">
+  <p class="cap">The House Mode card — Mode and Guest are yours; Storm and Maintenance light up by themselves.</p>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p2">Next: Guests &rsaquo;</a></div>
+</div>
 
-<h2>5. Cameras &amp; the doorbell</h2>
-<ul>
-  <li><b>Phone alerts with pictures:</b> anyone at the front, the doorbell or the back garden sends us
-      both a notification — first text, then the photo, then a moving clip. Tap it to watch the footage.</li>
-  <li><b>Doorbell:</b> a person at the door also pops their picture up on the kitchen display and the
-      sitting-room TV. If the camera recognises them, it says who.</li>
-  <li><b>Deliveries:</b> the speakers announce couriers ("DPD has landed…") and the postman.</li>
-  <li><b>Out the back?</b> Tap the <b>patio door tag</b> and the rear cameras stop alerting while
-      you're gardening or hanging washing. It switches itself off when the patio door is closed again.</li>
-  <li><b>When the house is Away</b>, camera alerts come through as urgent ⚠️ notifications that
-      bypass quiet settings.</li>
-  <li><b>While the house is Sleeping:</b> anyone poking around the cars sets off a light show and a
-      warning announcement — it enables itself automatically with Sleeping mode.</li>
-</ul>
+<div class="page" id="p2">
+  <h2>2. Guests staying over</h2>
+  <p>Flip <b>Guest Mode</b> on (Home tab, the House Mode card) when anyone is staying:</p>
+  <ul>
+    <li>The alarm won't fully arm if we both nip out and leave guests in.</li>
+    <li>The heating never drops to the "empty house" setting — guests won't be left cold.</li>
+    <li>Night-time arming still happens, so the house is still secure overnight.</li>
+  </ul>
+  <p>Just remember to turn it off when they leave.</p>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p3">Next: Heating &rsaquo;</a></div>
+</div>
 
-<h2>6. The talking house — what the speakers tell you</h2>
-<ul>
-  <li>Deliveries and the postman (daytime only).</li>
-  <li>Alarm events — arming, disarming, triggered.</li>
-  <li><b>Bins:</b> a reminder at 7pm on bin night, and at 10pm it checks the camera — if the bin
-      isn't out at the kerb, it says so.</li>
-  <li><b>Cat alarm:</b> when the bird's cage is outside, tap the cage tag — if a cat shows up on the
-      cameras the house shouts about it. The kitchen TV light glows green while it's on guard.</li>
-</ul>
+<div class="page" id="p3">
+  <h2>3. Heating &amp; boost</h2>
+  <p>Fully automatic, using three set temperatures:</p>
+  <ul>
+    <li><b>20°</b> — comfort, through the day</li>
+    <li><b>20.5°</b> — evening heat, from 7pm</li>
+    <li><b>19.5°</b> — night, while Sleeping</li>
+  </ul>
+  <p>It eases right back when nobody's home, starts warming when one of us is driving home, and gets
+  up earlier on cold mornings based on the forecast.</p>
+  <h3>Want it warmer now? Boost.</h3>
+  <div class="card">On the <b>Home tab</b>, the heating card has a <b>Boost temperature</b> slider and
+  a <b>Boost 2 h</b> button — pick a temperature, tap Boost, and it holds for two hours then returns
+  to the schedule. <b>Cancel</b> ends it early. The hallway dial works too: <b>up</b> = a two-hour
+  boost, <b>down</b> = cancel. <i>No need for the Netatmo app — don't use it.</i></div>
+  <img class="shot" src="heating.png" alt="The heating card">
+  <p class="cap">The ring shows the current temperature (dot = target) and glows
+  <span style="color:var(--accent)"><b>orange</b></span> while the boiler is heating.</p>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p4">Next: Alarm &rsaquo;</a></div>
+</div>
 
-<h2>7. Phone notifications worth knowing</h2>
-<table>
-  <tr><th>Notification</th><th>What it is</th></tr>
-  <tr><td>Morning weather (8:30)</td><td>Today's forecast; evening one at 9:30pm for tomorrow</td></tr>
-  <tr><td>7am security summary</td><td>Anything the cameras saw overnight (people, foxes, cats…)</td></tr>
-  <tr><td>Washing machine / dryer / dishwasher</td><td>Cycle started and finished, with the cost</td></tr>
-  <tr><td>"Peak rate" nudge</td><td>If an appliance starts between 5–7pm it suggests waiting until
-      after 7 — electricity is dearer then</td></tr>
-  <tr><td>⚠️ Cameras Away</td><td>Urgent: someone at the house while it's empty</td></tr>
-</table>
+<div class="page" id="p4">
+  <h2>4. Alarm</h2>
+  <ul>
+    <li><b>Arms and disarms itself</b> with House Mode (see section 1).</li>
+    <li><b>Front door tag:</b> a backup — disarming normally happens automatically when you arrive;
+        tap your phone on the tag if it hasn't.</li>
+    <li><b>Shed:</b> tap the back-door tag before going out — it stands the shed alarm down for up to
+        two hours and re-arms after you're done. It also re-arms at 10pm regardless.</li>
+    <li><b>If it triggers:</b> every light strobes, both phones alert, and it announces on the
+        speakers. Disarm from the app or the front-door tag; the lights return to normal.</li>
+  </ul>
+  <img class="shot" src="alarm.png" alt="The alarm panels">
+  <p class="cap">The House and Shed panels — normally you never need them (it follows House Mode),
+  but they're there for manual arming or disarming.</p>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p5">Next: Cameras &rsaquo;</a></div>
+</div>
 
-<h2>8. Quick "how do I…"</h2>
-<table>
-  <tr><th>I want to…</th><th>Do this</th></tr>
-  <tr><td>Make it warmer for a while</td><td>Home tab → slider + <b>Boost 2 h</b> (or turn the hallway dial up)</td></tr>
-  <tr><td>Stop a boost</td><td><b>Cancel</b> on the card, or turn the dial down</td></tr>
-  <tr><td>Have guests stay</td><td><b>Guest Mode</b> on (Home tab); off when they go</td></tr>
-  <tr><td>Go to the shed</td><td>Tap the back-door tag first</td></tr>
-  <tr><td>Potter in the garden without camera alerts</td><td>Tap the patio door tag; closing the patio door turns it back on</td></tr>
-  <tr><td>Put the cage outside safely</td><td>Tap the cage tag to arm the cat alarm</td></tr>
-  <tr><td>Check why the alarm/heating did something</td><td>Ask Colm — everything is logged 😄</td></tr>
-</table>
+<div class="page" id="p5">
+  <h2>5. Cameras &amp; the doorbell</h2>
+  <ul>
+    <li><b>Phone alerts with pictures:</b> anyone at the front, doorbell or back garden sends us both
+        a notification — text, then photo, then a moving clip. Tap it to watch the footage.</li>
+    <li><b>Doorbell:</b> a person also pops up on the kitchen display and the sitting-room TV, and it
+        says who if the camera recognises them.</li>
+    <li><b>Deliveries:</b> the speakers announce couriers ("DPD has landed…") and the postman.</li>
+    <li><b>Out the back?</b> Tap the <b>patio door tag</b> and the rear cameras stop alerting while
+        you're gardening — it switches itself off when the patio door is closed again.</li>
+    <li><b>When Away</b>, camera alerts come through as urgent ⚠️ notifications.</li>
+    <li><b>While Sleeping</b>, anyone at the cars sets off a light show and a spoken warning —
+        automatic.</li>
+  </ul>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p6">Next: Announcements &rsaquo;</a></div>
+</div>
 
-<p class="sub" style="margin-top:30px">If something seems stuck or wrong, it almost always sorts
-itself within a minute or two — and if it doesn't, Colm can see exactly what happened.</p>
+<div class="page" id="p6">
+  <h2>6. The talking house</h2>
+  <p>What the speakers tell you:</p>
+  <ul>
+    <li>Deliveries and the postman (daytime only).</li>
+    <li>Alarm events — arming, disarming, triggered.</li>
+    <li><b>Bins:</b> a reminder at 7pm on bin night; at 10pm it checks the camera and says so if the
+        bin isn't out at the kerb.</li>
+    <li><b>Cat alarm:</b> when the bird's cage is outside, tap the cage tag — if a cat appears the
+        house shouts about it. The kitchen TV light glows green while it's on guard.</li>
+  </ul>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p7">Next: Notifications &rsaquo;</a></div>
+</div>
 
-</div></body>
+<div class="page" id="p7">
+  <h2>7. Phone notifications</h2>
+  <table>
+    <tr><th>Notification</th><th>What it is</th></tr>
+    <tr><td>Morning weather (8:30)</td><td>Today's forecast; 9:30pm one for tomorrow</td></tr>
+    <tr><td>7am security summary</td><td>Anything the cameras saw overnight</td></tr>
+    <tr><td>Washer / dryer / dishwasher</td><td>Cycle started and finished, with the cost</td></tr>
+    <tr><td>"Peak rate" nudge</td><td>An appliance starting 5–7pm — suggests waiting until after 7
+        (electricity is dearer then)</td></tr>
+    <tr><td>⚠️ Cameras Away</td><td>Urgent: someone at the house while it's empty</td></tr>
+  </table>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p8">Next: How do I&hellip; &rsaquo;</a></div>
+</div>
+
+<div class="page" id="p8">
+  <h2>8. Quick &ldquo;how do I&hellip;&rdquo;</h2>
+  <table>
+    <tr><th>I want to…</th><th>Do this</th></tr>
+    <tr><td>Make it warmer for a while</td><td>Home tab → slider + <b>Boost 2 h</b> (or dial up)</td></tr>
+    <tr><td>Stop a boost</td><td><b>Cancel</b> on the card, or turn the dial down</td></tr>
+    <tr><td>Have guests stay</td><td><b>Guest Mode</b> on; off when they go</td></tr>
+    <tr><td>Go to the shed</td><td>Tap the back-door tag first</td></tr>
+    <tr><td>Garden without camera alerts</td><td>Tap the patio tag; closing the door turns it back on</td></tr>
+    <tr><td>Put the cage outside safely</td><td>Tap the cage tag to arm the cat alarm</td></tr>
+    <tr><td>Know why it did something</td><td>Ask Colm — it's all logged 😄</td></tr>
+  </table>
+  <p class="cap" style="margin-top:18px">If something seems stuck it almost always sorts itself
+  within a minute or two — and if not, Colm can see exactly what happened.</p>
+  <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p1">Start over &rsaquo;</a></div>
+</div>
+
+</body>
 </html>
