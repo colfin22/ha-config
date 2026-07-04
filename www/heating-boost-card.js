@@ -49,7 +49,8 @@ class HeatingBoostCard extends HTMLElement {
           cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
           color: var(--text-primary-color, #fff);
         }
-        .b-boost { background: var(--state-climate-heat-color, #ff8100); }
+        .b-boost { background: var(--secondary-text-color); transition: background .3s; }
+        .b-boost.boosting { background: var(--state-climate-heat-color, #ff8100); }
         .b-cancel { background: var(--secondary-text-color); }
         .btns button:active { opacity: .8; }
       </style>
@@ -82,6 +83,7 @@ class HeatingBoostCard extends HTMLElement {
       track: card.querySelector(".track"),
       tgt: card.querySelector(".tgt"), status: card.querySelector(".status"),
       range: card.querySelector("input[type=range]"), val: card.querySelector(".sliderval"),
+      bboost: card.querySelector(".b-boost"),
     };
     this._el.name.textContent = this._config.name;
 
@@ -135,6 +137,7 @@ class HeatingBoostCard extends HTMLElement {
       } else this._el.tgtdot.style.display = "none";
     }
     this._el.status.textContent = st ? st.state : "";
+    this._el.bboost.classList.toggle("boosting", !!st && /^Boost/i.test(st.state));
     if (num && !this._dragging) {
       const min = num.attributes.min, max = num.attributes.max, step = num.attributes.step;
       if (min != null) this._el.range.min = min;
