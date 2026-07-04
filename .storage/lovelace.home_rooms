@@ -406,8 +406,7 @@
                   "heading": "Heating"
                 },
                 {
-                  "type": "thermostat",
-                  "entity": "climate.netatmo_smart_thermostat"
+                  "type": "custom:heating-boost-card"
                 }
               ]
             },
