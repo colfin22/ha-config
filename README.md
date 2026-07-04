@@ -132,7 +132,7 @@
 - **Top days** — solar production and grid export top 5 best days tracked independently; both leaderboards update automatically each evening at 23:59 using myenergi sensors
 - **Morning energy stats** — daily solar and energy summary pushed each morning
 - **Grid-free day** — notifies both phones at 20:00 if no grid electricity was imported after 8am; includes export total and estimated earnings
-- **Peak-rate nudge** — if the washing machine, dishwasher or tumble dryer starts a cycle during the 17:00–19:00 peak electricity window, the speakers announce it and both phones get a push suggesting the run could wait until after 19:00
+- **Peak-rate nudge** — if the washing machine, dishwasher or tumble dryer starts a cycle during the 17:00–19:00 peak electricity window, both phones get a push suggesting the run could wait until after 19:00 (notification only, no announcement)
 
 ### 🏠 Infrastructure Monitoring
 - **Infrastructure health & backup alerts** — migrated to Node-RED for more complex workflows; see the **Infra Health & Alerts** flow below.
