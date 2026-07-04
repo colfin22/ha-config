@@ -2108,3 +2108,49 @@
         on the commute and use dipped headlights.
     action: notify.mobile_app_pixel_6a
   mode: single
+- id: '1783159541803'
+  alias: Peak Rate - Appliance Started Nudge
+  description: If the washing machine, tumble dryer or dishwasher starts a cycle during
+    the 5-7pm peak electricity window (39c/kWh), announce on the speakers and push
+    to Colm + Olivia suggesting it could wait until after 7pm.
+  triggers:
+  - platform: state
+    entity_id: input_select.washing_machine_run_status
+    to: Washing
+  - platform: state
+    entity_id: input_select.tumble_dryer_run_status
+    to: Drying
+  - platform: state
+    entity_id: input_select.dishwasher_run_status
+    to: Scrubbing Away!
+  conditions:
+  - condition: time
+    after: '17:00:00'
+    before: '19:00:00'
+  actions:
+  - variables:
+      appliance: '{{ {''input_select.washing_machine_run_status'':''washing machine'',''input_select.tumble_dryer_run_status'':''tumble
+        dryer'',''input_select.dishwasher_run_status'':''dishwasher''}[trigger.entity_id]
+        }}'
+  - action: script.tts_announce
+    data:
+      message: Heads up, the {{ appliance }} has started during peak electricity rate.
+        Electricity is cheaper after 7 PM.
+  - action: notify.mobile_app_np3
+    data:
+      title: 'Peak rate: {{ appliance }} running'
+      message: The {{ appliance }} started during the 5-7pm peak (39c/kWh vs 37c after
+        7pm). Consider waiting until after 7.
+      data:
+        tag: peak_appliance_nudge
+        channel: Energy
+  - action: notify.mobile_app_pixel_6a
+    data:
+      title: 'Peak rate: {{ appliance }} running'
+      message: The {{ appliance }} started during the 5-7pm peak (39c/kWh vs 37c after
+        7pm). Consider waiting until after 7.
+      data:
+        tag: peak_appliance_nudge
+        channel: Energy
+  mode: queued
+  max: 3
