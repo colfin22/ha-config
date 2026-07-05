@@ -324,7 +324,7 @@
                   ],
                   "card_mod": {
                     "style": {
-                      ".": "#states hui-buttons-row { pointer-events: none; }\n#states > *:nth-child(2) { --state-input_boolean-on-color: #2e7d32; --state-active-color: #2e7d32; --switch-checked-button-color: #2e7d32; --switch-checked-track-color: #2e7d32; }",
+                      ".": "#states hui-buttons-row { pointer-events: none; }\n#states > *:nth-child(2) { --state-input_boolean-on-color: #2e7d32; --state-active-color: #2e7d32; --ha-switch-checked-background-color: #2e7d32; --ha-switch-checked-thumb-background-color: #2e7d32; --switch-checked-button-color: #2e7d32; --switch-checked-track-color: #2e7d32; }",
                       "hui-buttons-row": {
                         "$": {
                           "hui-buttons-base": {
@@ -333,7 +333,20 @@
                         }
                       }
                     }
-                  }
+                  },
+                  "state_color": true
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Heating"
+                },
+                {
+                  "type": "custom:heating-boost-card"
                 }
               ]
             },
@@ -415,42 +428,6 @@
                   "forecast_rows": 5,
                   "locale": "en-GB",
                   "time_format": 24
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Heating"
-                },
-                {
-                  "type": "custom:heating-boost-card"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Energy",
-                  "tap_action": {
-                    "action": "navigate",
-                    "navigation_path": "/energy"
-                  },
-                  "icon": "mdi:lightning-bolt"
-                },
-                {
-                  "type": "custom:mod-card",
-                  "card": {
-                    "type": "energy-distribution"
-                  },
-                  "tap_action": {
-                    "action": "navigate",
-                    "navigation_path": "/energy"
-                  }
                 }
               ]
             },
@@ -658,6 +635,30 @@
                     "type": "tile",
                     "entity": "binary_sensor.office_window_contact",
                     "name": "Office Window"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Energy",
+                  "tap_action": {
+                    "action": "navigate",
+                    "navigation_path": "/energy"
+                  },
+                  "icon": "mdi:lightning-bolt"
+                },
+                {
+                  "type": "custom:mod-card",
+                  "card": {
+                    "type": "energy-distribution"
+                  },
+                  "tap_action": {
+                    "action": "navigate",
+                    "navigation_path": "/energy"
                   }
                 }
               ]
