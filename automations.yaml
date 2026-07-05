@@ -171,7 +171,7 @@
       include_runtime_tracking: disable_runtime_tracking
       include_duration_tracking: enable_duration_tracking
       include_power_tracking: enable_power_tracking_and_cost
-      power_consumption_sensor: sensor.dishwasher_socket_energy_today
+      power_consumption_sensor: sensor.dishwasher_energy_calculated
       cost_per_kwh: input_number.electricity_rate
       start_power_consumption: input_number.dishwasher_energy_tracking_start_number_helper
       end_power_consumption: input_number.dishwasher_energy_tracking_end_number_helper
@@ -214,7 +214,7 @@
       - 002753768c371c4f05a272c7e1e0f93c
       - 608a38b4b22a758514a74999ee616eb9
       include_duration_tracking: enable_duration_tracking
-      power_consumption_sensor: sensor.washing_machine_socket_energy_today
+      power_consumption_sensor: sensor.washing_machine_energy_calculated
       end_message_cost: Approx Cost €
       cost_per_kwh: input_number.electricity_rate
       start_power_consumption: input_number.washing_machine_energy_tracking_start_number_helper
@@ -269,7 +269,7 @@
       include_duration_tracking: enable_duration_tracking
       start_time_delay: 0.25
       include_power_tracking: enable_power_tracking_and_cost
-      power_consumption_sensor: sensor.tumble_dryer_socket_energy_today
+      power_consumption_sensor: sensor.tumble_dryer_energy_calculated
       end_message_cost: Approx Cost €
       cost_per_kwh: input_number.electricity_rate
       start_power_consumption: input_number.tumble_dryer_energy_tracking_start_number_helper
