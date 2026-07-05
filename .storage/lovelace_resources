@@ -128,6 +128,11 @@
         "id": "9cd01019964645f7a4b53e0edf2105cc",
         "url": "/hacsfiles/cat-thermostat-card/cat-thermostat-card.js?hacstag=11411278718090",
         "type": "module"
+      },
+      {
+        "id": "9e9fa7fe7e8a4a7b87b82a90f50901b4",
+        "url": "/local/heating-boost-card.js?v=7",
+        "type": "module"
       }
     ]
   }

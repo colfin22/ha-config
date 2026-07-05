@@ -92,3 +92,5 @@ www/ctrl/
 
 # Transient doorbell snapshot (Node-RED camera concierge cast)
 www/doorbell_snapshot.jpg
+*.bak
+*.bak-*
