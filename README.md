@@ -169,6 +169,8 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC).
 | **Map** | Device tracker map — household presence |
 | **Network** | MikroTik stats, Pi-hole, infrastructure status |
 
+A separate **"How it Works"** sidebar dashboard (visible to all users) holds the plain-language household guide &mdash; house modes, guests, heating, lights, alarm, cameras and announcements &mdash; served from `www/how-the-house-works.html`.
+
 ---
 
 ## 📈 Long-term Data (InfluxDB + Grafana)
