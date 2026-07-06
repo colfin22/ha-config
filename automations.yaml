@@ -1243,9 +1243,7 @@
       headline: '{{ states(''sensor.met_eireann_warning_headline'') }}'
       expiry: '{{ states(''sensor.met_eireann_warning_expiry'') }}'
       severity: '{{ states(''sensor.met_eireann_warning_severity'') }}'
-  - action: notify.send_message
-    target:
-      entity_id: notify.np3
+  - action: notify.mobile_app_np3
     data:
       title: ⚠️ Met Éireann {{ level }} Warning
       message: '{{ headline }}
@@ -1254,9 +1252,10 @@
 
         {% if expiry not in [''none'',''unknown'',''unavailable'',''''] %}Expires:
         {{ as_local(as_datetime(expiry)).strftime(''%H:%M %d/%m/%Y'') }}{% endif %}'
-  - action: notify.send_message
-    target:
-      entity_id: notify.pixel_6a
+      data:
+        clickAction: https://www.met.ie/warnings
+        url: https://www.met.ie/warnings
+  - action: notify.mobile_app_pixel_6a
     data:
       title: ⚠️ Met Éireann {{ level }} Warning
       message: '{{ headline }}
@@ -1265,6 +1264,9 @@
 
         {% if expiry not in [''none'',''unknown'',''unavailable'',''''] %}Expires:
         {{ as_local(as_datetime(expiry)).strftime(''%H:%M %d/%m/%Y'') }}{% endif %}'
+      data:
+        clickAction: https://www.met.ie/warnings
+        url: https://www.met.ie/warnings
   mode: single
 - id: '1778443028904'
   alias: Appliances - Reset Weekly Cycle Counters
