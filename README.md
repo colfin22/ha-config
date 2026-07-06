@@ -253,4 +253,5 @@ This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS
 <div align="center">
 <sub>Running on Proxmox · TrueNAS SCALE · MikroTik · Ireland 🇮🇪</sub><br>
 <sub>Built by Colm, with Claude as a hands-on assistant for code, config, and debugging.</sub>
+<br><sub><a href="LICENSE">MIT licence</a> — copy whatever is useful.</sub>
 </div>
