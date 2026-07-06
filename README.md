@@ -143,7 +143,7 @@
 
 ## 🔴 Node-RED Workflows
 
-Complex, multi-input automation runs in **Node-RED** (Proxmox LXC).
+Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flows and config are open source at [colfin22/node-red-config](https://github.com/colfin22/node-red-config).
 
 - **House Mode** — the single source of truth other flows react to: `input_select.house_mode` (Home / Away / Sleeping) plus overlays for storm (auto from Met Éireann) and maintenance (blocks Away, silences infra alerting, auto-expires 4 h). **Away** = both adults out with no indoor motion remaining, so it never trips with someone still inside (Cian has no phone — the motion sensors cover him). **Sleeping** = 22:00–07:00, TVs and sitting-room lights off and 20 minutes without motion, at least one adult home. **Home** resumes on the first morning activity.
 - **House Alarm** — follows house mode: **Away** arms away, **Sleeping** arms night, **Home** disarms. Guest mode suspends away-arming only (guests indoors would trip it) — night arming still happens, and switching guest mode off re-arms to match immediately. A welcome-home announcement plays on return from Away. Every alarm event across house and shed — armed, disarmed, triggered, cleared, failed-to-arm — is pushed to both phones and announced on the speakers, however it was changed (phone, NFC or automatic).
@@ -222,7 +222,7 @@ All alert automations respect a **22:00–07:00 quiet window** — overnight eve
 | Immich | Git — `docker-compose.yml` | `colfin22/immich-config` |
 | Ubuntu Docker | Git — all `docker-compose.yml` and env files, systemd timer daily 02:00 | `colfin22/ubuntu-docker-config` |
 | InfluxDB + Grafana | Git — dashboards + provisioning config | `colfin22/influxdb-grafana-config` |
-| Node-RED | Git — flows, settings, palette + docker-compose; systemd timer daily 02:30 | `colfin22/node-red-config` |
+| Node-RED | Git — flows, settings, palette + docker-compose; systemd timer daily 02:30 | [`colfin22/node-red-config`](https://github.com/colfin22/node-red-config) |
 | Proxmox VMs & LXCs | Proxmox Backup Server (PBS) — nightly snapshot sync to remote PBS at Prox3 (Daire) | — |
 | TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Prox3 (Daire) daily via sftp; failure alerts via Node-RED | — |
 | Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → Prox3 (Daire) daily | — |
