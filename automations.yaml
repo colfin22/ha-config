@@ -1227,8 +1227,8 @@
   mode: restart
 - id: '1778352065342'
   alias: Met Éireann Weather Warning
-  description: Notifies when Met Éireann issues a new Connacht/nationwide weather
-    warning
+  description: Notifies when Met Éireann issues a new Orange/Red weather warning for
+    Connacht/nationwide (Yellow = dashboard banner only)
   triggers:
   - platform: state
     entity_id: sensor.met_eireann_warning_level
@@ -1236,7 +1236,9 @@
     - unknown
     - unavailable
     - none
-  conditions: []
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.to_state.state in [''Orange'', ''Red''] }}'
   actions:
   - variables:
       level: '{{ trigger.to_state.state }}'
