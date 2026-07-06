@@ -368,7 +368,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "⚠️ **Yellow Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "⚠️ **Yellow Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(255, 214, 0, 0.92) !important;\n  color: #1a1a1a !important;\n  --primary-text-color: #1a1a1a;\n  --secondary-text-color: #3a3a3a;\n  border: none;\n}\n"
                     },
@@ -389,7 +389,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🟠 **Orange Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "🟠 **Orange Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(245, 124, 0, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffe0c0;\n  border: none;\n}\n"
                     },
@@ -410,7 +410,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🔴 **Red Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "🔴 **Red Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(198, 40, 40, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffcdd2;\n  border: none;\n}\n"
                     },
@@ -635,30 +635,6 @@
                     "type": "tile",
                     "entity": "binary_sensor.office_window_contact",
                     "name": "Office Window"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Energy",
-                  "tap_action": {
-                    "action": "navigate",
-                    "navigation_path": "/energy"
-                  },
-                  "icon": "mdi:lightning-bolt"
-                },
-                {
-                  "type": "custom:mod-card",
-                  "card": {
-                    "type": "energy-distribution"
-                  },
-                  "tap_action": {
-                    "action": "navigate",
-                    "navigation_path": "/energy"
                   }
                 }
               ]
@@ -954,7 +930,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "⚠️ **Yellow Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "⚠️ **Yellow Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(255, 214, 0, 0.92) !important;\n  color: #1a1a1a !important;\n  --primary-text-color: #1a1a1a;\n  --secondary-text-color: #3a3a3a;\n  border: none;\n}\n"
                     },
@@ -975,7 +951,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🟠 **Orange Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "🟠 **Orange Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(245, 124, 0, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffe0c0;\n  border: none;\n}\n"
                     },
@@ -996,7 +972,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🔴 **Red Weather Warning** — {{ state_attr('sensor.met_eireann_active_warnings', 'headline') }}  \nExpires {{ as_timestamp(state_attr('sensor.met_eireann_active_warnings', 'expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "🔴 **Red Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(198, 40, 40, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffcdd2;\n  border: none;\n}\n"
                     },

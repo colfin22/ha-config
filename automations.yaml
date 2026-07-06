@@ -1240,12 +1240,9 @@
   actions:
   - variables:
       level: '{{ trigger.to_state.state }}'
-      headline: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''headline'')
-        | default('''') }}'
-      expiry: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''expiry'') |
-        default('''') }}'
-      severity: '{{ state_attr(''sensor.met_eireann_active_warnings'', ''severity'')
-        | default('''') }}'
+      headline: '{{ states(''sensor.met_eireann_warning_headline'') }}'
+      expiry: '{{ states(''sensor.met_eireann_warning_expiry'') }}'
+      severity: '{{ states(''sensor.met_eireann_warning_severity'') }}'
   - action: notify.send_message
     target:
       entity_id: notify.np3
@@ -1255,8 +1252,8 @@
 
         Severity: {{ level }} / {{ severity }}
 
-        {% if expiry %}Expires: {{ as_local(as_datetime(expiry)).strftime(''%H:%M
-        %d/%m/%Y'') }}{% endif %}'
+        {% if expiry not in [''none'',''unknown'',''unavailable'',''''] %}Expires:
+        {{ as_local(as_datetime(expiry)).strftime(''%H:%M %d/%m/%Y'') }}{% endif %}'
   - action: notify.send_message
     target:
       entity_id: notify.pixel_6a
@@ -1266,8 +1263,8 @@
 
         Severity: {{ level }} / {{ severity }}
 
-        {% if expiry %}Expires: {{ as_local(as_datetime(expiry)).strftime(''%H:%M
-        %d/%m/%Y'') }}{% endif %}'
+        {% if expiry not in [''none'',''unknown'',''unavailable'',''''] %}Expires:
+        {{ as_local(as_datetime(expiry)).strftime(''%H:%M %d/%m/%Y'') }}{% endif %}'
   mode: single
 - id: '1778443028904'
   alias: Appliances - Reset Weekly Cycle Counters

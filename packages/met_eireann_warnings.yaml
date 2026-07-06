@@ -26,16 +26,82 @@ rest:
             {% endif %}
           {% endfor %}
           {{ ns.best }}
-        json_attributes_path: "$[0]"
-        json_attributes:
-          - "level"
-          - "severity"
-          - "type"
-          - "regions"
-          - "headline"
-          - "description"
-          - "expiry"
-          - "status"
+      # The three sensors below re-run the same pick as the level above so
+      # headline/expiry/severity always describe the warning that set the
+      # level — NOT array position 0, which bit us on 06-07-2026 when a
+      # Blight advisory sat first while a real Weather Advisory triggered.
+      - name: "Met Éireann Warning Headline"
+        unique_id: met_eireann_warning_headline
+        value_template: >
+          {% set roscommon = ['EI24'] %}
+          {% set ns = namespace(val='none', score=0) %}
+          {% for w in value_json %}
+            {% if now() < as_datetime(w.expiry) and w.regions is defined and 'Blight' not in w.headline %}
+              {% set hit = namespace(found=false) %}
+              {% for r in w.regions %}
+                {% if r in roscommon %}{% set hit.found = true %}{% endif %}
+              {% endfor %}
+              {% if hit.found %}
+                {% if w.level == 'Red' %}{% set s = 3 %}
+                {% elif w.level == 'Orange' %}{% set s = 2 %}
+                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% else %}{% set s = 0 %}{% endif %}
+                {% if s > ns.score %}
+                  {% set ns.score = s %}
+                  {% set ns.val = w.headline %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.val }}
+      - name: "Met Éireann Warning Expiry"
+        unique_id: met_eireann_warning_expiry
+        value_template: >
+          {% set roscommon = ['EI24'] %}
+          {% set ns = namespace(val='none', score=0) %}
+          {% for w in value_json %}
+            {% if now() < as_datetime(w.expiry) and w.regions is defined and 'Blight' not in w.headline %}
+              {% set hit = namespace(found=false) %}
+              {% for r in w.regions %}
+                {% if r in roscommon %}{% set hit.found = true %}{% endif %}
+              {% endfor %}
+              {% if hit.found %}
+                {% if w.level == 'Red' %}{% set s = 3 %}
+                {% elif w.level == 'Orange' %}{% set s = 2 %}
+                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% else %}{% set s = 0 %}{% endif %}
+                {% if s > ns.score %}
+                  {% set ns.score = s %}
+                  {% set ns.val = w.expiry %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.val }}
+      - name: "Met Éireann Warning Severity"
+        unique_id: met_eireann_warning_severity
+        value_template: >
+          {% set roscommon = ['EI24'] %}
+          {% set ns = namespace(val='none', score=0) %}
+          {% for w in value_json %}
+            {% if now() < as_datetime(w.expiry) and w.regions is defined and 'Blight' not in w.headline %}
+              {% set hit = namespace(found=false) %}
+              {% for r in w.regions %}
+                {% if r in roscommon %}{% set hit.found = true %}{% endif %}
+              {% endfor %}
+              {% if hit.found %}
+                {% if w.level == 'Red' %}{% set s = 3 %}
+                {% elif w.level == 'Orange' %}{% set s = 2 %}
+                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% else %}{% set s = 0 %}{% endif %}
+                {% if s > ns.score %}
+                  {% set ns.score = s %}
+                  {% set ns.val = w.severity %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.val }}
 
 template:
   - sensor:
