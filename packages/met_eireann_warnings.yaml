@@ -103,6 +103,31 @@ rest:
           {% endfor %}
           {{ ns.val }}
 
+      - name: "Met Éireann Warning Kind"
+        unique_id: met_eireann_warning_kind
+        value_template: >
+          {% set roscommon = ['EI24'] %}
+          {% set ns = namespace(val='none', score=0) %}
+          {% for w in value_json %}
+            {% if now() < as_datetime(w.expiry) and w.regions is defined and 'Blight' not in w.headline %}
+              {% set hit = namespace(found=false) %}
+              {% for r in w.regions %}
+                {% if r in roscommon %}{% set hit.found = true %}{% endif %}
+              {% endfor %}
+              {% if hit.found %}
+                {% if w.level == 'Red' %}{% set s = 3 %}
+                {% elif w.level == 'Orange' %}{% set s = 2 %}
+                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% else %}{% set s = 0 %}{% endif %}
+                {% if s > ns.score %}
+                  {% set ns.score = s %}
+                  {% set ns.val = 'Advisory' if w.type == 'Advisory' else 'Warning' %}
+                {% endif %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.val }}
+
 template:
   - sensor:
       - name: "Met Éireann Warning Level"

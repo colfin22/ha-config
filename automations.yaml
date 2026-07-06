@@ -1243,9 +1243,10 @@
       headline: '{{ states(''sensor.met_eireann_warning_headline'') }}'
       expiry: '{{ states(''sensor.met_eireann_warning_expiry'') }}'
       severity: '{{ states(''sensor.met_eireann_warning_severity'') }}'
+      kind: '{{ states(''sensor.met_eireann_warning_kind'') }}'
   - action: notify.mobile_app_np3
     data:
-      title: ⚠️ Met Éireann {{ level }} Warning
+      title: ⚠️ Met Éireann {{ level }} {{ kind }}
       message: '{{ headline }}
 
         Severity: {{ level }} / {{ severity }}
@@ -1257,7 +1258,7 @@
         url: https://www.met.ie/warnings
   - action: notify.mobile_app_pixel_6a
     data:
-      title: ⚠️ Met Éireann {{ level }} Warning
+      title: ⚠️ Met Éireann {{ level }} {{ kind }}
       message: '{{ headline }}
 
         Severity: {{ level }} / {{ severity }}
