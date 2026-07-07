@@ -16,51 +16,51 @@
       },
       {
         "id": "dishwasher_energy_tracking_start_number_helper",
-        "min": 0.0,
-        "max": 100.0,
         "name": "Dishwasher Energy Tracking - Start Number Helper",
-        "mode": "slider",
-        "step": 1.0
+        "min": 0.0,
+        "max": 1000000.0,
+        "step": 1.0,
+        "mode": "slider"
       },
       {
         "id": "dishwasher_energy_tracking_end_number_helper",
-        "min": 0.0,
-        "max": 100.0,
         "name": "Dishwasher Energy Tracking - End Number Helper",
-        "mode": "slider",
-        "step": 1.0
+        "min": 0.0,
+        "max": 1000000.0,
+        "step": 1.0,
+        "mode": "slider"
       },
       {
         "id": "washing_machine_energy_tracking_start_number_helper",
-        "min": 0.0,
-        "max": 100.0,
         "name": "Washing Machine Energy Tracking - Start Number Helper",
-        "mode": "slider",
-        "step": 1.0
+        "min": 0.0,
+        "max": 1000000.0,
+        "step": 1.0,
+        "mode": "slider"
       },
       {
         "id": "washing_machine_energy_tracking_end_number_helper",
-        "min": 0.0,
-        "max": 100.0,
         "name": "Washing Machine Energy Tracking - End Number Helper",
-        "mode": "slider",
-        "step": 1.0
+        "min": 0.0,
+        "max": 1000000.0,
+        "step": 1.0,
+        "mode": "slider"
       },
       {
         "id": "tumble_dryer_energy_tracking_start_number_helper",
-        "min": 0.0,
-        "max": 100.0,
         "name": "Tumble Dryer Energy Tracking - Start Number Helper",
-        "mode": "slider",
-        "step": 1.0
+        "min": 0.0,
+        "max": 1000000.0,
+        "step": 1.0,
+        "mode": "slider"
       },
       {
         "id": "tumble_dryer_energy_tracking_end_number_helper",
-        "min": 0.0,
-        "max": 100.0,
         "name": "Tumble Dryer Energy Tracking - End Number Helper",
-        "mode": "slider",
-        "step": 1.0
+        "min": 0.0,
+        "max": 1000000.0,
+        "step": 1.0,
+        "mode": "slider"
       },
       {
         "id": "yesterday_solar_generated",

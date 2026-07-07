@@ -15,7 +15,7 @@
               "elements": [
                 {
                   "type": "state-label",
-                  "entity": "climate.hallway",
+                  "entity": "climate.netatmo_smart_thermostat",
                   "attribute": "current_temperature",
                   "style": {
                     "left": "85%",
@@ -274,7 +274,7 @@
               "elements": [
                 {
                   "type": "state-label",
-                  "entity": "climate.hallway",
+                  "entity": "climate.netatmo_smart_thermostat",
                   "attribute": "current_temperature",
                   "style": {
                     "left": "85%",

@@ -363,33 +363,12 @@
                     {
                       "condition": "state",
                       "entity": "sensor.met_eireann_warning_level",
-                      "state": "Yellow"
-                    }
-                  ],
-                  "card": {
-                    "type": "markdown",
-                    "content": "⚠️ **Yellow Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
-                    "card_mod": {
-                      "style": "ha-card {\n  background: rgba(255, 214, 0, 0.92) !important;\n  color: #1a1a1a !important;\n  --primary-text-color: #1a1a1a;\n  --secondary-text-color: #3a3a3a;\n  border: none;\n}\n"
-                    },
-                    "grid_options": {
-                      "columns": 12,
-                      "rows": "auto"
-                    }
-                  }
-                },
-                {
-                  "type": "conditional",
-                  "conditions": [
-                    {
-                      "condition": "state",
-                      "entity": "sensor.met_eireann_warning_level",
                       "state": "Orange"
                     }
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🟠 **Orange Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "🟠 **[Orange Weather {{ states('sensor.met_eireann_warning_kind') }} — {{ states('sensor.met_eireann_warning_headline') }}](https://www.met.ie/warnings)**  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(245, 124, 0, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffe0c0;\n  border: none;\n}\n"
                     },
@@ -410,7 +389,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🔴 **Red Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "🔴 **[Red Weather {{ states('sensor.met_eireann_warning_kind') }} — {{ states('sensor.met_eireann_warning_headline') }}](https://www.met.ie/warnings)**  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(198, 40, 40, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffcdd2;\n  border: none;\n}\n"
                     },
@@ -925,33 +904,12 @@
                     {
                       "condition": "state",
                       "entity": "sensor.met_eireann_warning_level",
-                      "state": "Yellow"
-                    }
-                  ],
-                  "card": {
-                    "type": "markdown",
-                    "content": "⚠️ **Yellow Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
-                    "card_mod": {
-                      "style": "ha-card {\n  background: rgba(255, 214, 0, 0.92) !important;\n  color: #1a1a1a !important;\n  --primary-text-color: #1a1a1a;\n  --secondary-text-color: #3a3a3a;\n  border: none;\n}\n"
-                    },
-                    "grid_options": {
-                      "columns": 12,
-                      "rows": "auto"
-                    }
-                  }
-                },
-                {
-                  "type": "conditional",
-                  "conditions": [
-                    {
-                      "condition": "state",
-                      "entity": "sensor.met_eireann_warning_level",
                       "state": "Orange"
                     }
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🟠 **Orange Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "🟠 **[Orange Weather {{ states('sensor.met_eireann_warning_kind') }} — {{ states('sensor.met_eireann_warning_headline') }}](https://www.met.ie/warnings)**  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(245, 124, 0, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffe0c0;\n  border: none;\n}\n"
                     },
@@ -972,7 +930,7 @@
                   ],
                   "card": {
                     "type": "markdown",
-                    "content": "🔴 **Red Weather Warning** — {{ states('sensor.met_eireann_warning_headline') }}  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
+                    "content": "🔴 **[Red Weather {{ states('sensor.met_eireann_warning_kind') }} — {{ states('sensor.met_eireann_warning_headline') }}](https://www.met.ie/warnings)**  \nExpires {{ as_timestamp(states('sensor.met_eireann_warning_expiry')) | timestamp_custom('%H:%M, %d %b') }}",
                     "card_mod": {
                       "style": "ha-card {\n  background: rgba(198, 40, 40, 0.95) !important;\n  color: #fff !important;\n  --primary-text-color: #fff;\n  --secondary-text-color: #ffcdd2;\n  border: none;\n}\n"
                     },
