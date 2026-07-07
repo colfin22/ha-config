@@ -731,9 +731,9 @@
       minutes: 2
   - variables:
       kitchen_vol: '{{ state_attr(''media_player.kitchen_display_cast'', ''volume_level'')
-        }}'
+        | float(0.4) }}'
       sitting_vol: '{{ state_attr(''media_player.sitting_room_speaker_cast'', ''volume_level'')
-        }}'
+        | float(0.4) }}'
   - action: media_player.volume_set
     target:
       entity_id:
