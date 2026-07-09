@@ -39310,6 +39310,20 @@
             "should_expose": false
           }
         }
+      },
+      "button.dummy_output_favourite_current_song": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "media_player.dummy_output": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }
