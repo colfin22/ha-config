@@ -62,7 +62,7 @@ This repository is the live, version-controlled configuration that runs the hous
 ### Energy & Environment
 | Integration | Purpose |
 |---|---|
-| [Autarco](https://www.autarco.com/) | Solar inverter — cloud stats (slower polling) |
+| [Autarco](https://www.autarco.com/) | Solar inverter — vendor in liquidation and the cloud integration is offline; migrating to local Modbus via [SolaX Modbus](https://github.com/wills106/homeassistant-solax-modbus) (RS485 adapter on order) |
 | [myenergi](https://myenergi.com/) | Solar production, Eddi diverter — preferred for live stats (faster updates) |
 | [Netatmo](https://www.netatmo.com/) Smart Thermostat | Controlled locally over HomeKit; heating logic runs in Node-RED (see below) |
 | [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; automation fires immediately on new alerts |
