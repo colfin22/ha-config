@@ -2,13 +2,17 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.6.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-50-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7.1-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Automations](https://img.shields.io/badge/Automations-51-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
 
 </div>
+
+---
+
+This repository is the live, version-controlled configuration that runs the house — every automation, dashboard, integration and helper, committed to git and backed up nightly. The whole setup is deliberately **local-first**: lighting, alarm, cameras, voice and heating keep working without the cloud, the more involved logic lives in Node-RED, and long-term history is kept in InfluxDB well past Home Assistant's recorder window. It's public so anyone can borrow the ideas or patterns for their own setup.
 
 ---
 
