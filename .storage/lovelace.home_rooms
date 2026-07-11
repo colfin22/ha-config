@@ -1109,6 +1109,28 @@
               "type": "grid",
               "cards": [
                 {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "binary_sensor.shed_door_contact",
+                      "state": "on"
+                    }
+                  ],
+                  "card": {
+                    "type": "tile",
+                    "entity": "binary_sensor.shed_door_contact",
+                    "name": "Shed open",
+                    "icon": "mdi:door-open",
+                    "color": "red"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
                   "type": "heading",
                   "heading": "Alarm"
                 },
