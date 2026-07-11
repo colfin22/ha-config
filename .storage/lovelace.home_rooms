@@ -474,6 +474,11 @@
                       "condition": "state",
                       "entity": "binary_sensor.office_window_contact",
                       "state": "off"
+                    },
+                    {
+                      "condition": "state",
+                      "entity": "binary_sensor.shed_door_contact",
+                      "state": "off"
                     }
                   ],
                   "card": {
@@ -524,6 +529,21 @@
                     "type": "tile",
                     "entity": "binary_sensor.patio_door_contact",
                     "name": "Patio Door"
+                  }
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "binary_sensor.shed_door_contact",
+                      "state": "on"
+                    }
+                  ],
+                  "card": {
+                    "type": "tile",
+                    "entity": "binary_sensor.shed_door_contact",
+                    "name": "Shed Door"
                   }
                 },
                 {
@@ -1105,28 +1125,6 @@
           "icon": "mdi:shield-home-outline",
           "type": "sections",
           "sections": [
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "conditional",
-                  "conditions": [
-                    {
-                      "condition": "state",
-                      "entity": "binary_sensor.shed_door_contact",
-                      "state": "on"
-                    }
-                  ],
-                  "card": {
-                    "type": "tile",
-                    "entity": "binary_sensor.shed_door_contact",
-                    "name": "Shed open",
-                    "icon": "mdi:door-open",
-                    "color": "red"
-                  }
-                }
-              ]
-            },
             {
               "type": "grid",
               "cards": [
