@@ -14,20 +14,20 @@
         "url_path": "dashboard-map"
       },
       {
-        "id": "home_rooms",
-        "url_path": "home-rooms",
-        "title": "Home",
-        "require_admin": false,
-        "show_in_sidebar": true,
-        "icon": "mdi:home-outline",
-        "mode": "storage"
-      },
-      {
         "id": "how_it_works",
         "url_path": "how-it-works",
         "mode": "storage",
         "title": "How it Works",
         "icon": "mdi:help-circle-outline",
+        "show_in_sidebar": true,
+        "require_admin": false
+      },
+      {
+        "id": "smart_home",
+        "url_path": "smart-home",
+        "mode": "storage",
+        "title": "Home",
+        "icon": "mdi:home-outline",
         "show_in_sidebar": true,
         "require_admin": false
       }

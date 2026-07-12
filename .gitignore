@@ -60,7 +60,7 @@ git_status.txt
 
 # Selective .storage backup — safe config files only
 !.storage/lovelace
-!.storage/lovelace.home_rooms
+!.storage/lovelace.smart_home
 !.storage/lovelace.dashboard_map
 !.storage/lovelace_dashboards
 !.storage/lovelace_resources
@@ -94,3 +94,8 @@ www/ctrl/
 www/doorbell_snapshot.jpg
 *.bak
 *.bak-*
+
+# Generated infra dashboard (scp from node1, changes every minute)
+www/infra.html
+# Local dashboard/config safety backups
+manual-backups/

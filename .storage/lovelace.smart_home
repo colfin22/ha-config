@@ -1,7 +1,7 @@
 {
   "version": 1,
   "minor_version": 1,
-  "key": "lovelace.home_rooms",
+  "key": "lovelace.smart_home",
   "data": {
     "config": {
       "views": [
@@ -62,7 +62,7 @@
                       },
                       "tap_action": {
                         "action": "navigate",
-                        "navigation_path": "/home-rooms/kitchen"
+                        "navigation_path": "/smart-home/kitchen"
                       }
                     },
                     {
@@ -105,7 +105,7 @@
                       },
                       "tap_action": {
                         "action": "navigate",
-                        "navigation_path": "/home-rooms/sitting-room"
+                        "navigation_path": "/smart-home/sitting-room"
                       }
                     },
                     {
@@ -148,7 +148,7 @@
                       },
                       "tap_action": {
                         "action": "navigate",
-                        "navigation_path": "/home-rooms/colm-bedroom"
+                        "navigation_path": "/smart-home/colm-bedroom"
                       }
                     },
                     {
@@ -191,7 +191,7 @@
                       },
                       "tap_action": {
                         "action": "navigate",
-                        "navigation_path": "/home-rooms/cian-bedroom"
+                        "navigation_path": "/smart-home/cian-bedroom"
                       }
                     },
                     {
@@ -234,7 +234,7 @@
                       },
                       "tap_action": {
                         "action": "navigate",
-                        "navigation_path": "/home-rooms/aoife-bedroom"
+                        "navigation_path": "/smart-home/aoife-bedroom"
                       }
                     },
                     {
@@ -277,7 +277,7 @@
                       },
                       "tap_action": {
                         "action": "navigate",
-                        "navigation_path": "/home-rooms/office"
+                        "navigation_path": "/smart-home/office"
                       }
                     }
                   ]
@@ -1349,7 +1349,7 @@
         },
         {
           "title": "Energy",
-          "path": "energy-tab",
+          "path": "energy",
           "icon": "mdi:solar-power-variant",
           "type": "sections",
           "max_columns": 3,
@@ -2233,7 +2233,7 @@
                   "aspect_ratio": "4:3",
                   "tap_action": {
                     "action": "navigate",
-                    "navigation_path": "/home-rooms/home"
+                    "navigation_path": "/smart-home/home"
                   }
                 }
               ]
@@ -2614,7 +2614,7 @@
                   "aspect_ratio": "4:3",
                   "tap_action": {
                     "action": "navigate",
-                    "navigation_path": "/home-rooms/home"
+                    "navigation_path": "/smart-home/home"
                   }
                 }
               ]
@@ -2999,7 +2999,7 @@
                   "aspect_ratio": "4:3",
                   "tap_action": {
                     "action": "navigate",
-                    "navigation_path": "/home-rooms/home"
+                    "navigation_path": "/smart-home/home"
                   }
                 }
               ]
@@ -3156,7 +3156,7 @@
                   "aspect_ratio": "4:3",
                   "tap_action": {
                     "action": "navigate",
-                    "navigation_path": "/home-rooms/home"
+                    "navigation_path": "/smart-home/home"
                   }
                 }
               ]
@@ -3339,7 +3339,7 @@
                   "aspect_ratio": "4:3",
                   "tap_action": {
                     "action": "navigate",
-                    "navigation_path": "/home-rooms/home"
+                    "navigation_path": "/smart-home/home"
                   }
                 }
               ]
@@ -3525,7 +3525,7 @@
                   },
                   "tap_action": {
                     "action": "navigate",
-                    "navigation_path": "/home-rooms/home"
+                    "navigation_path": "/smart-home/home"
                   }
                 }
               ]
@@ -3671,721 +3671,14 @@
           "title": "Network",
           "path": "network",
           "icon": "mdi:network",
-          "type": "sections",
-          "max_columns": 3,
-          "sections": [
+          "type": "panel",
+          "cards": [
             {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Gateway — RB5009"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.mikrotik_rb5009_rb5009ug_s_cpu_load",
-                  "name": "CPU Load"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.mikrotik_rb5009_rb5009ug_s_memory_usage",
-                  "name": "Memory"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.mikrotik_rb5009_rb5009ug_s_hdd_usage",
-                  "name": "Storage"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.mikrotik_rb5009_rb5009ug_s_uptime",
-                  "name": "Last Boot"
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_rb5009_pppoe_out1_port",
-                  "name": "WAN",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Core Switch — CRS125"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.mikrotik_crs125_switch_crs125_24g_1s_cpu_load",
-                  "name": "CPU Load"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.mikrotik_crs125_switch_crs125_24g_1s_memory_usage",
-                  "name": "Memory"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.mikrotik_crs125_switch_crs125_24g_1s_hdd_usage",
-                  "name": "Storage"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.mikrotik_crs125_switch_crs125_24g_1s_uptime",
-                  "name": "Last Boot"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "VLANs — RB5009"
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_rb5009_vlan_home_port",
-                  "name": "Home",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_rb5009_vlan_iot_port",
-                  "name": "IoT",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_rb5009_vlan_guest_port",
-                  "name": "Guest",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_rb5009_vlan_work_port",
-                  "name": "Work",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_rb5009_vlan_mgmt_port",
-                  "name": "Mgmt",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_rb5009_wireguard10_vpn_port",
-                  "name": "WireGuard VPN",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_rb5009_veth_cloudflared_port",
-                  "name": "Cloudflared",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "grid_options": {
-                "columns": 12
-              },
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Key Ports — CRS125"
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_crs125_switch_ether3_port",
-                  "name": "Office Switch",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_crs125_switch_ether5_port",
-                  "name": "Kitchen Switch",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_crs125_switch_ether9_port",
-                  "name": "Landing wAP",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_crs125_switch_ether11_port",
-                  "name": "Sitting Room Switch",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_crs125_switch_ether17_port",
-                  "name": "Proxmox",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_crs125_switch_ether19_port",
-                  "name": "Proxmox 2",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_crs125_switch_ether21_port",
-                  "name": "TrueNAS",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.mikrotik_crs125_switch_ether24_port",
-                  "name": "Gateway Uplink",
-                  "state_color": true,
-                  "tap_action": {
-                    "action": "none"
-                  }
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Proxmox"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.node_proxmox_status",
-                  "name": "Online",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox_cpu_used",
-                  "name": "CPU"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox_memory_used_percentage",
-                  "name": "Memory"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox_disk_used_percentage",
-                  "name": "Disk"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox_virtual_machines_running",
-                  "name": "VMs"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox_containers_running",
-                  "name": "Containers"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox_total_updates",
-                  "name": "Updates Pending"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox_last_boot",
-                  "name": "Last Boot"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Proxmox 2"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.node_proxmox2_status",
-                  "name": "Online",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox2_cpu_used",
-                  "name": "CPU"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox2_memory_used_percentage",
-                  "name": "Memory"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox2_disk_used_percentage",
-                  "name": "Disk"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox2_virtual_machines_running",
-                  "name": "VMs"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox2_containers_running",
-                  "name": "Containers"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox2_total_updates",
-                  "name": "Updates Pending"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox2_last_boot",
-                  "name": "Last Boot"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "TrueNAS"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_system_boot_pool_healthy",
-                  "name": "Boot Pool",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_system_mainpool_healthy",
-                  "name": "Main Pool",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_services_nfs",
-                  "name": "NFS",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_services_cifs",
-                  "name": "CIFS",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_services_ssh",
-                  "name": "SSH",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_rsync_failures",
-                  "name": "Rsync",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.truenas_system_cpu_usage",
-                  "name": "CPU"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.truenas_system_memory_usage",
-                  "name": "Memory"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.truenas_system_temperature",
-                  "name": "Temp"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.truenas_system_mainpool_free",
-                  "name": "Pool Free"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_pihole",
-                  "name": "Pi-hole",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_scrutiny",
-                  "name": "Scrutiny",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_grafana",
-                  "name": "Grafana",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_influxdb",
-                  "name": "InfluxDB",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_zabbix",
-                  "name": "Zabbix",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_dawarich",
-                  "name": "Dawarich",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_netbootxyz",
-                  "name": "NetbootXYZ",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.truenas_apps_searxng",
-                  "name": "SearXNG",
-                  "state_color": true
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Pi-hole"
-                },
-                {
-                  "type": "tile",
-                  "entity": "switch.pi_hole",
-                  "name": "Blocking",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.pi_hole_ads_blocked",
-                  "name": "Ads Blocked"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.pi_hole_ads_percentage_blocked",
-                  "name": "Blocked %"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.pi_hole_dns_queries",
-                  "name": "DNS Queries"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.pi_hole_dns_queries_cached",
-                  "name": "Cached"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.pi_hole_dns_queries_forwarded",
-                  "name": "Forwarded"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.pi_hole_dns_unique_clients",
-                  "name": "Unique Clients"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.pi_hole_domains_blocked",
-                  "name": "Blocklist Size"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.pi_hole_ftl_update_available",
-                  "name": "FTL Update"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.pi_hole_core_update_available",
-                  "name": "Core Update"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.pi_hole_web_update_available",
-                  "name": "Web Update"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Nextcloud"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.qemu_ubuntu_nextcloud_117_status",
-                  "name": "Online",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_colfin22_net_amount_of_active_users_last_5_minutes",
-                  "name": "Active Users"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_colfin22_net_free_space",
-                  "name": "Free Space"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_colfin22_net_cpu_load_last_1_minute",
-                  "name": "CPU Load"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_colfin22_net_free_memory",
-                  "name": "Free Memory"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_colfin22_net_amount_of_files",
-                  "name": "Files"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_colfin22_net_updates_available",
-                  "name": "Updates Available"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_colfin22_net_system_version",
-                  "name": "Version"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Nextcloud VM"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.nextcloud_online",
-                  "name": "Online",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_cpu",
-                  "name": "CPU"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_memory",
-                  "name": "Memory"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_disk",
-                  "name": "Disk"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_uptime",
-                  "name": "Uptime"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_package_count",
-                  "name": "Updates Pending"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_network_in",
-                  "name": "Net In"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_network_out",
-                  "name": "Net Out"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Docker VM"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.docker_online",
-                  "name": "Online",
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.docker_cpu",
-                  "name": "CPU"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.docker_memory",
-                  "name": "Memory"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.docker_disk",
-                  "name": "Disk"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.docker_uptime",
-                  "name": "Uptime"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.docker_package_count",
-                  "name": "Updates Pending"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.docker_network_in",
-                  "name": "Net In"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.docker_network_out",
-                  "name": "Net Out"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Firmware & Updates"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox_total_updates",
-                  "name": "Proxmox Packages"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.node_proxmox2_total_updates",
-                  "name": "Proxmox 2 Packages"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.pi_hole_ftl_update_available",
-                  "name": "Pi-hole FTL"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.pi_hole_core_update_available",
-                  "name": "Pi-hole Core"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.pi_hole_web_update_available",
-                  "name": "Pi-hole Web"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_colfin22_net_updates_available",
-                  "name": "Nextcloud Apps"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.nextcloud_package_count",
-                  "name": "Nextcloud VM Packages"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.docker_package_count",
-                  "name": "Docker VM Packages"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.mikrotik_router_update",
-                  "name": "RouterOS"
-                },
-                {
-                  "type": "tile",
-                  "entity": "update.truenas_system",
-                  "name": "TrueNAS System"
-                }
-              ]
+              "type": "iframe",
+              "url": "/local/infra.html?v=20260712c",
+              "disable_sandbox": true
             }
-          ],
-          "visible": true
+          ]
         }
       ],
       "kiosk_mode": {
