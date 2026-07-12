@@ -52,6 +52,7 @@
             group: bins
             channel: Bins
             importance: high
+          notification_icon: mdi:trash-can
       - action: notify.mobile_app_pixel_6a
         data:
           title: "\U0001F5D1️ Bins Out Tonight"
@@ -64,6 +65,7 @@
             group: bins
             channel: Bins
             importance: high
+          notification_icon: mdi:trash-can
     - conditions:
       - condition: trigger
         id: check_10pm
@@ -91,6 +93,7 @@
               group: bins
               channel: Bins
               importance: high
+            notification_icon: mdi:trash-can
         - action: notify.mobile_app_pixel_6a
           data:
             title: "\U0001F5D1️ Bins NOT out!"
@@ -104,6 +107,7 @@
               group: bins
               channel: Bins
               importance: high
+            notification_icon: mdi:trash-can
   mode: single
 - id: '1767011232807'
   alias: Brother Printer Auto Power Cycle
@@ -1258,6 +1262,7 @@
       data:
         clickAction: https://www.met.ie/warnings
         url: https://www.met.ie/warnings
+      notification_icon: mdi:weather-lightning-rainy
   - action: notify.mobile_app_pixel_6a
     data:
       title: ⚠️ Met Éireann {{ level }} {{ kind }}
@@ -1270,6 +1275,7 @@
       data:
         clickAction: https://www.met.ie/warnings
         url: https://www.met.ie/warnings
+      notification_icon: mdi:weather-lightning-rainy
   mode: single
 - id: '1778443028904'
   alias: Appliances - Reset Weekly Cycle Counters
@@ -1440,15 +1446,15 @@
     7pm. Generates a homelab update report and sends a notification.
 
     '
-  trigger:
+  triggers:
   - platform: time
     at: '19:00:00'
-  condition:
+  conditions:
   - condition: template
     value_template: '{{ now().weekday() == 0 and 7 <= now().day <= 13 }}
 
       '
-  action:
+  actions:
   - alias: Generate the report
     action: shell_command.generate_update_report
   - delay: 00:00:45
@@ -1462,6 +1468,7 @@
       data:
         url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
         clickAction: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
+      notification_icon: mdi:package-up
   mode: single
 - id: '1779624020049'
   alias: Cat Alarm - Cat Detected
@@ -2068,11 +2075,13 @@
       title: ❄️ Frost warning
       message: It's {{ tmin }}°C out — the car windscreen will be iced. Allow extra
         time to scrape before you leave.
+      notification_icon: mdi:snowflake-alert
     action: notify.mobile_app_np3
   - data:
       title: ❄️ Frost warning
       message: It's {{ tmin }}°C out — the car windscreen will be iced. Allow extra
         time to scrape before you leave.
+      notification_icon: mdi:snowflake-alert
     action: notify.mobile_app_pixel_6a
   mode: single
   variables:
@@ -2103,11 +2112,13 @@
       title: "\U0001F32B️ Fog warning"
       message: Fog about this morning — visibility will be poor. Allow extra time
         on the commute and use dipped headlights.
+      notification_icon: mdi:weather-fog
     action: notify.mobile_app_np3
   - data:
       title: "\U0001F32B️ Fog warning"
       message: Fog about this morning — visibility will be poor. Allow extra time
         on the commute and use dipped headlights.
+      notification_icon: mdi:weather-fog
     action: notify.mobile_app_pixel_6a
   mode: single
 - id: '1783159541803'
@@ -2142,6 +2153,7 @@
       data:
         tag: peak_appliance_nudge
         channel: Energy
+      notification_icon: mdi:flash-alert
   - action: notify.mobile_app_pixel_6a
     data:
       title: 'Peak rate: {{ appliance }} running'
@@ -2150,5 +2162,6 @@
       data:
         tag: peak_appliance_nudge
         channel: Energy
+      notification_icon: mdi:flash-alert
   mode: queued
   max: 3
