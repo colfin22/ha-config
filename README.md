@@ -151,10 +151,6 @@ This repository is the live, version-controlled configuration that runs the hous
 
 Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flows and config are open source at [colfin22/node-red-config](https://github.com/colfin22/node-red-config).
 
-![The House Alarm flow in Node-RED](docs/node-red-house-alarm.png)
-
-*One of the Node-RED tabs — the House Alarm flow: house-mode-driven arming and disarming, guest-mode handling, NFC overrides, low-battery nudges and spoken event announcements across house and shed.*
-
 - **House Mode** — the single source of truth other flows react to: `input_select.house_mode` (Home / Away / Sleeping) plus overlays for storm (auto from Met Éireann) and maintenance (blocks Away, silences infra alerting, auto-expires 4 h). **Away** = both adults out with no indoor motion remaining, so it never trips with someone still inside (Cian has no phone — the motion sensors cover him). **Sleeping** = 22:00–07:00, TVs and sitting-room lights off and 20 minutes without motion, at least one adult home. **Home** resumes on the first morning activity.
 - **House Alarm** — follows house mode: **Away** arms away, **Sleeping** arms night, **Home** disarms. Guest mode suspends away-arming only (guests indoors would trip it) — night arming still happens, and switching guest mode off re-arms to match immediately. A welcome-home announcement plays on return from Away. Every alarm event across house and shed — armed, disarmed, triggered, cleared, failed-to-arm — is pushed to both phones and announced on the speakers, however it was changed (phone, NFC or automatic).
 - **Alarm NFC Tags** — the front-door tag disarms the house; the back-door tag stands the shed down for up to two hours, re-arming 15 minutes after the door closes (left open at the cap → stays disarmed and sends a push + spoken reminder). At 10pm the shed auto-arms if still disarmed with the door closed.
@@ -162,6 +158,10 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flo
 - **Camera Concierge** — all Frigate alerting: grouped 3-stage pushes (instant text → snapshot → GIF) to both phones, per zone (Front / Doorbell / Rear) and object type; tapping opens the event clip. Doorbell persons also cast to the kitchen display and Shield TV; couriers and the postman get spoken announcements (silenced while Sleeping — pushes unaffected); rear cameras mute while the patio-door switch is on. While Sleeping, a person at the cars strobes the lights and warns over the speakers; while Away, pushes escalate to a high-priority ⚠️ “Cameras Away” channel. (Replaced seven former HA notify/alert automations.)
 - **Infra Watchdog** — escalating alerts off Uptime Kuma (service reachability), quiet-hours aware; TTS only when Colm is home. Silenced while maintenance mode is on — still logged, and anything still down when maintenance ends re-alerts on its next reminder cycle.
 - **Infra Health & Alerts** — all homelab health and backup alerting in one flow: server/NAS/app health (CPU, memory, disk, pool, temperature, offline, updates), a daily 07:30 audit that every Proxmox backup ran, config-backup and Restic failure alerts, and Zabbix relays. Notifications go to Colm tagged Health / Backup / Monitoring, with a 22:00–07:00 quiet window flushed at 07:00; silenced (logged only) while maintenance mode is on.
+
+![The House Alarm flow in Node-RED](docs/node-red-house-alarm.png)
+
+*One of the Node-RED tabs — the House Alarm flow: house-mode-driven arming and disarming, guest-mode handling, NFC overrides, low-battery nudges and spoken event announcements across house and shed.*
 
 ---
 
