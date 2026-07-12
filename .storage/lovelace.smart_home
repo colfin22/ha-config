@@ -872,6 +872,22 @@
               "cards": [
                 {
                   "type": "heading",
+                  "heading": "Heating activity"
+                },
+                {
+                  "type": "logbook",
+                  "hours_to_show": 24,
+                  "entities": [
+                    "input_text.heating_status"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
                   "heading": "Temperature & Humidity"
                 },
                 {
