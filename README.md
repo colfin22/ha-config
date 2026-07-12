@@ -151,6 +151,10 @@ This repository is the live, version-controlled configuration that runs the hous
 
 Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flows and config are open source at [colfin22/node-red-config](https://github.com/colfin22/node-red-config).
 
+![The House Alarm flow in Node-RED](docs/node-red-house-alarm.png)
+
+*One of the Node-RED tabs — the House Alarm flow: house-mode-driven arming and disarming, guest-mode handling, NFC overrides, low-battery nudges and spoken event announcements across house and shed.*
+
 - **House Mode** — the single source of truth other flows react to: `input_select.house_mode` (Home / Away / Sleeping) plus overlays for storm (auto from Met Éireann) and maintenance (blocks Away, silences infra alerting, auto-expires 4 h). **Away** = both adults out with no indoor motion remaining, so it never trips with someone still inside (Cian has no phone — the motion sensors cover him). **Sleeping** = 22:00–07:00, TVs and sitting-room lights off and 20 minutes without motion, at least one adult home. **Home** resumes on the first morning activity.
 - **House Alarm** — follows house mode: **Away** arms away, **Sleeping** arms night, **Home** disarms. Guest mode suspends away-arming only (guests indoors would trip it) — night arming still happens, and switching guest mode off re-arms to match immediately. A welcome-home announcement plays on return from Away. Every alarm event across house and shed — armed, disarmed, triggered, cleared, failed-to-arm — is pushed to both phones and announced on the speakers, however it was changed (phone, NFC or automatic).
 - **Alarm NFC Tags** — the front-door tag disarms the house; the back-door tag stands the shed down for up to two hours, re-arming 15 minutes after the door closes (left open at the cap → stays disarmed and sends a push + spoken reminder). At 10pm the shed auto-arms if still disarmed with the door closed.
