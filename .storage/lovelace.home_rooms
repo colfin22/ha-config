@@ -542,8 +542,7 @@
                   ],
                   "card": {
                     "type": "tile",
-                    "entity": "binary_sensor.shed_door_contact",
-                    "name": "Shed Door"
+                    "entity": "binary_sensor.shed_door_contact"
                   }
                 },
                 {
@@ -1272,8 +1271,7 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "binary_sensor.shed_door_contact",
-                  "name": "Shed Door"
+                  "entity": "binary_sensor.shed_door_contact"
                 }
               ]
             },
