@@ -39324,6 +39324,27 @@
             "should_expose": false
           }
         }
+      },
+      "button.home_music_group_favourite_current_song": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "media_player.home_music_group": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
+      },
+      "automation.doorbell_hello_mickey": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }
