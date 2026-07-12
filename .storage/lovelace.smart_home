@@ -795,17 +795,6 @@
                       "type": "toggle"
                     }
                   ]
-                },
-                {
-                  "type": "heading",
-                  "heading": "Heating activity"
-                },
-                {
-                  "type": "logbook",
-                  "hours_to_show": 24,
-                  "entities": [
-                    "input_text.heating_status"
-                  ]
                 }
               ]
             },

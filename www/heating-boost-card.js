@@ -1,5 +1,6 @@
 /* heating-boost-card — bespoke card for the Node-RED-driven heating.
- * Big current temp (read-only, no +/-), live status, boost slider + Boost/Cancel buttons.
+ * Big current temp (read-only, no +/-), live status, boost slider + Boost/Cancel buttons,
+ * and a "Recent activity" list of heating-reason changes (from input_text.heating_status history).
  * Entities are configurable but default to this home's helpers. */
 class HeatingBoostCard extends HTMLElement {
   setConfig(config) {
@@ -10,8 +11,11 @@ class HeatingBoostCard extends HTMLElement {
       boost: "input_button.heating_boost_start",
       cancel: "input_button.heating_boost_cancel",
       name: "Heating",
+      activity_hours: 24,
+      activity_max: 6,
     }, config);
     this._built = false;
+    this._lastStatusLC = null;
   }
 
   _build() {
@@ -53,6 +57,13 @@ class HeatingBoostCard extends HTMLElement {
         .b-boost.boosting { background: var(--state-climate-heat-color, #ff8100); }
         .b-cancel { background: var(--secondary-text-color); }
         .btns button:active { opacity: .8; }
+        .activity { margin-top: 18px; border-top: 1px solid var(--divider-color); padding-top: 10px; }
+        .actlbl { font-size: 11px; color: var(--secondary-text-color); text-transform: uppercase;
+                  letter-spacing: .6px; margin-bottom: 6px; }
+        .actrow { display: flex; gap: 10px; font-size: 13px; padding: 3px 0; align-items: baseline; }
+        .actrow .t { color: var(--secondary-text-color); min-width: 42px; font-variant-numeric: tabular-nums; }
+        .actrow .r { color: var(--primary-text-color); }
+        .actempty { font-size: 13px; color: var(--secondary-text-color); }
       </style>
       <div class="wrap">
         <div class="head"><div class="name"></div><div class="action"></div></div>
@@ -75,6 +86,10 @@ class HeatingBoostCard extends HTMLElement {
           <button class="b-boost"><ha-icon icon="mdi:fire"></ha-icon>Boost 2 h</button>
           <button class="b-cancel"><ha-icon icon="mdi:fire-off"></ha-icon>Cancel</button>
         </div>
+        <div class="activity">
+          <div class="actlbl">Recent activity</div>
+          <div class="actlist"><div class="actempty">Loading…</div></div>
+        </div>
       </div>`;
     this._el = {
       name: card.querySelector(".name"), action: card.querySelector(".action"),
@@ -83,7 +98,7 @@ class HeatingBoostCard extends HTMLElement {
       track: card.querySelector(".track"),
       tgt: card.querySelector(".tgt"), status: card.querySelector(".status"),
       range: card.querySelector("input[type=range]"), val: card.querySelector(".sliderval"),
-      bboost: card.querySelector(".b-boost"),
+      bboost: card.querySelector(".b-boost"), actlist: card.querySelector(".actlist"),
     };
     this._el.name.textContent = this._config.name;
 
@@ -103,6 +118,39 @@ class HeatingBoostCard extends HTMLElement {
 
     this.replaceChildren(card);
     this._built = true;
+  }
+
+  async _loadActivity(hass) {
+    try {
+      const start = new Date(Date.now() - this._config.activity_hours * 3600 * 1000).toISOString();
+      const res = await hass.callWS({
+        type: "history/history_during_period",
+        start_time: start,
+        entity_ids: [this._config.status],
+        minimal_response: true,
+        no_attributes: true,
+      });
+      const raw = (res && res[this._config.status]) || [];
+      // normalise compressed/verbose formats; keep only real reason values, newest last
+      const items = raw.map(x => ({
+        state: x.s !== undefined ? x.s : x.state,
+        t: x.lc || x.lu || x.last_changed || x.last_updated,
+      })).filter(x => x.state && x.state !== "unknown" && x.state !== "unavailable" && x.state !== "");
+      // dedupe consecutive identical reasons
+      const dedup = [];
+      for (const it of items) if (!dedup.length || dedup[dedup.length - 1].state !== it.state) dedup.push(it);
+      const rows = dedup.slice(-this._config.activity_max).reverse();
+      if (!rows.length) { this._el.actlist.innerHTML = `<div class="actempty">No changes yet.</div>`; return; }
+      const fmt = t => {
+        const d = typeof t === "number" ? new Date(t * 1000) : new Date(t);
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+      };
+      const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      this._el.actlist.innerHTML = rows.map(r =>
+        `<div class="actrow"><span class="t">${fmt(r.t)}</span><span class="r">${esc(r.state)}</span></div>`).join("");
+    } catch (e) {
+      this._el.actlist.innerHTML = `<div class="actempty">Activity unavailable.</div>`;
+    }
   }
 
   set hass(hass) {
@@ -146,11 +194,16 @@ class HeatingBoostCard extends HTMLElement {
       this._el.range.value = num.state;
       this._el.val.textContent = Number(num.state).toFixed(1) + "°";
     }
+    // refresh the activity list only when the reason actually changes (or on first load)
+    if (st && st.last_changed !== this._lastStatusLC) {
+      this._lastStatusLC = st.last_changed;
+      this._loadActivity(hass);
+    }
   }
 
-  getCardSize() { return 4; }
+  getCardSize() { return 6; }
 }
 customElements.define("heating-boost-card", HeatingBoostCard);
 window.customCards = window.customCards || [];
 window.customCards.push({ type: "heating-boost-card", name: "Heating Boost Card",
-  description: "Read-only thermostat display with boost slider and buttons" });
+  description: "Read-only thermostat display with boost slider, buttons and recent-activity log" });
