@@ -8,6 +8,8 @@
 
 *A family smart home in Ireland — built for reliability, not demos.*
 
+<a href="https://www.buymeacoffee.com/colfin22"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="40"></a>
+
 </div>
 
 ---
