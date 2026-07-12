@@ -802,6 +802,19 @@
               "type": "grid",
               "cards": [
                 {
+                  "type": "logbook",
+                  "title": "Recent activity",
+                  "hours_to_show": 24,
+                  "entities": [
+                    "input_text.heating_status"
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
                   "type": "custom:apexcharts-card",
                   "graph_span": "24h",
                   "header": {
