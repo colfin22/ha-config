@@ -175,6 +175,8 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flo
 | **Map** | Device tracker map — household presence |
 | **Network** | Self-hosted, tabbed homelab **infrastructure** dashboard, embedded as a live status page: hosts, storage, network and app health at a glance, with 24-hour trend graphs, radial gauges, a status matrix and per-service response times, drawn from Uptime Kuma, InfluxDB, Zabbix and Home Assistant |
 
+![The Network tab — a self-hosted homelab infrastructure dashboard: hosts, storage, network and app health at a glance, with 24-hour CPU/RAM trends, a service-status matrix and pending updates](docs/network-tab.png)
+
 A separate **"How it Works"** sidebar dashboard (visible to all users) holds a full, plain-language household guide &mdash; house modes, guests, heating, lights, alarm, cameras, announcements and playing music &mdash; served from `www/how-the-house-works.html`. It's the family reference: kept up to date as the setup evolves, so whenever a setting is adjusted or a new feature is added, everyone can simply be pointed to the guide to see how it works.
 
 ![The "How it Works" guide — the section index, opened from the Home Assistant sidebar](docs/how-it-works.png)
@@ -202,6 +204,14 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 **Energy — History** — Daily energy timeseries, half-hourly profile, monthly summary, top days leaderboard.
 
 **Network** — Infrastructure services, network metrics, Zabbix-sourced host stats.
+
+![Grafana Energy — History dashboard](docs/grafana-energy.png)
+
+*Energy — History: daily energy (solar, grid import/export, home consumption, Eddi hot water), the half-hourly ESB-meter grid import/export profile, and monthly totals across the last year.*
+
+![Grafana Network dashboard](docs/grafana-network.png)
+
+*Network: WAN download/upload throughput plus CPU and memory utilisation across servers, LXCs and Proxmox nodes over 24 hours.*
 
 ---
 
