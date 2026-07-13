@@ -47,7 +47,11 @@ Oaks:
       paper-item-icon-color: "#7d8aa6"
       paper-item-icon-active-color: "#ffc94d"
       state-icon-active-color: "#ffc94d"
-      switch-checked-color: "#3ddc84"
+      switch-checked-color: "#a880ff"
+      switch-checked-track-color: "#a880ff"
+      switch-checked-button-color: "#a880ff"
+      ha-switch-checked-background-color: "#a880ff"
+      ha-switch-checked-thumb-background-color: "#a880ff"
       switch-unchecked-button-color: "#5e6b85"
       switch-unchecked-track-color: "#39435c"
 
@@ -164,7 +168,11 @@ Oaks:
       paper-item-icon-color: "#55637f"
       paper-item-icon-active-color: "#c98a06"   # amber, darkened
       state-icon-active-color: "#c98a06"
-      switch-checked-color: "#1f9c62"
+      switch-checked-color: "#7c53d6"
+      switch-checked-track-color: "#7c53d6"
+      switch-checked-button-color: "#7c53d6"
+      ha-switch-checked-background-color: "#7c53d6"
+      ha-switch-checked-thumb-background-color: "#7c53d6"
       switch-unchecked-button-color: "#9aa7c2"
       switch-unchecked-track-color: "#c8d2e4"
 
