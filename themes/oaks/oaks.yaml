@@ -1,0 +1,196 @@
+# Oaks — the house theme.
+# Palette lifted straight from infra_dashboard.py so HA and the status page read
+# as one system.
+#
+# MUST declare `modes: dark:`. Without a mode, HA treats a theme as LIGHT and fills
+# every variable you did NOT override with its light defaults — which is why the
+# selects, pickers and dialogs came out white and unreadable.
+Oaks:
+  modes:
+    dark:
+      # --- base ---
+      primary-color: "#35c9e6"                  # the infra page's active-tab cyan
+      accent-color: "#3ddc84"                   # its "up / healthy" green
+      dark-primary-color: "#2aa8c2"
+      light-primary-color: "#7fdcee"
+
+      primary-background-color: "#0a0e17"       # page background
+      secondary-background-color: "#0c1424"
+      clear-background-color: "#0a0e17"
+      divider-color: "#1d2740"                  # panel borders
+
+      primary-text-color: "#e8eef7"
+      text-primary-color: "#e8eef7"
+      secondary-text-color: "#7d8aa6"
+      disabled-text-color: "#5e6b85"
+
+      # --- cards ---
+      card-background-color: "#121826"          # .panel / .kpi background
+      ha-card-background: "#121826"
+      ha-card-border-radius: "12px"
+      ha-card-border-width: "1px"
+      ha-card-border-color: "#1d2740"
+      ha-card-box-shadow: "none"
+
+      # --- header / sidebar ---
+      app-header-background-color: "#0a0e17"
+      app-header-text-color: "#e8eef7"
+      app-header-selection-bar-color: "#35c9e6"
+      sidebar-background-color: "#0c1424"
+      sidebar-text-color: "#9aa7c2"
+      sidebar-icon-color: "#7d8aa6"
+      sidebar-selected-text-color: "#35c9e6"
+      sidebar-selected-icon-color: "#35c9e6"
+
+      # --- icons / states ---
+      state-icon-color: "#9aa7c2"
+      paper-item-icon-color: "#7d8aa6"
+      paper-item-icon-active-color: "#ffc94d"
+      state-icon-active-color: "#ffc94d"
+      switch-checked-color: "#3ddc84"
+      switch-unchecked-button-color: "#5e6b85"
+      switch-unchecked-track-color: "#39435c"
+
+      # --- state colours, straight off the page ---
+      state-active-color: "#ffc94d"
+      state-on-color: "#3ddc84"
+      state-off-color: "#5e6b85"
+      state-unavailable-color: "#39435c"
+      error-color: "#ff5a5a"                    # its "down" red
+      warning-color: "#ffc94d"
+      success-color: "#3ddc84"
+      info-color: "#a880ff"
+
+      # --- Material surfaces (selects, pickers, menus, dialogs) ---
+      # These do not inherit card-background-color; the dark mode above gives them
+      # sane defaults, and these pin them to the infra palette.
+      mdc-theme-primary: "#35c9e6"
+      mdc-theme-on-primary: "#04121f"
+      mdc-theme-surface: "#121826"
+      mdc-theme-on-surface: "#e8eef7"
+      mdc-theme-text-primary-on-background: "#e8eef7"
+      mdc-theme-text-secondary-on-background: "#7d8aa6"
+
+      mdc-select-fill-color: "#0c1424"
+      mdc-select-ink-color: "#e8eef7"
+      mdc-select-label-ink-color: "#7d8aa6"
+      mdc-select-idle-line-color: "#39435c"
+      mdc-select-hover-line-color: "#35c9e6"
+      mdc-select-dropdown-icon-color: "#7d8aa6"
+
+      mdc-text-field-fill-color: "#0c1424"
+      mdc-text-field-ink-color: "#e8eef7"
+      mdc-text-field-label-ink-color: "#7d8aa6"
+      mdc-text-field-idle-line-color: "#39435c"
+      mdc-text-field-hover-line-color: "#35c9e6"
+
+      mdc-menu-surface-fill-color: "#121826"
+      mdc-list-item-ink-color: "#e8eef7"
+      mdc-ripple-color: "#35c9e6"
+      ha-dialog-surface-background: "#121826"
+
+      # --- inputs / misc ---
+      input-fill-color: "#0c1424"
+      input-ink-color: "#e8eef7"
+      input-label-ink-color: "#7d8aa6"
+      input-idle-line-color: "#39435c"
+      input-hover-line-color: "#35c9e6"
+      input-dropdown-icon-color: "#7d8aa6"
+      markdown-code-background-color: "#0c1424"
+      code-editor-background-color: "#0c1424"
+      table-row-background-color: "#121826"
+      table-row-alternative-background-color: "#0c1424"
+    light:
+      # The infra page is dark-only, so this is a light SHELL wearing the same
+      # identity: the cyan accent and the green/red/amber/purple state hues carry
+      # over, but darkened — #3ddc84 and #ffc94d are illegible on white.
+      # --- base ---
+      primary-color: "#1a8fa8"                  # the infra cyan, darkened for contrast
+      accent-color: "#1f9c62"                   # its green, darkened
+      dark-primary-color: "#12707f"
+      light-primary-color: "#7fdcee"
+
+      primary-background-color: "#f2f5fa"       # cool light, echoing the navy family
+      secondary-background-color: "#e7ecf5"
+      clear-background-color: "#ffffff"
+      divider-color: "#d7dfec"
+
+      primary-text-color: "#0f1830"             # the page's own deep navy, as ink
+      text-primary-color: "#0f1830"
+      secondary-text-color: "#46536e"           # straight from the page palette
+      disabled-text-color: "#9aa7c2"
+
+      # --- cards ---
+      card-background-color: "#ffffff"
+      ha-card-background: "#ffffff"
+      ha-card-border-radius: "12px"
+      ha-card-border-width: "1px"
+      ha-card-border-color: "#d7dfec"
+      ha-card-box-shadow: "none"
+
+      # --- header / sidebar ---
+      app-header-background-color: "#ffffff"
+      app-header-text-color: "#0f1830"
+      app-header-selection-bar-color: "#1a8fa8"
+      sidebar-background-color: "#ffffff"
+      sidebar-text-color: "#2c3a5a"
+      sidebar-icon-color: "#55637f"
+      sidebar-selected-text-color: "#1a8fa8"
+      sidebar-selected-icon-color: "#1a8fa8"
+
+      # --- icons / states ---
+      state-icon-color: "#46536e"
+      paper-item-icon-color: "#55637f"
+      paper-item-icon-active-color: "#c98a06"   # amber, darkened
+      state-icon-active-color: "#c98a06"
+      switch-checked-color: "#1f9c62"
+      switch-unchecked-button-color: "#9aa7c2"
+      switch-unchecked-track-color: "#c8d2e4"
+
+      # --- state colours: same hues, legible on white ---
+      state-active-color: "#c98a06"
+      state-on-color: "#1f9c62"
+      state-off-color: "#9aa7c2"
+      state-unavailable-color: "#c8d2e4"
+      error-color: "#d93a3a"
+      warning-color: "#c98a06"
+      success-color: "#1f9c62"
+      info-color: "#7c53d6"
+
+      # --- Material surfaces ---
+      mdc-theme-primary: "#1a8fa8"
+      mdc-theme-on-primary: "#ffffff"
+      mdc-theme-surface: "#ffffff"
+      mdc-theme-on-surface: "#0f1830"
+      mdc-theme-text-primary-on-background: "#0f1830"
+      mdc-theme-text-secondary-on-background: "#46536e"
+
+      mdc-select-fill-color: "#f2f5fa"
+      mdc-select-ink-color: "#0f1830"
+      mdc-select-label-ink-color: "#46536e"
+      mdc-select-idle-line-color: "#c8d2e4"
+      mdc-select-hover-line-color: "#1a8fa8"
+      mdc-select-dropdown-icon-color: "#55637f"
+
+      mdc-text-field-fill-color: "#f2f5fa"
+      mdc-text-field-ink-color: "#0f1830"
+      mdc-text-field-label-ink-color: "#46536e"
+      mdc-text-field-idle-line-color: "#c8d2e4"
+      mdc-text-field-hover-line-color: "#1a8fa8"
+
+      mdc-menu-surface-fill-color: "#ffffff"
+      mdc-list-item-ink-color: "#0f1830"
+      mdc-ripple-color: "#1a8fa8"
+      ha-dialog-surface-background: "#ffffff"
+
+      # --- inputs / misc ---
+      input-fill-color: "#f2f5fa"
+      input-ink-color: "#0f1830"
+      input-label-ink-color: "#46536e"
+      input-idle-line-color: "#c8d2e4"
+      input-hover-line-color: "#1a8fa8"
+      input-dropdown-icon-color: "#55637f"
+      markdown-code-background-color: "#eef2f8"
+      code-editor-background-color: "#eef2f8"
+      table-row-background-color: "#ffffff"
+      table-row-alternative-background-color: "#f2f5fa"
