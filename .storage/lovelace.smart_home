@@ -3688,7 +3688,7 @@
           "cards": [
             {
               "type": "iframe",
-              "url": "/local/infra.html?v=20260712d",
+              "url": "/local/infra.html?v=20260713b",
               "disable_sandbox": true
             }
           ]

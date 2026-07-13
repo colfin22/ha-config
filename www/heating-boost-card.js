@@ -51,7 +51,8 @@ class HeatingBoostCard extends HTMLElement {
         }
         .b-boost { background: var(--secondary-text-color); transition: background .3s; }
         .b-boost.boosting { background: var(--state-climate-heat-color, #ff8100); }
-        .b-cancel { background: var(--secondary-text-color); }
+        .b-cancel { background: var(--secondary-text-color); transition: background .3s; }
+        .b-cancel.boosting { background: var(--error-color, #ff5a5a); }
         .btns button:active { opacity: .8; }
       </style>
       <div class="wrap">
@@ -84,6 +85,7 @@ class HeatingBoostCard extends HTMLElement {
       tgt: card.querySelector(".tgt"), status: card.querySelector(".status"),
       range: card.querySelector("input[type=range]"), val: card.querySelector(".sliderval"),
       bboost: card.querySelector(".b-boost"),
+      bcancel: card.querySelector(".b-cancel"),
     };
     this._el.name.textContent = this._config.name;
 
@@ -137,7 +139,10 @@ class HeatingBoostCard extends HTMLElement {
       } else this._el.tgtdot.style.display = "none";
     }
     this._el.status.textContent = st ? st.state : "";
-    this._el.bboost.classList.toggle("boosting", !!st && /^Boost/i.test(st.state));
+    const boosting = !!st && /^Boost/i.test(st.state);
+    this._el.bboost.classList.toggle("boosting", boosting);
+    // cancel only goes red when there is actually a boost to cancel
+    this._el.bcancel.classList.toggle("boosting", boosting);
     if (num && !this._dragging) {
       const min = num.attributes.min, max = num.attributes.max, step = num.attributes.step;
       if (min != null) this._el.range.min = min;

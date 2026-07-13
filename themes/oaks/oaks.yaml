@@ -10,7 +10,7 @@ Oaks:
     dark:
       # --- base ---
       primary-color: "#35c9e6"                  # the infra page's active-tab cyan
-      accent-color: "#3ddc84"                   # its "up / healthy" green
+      accent-color: "#35c9e6"                   # badges (updates, notifications) — cyan, not green
       dark-primary-color: "#2aa8c2"
       light-primary-color: "#7fdcee"
 
@@ -100,13 +100,34 @@ Oaks:
       code-editor-background-color: "#0c1424"
       table-row-background-color: "#121826"
       table-row-alternative-background-color: "#0c1424"
+
+      # --- alarm panel (house + shed): armed = purple, disarmed = grey, triggered = red ---
+      state-alarm_control_panel-armed_away-color: "#a880ff"
+      state-alarm_control_panel-armed_home-color: "#a880ff"
+      state-alarm_control_panel-armed_night-color: "#a880ff"
+      state-alarm_control_panel-armed_vacation-color: "#a880ff"
+      state-alarm_control_panel-armed_custom_bypass-color: "#a880ff"
+      state-alarm_control_panel-arming-color: "#a880ff"
+      state-alarm_control_panel-pending-color: "#a880ff"
+      state-alarm_control_panel-disarming-color: "#a880ff"
+      state-alarm_control_panel-disarmed-color: "#7d8aa6"
+      state-alarm_control_panel-triggered-color: "#ff5a5a"
+
+      # --- updates: informational, not a status alarm -> the theme's own accent ---
+      state-update-on-color: "#35c9e6"
+      state-update-off-color: "#5e6b85"
+      state-update-installing-color: "#ffc94d"
+
+      # --- input_boolean (incl. the Away 24h+ toggle): purple when enabled ---
+      state-input_boolean-on-color: "#a880ff"
+      state-input_boolean-off-color: "#5e6b85"
     light:
       # The infra page is dark-only, so this is a light SHELL wearing the same
       # identity: the cyan accent and the green/red/amber/purple state hues carry
       # over, but darkened — #3ddc84 and #ffc94d are illegible on white.
       # --- base ---
       primary-color: "#1a8fa8"                  # the infra cyan, darkened for contrast
-      accent-color: "#1f9c62"                   # its green, darkened
+      accent-color: "#1a8fa8"                   # badges (updates, notifications) — cyan, not green
       dark-primary-color: "#12707f"
       light-primary-color: "#7fdcee"
 
@@ -194,3 +215,24 @@ Oaks:
       code-editor-background-color: "#eef2f8"
       table-row-background-color: "#ffffff"
       table-row-alternative-background-color: "#f2f5fa"
+
+      # --- alarm panel (house + shed): armed = purple, disarmed = grey, triggered = red ---
+      state-alarm_control_panel-armed_away-color: "#7c53d6"
+      state-alarm_control_panel-armed_home-color: "#7c53d6"
+      state-alarm_control_panel-armed_night-color: "#7c53d6"
+      state-alarm_control_panel-armed_vacation-color: "#7c53d6"
+      state-alarm_control_panel-armed_custom_bypass-color: "#7c53d6"
+      state-alarm_control_panel-arming-color: "#7c53d6"
+      state-alarm_control_panel-pending-color: "#7c53d6"
+      state-alarm_control_panel-disarming-color: "#7c53d6"
+      state-alarm_control_panel-disarmed-color: "#6b7a99"
+      state-alarm_control_panel-triggered-color: "#d93a3a"
+
+      # --- updates: informational, not a status alarm -> the theme's own accent ---
+      state-update-on-color: "#1a8fa8"
+      state-update-off-color: "#8090ad"
+      state-update-installing-color: "#c98a06"
+
+      # --- input_boolean (incl. the Away 24h+ toggle): purple when enabled ---
+      state-input_boolean-on-color: "#7c53d6"
+      state-input_boolean-off-color: "#8090ad"
