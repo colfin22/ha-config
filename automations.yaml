@@ -1998,7 +1998,10 @@
 - id: '1782548125867'
   alias: Cat Alarm - Kitchen TV Lightstrip Green
   description: When input_boolean.cat_alarm turns on, snapshot the Kitchen TV Lightstrip
-    then set it green; restore the snapshot when the alarm turns off.
+    then set it green; restore the snapshot when the alarm turns off. mode:queued
+    so a quick disarm right after arming is never dropped; the snapshot is skipped
+    when the strip is already alarm-green so the restore point can never be poisoned
+    to green.
   triggers:
   - platform: state
     entity_id: input_boolean.cat_alarm
@@ -2014,11 +2017,19 @@
       - condition: trigger
         id: enabled
       sequence:
-      - data:
-          scene_id: cat_alarm_lightstrip_restore
-          snapshot_entities:
-          - light.kitchen_tv_lightstrip
-        action: scene.create
+      - if:
+        - condition: template
+          value_template: '{{ not (is_state(''light.kitchen_tv_lightstrip'',''on'')
+            and (state_attr(''light.kitchen_tv_lightstrip'',''hs_color'') or [0,0])[0]
+            | float(0) > 90 and (state_attr(''light.kitchen_tv_lightstrip'',''hs_color'')
+            or [0,0])[0] | float(0) < 150 and (state_attr(''light.kitchen_tv_lightstrip'',''hs_color'')
+            or [0,0])[1] | float(0) > 50) }}'
+        then:
+        - data:
+            scene_id: cat_alarm_lightstrip_restore
+            snapshot_entities:
+            - light.kitchen_tv_lightstrip
+          action: scene.create
       - target:
           entity_id: light.kitchen_tv_lightstrip
         data:
@@ -2045,7 +2056,8 @@
         - target:
             entity_id: light.kitchen_tv_lightstrip
           action: light.turn_off
-  mode: single
+  mode: queued
+  max: 3
 - id: '1782929355416'
   alias: Frost Warning - Car Windscreen
   description: 'Weekday 07:30 check: if the lower of Met.no/Met Eireann outdoor temp
