@@ -46,8 +46,8 @@ tts_announce:
       volume_level: '{{ prior_volume | float(0.5) }}'
 strobe_lights:
   alias: Strobe Lights
-  description: Snapshots light state, strobes lights a set number of times, then restores
-    previous state.
+  description: Snapshots light state, strobes lights a set number of times (optionally
+    in a colour for colour-capable lights), then restores previous state.
   icon: mdi:alarm-light
   mode: single
   fields:
@@ -79,6 +79,13 @@ strobe_lights:
           min: 1
           max: 100
           unit_of_measurement: '%'
+    rgb_color:
+      description: Optional RGB colour. Colour-capable lights flash this colour; the
+        rest just brighten. Omit for a plain brightness strobe (e.g. the alarm).
+      required: false
+      example: '[0, 0, 255]'
+      selector:
+        color_rgb:
     on_seconds:
       description: Seconds lights stay on per cycle
       required: false
@@ -116,10 +123,22 @@ strobe_lights:
       selector:
         text: {}
   sequence:
+  - variables:
+      has_colour: '{{ true if (rgb_color is defined and rgb_color) else false }}'
+      bright: '{{ brightness_pct | default(100) | int }}'
+      colour_lights: '{% set ns=namespace(x=[]) %}{% for e in expand(lights) %}{%
+        if (e.attributes.supported_color_modes | default([]) | select(''in'',[''rgb'',''rgbw'',''rgbww'',''hs'',''xy''])
+        | list | length) > 0 %}{% set ns.x = ns.x + [e.entity_id] %}{% endif %}{%
+        endfor %}{{ ns.x }}'
+      plain_lights: '{% set ns=namespace(y=[]) %}{% for e in expand(lights) %}{% if
+        (e.attributes.supported_color_modes | default([]) | select(''in'',[''rgb'',''rgbw'',''rgbww'',''hs'',''xy''])
+        | list | length) == 0 %}{% set ns.y = ns.y + [e.entity_id] %}{% endif %}{%
+        endfor %}{{ ns.y }}'
   - action: scene.create
     data:
       scene_id: strobe_lights_snapshot
-      snapshot_entities: '{{ lights }}'
+      snapshot_entities: '{{ expand(lights) | map(attribute=''entity_id'') | list
+        }}'
   - choose:
     - conditions:
       - condition: template
@@ -131,11 +150,36 @@ strobe_lights:
             value_template: '{{ is_state(while_entity, while_state | default(''triggered''))
               }}'
           sequence:
-          - action: light.turn_on
-            target:
-              entity_id: '{{ lights }}'
-            data:
-              brightness_pct: '{{ brightness_pct | default(100) | int }}'
+          - choose:
+            - conditions:
+              - condition: template
+                value_template: '{{ has_colour }}'
+              sequence:
+              - if:
+                - condition: template
+                  value_template: '{{ colour_lights | count > 0 }}'
+                then:
+                - action: light.turn_on
+                  target:
+                    entity_id: '{{ colour_lights }}'
+                  data:
+                    brightness_pct: '{{ bright }}'
+                    rgb_color: '{{ rgb_color }}'
+              - if:
+                - condition: template
+                  value_template: '{{ plain_lights | count > 0 }}'
+                then:
+                - action: light.turn_on
+                  target:
+                    entity_id: '{{ plain_lights }}'
+                  data:
+                    brightness_pct: '{{ bright }}'
+            default:
+            - action: light.turn_on
+              target:
+                entity_id: '{{ lights }}'
+              data:
+                brightness_pct: '{{ bright }}'
           - delay:
               seconds: '{{ on_seconds | default(1.5) }}'
           - action: light.turn_off
@@ -147,11 +191,36 @@ strobe_lights:
     - repeat:
         count: '{{ count | default(10) | int }}'
         sequence:
-        - action: light.turn_on
-          target:
-            entity_id: '{{ lights }}'
-          data:
-            brightness_pct: '{{ brightness_pct | default(100) | int }}'
+        - choose:
+          - conditions:
+            - condition: template
+              value_template: '{{ has_colour }}'
+            sequence:
+            - if:
+              - condition: template
+                value_template: '{{ colour_lights | count > 0 }}'
+              then:
+              - action: light.turn_on
+                target:
+                  entity_id: '{{ colour_lights }}'
+                data:
+                  brightness_pct: '{{ bright }}'
+                  rgb_color: '{{ rgb_color }}'
+            - if:
+              - condition: template
+                value_template: '{{ plain_lights | count > 0 }}'
+              then:
+              - action: light.turn_on
+                target:
+                  entity_id: '{{ plain_lights }}'
+                data:
+                  brightness_pct: '{{ bright }}'
+          default:
+          - action: light.turn_on
+            target:
+              entity_id: '{{ lights }}'
+            data:
+              brightness_pct: '{{ bright }}'
         - delay:
             seconds: '{{ on_seconds | default(1.5) }}'
         - action: light.turn_off
@@ -162,7 +231,6 @@ strobe_lights:
   - action: scene.turn_on
     target:
       entity_id: scene.strobe_lights_snapshot
-
 cycle_scenes:
   alias: Cycle Scenes
   description: Cycles a light group through an ordered list of scenes from a dimmer's
