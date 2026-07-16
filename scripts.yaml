@@ -1,7 +1,9 @@
 tts_announce:
   alias: TTS Announce
-  description: Saves volume, ramps to 100%, plays TTS, waits for playback, restores
-    volume. Queued so concurrent calls don't overlap.
+  description: Plays a TTS announcement at full volume. For the home audio group it
+    boosts each MEMBER speaker after playback starts (a Google cast group's master
+    volume does NOT cascade to members), then restores them to 50%. For a single speaker
+    it saves/boosts/restores that player. Queued so concurrent calls don't overlap.
   icon: mdi:bullhorn
   mode: queued
   max: 5
@@ -24,26 +26,73 @@ tts_announce:
   - variables:
       resolved_player: '{{ target_player | default(''media_player.home_audio_group_cast'')
         }}'
+      is_group: '{{ (target_player | default(''media_player.home_audio_group_cast''))
+        == ''media_player.home_audio_group_cast'' }}'
       prior_volume: '{{ state_attr(target_player | default(''media_player.home_audio_group_cast''),
         ''volume_level'') | float(0.5) }}'
-  - action: media_player.volume_set
-    target:
-      entity_id: '{{ resolved_player }}'
-    data:
-      volume_level: 1
-  - action: tts.cloud_say
-    target:
-      entity_id: '{{ resolved_player }}'
-    data:
-      message: '{{ message }}'
-      cache: false
-  - delay:
-      seconds: 8
-  - action: media_player.volume_set
-    target:
-      entity_id: '{{ resolved_player }}'
-    data:
-      volume_level: '{{ prior_volume | float(0.5) }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ is_group }}'
+      sequence:
+      - action: tts.cloud_say
+        target:
+          entity_id: media_player.home_audio_group_cast
+        data:
+          message: '{{ message }}'
+          cache: false
+      - delay:
+          seconds: 1
+      - action: media_player.volume_set
+        target:
+          entity_id:
+          - media_player.kitchen_display_cast
+          - media_player.sitting_room_speaker_cast
+          - media_player.office_speaker_cast
+          - media_player.colm_bedroom_speaker_cast
+        data:
+          volume_level: 1
+      - delay:
+          seconds: 1
+      - action: media_player.volume_set
+        target:
+          entity_id:
+          - media_player.kitchen_display_cast
+          - media_player.sitting_room_speaker_cast
+          - media_player.office_speaker_cast
+          - media_player.colm_bedroom_speaker_cast
+        data:
+          volume_level: 1
+      - delay:
+          seconds: 6
+      - action: media_player.volume_set
+        target:
+          entity_id:
+          - media_player.kitchen_display_cast
+          - media_player.sitting_room_speaker_cast
+          - media_player.office_speaker_cast
+          - media_player.colm_bedroom_speaker_cast
+        data:
+          volume_level: 0.5
+    default:
+    - action: media_player.volume_set
+      target:
+        entity_id: '{{ resolved_player }}'
+      data:
+        volume_level: 1
+    - action: tts.cloud_say
+      target:
+        entity_id: '{{ resolved_player }}'
+      data:
+        message: '{{ message }}'
+        cache: false
+    - delay:
+        seconds: 8
+    - action: media_player.volume_set
+      target:
+        entity_id: '{{ resolved_player }}'
+      data:
+        volume_level: '{{ prior_volume | float(0.5) }}'
 strobe_lights:
   alias: Strobe Lights
   description: Snapshots light state, strobes lights a set number of times (optionally
