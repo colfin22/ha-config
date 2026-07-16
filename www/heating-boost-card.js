@@ -138,7 +138,9 @@ class HeatingBoostCard extends HTMLElement {
         this._el.tgtdot.style.display = "";
       } else this._el.tgtdot.style.display = "none";
     }
-    this._el.status.textContent = st ? st.state : "";
+    // show only the preset + temperature (e.g. "comfort 20°"); the "— reason (who)" tail
+    // stays in the heating_status helper for the activity log, but is clutter on the live card
+    this._el.status.textContent = st ? st.state.split(/\s*—\s*/)[0].replace(/\s*\([^)]*\)\s*$/, "").trim() : "";
     const boosting = !!st && /^Boost/i.test(st.state);
     this._el.bboost.classList.toggle("boosting", boosting);
     // cancel only goes red when there is actually a boost to cancel
