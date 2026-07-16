@@ -37,8 +37,8 @@ class HeatingBoostCard extends HTMLElement {
         }
         .cur { font-size: 52px; font-weight: 300; line-height: 1; }
         .cur span { font-size: 24px; color: var(--secondary-text-color); }
-        .tgt { font-size: 15px; color: var(--secondary-text-color); margin-top: 6px; }
-        .status { text-align: center; font-size: 14px; margin: 4px 0 14px; color: var(--primary-text-color); }
+        .tgt { font-size: 15px; color: var(--secondary-text-color); margin-top: 6px; text-transform: capitalize; }
+        .status { text-align: center; font-size: 14px; margin: 4px 0 14px; color: var(--primary-text-color); text-transform: capitalize; }
         .boostlbl { font-size: 13px; color: var(--secondary-text-color); margin-bottom: 2px; }
         .boostrow { display: flex; align-items: center; gap: 10px; }
         .boostrow input[type=range] { flex: 1; accent-color: var(--state-climate-heat-color, #ff8100); }
