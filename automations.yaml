@@ -79,9 +79,8 @@
             target_player: media_player.home_audio_group_cast
         - action: notify.mobile_app_np3
           data:
-            title: "\U0001F5D1️ Bins NOT out!"
-            message: Collection tomorrow ({{ bin_lines }}) but no bin is detected
-              out front at the kerb. Did they go out?
+            title: "\U0001F5D1️ Bins NOT out — did they go out?"
+            message: 'Collection tomorrow: {{ bin_lines }}'
             data:
               image: /api/camera_proxy/camera.front_van
               notification_icon: mdi:trash-can-outline
@@ -92,9 +91,8 @@
               importance: high
         - action: notify.mobile_app_pixel_6a
           data:
-            title: "\U0001F5D1️ Bins NOT out!"
-            message: Collection tomorrow ({{ bin_lines }}) but no bin is detected
-              out front at the kerb. Did they go out?
+            title: "\U0001F5D1️ Bins NOT out — did they go out?"
+            message: 'Collection tomorrow: {{ bin_lines }}'
             data:
               image: /api/camera_proxy/camera.front_van
               notification_icon: mdi:trash-can-outline
