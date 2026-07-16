@@ -1510,7 +1510,7 @@
 - id: '1779632326878'
   alias: Patio Door - Disable Rear Camera Detection
   description: Disables rear door and shed camera detection when patio door NFC tag
-    is scanned; re-enables when patio door closes or after 4-hour timeout.
+    is scanned; re-enables when patio door closes or after 6-hour timeout.
   triggers:
   - platform: tag
     tag_id: f958aada-03e8-4db5-9ccf-7c8f539ccf76
@@ -1526,7 +1526,7 @@
     - platform: state
       entity_id: binary_sensor.patio_door_contact
       to: 'off'
-    timeout: 04:00:00
+    timeout: 06:00:00
     continue_on_timeout: true
   - action: input_boolean.turn_off
     target:
