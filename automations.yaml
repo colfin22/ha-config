@@ -2177,3 +2177,18 @@
         notification_icon: mdi:flash-alert
   mode: queued
   max: 3
+- id: '1784209486509'
+  alias: Infra Dashboard - Maintenance Mode Toggle
+  description: Webhook from the infra dashboard header toggle; flips input_boolean.maintenance_mode
+    (which silences infra alerts).
+  triggers:
+  - platform: webhook
+    webhook_id: infra_maint_0a81f6f374ba4add
+    allowed_methods:
+    - POST
+    local_only: false
+  actions:
+  - action: input_boolean.toggle
+    target:
+      entity_id: input_boolean.maintenance_mode
+  mode: single
