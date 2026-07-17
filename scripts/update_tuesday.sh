@@ -20,6 +20,6 @@ mkdir -p /root/.ssh
 touch /root/.ssh/known_hosts
 
 echo "Running report script..."
-python3 /config/scripts/update_tuesday.py
+cd /config && PYTHONPATH=/config python3 /config/scripts/update_tuesday.py
 
 echo "=== Complete $(date) ==="

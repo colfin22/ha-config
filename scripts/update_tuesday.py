@@ -54,9 +54,9 @@ MIKROTIK_DEVICES = [
 SSH_HOSTS = [
     {"label": "PVE1 (proxmox)",   "ip": "10.0.0.251", "user": "root",   "type": "proxmox"},
     {"label": "PVE2 (proxmox2)",  "ip": "10.0.0.228", "user": "root",   "type": "proxmox"},
-    {"label": "PVE3 (remote)",    "ip": "10.0.10.5",  "user": "root",   "type": "proxmox"},
+    {"label": "PVE3 (remote)",    "ip": "192.168.88.232",  "user": "root",   "type": "proxmox"},
     {"label": "PBS1",             "ip": "10.0.0.215", "user": "root",   "type": "pbs"},
-    {"label": "PBS2 (remote)",    "ip": "10.0.10.6",  "user": "root",   "type": "pbs"},
+    {"label": "PBS2 (remote)",    "ip": "192.168.88.231",  "user": "root",   "type": "pbs"},
     {"label": "Docker VM",        "ip": "10.0.0.221", "user": "cfinn",  "type": "ubuntu"},
     {"label": "Nextcloud VM",     "ip": "10.0.0.226", "user": "cfinn",  "type": "ubuntu"},
     {"label": "Frigate LXC",      "ip": "10.0.0.246", "user": "hassio", "type": "ubuntu"},
@@ -395,21 +395,26 @@ def collect_homeassistant():
 # ─── HTML REPORT ─────────────────────────────────────────────────────────────
 
 CSS = """
+/* palette mirrors the infra dashboard (Oaks theme); .light set by the parent's theme */
+:root { --bg:#0a0e17; --card:#121826; --sunk:#0c1424; --bdr:#1d2740; --bdr2:#16203a;
+        --ink:#e8eef7; --ink2:#cdd8ee; --faint:#5e6b85; --accent:#35c9e6; }
+.light { --bg:#f2f5fa; --card:#ffffff; --sunk:#eef2f8; --bdr:#d7dfec; --bdr2:#e2e8f2;
+        --ink:#0f1830; --ink2:#1e2a45; --faint:#6b7a99; --accent:#1a8fa8; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0f1117; color: #e1e4e8; font-size: 14px; line-height: 1.5;
+  background: var(--bg); color: var(--ink2); font-size: 14px; line-height: 1.5;
 }
 .page { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-h1 { font-size: 24px; font-weight: 700; color: #f0f6fc; margin-bottom: 4px; }
-.subtitle { color: #8b949e; margin-bottom: 28px; font-size: 13px; }
-.section { margin-bottom: 24px; border: 1px solid #30363d; border-radius: 8px; }
+h1 { font-size: 24px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.subtitle { color: var(--faint); margin-bottom: 28px; font-size: 13px; }
+.section { margin-bottom: 24px; border: 1px solid var(--bdr); border-radius: 8px; }
 .section-header {
-  background: #161b22; padding: 12px 16px; display: flex; align-items: center;
-  justify-content: space-between; border-bottom: 1px solid #30363d;
+  background: var(--card); padding: 12px 16px; display: flex; align-items: center;
+  justify-content: space-between; border-bottom: 1px solid var(--bdr);
   border-radius: 8px 8px 0 0;
 }
-.section-title { font-weight: 600; font-size: 15px; color: #f0f6fc; }
+.section-title { font-weight: 600; font-size: 15px; color: var(--ink); }
 .badge {
   display: inline-flex; align-items: center; padding: 2px 10px;
   border-radius: 12px; font-size: 12px; font-weight: 600;
@@ -421,32 +426,32 @@ h1 { font-size: 24px; font-weight: 700; color: #f0f6fc; margin-bottom: 4px; }
 .section-body { padding: 12px 16px; }
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; }
-th { text-align: left; padding: 6px 12px; color: #8b949e; font-size: 12px;
+th { text-align: left; padding: 6px 12px; color: var(--faint); font-size: 12px;
      font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;
-     border-bottom: 1px solid #21262d; }
-td { padding: 8px 12px; border-bottom: 1px solid #21262d; vertical-align: top; }
+     border-bottom: 1px solid var(--bdr2); }
+td { padding: 8px 12px; border-bottom: 1px solid var(--bdr2); vertical-align: top; }
 tr:last-child td { border-bottom: none; }
-tr:hover { background: #161b22; }
+tr:hover { background: var(--card); }
 .status-ok   { color: #3fb950; font-weight: 600; }
 .status-warn { color: #d29922; font-weight: 600; }
 .status-err  { color: #f85149; }
-.pkg-list { font-size: 12px; color: #8b949e; margin-top: 4px; }
-.pkg-list span { background: #21262d; border-radius: 4px; padding: 1px 6px;
+.pkg-list { font-size: 12px; color: var(--faint); margin-top: 4px; }
+.pkg-list span { background: var(--sunk); border-radius: 4px; padding: 1px 6px;
                   display: inline-block; margin: 1px; }
-a { color: #58a6ff; text-decoration: none; }
+a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 .update-link { font-size: 12px; }
-.version { font-size: 12px; color: #8b949e; font-family: monospace; }
+.version { font-size: 12px; color: var(--faint); font-family: monospace; }
 .summary-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px; margin-bottom: 24px;
 }
 .summary-card {
-  background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+  background: var(--card); border: 1px solid var(--bdr); border-radius: 8px;
   padding: 16px; text-align: center;
 }
 .summary-num { font-size: 32px; font-weight: 700; }
-.summary-label { font-size: 12px; color: #8b949e; margin-top: 4px; }
+.summary-label { font-size: 12px; color: var(--faint); margin-top: 4px; }
 .num-ok   { color: #3fb950; }
 .num-warn { color: #d29922; }
 .num-err  { color: #f85149; }
@@ -467,6 +472,10 @@ a:hover { text-decoration: underline; }
   .pkg-list span { background: #f6f8fa; }
 }
 """
+
+# Follow the infra dashboard's theme (same-origin: reads its localStorage override,
+# else the device preference) so the embedded report matches light/dark.
+THEME_JS = "<script>try{var s=localStorage.getItem('itheme');var l=s?s==='light':(window.matchMedia&&matchMedia('(prefers-color-scheme: light)').matches);if(l)document.documentElement.classList.add('light');}catch(e){}</script>"
 
 
 def badge(count_or_bool, labels=("Up to date", "Updates available", "Error")):
@@ -674,6 +683,7 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Update Tuesday Report — {now.strftime('%d %b %Y')}</title>
+{THEME_JS}
 <style>{CSS}</style>
 </head>
 <body>
@@ -717,6 +727,12 @@ def main():
 
     with open(OUTPUT_FILE, "w") as f:
         f.write(html)
+
+    # ha-config #23: a fresh monthly report starts "not done" — clear the
+    # infra-dashboard "mark as applied" flag (scoped HA webhook, no auth needed)
+    # so this month's updates must be re-confirmed on the dashboard.
+    http_post("http://homeassistant:8123/api/webhook/infra_upreset_e1b89b7b5831d45e")
+    print("Reset input_boolean.update_tuesday_done -> off", flush=True)
 
     print(f"Report saved to {OUTPUT_FILE}", flush=True)
     print("DONE", flush=True)

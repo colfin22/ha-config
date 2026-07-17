@@ -44,6 +44,11 @@
         "id": "maintenance_mode",
         "name": "Maintenance Mode",
         "icon": "mdi:tools"
+      },
+      {
+        "id": "update_tuesday_done",
+        "name": "Update Tuesday Done",
+        "icon": "mdi:check-circle"
       }
     ]
   }

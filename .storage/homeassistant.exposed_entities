@@ -39345,6 +39345,16 @@
             "should_expose": false
           }
         }
+      },
+      "scene.cat_alarm_diag_restore": {
+        "assistants": {
+          "conversation": {
+            "should_expose": true
+          },
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }

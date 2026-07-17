@@ -324,7 +324,7 @@
                   ],
                   "card_mod": {
                     "style": {
-                      ".": "#states hui-buttons-row { pointer-events: none; }\n#states > *:nth-child(2) { --state-input_boolean-on-color: #2e7d32; --state-active-color: #2e7d32; --ha-switch-checked-background-color: #2e7d32; --ha-switch-checked-thumb-background-color: #2e7d32; --switch-checked-button-color: #2e7d32; --switch-checked-track-color: #2e7d32; }",
+                      ".": "#states hui-buttons-row { pointer-events: none; }\n",
                       "hui-buttons-row": {
                         "$": {
                           "hui-buttons-base": {
@@ -3688,7 +3688,7 @@
           "cards": [
             {
               "type": "iframe",
-              "url": "/local/infra.html?v=20260713b",
+              "url": "/local/infra.html?v=20260717zk",
               "disable_sandbox": true
             }
           ]

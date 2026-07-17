@@ -2192,3 +2192,34 @@
     target:
       entity_id: input_boolean.maintenance_mode
   mode: single
+- id: '1784292024444'
+  alias: Infra Dashboard - Update Tuesday Mark Done
+  description: Webhook from the infra dashboard Updates tab toggles input_boolean.update_tuesday_done
+    (mark monthly update report applied/not). Low-consequence, LAN+remote.
+  triggers:
+  - platform: webhook
+    webhook_id: infra_updone_129a4814921af30e
+    allowed_methods:
+    - POST
+    local_only: false
+  actions:
+  - target:
+      entity_id: input_boolean.update_tuesday_done
+    action: input_boolean.toggle
+  mode: single
+- id: '1784292446683'
+  alias: Infra Dashboard - Update Tuesday Reset Done
+  description: 'Called by update_tuesday.py when a fresh monthly report is generated:
+    turns input_boolean.update_tuesday_done OFF so the new month must be re-confirmed.
+    Webhook (no auth), LAN-only.'
+  triggers:
+  - platform: webhook
+    webhook_id: infra_upreset_e1b89b7b5831d45e
+    allowed_methods:
+    - POST
+    local_only: true
+  actions:
+  - target:
+      entity_id: input_boolean.update_tuesday_done
+    action: input_boolean.turn_off
+  mode: single
