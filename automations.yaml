@@ -2223,3 +2223,36 @@
       entity_id: input_boolean.update_tuesday_done
     action: input_boolean.turn_off
   mode: single
+- id: '1784308863828'
+  alias: Restic Backup - Status & Stale Alert
+  description: 'Webhook from TrueNAS restic_monitor.py: stores the compact restic
+    backup status in input_text.restic_status and, if any dataset is stale/missing,
+    sends a Backup-channel notification (daytime only).'
+  triggers:
+  - platform: webhook
+    webhook_id: restic-status-3d275581a8801f91
+    allowed_methods:
+    - POST
+    local_only: true
+  actions:
+  - target:
+      entity_id: input_text.restic_status
+    data:
+      value: '{{ trigger.json.status | default('''') | string }}'
+    action: input_text.set_value
+  - if:
+    - condition: template
+      value_template: '{{ (trigger.json.stale | default('''')) | length > 0 }}'
+    - condition: time
+      after: 07:00:00
+      before: '22:00:00'
+    then:
+    - data:
+        title: ⚠️ Restic backup stale
+        message: 'Stale / missing restic backups: {{ trigger.json.stale }}'
+        data:
+          channel: Backup
+          tag: restic-stale
+          notification_icon: mdi:backup-restore
+      action: notify.mobile_app_np3
+  mode: single

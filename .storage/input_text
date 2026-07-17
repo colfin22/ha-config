@@ -99,6 +99,14 @@
         "initial": "seeded",
         "min": 0,
         "mode": "text"
+      },
+      {
+        "id": "restic_status",
+        "name": "Restic Status",
+        "icon": "mdi:backup-restore",
+        "max": 255,
+        "min": 0,
+        "mode": "text"
       }
     ]
   }
