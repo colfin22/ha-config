@@ -183,7 +183,7 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flo
 
 A separate **"How it Works"** sidebar dashboard (visible to all users) holds a full, plain-language household guide &mdash; house modes, guests, heating, lights, alarm, cameras, announcements and playing music &mdash; served from `www/how-the-house-works.html`. It's the family reference: kept up to date as the setup evolves, so whenever a setting is adjusted or a new feature is added, everyone can simply be pointed to the guide to see how it works.
 
-![The "How it Works" guide — the section index, opened from the Home Assistant sidebar](docs/how-it-works-2.png)
+![The "How it Works" guide — the section index and a few example sections (House Mode, dimmer switches, the alarm), all written in plain language](docs/how-it-works-quad.png)
 
 ---
 
