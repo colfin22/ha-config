@@ -18,12 +18,27 @@ from datetime import timedelta
 
 DOMAIN = "ha_mcp_tools"
 
+# Component version, kept in lockstep with ``manifest.json``'s ``version``.
+# ``ha_mcp_tools/info`` reports this so the server can display/debug the running
+# component build; ``TestManifestVersionParity`` pins the two together so a
+# manifest bump that forgets this constant (or vice-versa) fails in CI. The
+# capability negotiation — not this version — gates each WS command (see
+# ``websocket_api.CAPABILITIES``).
+COMPONENT_VERSION = "1.1.0"
+
 # Config-entry discriminator (``entry.data[CONF_ENTRY_TYPE]``). A missing value
 # means "tools" so the pre-existing services entry keeps working across the
 # component update with no migration.
 CONF_ENTRY_TYPE = "entry_type"
 ENTRY_TYPE_TOOLS = "tools"
 ENTRY_TYPE_SERVER = "server"
+
+# Titles shown for each entry in the integration tile's entry list. Public so
+# __init__'s setup migration can retitle pre-#1853 tools entries still
+# carrying the legacy default (a user-customized title is left alone).
+TOOLS_ENTRY_TITLE = "HA-MCP File & YAML Tools"
+TOOLS_ENTRY_LEGACY_TITLE = "HA MCP Tools"
+MIN_EMBEDDED_HOME_ASSISTANT_VERSION = "2026.6.0"
 
 # Allowed directories for file operations (relative to config dir)
 ALLOWED_READ_DIRS = ["www", "themes", "custom_templates", "dashboards"]
@@ -66,7 +81,9 @@ ALLOWED_VOLUME_ROOTS = ("/share", "/media", "/ssl", "/backup")
 
 # Files allowed for managed YAML editing
 ALLOWED_YAML_CONFIG_FILES = ["configuration.yaml"]
-# Also allows packages/*.yaml via pattern matching
+# Also allows <packages-folder>/*.yaml via pattern matching, where the folder is
+# the one the user binds under ``homeassistant: packages:`` (default "packages",
+# detected at runtime — see _detect_package_dirs), plus themes/*.yaml.
 
 # Top-level YAML keys allowed for editing in any allowed file
 # (configuration.yaml or packages/*.yaml).
@@ -94,6 +111,11 @@ ALLOWED_YAML_KEYS = frozenset(
         "notify",
         "group",
         "utility_meter",
+        # recorder is YAML-only (no UI or storage-mode helper): purge_keep_days,
+        # include/exclude, commit_interval. Its surface is smaller than keys
+        # already here — it only controls what HA records and for how long, with
+        # no code-execution path like command_line/shell_command/rest (#1852).
+        "recorder",
     }
 )
 
@@ -274,6 +296,16 @@ DEFAULT_AUTO_UPDATE = True
 OPT_SERVER_PORT = "server_port"
 OPT_BIND_HOST = "bind_host"
 OPT_WEBHOOK_AUTH = "webhook_auth"
+# Legacy OAuth mode (self-hosted authorization server, static client_id/secret
+# for Google Gemini Spark) credential management — mirrors the
+# OPT_WEBHOOK_ID_OVERRIDE / OPT_REGENERATE_SECRETS shape below. Empty override
+# fields mean "keep the current value"; OPT_OAUTH_REGENERATE is one-shot.
+# _override suffix distinguishes these OPTIONS keys from the DATA_OAUTH_*
+# entry.data keys (which store the resolved values under the un-suffixed
+# names) — mirrors OPT_WEBHOOK_ID_OVERRIDE vs DATA_WEBHOOK_ID.
+OPT_OAUTH_CLIENT_ID = "oauth_client_id_override"
+OPT_OAUTH_CLIENT_SECRET = "oauth_client_secret_override"
+OPT_OAUTH_REGENERATE = "oauth_regenerate"
 OPT_PIP_SPEC = "pip_spec"
 OPT_SERVER_URL = "server_url"
 # Connect-URL surface + secret management (owner request, parity with the
@@ -288,10 +320,49 @@ OPT_REGENERATE_SECRETS = "regenerate_secrets"
 # server through Home Assistant; only the direct server port (+ the
 # admin-only sidebar panel, which proxies over loopback) remains.
 OPT_ENABLE_WEBHOOK = "enable_webhook"
+# Conversation-agent LLM API (#1745): when False, the toolset is not
+# registered as a Home Assistant LLM API, so it never appears in any
+# conversation agent's "Control Home Assistant" selector. On by default —
+# registering the API only makes it selectable; nothing is exposed until a
+# user picks it on an agent.
+OPT_ENABLE_LLM_API = "enable_llm_api"
+DEFAULT_ENABLE_LLM_API = True
+# Which exposure shape(s) the LLM API offers to conversation agents:
+# ``tool_search`` (default) registers a compact API — pinned tools plus
+# search/execute meta-tools — the shape context-limited models need; ``full``
+# registers the whole exposed catalog as one API; ``both`` registers the two
+# side by side so the choice is made per agent in HA's own selector.
+OPT_LLM_API_EXPOSURE = "llm_api_exposure"
+EXPOSURE_TOOL_SEARCH = "tool_search"
+EXPOSURE_FULL = "full"
+EXPOSURE_BOTH = "both"
+DEFAULT_LLM_API_EXPOSURE = EXPOSURE_TOOL_SEARCH
+# When False, the persistent notification created on every server bring-up is
+# suppressed; the connect URLs still reach the admin-only Home Assistant log.
+OPT_ENABLE_STARTUP_NOTIFICATION = "enable_startup_notification"
+# When False, the admin-only "HA-MCP" sidebar settings panel is not registered;
+# the server's options stay reachable on the entry's Configure screen.
+OPT_ENABLE_SIDEBAR_PANEL = "enable_sidebar_panel"
 
 # entry.data keys (persisted ids + secrets; entry.data is fine for secrets).
 DATA_WEBHOOK_ID = "webhook_id"
 DATA_SECRET_PATH = "secret_path"
+# Legacy OAuth mode credentials, minted by embedded_entry._ensure_secrets and
+# consumed by oauth_legacy.LegacyOAuthProvider. DATA_OAUTH_SIGNING_KEY is a hex
+# string (entry.data must be JSON-serializable, so raw bytes aren't stored
+# directly) — the provider converts it with bytes.fromhex(). The signed token
+# payload carries the client_id (not the secret), so rotating the client_id
+# revokes every outstanding token at the restart that rebinds the views (see
+# LegacyOAuthProvider._validate_token).
+# Because validation never involves the client_secret, a secret-only override
+# change instead rotates the signing key, evicting outstanding tokens at the
+# restart that activates the new credentials (see
+# embedded_entry._ensure_legacy_oauth_secrets). Until that restart the bound
+# views keep serving the OLD identity, so the startup log withholds rotated
+# credentials (embedded_setup._surface_connect_urls).
+DATA_OAUTH_CLIENT_ID = "oauth_client_id"
+DATA_OAUTH_CLIENT_SECRET = "oauth_client_secret"
+DATA_OAUTH_SIGNING_KEY = "oauth_signing_key"
 DATA_SERVER_USER_ID = "server_user_id"
 DATA_REFRESH_TOKEN_ID = "refresh_token_id"
 DATA_ACCESS_TOKEN = "access_token"
@@ -329,10 +400,19 @@ DATA_UPDATE_COORDINATOR = "update_coordinator"
 # finding on #1760). Bring-up pops it: notification on success, silent drop on
 # failure (the package/start repair issues cover that path).
 DATA_PENDING_UPDATE_NOTIFY = "pending_update_notify"
+# Unregister callback for the conversation-agent LLM API (#1745), stored by
+# the bring-up success path and invoked (idempotently) by teardown.
+DATA_LLM_API_UNSUB = "llm_api_unsub"
 
 # Webhook auth modes (mirrors the webhook-proxy add-on's default posture).
 WEBHOOK_AUTH_NONE = "none"  # secret webhook URL is the shared secret (default)
 WEBHOOK_AUTH_HA = "ha_auth"  # HA-native bearer (HA core is the OAuth AS)
+# Self-hosted OAuth 2.1 authorization server with a static client_id/secret,
+# ported from the webhook-proxy add-on's "legacy" mode. Needed because HA
+# core's /auth/authorize does not yet fetch Client ID Metadata Documents for
+# cross-origin redirect_uris (home-assistant/core#176282), which is what
+# Google Gemini Spark's custom connected apps require.
+WEBHOOK_AUTH_LEGACY = "legacy"
 
 # Default bind host + port. 9584 (not the add-on's 9583) so this in-process
 # server and an add-on install can coexist on the same box.
@@ -373,6 +453,15 @@ HACS_COMPONENT_URL = (
     "?owner=homeassistant-ai&repository=ha-mcp-integration&category=integration"
 )
 
+# Usage guide for the conversation-agent LLM API option (#1745). Injected into
+# the options form as a description placeholder — hassfest forbids literal
+# URLs inside strings.json.
+LLM_API_DOCS_URL = (
+    "https://github.com/homeassistant-ai/ha-mcp/blob/master/docs/"
+    "in-process-server.md"
+    "#chat-with-the-toolset-from-home-assistant-conversation-agents--voice"
+)
+
 # Repair-issue ids surfaced when server bring-up fails.
 ISSUE_PACKAGE_FAILED = "server_package_install_failed"
 ISSUE_START_FAILED = "server_start_failed"
@@ -398,3 +487,10 @@ ISSUE_UPDATE_HELD = "server_update_held"
 # mechanism, so this only self-resolves if the user re-adds the dedicated
 # mirror (homeassistant-ai/ha-mcp-integration).
 ISSUE_LEGACY_HACS_SOURCE = "legacy_hacs_source"
+# Repair issue surfaced when the legacy OAuth mode's root /authorize + /token
+# views are out of sync with the CONFIGURED webhook_auth mode — either just
+# enabled (views not yet bound with the current credentials) or just disabled
+# (views still bound and serving the old identity). aiohttp can neither bind
+# nor unbind an HTTP view without a full Home Assistant restart, so both
+# transitions need one; see oauth_legacy.bind_legacy_views.
+ISSUE_LEGACY_OAUTH_RESTART = "legacy_oauth_restart"
