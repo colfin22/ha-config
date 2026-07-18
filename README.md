@@ -168,6 +168,17 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flo
 
 ---
 
+## 🛠️ Fleet Management (Ansible + Semaphore)
+
+The wider fleet — the Proxmox nodes, every LXC and VM, and the MikroTik estate — is managed with **Ansible** from a dedicated control container, with **Semaphore** as its web front end (config in a private repo).
+
+- **Baseline** — every Linux host gets the same treatment: timezone, base tooling, and key-only SSH (password authentication disabled fleet-wide). Fully idempotent, applied canary-first.
+- **Facts report** — a read-only sweep renders a Markdown inventory of the whole estate (OS, kernel, CPU/RAM, disk, uptime; model and serial for the network devices), with git history as the archive.
+- **Updates** — a rolling update playbook that refuses to run unless maintenance mode is on (so Zabbix, Uptime Kuma and Node-RED alerting are guaranteed silenced), reboots only the guests that both need it and allow it — reboot-sensitive hosts (the MQTT broker, Node-RED, the NVR, the uptime monitor) report a pending reboot instead — and never reboots a hypervisor: node reboots stay a deliberate manual step at the end of the maintenance window.
+- **Semaphore** — push-button task templates for all of the above plus a deliberate one-at-a-time "reboot pending guests" pass, with run history and logs.
+
+---
+
 ## 📊 Dashboards
 
 | Tab | Contents |
@@ -252,7 +263,7 @@ All alert automations respect a **22:00–07:00 quiet window** — overnight eve
 | TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Prox3 (Daire) daily via sftp; failure alerts via Node-RED | — |
 | Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → Prox3 (Daire) daily | — |
 
-This repo (`ha-config`) and the [Node-RED flows repo](https://github.com/colfin22/node-red-config) are **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
+This repo (`ha-config`) and the [Node-RED flows repo](https://github.com/colfin22/node-red-config) are **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker, Ansible) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
 
 ---
 
