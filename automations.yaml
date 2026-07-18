@@ -2269,3 +2269,30 @@
           notification_icon: mdi:backup-restore
       action: notify.mobile_app_np3
   mode: single
+- id: '1784531000032'
+  alias: Infra Dashboard - Maintenance Mode Sync
+  description: 'ha-config #32: whenever input_boolean.maintenance_mode changes, mirror
+    it into Zabbix + Uptime Kuma maintenance windows via maint_sync.py on node1 (fail-soft;
+    12h auto-expiry).'
+  triggers:
+  - platform: state
+    entity_id: input_boolean.maintenance_mode
+    to: 'on'
+    id: 'on'
+  - platform: state
+    entity_id: input_boolean.maintenance_mode
+    to: 'off'
+    id: 'off'
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: 'on'
+      sequence:
+      - action: shell_command.maint_sync_on
+    - conditions:
+      - condition: trigger
+        id: 'off'
+      sequence:
+      - action: shell_command.maint_sync_off
+  mode: restart

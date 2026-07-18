@@ -6,3 +6,21 @@ shell_command:
     -o ConnectTimeout=10
     root@172.30.33.0
     "bash /config/scripts/update_tuesday.sh"
+
+  # infra dashboard: generate the post-maintenance applied-report on node1 (fire-and-forget;
+  # the report scp's itself back to /config/www/update_tuesday/ when done)
+  generate_applied_report: >-
+    ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
+    -o ConnectTimeout=10 root@10.0.0.251
+    "nohup python3 /opt/homelab-scripts/infra-dashboard/applied_report.py >/tmp/applied_report.log 2>&1 &"
+
+  # ha-config #32: sync maintenance mode into Zabbix + Uptime Kuma maintenance windows
+  # (fail-soft on node1 — never blocks; 12h auto-expiry is the forget-to-turn-off net)
+  maint_sync_on: >-
+    ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
+    -o ConnectTimeout=10 root@10.0.0.251
+    "nohup /opt/homelab-scripts/maint-sync/venv/bin/python /opt/homelab-scripts/maint-sync/maint_sync.py on >/dev/null 2>&1 &"
+  maint_sync_off: >-
+    ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
+    -o ConnectTimeout=10 root@10.0.0.251
+    "nohup /opt/homelab-scripts/maint-sync/venv/bin/python /opt/homelab-scripts/maint-sync/maint_sync.py off >/dev/null 2>&1 &"
