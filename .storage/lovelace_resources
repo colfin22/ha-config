@@ -81,7 +81,7 @@
       },
       {
         "id": "080924d3819948b3a3acf2e02ab774a4",
-        "url": "/browser_mod.js?automatically-added&3.0.2",
+        "url": "/browser_mod.js?automatically-added&3.1.0",
         "type": "module"
       },
       {
@@ -111,7 +111,7 @@
       },
       {
         "id": "c8ae491804204e1c88904ce7813e2e45",
-        "url": "/hacsfiles/clock-weather-card/clock-weather-card.js",
+        "url": "/hacsfiles/clock-weather-card/clock-weather-card.js?hacstag=522634019294",
         "type": "module"
       },
       {

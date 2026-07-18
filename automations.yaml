@@ -2194,8 +2194,10 @@
   mode: single
 - id: '1784292024444'
   alias: Infra Dashboard - Update Tuesday Mark Done
-  description: Webhook from the infra dashboard Updates tab toggles input_boolean.update_tuesday_done
-    (mark monthly update report applied/not). Low-consequence, LAN+remote.
+  description: 'Webhook from the infra dashboard Updates tab toggles input_boolean.update_tuesday_done.
+    When it lands ON: ends the maintenance window (maintenance_mode off) THEN kicks
+    the applied-report generator on node1. The dashboard page refuses the click while
+    alerts are active.'
   triggers:
   - platform: webhook
     webhook_id: infra_updone_129a4814921af30e
@@ -2206,6 +2208,17 @@
   - target:
       entity_id: input_boolean.update_tuesday_done
     action: input_boolean.toggle
+  - if:
+    - condition: state
+      entity_id: input_boolean.update_tuesday_done
+      state: 'on'
+    then:
+    - target:
+        entity_id: input_boolean.maintenance_mode
+      action: input_boolean.turn_off
+    - delay:
+        seconds: 10
+    - action: shell_command.generate_applied_report
   mode: single
 - id: '1784292446683'
   alias: Infra Dashboard - Update Tuesday Reset Done
