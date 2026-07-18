@@ -39355,6 +39355,13 @@
             "should_expose": false
           }
         }
+      },
+      "automation.infra_dashboard_save_upgrade_summary": {
+        "assistants": {
+          "cloud.google_assistant": {
+            "should_expose": false
+          }
+        }
       }
     }
   }
