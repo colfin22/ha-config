@@ -252,7 +252,7 @@ All alert automations respect a **22:00–07:00 quiet window** — overnight eve
 | TrueNAS Datasets | restic — 6 datasets (photos, nextcloud, paperless, influxdb, zabbix, claude-memory) → Prox3 (Daire) daily via sftp; failure alerts via Node-RED | — |
 | Claude Memory | rsync every 6h → TrueNAS encrypted dataset (AES-256-GCM) → Prox3 (Daire) daily | — |
 
-This repo (`ha-config`) is **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker, Node-RED) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
+This repo (`ha-config`) and the [Node-RED flows repo](https://github.com/colfin22/node-red-config) are **public**. All other config repos (MikroTik, TrueNAS, Frigate, Immich, InfluxDB+Grafana, Ubuntu Docker) are **private**. HA backup includes: dashboards, helpers, Alarmo, zones, persons, tags, energy config, areas.
 
 ---
 
