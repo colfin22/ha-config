@@ -212,7 +212,7 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 
 **Network** — Infrastructure services, network metrics, Zabbix-sourced host stats.
 
-![Grafana Energy — History dashboard](docs/grafana-energy-dashboard.png)
+![Grafana Energy — History dashboard](docs/grafana-energy-dashboard-2.png)
 
 *Energy — History: daily energy (solar, grid import/export, home consumption, Eddi hot water), the half-hourly ESB-meter grid import/export profile, and monthly totals across the last year.*
 
