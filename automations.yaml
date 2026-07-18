@@ -448,9 +448,9 @@
   alias: Smart Parcel Box Notification
   description: 'Notifies both phones and announces via TTS when a parcel is delivered
     to the smart box, attaching the latest Frigate doorbell person snapshot when it
-    is fresh (<5 min). Uses front door contact within 30s to classify a collection
-    instead; collections only stamp the datetime. Rebuilt from the eroak/smart-mailbox
-    blueprint for ha-config #28.'
+    is fresh (<60s). Uses front door contact within 30s to classify a collection instead;
+    collections only stamp the datetime. Rebuilt from the eroak/smart-mailbox blueprint
+    for ha-config #28.'
   triggers:
   - trigger: state
     entity_id: binary_sensor.parcel_delivery_box_contact
@@ -472,7 +472,7 @@
         timestamp: '{{ triggered_at }}'
     - variables:
         snapshot_fresh: '{% set img = states[''image.doorbell_person''] %}{{ img is
-          not none and ((triggered_at - as_timestamp(img.last_changed)) | abs) < 300
+          not none and ((triggered_at - as_timestamp(img.last_changed)) | abs) < 60
           }}'
     - if:
       - alias: Doorbell person snapshot is fresh
