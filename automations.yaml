@@ -446,35 +446,71 @@
           brightness_step_pct: -30
 - id: '1775750149545'
   alias: Smart Parcel Box Notification
-  description: Notifies both phones and announces via TTS when a parcel is delivered
-    to the smart box. Notifies Colm when the box is opened to collect. Uses front
-    door contact to confirm collection.
-  use_blueprint:
-    path: eroak/smart-mailbox.yaml
-    input:
-      motion_sensor: binary_sensor.parcel_delivery_box_contact
-      timeout_in_seconds: 30
-      collection_confirming_entities:
-      - binary_sensor.front_door_contact
-      actions_in:
+  description: 'Notifies both phones and announces via TTS when a parcel is delivered
+    to the smart box, attaching the latest Frigate doorbell person snapshot when it
+    is fresh (<5 min). Uses front door contact within 30s to classify a collection
+    instead; collections only stamp the datetime. Rebuilt from the eroak/smart-mailbox
+    blueprint for ha-config #28.'
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.parcel_delivery_box_contact
+    from: 'off'
+    to: 'on'
+  actions:
+  - alias: Wait before determining if it's a deposit or collection
+    delay: '{{ timeout_in_seconds }}'
+  - if:
+    - alias: Front door did not open within the timeout window
+      condition: template
+      value_template: '{{ ((triggered_at - as_timestamp(states[''binary_sensor.front_door_contact''].last_changed))
+        | round | abs) > timeout_in_seconds }}'
+    then:
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.parcel_box_last_delivery
+      data:
+        timestamp: '{{ triggered_at }}'
+    - variables:
+        snapshot_fresh: '{% set img = states[''image.doorbell_person''] %}{{ img is
+          not none and ((triggered_at - as_timestamp(img.last_changed)) | abs) < 300
+          }}'
+    - if:
+      - alias: Doorbell person snapshot is fresh
+        condition: template
+        value_template: '{{ snapshot_fresh }}'
+      then:
       - action: notify.mobile_app_np3
-        metadata: {}
         data:
           message: A Package Has Been Delivered!
-      - action: script.tts_announce
+          data:
+            image: /api/image_proxy/image.doorbell_person?t={{ triggered_at | int
+              }}
+      - action: notify.mobile_app_pixel_6a
+        data:
+          message: A Package Has Been Delivered!
+          data:
+            image: /api/image_proxy/image.doorbell_person?t={{ triggered_at | int
+              }}
+      else:
+      - action: notify.mobile_app_np3
         data:
           message: A Package Has Been Delivered!
       - action: notify.mobile_app_pixel_6a
-        metadata: {}
         data:
           message: A Package Has Been Delivered!
-      last_deposit_input_datetime: input_datetime.parcel_box_last_delivery
-      last_collect_input_datetime: input_datetime.parcel_box_last_collection
-      actions_out:
-      - action: notify.mobile_app_np3
-        metadata: {}
-        data:
-          message: The Parcel Box Has Been Opened
+    - action: script.tts_announce
+      data:
+        message: A Package Has Been Delivered!
+    else:
+    - action: input_datetime.set_datetime
+      target:
+        entity_id: input_datetime.parcel_box_last_collection
+      data:
+        timestamp: '{{ triggered_at }}'
+  mode: single
+  variables:
+    triggered_at: '{{ as_timestamp(now()) }}'
+    timeout_in_seconds: 30
 - id: '1776515291123'
   alias: Office Occupancy Lighting
   description: Controls office ceiling light based on presence sensor. Turns on when
