@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7.1-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-55-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-56-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -94,7 +94,7 @@ This repository is the live, version-controlled configuration that runs the hous
 
 ## 🤖 Automations
 
-55 automations across the home. Key highlights:
+56 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
@@ -144,7 +144,7 @@ This repository is the live, version-controlled configuration that runs the hous
 - **Infrastructure health & backup alerts** — migrated to Node-RED for more complex workflows; see the **Infra Health & Alerts** flow below.
 - **Zigbee2MQTT watchdog** — auto-restart with 2 attempts, notifies on outcome
 - **Update Tuesday** — generates the monthly homelab update report on the Monday before the 2nd Tuesday; notifies Colm with a link at 19:00
-- **Maintenance mode** — a toggle on the infrastructure dashboard opens a maintenance window that silences infrastructure alerts during planned work
+- **Maintenance mode** — a toggle on the infrastructure dashboard opens a maintenance window that silences infrastructure alerts during planned work, and mirrors itself into matching Zabbix and Uptime Kuma maintenance windows (auto-expiring after 12 hours) so no monitoring layer raises planned-work noise
 - **Post-maintenance report** — marking Update Tuesday done on the dashboard is refused while alerts are active; otherwise it ends the maintenance window and generates a maintenance report (windows, reboots, versions), shown in place of the update report until next month's arrives
 - **Backup freshness** — daily check that every offsite backup dataset ran recently; alerts if any goes stale
 
