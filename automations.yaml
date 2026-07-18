@@ -485,19 +485,25 @@
           data:
             image: /api/image_proxy/image.doorbell_person?t={{ triggered_at | int
               }}
+            notification_icon: mdi:package-variant-closed
       - action: notify.mobile_app_pixel_6a
         data:
           message: A Package Has Been Delivered!
           data:
             image: /api/image_proxy/image.doorbell_person?t={{ triggered_at | int
               }}
+            notification_icon: mdi:package-variant-closed
       else:
       - action: notify.mobile_app_np3
         data:
           message: A Package Has Been Delivered!
+          data:
+            notification_icon: mdi:package-variant-closed
       - action: notify.mobile_app_pixel_6a
         data:
           message: A Package Has Been Delivered!
+          data:
+            notification_icon: mdi:package-variant-closed
     - action: script.tts_announce
       data:
         message: A Package Has Been Delivered!
