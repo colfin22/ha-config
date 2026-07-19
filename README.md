@@ -172,7 +172,7 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flo
 
 The wider fleet — the Proxmox nodes, every LXC and VM, and the MikroTik estate — is managed with **Ansible** from a dedicated control container, with **Semaphore** as its web front end (config in a private repo).
 
-- **Baseline** — every Linux host gets the same treatment: timezone, base tooling, and key-only SSH (password authentication disabled fleet-wide). Fully idempotent, applied canary-first.
+- **Baseline** — every Linux host gets the same treatment: timezone, base tooling, and key-only SSH (password authentication disabled fleet-wide). Safe to re-run at any time — a second pass changes nothing — and applied canary-first.
 - **Facts report** — a read-only sweep renders a Markdown inventory of the whole estate (OS, kernel, CPU/RAM, disk, uptime; model and serial for the network devices), with git history as the archive.
 - **Updates** — a rolling update playbook that refuses to run unless maintenance mode is on (so Zabbix, Uptime Kuma and Node-RED alerting are guaranteed silenced), reboots only the guests that both need it and allow it — reboot-sensitive hosts (the MQTT broker, Node-RED, the NVR, the uptime monitor) report a pending reboot instead — and never reboots a hypervisor: node reboots stay a deliberate manual step at the end of the maintenance window.
 - **Docker estate** — Watchtower is gone; container updates are deliberate instead. A read-only check compares every running container against its registry digest and reports current, outdated or pinned; a maintenance-gated update pulls only the stacks explicitly opted in (the NVR and photo stacks are deliberately untouchable); and a prune pass reclaims superseded images afterwards.
