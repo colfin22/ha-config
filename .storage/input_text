@@ -107,6 +107,14 @@
         "max": 255,
         "min": 0,
         "mode": "text"
+      },
+      {
+        "id": "heating_status_by",
+        "name": "Heating Status By",
+        "max": 40,
+        "icon": "mdi:account-edit",
+        "min": 0,
+        "mode": "text"
       }
     ]
   }
