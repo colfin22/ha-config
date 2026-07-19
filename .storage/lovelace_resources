@@ -133,11 +133,6 @@
         "id": "9e9fa7fe7e8a4a7b87b82a90f50901b4",
         "url": "/local/heating-boost-card.js?v=13",
         "type": "module"
-      },
-      {
-        "id": "26aed11ac0ed4391a8e5f1cab0d84a5f",
-        "url": "/local/heating-activity-card.js?v=1",
-        "type": "module"
       }
     ]
   }
