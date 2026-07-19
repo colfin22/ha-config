@@ -13,6 +13,7 @@ class HeatingActivityCard extends HTMLElement {
       by_entity: "input_text.heating_status_by",
       hours: 24,
       max_items: 40,
+      height: 360,
       title: "Recent activity",
     }, config);
     this._built = false;
@@ -39,6 +40,8 @@ class HeatingActivityCard extends HTMLElement {
     card.innerHTML = `
       <style>
         .wrap { padding: 2px 0 8px; }
+        .list { height: var(--hac-height, 360px); overflow-y: auto; overscroll-behavior: contain;
+                scrollbar-width: thin; scrollbar-color: var(--divider-color, #1d2740) transparent; }
         .title { display:flex; justify-content:space-between; align-items:center;
                  color: var(--primary-text-color); font-size:22px; font-weight:400; padding:14px 16px 6px; }
         .chev { font-size:20px; color: inherit; text-decoration: none; }
@@ -63,6 +66,7 @@ class HeatingActivityCard extends HTMLElement {
     card.querySelector(".title span").textContent = this._config.title;
     this._chev = card.querySelector(".chev");
     this._list = card.querySelector(".list");
+    this._list.style.setProperty("--hac-height", this._config.height + "px");
     this.replaceChildren(card);
     this._built = true;
   }
