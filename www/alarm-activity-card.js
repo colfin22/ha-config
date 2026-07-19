@@ -27,6 +27,7 @@ class AlarmActivityCard extends HTMLElement {
       by_entity: "input_text.alarm_status_by",
       hours: 24,
       max_items: 50,
+      height: 360,
       title: null,
     }, config);
     this._built = false;
@@ -51,6 +52,8 @@ class AlarmActivityCard extends HTMLElement {
     card.innerHTML = `
       <style>
         .wrap { padding: 4px 0 10px; }
+        .list { height: var(--aac-height, 360px); overflow-y: auto; overscroll-behavior: contain;
+                scrollbar-width: thin; scrollbar-color: var(--divider-color, #1d2740) transparent; }
         .title { color: var(--primary-text-color); font-size:16px; font-weight:500; padding:12px 14px 0; }
         .day { color: var(--primary-text-color); font-size:13.5px; font-weight:600; padding:13px 14px 8px; }
         .row { position:relative; display:flex; align-items:center; min-height:56px; padding:2px 12px 2px 26px; }
@@ -83,6 +86,7 @@ class AlarmActivityCard extends HTMLElement {
       t.hidden = false;
     }
     this._list = card.querySelector(".list");
+    this._list.style.setProperty("--aac-height", this._config.height + "px");
     this.replaceChildren(card);
     this._built = true;
   }
