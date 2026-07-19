@@ -802,10 +802,12 @@
               "type": "grid",
               "cards": [
                 {
-                  "type": "custom:heating-activity-card",
+                  "type": "logbook",
                   "title": "Recent activity",
-                  "entity": "input_text.heating_status",
-                  "hours": 24
+                  "hours_to_show": 24,
+                  "entities": [
+                    "input_text.heating_status"
+                  ]
                 }
               ]
             },
