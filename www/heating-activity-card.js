@@ -92,7 +92,16 @@ class HeatingActivityCard extends HTMLElement {
   _badge(by) {
     const el = document.createElement("span");
     el.className = "badge";
-    if (!by || by === "Node-RED") { el.textContent = "N"; return el; }
+    if (!by || by === "Node-RED") {
+      // the Node-RED logo (white nodes on its own #8f0000 red), self-hosted;
+      // falls back to the letter if the icon ever fails to load
+      el.style.background = "#8f0000";
+      const img = document.createElement("img");
+      img.src = "/local/node-red-icon.svg";
+      img.onerror = () => { el.style.background = ""; el.replaceChildren(); el.textContent = "N"; };
+      el.replaceChildren(img);
+      return el;
+    }
     if (by === "hand") { el.classList.add("hand"); el.textContent = "✋"; return el; }
     // person: profile picture when their person entity has one, else initial
     const states = this._hass ? this._hass.states : {};
