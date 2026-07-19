@@ -41,7 +41,7 @@ class HeatingActivityCard extends HTMLElement {
         .wrap { padding: 2px 0 8px; }
         .title { display:flex; justify-content:space-between; align-items:center;
                  color: var(--primary-text-color); font-size:22px; font-weight:400; padding:14px 16px 6px; }
-        .chev { font-size:20px; }
+        .chev { font-size:20px; color: inherit; text-decoration: none; }
         .day { color: var(--primary-text-color); font-size:13.5px; font-weight:600; padding:14px 16px 6px; }
         .row { display:flex; align-items:center; height:41px; padding:0 14px 0 16px; }
         .dot { width:10px; height:10px; border-radius:50%; flex:0 0 10px; margin-right:16px; }
@@ -57,10 +57,11 @@ class HeatingActivityCard extends HTMLElement {
         .empty { color: var(--secondary-text-color); font-size:13px; padding: 8px 16px; }
       </style>
       <div class="wrap">
-        <div class="title"><span></span><span class="chev">&#8250;</span></div>
+        <div class="title"><span></span><a class="chev" aria-label="Show history">&#8250;</a></div>
         <div class="list"><div class="empty">Loading…</div></div>
       </div>`;
     card.querySelector(".title span").textContent = this._config.title;
+    this._chev = card.querySelector(".chev");
     this._list = card.querySelector(".list");
     this.replaceChildren(card);
     this._built = true;
@@ -110,6 +111,12 @@ class HeatingActivityCard extends HTMLElement {
 
   async _fetch() {
     if (!this._hass) return;
+    // chevron -> History panel filtered to the status helper (same URL pattern the
+    // stock card uses for its logbook link); refreshed here so the date stays current.
+    const y = new Date(); y.setHours(0, 0, 0, 0);
+    this._chev.href = "/history?start_date=" +
+      encodeURIComponent(new Date(y.getTime() - 86400000).toISOString()) +
+      "&back=1&entity_id=" + this._config.entity;
     const end = new Date();
     const start = new Date(end.getTime() - this._config.hours * 3600 * 1000);
     const url = (eid) => "history/period/" + start.toISOString() +
