@@ -802,12 +802,10 @@
               "type": "grid",
               "cards": [
                 {
-                  "type": "logbook",
+                  "type": "custom:heating-activity-card",
                   "title": "Recent activity",
-                  "hours_to_show": 24,
-                  "entities": [
-                    "input_text.heating_status"
-                  ]
+                  "entity": "input_text.heating_status",
+                  "hours": 24
                 }
               ]
             },
@@ -3688,7 +3686,7 @@
           "cards": [
             {
               "type": "iframe",
-              "url": "/local/infra.html?v=20260718c",
+              "url": "/local/infra.html?v=20260718f",
               "disable_sandbox": true
             }
           ]
