@@ -1160,29 +1160,7 @@
                   "heading": "Activity"
                 },
                 {
-                  "type": "logbook",
-                  "hours_to_show": 24,
-                  "entities": [
-                    "alarm_control_panel.house",
-                    "alarm_control_panel.shed",
-                    "binary_sensor.front_door_contact",
-                    "binary_sensor.back_door_contact",
-                    "binary_sensor.patio_door_contact",
-                    "binary_sensor.sitting_room_window_contact",
-                    "binary_sensor.back_window_contact",
-                    "binary_sensor.colm_window_contact",
-                    "binary_sensor.cian_window_contact",
-                    "binary_sensor.aoife_window_contact",
-                    "binary_sensor.office_window_contact",
-                    "binary_sensor.sitting_room_presence_occupancy",
-                    "binary_sensor.office_presence_occupancy",
-                    "binary_sensor.doorbell_person_occupancy",
-                    "binary_sensor.front_van_person_occupancy",
-                    "binary_sensor.front_car_person_occupancy",
-                    "binary_sensor.rear_door_person_occupancy",
-                    "binary_sensor.rear_shed_person_occupancy",
-                    "binary_sensor.shed_door_contact"
-                  ]
+                  "type": "custom:alarm-activity-card"
                 }
               ]
             },

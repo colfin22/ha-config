@@ -115,6 +115,14 @@
         "icon": "mdi:account-edit",
         "min": 0,
         "mode": "text"
+      },
+      {
+        "id": "alarm_status_by",
+        "name": "Alarm Status By",
+        "max": 40,
+        "icon": "mdi:account-edit",
+        "min": 0,
+        "mode": "text"
       }
     ]
   }
