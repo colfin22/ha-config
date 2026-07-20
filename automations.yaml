@@ -2338,3 +2338,20 @@
       sequence:
       - action: shell_command.maint_sync_off
   mode: restart
+- id: '1784537000042'
+  alias: Infra Dashboard - Refresh IP Inventory
+  description: 'ha-config #42 - the IPs tab Refresh button runs ip_inventory.py on
+    node1. mode single plus the trailing delay cap it at one collector run per 60s,
+    so the webhook cannot spawn overlapping ping sweeps.'
+  triggers:
+  - trigger: webhook
+    allowed_methods:
+    - POST
+    local_only: false
+    webhook_id: infra_ipref_cfd8c38ba3ba124b
+  conditions: []
+  actions:
+  - action: shell_command.refresh_ip_inventory
+  - delay:
+      seconds: 60
+  mode: single
