@@ -52,9 +52,9 @@ MIKROTIK_DEVICES = [
 ]
 
 SSH_HOSTS = [
-    {"label": "PVE1 (proxmox)",   "ip": "10.0.0.251", "user": "root",   "type": "proxmox"},
-    {"label": "PVE2 (proxmox2)",  "ip": "10.0.0.228", "user": "root",   "type": "proxmox"},
-    {"label": "PVE3 (remote)",    "ip": "192.168.88.232",  "user": "root",   "type": "proxmox"},
+    {"label": "proxmox1",         "ip": "10.0.0.251", "user": "root",   "type": "proxmox"},
+    {"label": "proxmox2",         "ip": "10.0.0.228", "user": "root",   "type": "proxmox"},
+    {"label": "proxmox-remote",   "ip": "192.168.88.232",  "user": "root",   "type": "proxmox"},
     {"label": "PBS1",             "ip": "10.0.0.215", "user": "root",   "type": "pbs"},
     {"label": "PBS2 (remote)",    "ip": "192.168.88.231",  "user": "root",   "type": "pbs"},
     {"label": "Docker VM",        "ip": "10.0.0.221", "user": "cfinn",  "type": "ubuntu"},
