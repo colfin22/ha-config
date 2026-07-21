@@ -20,6 +20,15 @@ shell_command:
     ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
     -o ConnectTimeout=10 root@10.0.0.251
     "nohup /opt/homelab-scripts/maint-sync/venv/bin/python /opt/homelab-scripts/maint-sync/maint_sync.py on >/dev/null 2>&1 &"
+  # ha-config #42: collect the IP inventory on demand from the dashboard's IPs tab
+  # (fire-and-forget - the run takes ~50s incl. the ping sweep; the 60s regen picks the JSON up)
+  # flock -n: concurrent webhook posts race past the automation's mode:single, so the lock -
+  # not the automation - is what guarantees one collector at a time (and an intact JSON)
+  refresh_ip_inventory: >-
+    ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
+    -o ConnectTimeout=10 root@10.0.0.251
+    "cd /opt/homelab-scripts/infra-dashboard && nohup flock -n /var/lock/ip_inventory.lock python3 ip_inventory.py >>/var/log/ip-inventory.log 2>&1 &"
+
   maint_sync_off: >-
     ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
     -o ConnectTimeout=10 root@10.0.0.251
