@@ -74,6 +74,13 @@
           "icon": null,
           "modified_at": "2026-05-25T19:54:45.235892+00:00",
           "name": "Actions"
+        },
+        {
+          "category_id": "01KXZRNHSR3V9AFYJA8TKTGCD5",
+          "created_at": "2026-07-20T12:40:29.240229+00:00",
+          "icon": null,
+          "modified_at": "2026-07-20T12:40:29.240247+00:00",
+          "name": "Infrastructure"
         }
       ],
       "scene": [
@@ -211,6 +218,20 @@
           "icon": "mdi:lan",
           "modified_at": "2026-06-21T06:29:46.251457+00:00",
           "name": "Network"
+        },
+        {
+          "category_id": "01KXZRNHRW4439VX3PGYK4VEYG",
+          "created_at": "2026-07-20T12:40:29.212212+00:00",
+          "icon": null,
+          "modified_at": "2026-07-20T12:40:29.212215+00:00",
+          "name": "Security"
+        },
+        {
+          "category_id": "01KXZRNHRZSQMM5ZMW9MKH6NCQ",
+          "created_at": "2026-07-20T12:40:29.215948+00:00",
+          "icon": null,
+          "modified_at": "2026-07-20T12:40:29.215951+00:00",
+          "name": "To-do Lists"
         }
       ],
       "script": [

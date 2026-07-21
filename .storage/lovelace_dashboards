@@ -30,6 +30,15 @@
         "icon": "mdi:home-outline",
         "show_in_sidebar": true,
         "require_admin": false
+      },
+      {
+        "id": "car_costs",
+        "url_path": "car-costs",
+        "title": "Car Costs",
+        "icon": "mdi:car",
+        "show_in_sidebar": true,
+        "require_admin": false,
+        "mode": "storage"
       }
     ]
   }
