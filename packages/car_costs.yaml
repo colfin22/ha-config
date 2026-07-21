@@ -1,0 +1,37 @@
+# Car Costs (LXC app) — renewal reminders. HA pulls /api/dues hourly; one
+# automation nudges Colm + Olivia at 09:00 when an item crosses 30 or 7 days out.
+rest:
+  - resource: http://10.0.0.239:8000/api/dues
+    scan_interval: 3600
+    sensor:
+      - name: Car costs next due
+        unique_id: car_costs_next_due
+        value_template: "{{ value_json.next_days }}"
+        unit_of_measurement: d
+        json_attributes:
+          - items
+
+automation:
+  - id: car_costs_due_reminders
+    alias: Car costs - renewal reminders (30d/7d)
+    triggers:
+      - trigger: time
+        at: "09:00:00"
+    actions:
+      - repeat:
+          for_each: >-
+            {{ state_attr('sensor.car_costs_next_due', 'items')
+               | selectattr('days', 'in', [30, 7]) | list }}
+          sequence:
+            - variables:
+                msg: >-
+                  {{ repeat.item.car }}: {{ repeat.item.item }} due
+                  {{ repeat.item.date }} ({{ repeat.item.days }} days)
+            - action: notify.mobile_app_np3
+              data:
+                title: Car reminder
+                message: "{{ msg }}"
+            - action: notify.mobile_app_pixel_6a
+              data:
+                title: Car reminder
+                message: "{{ msg }}"
