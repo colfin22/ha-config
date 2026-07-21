@@ -1,37 +1,120 @@
-# Car Costs (LXC app) — renewal reminders. HA pulls /api/dues hourly; one
-# automation nudges Colm + Olivia at 09:00 when an item crosses 30 or 7 days out.
+# Car Costs (LXC app) — renewal reminders + per-car stats sensors (car-costs #5).
+# HA pulls the app's API; one automation nudges Colm + Olivia at 09:00 when an
+# item crosses 30 or 7 days out. Sensor unique_ids key on car id (car1/car2) so
+# renaming a car never orphans entities. Charge-cost sensors are EV-ready: their
+# availability tracks the app's per-car electric toggle, so they come alive by
+# themselves when a car goes electric.
 rest:
-  - resource: http://10.0.0.239:8000/api/dues
-    scan_interval: 3600
-    sensor:
-      - name: Car costs next due
-        unique_id: car_costs_next_due
-        value_template: "{{ value_json.next_days }}"
-        unit_of_measurement: d
-        json_attributes:
-          - items
-
+- resource: http://10.0.0.239:8000/api/dues
+  scan_interval: 3600
+  sensor:
+  - name: Car costs next due
+    unique_id: car_costs_next_due
+    value_template: '{{ value_json.next_days }}'
+    unit_of_measurement: d
+    json_attributes:
+    - items
+- resource: http://10.0.0.239:8000/api/cars/1
+  scan_interval: 3600
+  sensor:
+  - name: Olivias car year cost
+    unique_id: car_costs_car1_year_total
+    value_template: '{{ value_json.summary.total }}'
+    unit_of_measurement: €
+    json_attributes_path: $.summary
+    json_attributes:
+    - by_category
+    - year
+    - km_driven
+  - name: Olivias car mileage
+    unique_id: car_costs_car1_mileage
+    value_template: '{{ value_json.current_odo | round(0) }}'
+    unit_of_measurement: km
+    availability: '{{ value_json.current_odo is not none }}'
+  - name: Olivias car fuel efficiency
+    unique_id: car_costs_car1_l100km
+    value_template: '{{ value_json.fuel.l_per_100km }}'
+    unit_of_measurement: L/100km
+    availability: '{{ value_json.fuel.l_per_100km is not none }}'
+  - name: Olivias car cost per km
+    unique_id: car_costs_car1_cost_per_km
+    value_template: '{{ (value_json.summary.cost_per_km * 100) | round(1) }}'
+    unit_of_measurement: c/km
+    availability: '{{ value_json.summary.cost_per_km is not none }}'
+  - name: Olivias car next due
+    unique_id: car_costs_car1_next_due
+    value_template: '{{ value_json.next_due.days }}'
+    unit_of_measurement: d
+    json_attributes_path: $.next_due
+    json_attributes:
+    - item
+    - date
+    availability: '{{ value_json.next_due is not none }}'
+  - name: Olivias car charge cost
+    unique_id: car_costs_car1_charge_total
+    value_template: '{{ value_json.summary.by_category.charge | default(0) }}'
+    unit_of_measurement: €
+    availability: '{{ value_json.car.ev_enabled == 1 }}'
+- resource: http://10.0.0.239:8000/api/cars/2
+  scan_interval: 3600
+  sensor:
+  - name: Colms car year cost
+    unique_id: car_costs_car2_year_total
+    value_template: '{{ value_json.summary.total }}'
+    unit_of_measurement: €
+    json_attributes_path: $.summary
+    json_attributes:
+    - by_category
+    - year
+    - km_driven
+  - name: Colms car mileage
+    unique_id: car_costs_car2_mileage
+    value_template: '{{ value_json.current_odo | round(0) }}'
+    unit_of_measurement: km
+    availability: '{{ value_json.current_odo is not none }}'
+  - name: Colms car fuel efficiency
+    unique_id: car_costs_car2_l100km
+    value_template: '{{ value_json.fuel.l_per_100km }}'
+    unit_of_measurement: L/100km
+    availability: '{{ value_json.fuel.l_per_100km is not none }}'
+  - name: Colms car cost per km
+    unique_id: car_costs_car2_cost_per_km
+    value_template: '{{ (value_json.summary.cost_per_km * 100) | round(1) }}'
+    unit_of_measurement: c/km
+    availability: '{{ value_json.summary.cost_per_km is not none }}'
+  - name: Colms car next due
+    unique_id: car_costs_car2_next_due
+    value_template: '{{ value_json.next_due.days }}'
+    unit_of_measurement: d
+    json_attributes_path: $.next_due
+    json_attributes:
+    - item
+    - date
+    availability: '{{ value_json.next_due is not none }}'
+  - name: Colms car charge cost
+    unique_id: car_costs_car2_charge_total
+    value_template: '{{ value_json.summary.by_category.charge | default(0) }}'
+    unit_of_measurement: €
+    availability: '{{ value_json.car.ev_enabled == 1 }}'
 automation:
-  - id: car_costs_due_reminders
-    alias: Car costs - renewal reminders (30d/7d)
-    triggers:
-      - trigger: time
-        at: "09:00:00"
-    actions:
-      - repeat:
-          for_each: >-
-            {{ state_attr('sensor.car_costs_next_due', 'items')
-               | selectattr('days', 'in', [30, 7]) | list }}
-          sequence:
-            - variables:
-                msg: >-
-                  {{ repeat.item.car }}: {{ repeat.item.item }} due
-                  {{ repeat.item.date }} ({{ repeat.item.days }} days)
-            - action: notify.mobile_app_np3
-              data:
-                title: Car reminder
-                message: "{{ msg }}"
-            - action: notify.mobile_app_pixel_6a
-              data:
-                title: Car reminder
-                message: "{{ msg }}"
+- id: car_costs_due_reminders
+  alias: Car costs - renewal reminders (30d/7d)
+  triggers:
+  - trigger: time
+    at: 09:00:00
+  actions:
+  - repeat:
+      for_each: "{{ state_attr('sensor.car_costs_next_due', 'items')\n   | selectattr('days', 'in', [30,\
+        \ 7]) | list }}"
+      sequence:
+      - variables:
+          msg: '{{ repeat.item.car }}: {{ repeat.item.item }} due {{ repeat.item.date }} ({{ repeat.item.days
+            }} days)'
+      - action: notify.mobile_app_np3
+        data:
+          title: Car reminder
+          message: '{{ msg }}'
+      - action: notify.mobile_app_pixel_6a
+        data:
+          title: Car reminder
+          message: '{{ msg }}'
