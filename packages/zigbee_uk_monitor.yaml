@@ -1,0 +1,8 @@
+# Zigbee2MQTT bridge health -> Uptime Kuma push monitor (Network / id 56)
+# See colfin22/ha-config issue #47. Push URL (with token) lives in secrets.yaml.
+# The heartbeat automation posts status=up when the bridge is on, else
+# status=down with the actual state (off/unavailable/unknown) as the reason.
+rest_command:
+  uk_zigbee_push:
+    url: !secret uk_zigbee_push_url
+    method: GET

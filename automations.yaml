@@ -2355,3 +2355,31 @@
   - delay:
       seconds: 60
   mode: single
+- id: '1784817847528'
+  alias: Zigbee Bridge Health - Uptime Kuma Heartbeat
+  description: 'Every minute (and on any state change) posts the Z2M bridge connection
+    state to the Uptime Kuma push monitor (Network / id 56). on -> up; off/unavailable/unknown
+    -> down with the actual state as the reason, so a bad/unknown bridge shows DOWN
+    in Uptime Kuma (not just a dead socket). See ha-config issue #47.'
+  triggers:
+  - platform: time_pattern
+    minutes: /1
+  - platform: state
+    entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
+  actions:
+  - variables:
+      st: '{{ states(''binary_sensor.zigbee2mqtt_bridge_connection_state'') }}'
+  - if:
+    - condition: template
+      value_template: '{{ st == ''on'' }}'
+    then:
+    - action: rest_command.uk_zigbee_push
+      data:
+        status: up
+        msg: online
+    else:
+    - action: rest_command.uk_zigbee_push
+      data:
+        status: down
+        msg: '{{ st }}'
+  mode: single
