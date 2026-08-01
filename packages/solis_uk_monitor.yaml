@@ -1,0 +1,10 @@
+# Solis inverter health -> Uptime Kuma push monitor (Network group).
+# Push URL (with token) lives in secrets.yaml, which is gitignored.
+# The heartbeat automation posts status=up while the inverter is answering over
+# Modbus, else status=down with the actual state as the reason. A plain port
+# check on the RS485 gateway cannot see this: the gateway keeps accepting TCP
+# connections even when the inverter has stopped replying.
+rest_command:
+  uk_solis_push:
+    url: !secret uk_solis_push_url
+    method: GET
