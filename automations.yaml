@@ -732,7 +732,9 @@
     takes a doorbell snapshot, asks LLM Vision (Gemini 2.5-flash) for a short witty
     compliment about how she looks today, then greets her with it on the kitchen +
     sitting-room speakers after a 2-min delay (volume boosted then restored). Falls
-    back to a generic greeting if vision fails.'
+    back to a generic greeting if vision fails. Guarded 24-07-2026: only fires if
+    Olivia is not already home (face recognition matched Cian as Olivia and greeted
+    the wrong child).'
   triggers:
   - platform: state
     entity_id: sensor.frigate_olivia_last_camera
@@ -747,6 +749,11 @@
     - wed
     - thu
     - fri
+  - condition: not
+    conditions:
+    - condition: state
+      entity_id: person.olivia
+      state: home
   actions:
   - action: llmvision.image_analyzer
     data:
@@ -872,19 +879,19 @@
     target:
       entity_id: media_player.sitting_room_speaker_cast
     data:
-      volume_level: '{{ sitting_room_vol }}'
+      volume_level: '{{ sitting_room_vol | float(0.5) }}'
   - action: media_player.volume_set
     target:
       entity_id: media_player.kitchen_display_cast
     data:
-      volume_level: '{{ kitchen_display_vol }}'
+      volume_level: '{{ kitchen_display_vol | float(0.5) }}'
   mode: single
 - id: '1778240499637'
-  alias: Zigbee2MQTT Down - Restart & Notify NP3
-  description: 'If Z2M bridge drops: full stop -> wait (lets coordinator NCP/TCP recover)
-    -> start, two escalating cycles. Notify immediately 07:00-22:00, else queue a
-    morning notification with time + outcome. If still down after both cycles the
-    Sonoff coordinator (10.0.0.214) likely needs a power-cycle.'
+  alias: Zigbee2MQTT Down - Notify NP3
+  description: 'If Z2M bridge drops for 2+ min: notify immediately 07:00-22:00, else
+    queue a morning notification. Z2M runs in its own container - restart is manual
+    on its container host. If that fails the Zigbee coordinator likely needs a
+    power-cycle.'
   triggers:
   - platform: state
     entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
@@ -903,38 +910,6 @@
     state:
     - 'off'
     - unavailable
-  - action: hassio.addon_stop
-    data:
-      addon: 45df7312_zigbee2mqtt
-  - delay:
-      seconds: 45
-  - action: hassio.addon_start
-    data:
-      addon: 45df7312_zigbee2mqtt
-  - delay:
-      seconds: 75
-  - choose:
-    - conditions:
-      - condition: state
-        entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
-        state:
-        - 'off'
-        - unavailable
-      sequence:
-      - action: hassio.addon_stop
-        data:
-          addon: 45df7312_zigbee2mqtt
-      - delay:
-          seconds: 90
-      - action: hassio.addon_start
-        data:
-          addon: 45df7312_zigbee2mqtt
-      - delay:
-          seconds: 75
-  - variables:
-      outcome: '{{ ''Recovered successfully'' if is_state(''binary_sensor.zigbee2mqtt_bridge_connection_state'',
-        ''on'') else ''STILL DOWN after 2 stop/start cycles - Sonoff coordinator (10.0.0.214)
-        likely needs a power-cycle'' }}'
   - choose:
     - conditions:
       - condition: time
@@ -943,8 +918,9 @@
       sequence:
       - action: notify.send_message
         data:
-          title: Zigbee2MQTT Restarted
-          message: 'Went down at {{ triggered_at }}. Outcome: {{ outcome }}'
+          title: Zigbee2MQTT Down
+          message: 'Z2M bridge went down at {{ triggered_at }} and is still down.
+            Restart the Zigbee container on its host.'
         target:
           entity_id: notify.np3
     default:
@@ -953,8 +929,9 @@
         at: 07:00:00
     - action: notify.send_message
       data:
-        title: Zigbee2MQTT Overnight Restart
-        message: 'Went down at {{ triggered_at }}. Outcome: {{ outcome }}'
+        title: Zigbee2MQTT Went Down Overnight
+        message: 'Z2M bridge went down at {{ triggered_at }}. Current state: {{ states(''binary_sensor.zigbee2mqtt_bridge_connection_state'')
+          }}. Restart the Zigbee container on its host.'
       target:
         entity_id: notify.np3
   mode: single
@@ -987,6 +964,12 @@
     target:
       entity_id: weather.forecast_home_2
     response_variable: forecast_data
+  - if:
+    - condition: template
+      value_template: '{{ (forecast_data.get(''weather.forecast_home_2'', {}).get(''forecast'')
+        or []) | count < 2 }}'
+    then:
+    - stop: Weather forecast unavailable - skipping notification
   - variables:
       fc: '{{ forecast_data[''weather.forecast_home_2''][''forecast''][1] }}'
       condition: '{{ forecast_data[''weather.forecast_home_2''][''forecast''][1].condition
@@ -1094,6 +1077,12 @@
     target:
       entity_id: weather.forecast_home_2
     response_variable: forecast_data
+  - if:
+    - condition: template
+      value_template: '{{ (forecast_data.get(''weather.forecast_home_2'', {}).get(''forecast'')
+        or []) | count < 1 }}'
+    then:
+    - stop: Weather forecast unavailable - skipping notification
   - variables:
       fc: '{{ forecast_data[''weather.forecast_home_2''][''forecast''][0] }}'
       condition: '{{ forecast_data[''weather.forecast_home_2''][''forecast''][0].condition
@@ -2238,7 +2227,7 @@
   alias: Infra Dashboard - Update Tuesday Mark Done
   description: 'Webhook from the infra dashboard Updates tab toggles input_boolean.update_tuesday_done.
     When it lands ON: ends the maintenance window (maintenance_mode off) THEN kicks
-    the applied-report generator on node1. The dashboard page refuses the click while
+    the applied-report generator on the Proxmox host. The dashboard page refuses the click while
     alerts are active.'
   triggers:
   - platform: webhook
@@ -2314,7 +2303,7 @@
 - id: '1784531000032'
   alias: Infra Dashboard - Maintenance Mode Sync
   description: 'ha-config #32: whenever input_boolean.maintenance_mode changes, mirror
-    it into Zabbix + Uptime Kuma maintenance windows via maint_sync.py on node1 (fail-soft;
+    it into Zabbix + Uptime Kuma maintenance windows via maint_sync.py on the Proxmox host (fail-soft;
     12h auto-expiry).'
   triggers:
   - platform: state
@@ -2341,7 +2330,7 @@
 - id: '1784537000042'
   alias: Infra Dashboard - Refresh IP Inventory
   description: 'ha-config #42 - the IPs tab Refresh button runs ip_inventory.py on
-    node1. mode single plus the trailing delay cap it at one collector run per 60s,
+    the Proxmox host. mode single plus the trailing delay cap it at one collector run per 60s,
     so the webhook cannot spawn overlapping ping sweeps.'
   triggers:
   - trigger: webhook
@@ -2379,6 +2368,36 @@
         msg: online
     else:
     - action: rest_command.uk_zigbee_push
+      data:
+        status: down
+        msg: '{{ st }}'
+  mode: single
+- id: '1785581001062'
+  alias: Solis Inverter Health - Uptime Kuma Heartbeat
+  description: 'Every minute (and on any state change) posts the Solis inverter''s
+    PV power state to the Uptime Kuma push monitor (Network / id 59). A valid number
+    -> up; unavailable/unknown -> down with the actual state as the reason. Zero watts
+    at night is healthy and reports up. This catches the inverter going silent over
+    Modbus, which a port check on the RS485 gateway cannot see: the gateway keeps
+    accepting TCP connections even when the inverter has stopped replying.'
+  triggers:
+  - platform: time_pattern
+    minutes: /1
+  - platform: state
+    entity_id: sensor.solis_pv_total_power
+  actions:
+  - variables:
+      st: '{{ states(''sensor.solis_pv_total_power'') }}'
+  - if:
+    - condition: template
+      value_template: '{{ is_number(st) }}'
+    then:
+    - action: rest_command.uk_solis_push
+      data:
+        status: up
+        msg: online
+    else:
+    - action: rest_command.uk_solis_push
       data:
         status: down
         msg: '{{ st }}'
