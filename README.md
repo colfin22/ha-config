@@ -64,7 +64,7 @@ This repository is the live, version-controlled configuration that runs the hous
 ### Energy & Environment
 | Integration | Purpose |
 |---|---|
-| [Autarco](https://www.autarco.com/) | Solar inverter — vendor in liquidation and the cloud integration is offline; migrating to local Modbus via [SolaX Modbus](https://github.com/wills106/homeassistant-solax-modbus) (RS485 adapter on order) |
+| [Autarco](https://www.autarco.com/) | Solar inverter — vendor in liquidation. **Migration to local Modbus complete (01-08-2026)**: the inverter is now read directly over RS485 via [SolaX Modbus](https://github.com/wills106/homeassistant-solax-modbus), with no cloud in the path — battery charge, per-string production, grid and house load. The Autarco integration is retained only to preserve its recorded history |
 | [myenergi](https://myenergi.com/) | Solar production, Eddi diverter — preferred for live stats (faster updates) |
 | [Netatmo](https://www.netatmo.com/) Smart Thermostat | Controlled locally over HomeKit; heating logic runs in Node-RED (see below) |
 | [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; automation fires immediately on new alerts |
@@ -281,6 +281,7 @@ This repo (`ha-config`) and the [Node-RED flows repo](https://github.com/colfin2
 - [Music Assistant](https://music-assistant.io/) — multi-room audio engine (integration + Jukebox addon)
 - [myenergi](https://github.com/CJNE/ha-myenergi) — solar diverter (Eddi)
 - [proxmoxve](https://github.com/doudz/homeassistant-proxmoxve) — hypervisor monitoring
+- [solax_modbus](https://github.com/wills106/homeassistant-solax-modbus) — solar inverter over local Modbus (battery, strings, grid)
 - [truenas](https://github.com/tomaae/homeassistant-truenas) — NAS monitoring
 - [waste_collection_schedule](https://github.com/mampfes/hacs_waste_collection_schedule) — bin collection
 - [vserver_ssh_stats](https://github.com/404GamerNotFound/vserver-ssh-stats) — SSH-based stats collection from VPS/remote servers
