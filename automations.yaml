@@ -309,8 +309,9 @@
     data:
       value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
     action: input_number.set_value
-  - data:
+  - target:
       entity_id: input_number.electricity_rate
+    data:
       value: 0.2
     action: input_number.set_value
   mode: single
@@ -326,8 +327,9 @@
     data:
       value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
     action: input_number.set_value
-  - data:
+  - target:
       entity_id: input_number.electricity_rate
+    data:
       value: 0.37
     action: input_number.set_value
   mode: single
@@ -343,8 +345,9 @@
     data:
       value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
     action: input_number.set_value
-  - data:
+  - target:
       entity_id: input_number.electricity_rate
+    data:
       value: 0.39
     action: input_number.set_value
   mode: single
@@ -360,8 +363,9 @@
     data:
       value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
     action: input_number.set_value
-  - data:
+  - target:
       entity_id: input_number.electricity_rate
+    data:
       value: 0.37
     action: input_number.set_value
   mode: single
