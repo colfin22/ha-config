@@ -15,7 +15,7 @@ command_line:
       command: >-
         curl -s -c /tmp/fg_cookie.txt -X POST http://10.0.0.246:8971/api/login
         -H 'Content-Type: application/json'
-        -d '{"user":"homeassistant","password":"REMOVED-FROM-HISTORY"}'
+        -d "{\"user\":\"homeassistant\",\"password\":\"$(cat /config/.frigate_pw)\"}"
         -o /dev/null &&
         curl -s -b /tmp/fg_cookie.txt
         "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"

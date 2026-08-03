@@ -102,3 +102,6 @@ manual-backups/
 
 # Solis inverter integration runtime state (timed charge slots, rewritten by the integration)
 Solis_data.json
+
+# Frigate homeassistant-user password, read by the command_line sensors (public repo)
+.frigate_pw
