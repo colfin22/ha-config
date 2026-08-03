@@ -12,10 +12,7 @@ command_line:
       unique_id: frigate_overnight_person_count
       icon: mdi:motion-sensor
       scan_interval: 300
-      command: >-
-        bash /config/frigate_login.sh &&
-        curl -s -b /tmp/fg_cookie.txt
-        "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"
+      command: "sh /config/frigate_person_events.sh"
       value_template: >
         {% set ns = namespace(n=0) %}
         {% for e in value_json %}
@@ -30,10 +27,7 @@ command_line:
       unique_id: frigate_overnight_best_camera
       icon: mdi:cctv
       scan_interval: 300
-      command: >-
-        bash /config/frigate_login.sh &&
-        curl -s -b /tmp/fg_cookie.txt
-        "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"
+      command: "sh /config/frigate_person_events.sh"
       value_template: >
         {% set ns = namespace(cam='', ts=0) %}
         {% for e in value_json %}
@@ -49,10 +43,7 @@ command_line:
       unique_id: frigate_overnight_best_time
       icon: mdi:clock
       scan_interval: 300
-      command: >-
-        bash /config/frigate_login.sh &&
-        curl -s -b /tmp/fg_cookie.txt
-        "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"
+      command: "sh /config/frigate_person_events.sh"
       value_template: >
         {% set ns = namespace(ts=0) %}
         {% for e in value_json %}
@@ -67,10 +58,7 @@ command_line:
       unique_id: frigate_overnight_camera_count
       icon: mdi:cctv
       scan_interval: 300
-      command: >-
-        bash /config/frigate_login.sh &&
-        curl -s -b /tmp/fg_cookie.txt
-        "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"
+      command: "sh /config/frigate_person_events.sh"
       value_template: >
         {% set ns = namespace(cams=[]) %}
         {% for e in value_json %}
