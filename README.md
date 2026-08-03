@@ -197,7 +197,7 @@ The wider fleet — the Proxmox nodes, every LXC and VM, and the MikroTik estate
 | **Climate** | Heating, Netatmo thermostat, temperature sensors |
 | **Weather** | Met Éireann warnings, forecast, outdoor conditions |
 | **Security** | Alarm panel, camera feeds, activity logbook |
-| **Solar** | Solar production, import/export, Eddi diverter, top 5 solar days & top 5 export days, ESB Networks official meter (esbn-to-mqtt) |
+| **Solar** | Solar production, import/export, Eddi diverter, top 5 solar days & top 5 export days |
 | **Floorplan** | SVG-based downstairs + upstairs with live entity overlays |
 | **Appliances** | Washing machine, dishwasher and other appliance monitoring |
 | **Map** | Device tracker map — household presence |
