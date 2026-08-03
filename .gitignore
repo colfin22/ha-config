@@ -99,3 +99,6 @@ www/doorbell_snapshot.jpg
 www/infra.html
 # Local dashboard/config safety backups
 manual-backups/
+
+# Solis inverter integration runtime state (timed charge slots, rewritten by the integration)
+Solis_data.json
