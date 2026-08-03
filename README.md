@@ -140,15 +140,13 @@ This repository is the live, version-controlled configuration that runs the hous
 - **Grid-free day** — notifies both phones at 20:00 if no grid electricity was imported after 8am; includes export total and estimated earnings
 - **Peak-rate nudge** — if the washing machine, dishwasher or tumble dryer starts a cycle during the 17:00–19:00 peak electricity window, both phones get a push suggesting the run could wait until after 19:00 (notification only, no announcement)
 
-#### Solar inverter monitoring
-Six alerts built on the local Modbus link to the inverter. Every threshold was set from the system's own measured history rather than a round number, so an ordinary sunny day cannot set them off.
-
-- **Inverter not generating** — the inverter reports its own running state, and that state holds steady around the clock, so anything else means a real fault or a lost link. Alerts if it persists for 15 minutes while the sun is up, and sends an all-clear when it recovers
-- **Modbus link unhealthy** — watches the integration's own comms diagnostics: link health, polling success rate, and any register the inverter has stopped answering. Needed because the RS485 gateway keeps accepting connections even when the inverter has gone quiet, so a simple port check cannot see this failure
-- **Inverter over temperature** — a warning stage and an urgent stage, clearing on the way back down with a gap between the two so it cannot flap between states. Both stages sit above the measured sunny-day peak
-- **Battery depleted early** — alerts only if the battery reaches its reserve while electricity is still at the day rate. It reaches that reserve most nights once the cheap rate has started, which is normal and stays silent. The one alert here that goes to both phones
-- **Battery health check** — a monthly state-of-health reading compared against the month before, kept as a slow-burn record for warranty purposes
-- **String imbalance** — the two roof aspects sit on separate strings, so their daily peaks can be compared. Alerts only after several qualifying days of one string trailing the other, which points at shading, soiling or a panel fault rather than weather
+### ☀️ Solar
+- **Inverter not generating** — the inverter reports its own running state and that state holds steady around the clock, so anything else means a real fault or a lost link; alerts after 15 minutes with the sun up and sends an all-clear on recovery
+- **Modbus link unhealthy** — watches link health, polling success rate and any register the inverter has stopped answering; needed because the gateway keeps accepting connections even when the inverter has gone quiet, so a simple port check cannot see this failure
+- **Inverter over temperature** — a warning stage and an urgent stage, both set above the measured sunny-day peak, clearing lower down so it cannot flap between states
+- **Battery depleted early** — alerts only if the battery reaches its reserve while electricity is still at the day rate; reaching it later, once the cheap rate has started, is normal and stays silent
+- **Battery health check** — monthly state-of-health reading compared against the month before, kept as a slow-burn record for warranty purposes
+- **String imbalance** — the two roof aspects sit on separate strings, so their daily peaks are compared; alerts only after several qualifying days of one trailing the other, which points at shading, soiling or a panel fault rather than weather
 
 ### 🏠 Infrastructure Monitoring
 - **Infrastructure health & backup alerts** — migrated to Node-RED for more complex workflows; see the **Infra Health & Alerts** flow below.
