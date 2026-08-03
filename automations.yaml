@@ -890,8 +890,7 @@
   alias: Zigbee2MQTT Down - Notify NP3
   description: 'If Z2M bridge drops for 2+ min: notify immediately 07:00-22:00, else
     queue a morning notification. Z2M runs in its own container - restart is manual
-    on its container host. If that fails the Zigbee coordinator likely needs a
-    power-cycle.'
+    on its container host. If that fails the Zigbee coordinator likely needs a power-cycle.'
   triggers:
   - platform: state
     entity_id: binary_sensor.zigbee2mqtt_bridge_connection_state
@@ -919,8 +918,8 @@
       - action: notify.send_message
         data:
           title: Zigbee2MQTT Down
-          message: 'Z2M bridge went down at {{ triggered_at }} and is still down.
-            Restart the Zigbee container on its host.'
+          message: Z2M bridge went down at {{ triggered_at }} and is still down. Restart
+            the Zigbee container on its host.
         target:
           entity_id: notify.np3
     default:
@@ -2227,8 +2226,8 @@
   alias: Infra Dashboard - Update Tuesday Mark Done
   description: 'Webhook from the infra dashboard Updates tab toggles input_boolean.update_tuesday_done.
     When it lands ON: ends the maintenance window (maintenance_mode off) THEN kicks
-    the applied-report generator on the Proxmox host. The dashboard page refuses the click while
-    alerts are active.'
+    the applied-report generator on the Proxmox host. The dashboard page refuses the
+    click while alerts are active.'
   triggers:
   - platform: webhook
     webhook_id: infra_updone_129a4814921af30e
@@ -2303,8 +2302,8 @@
 - id: '1784531000032'
   alias: Infra Dashboard - Maintenance Mode Sync
   description: 'ha-config #32: whenever input_boolean.maintenance_mode changes, mirror
-    it into Zabbix + Uptime Kuma maintenance windows via maint_sync.py on the Proxmox host (fail-soft;
-    12h auto-expiry).'
+    it into Zabbix + Uptime Kuma maintenance windows via maint_sync.py on the Proxmox
+    host (fail-soft; 12h auto-expiry).'
   triggers:
   - platform: state
     entity_id: input_boolean.maintenance_mode
@@ -2330,8 +2329,8 @@
 - id: '1784537000042'
   alias: Infra Dashboard - Refresh IP Inventory
   description: 'ha-config #42 - the IPs tab Refresh button runs ip_inventory.py on
-    the Proxmox host. mode single plus the trailing delay cap it at one collector run per 60s,
-    so the webhook cannot spawn overlapping ping sweeps.'
+    the Proxmox host. mode single plus the trailing delay cap it at one collector
+    run per 60s, so the webhook cannot spawn overlapping ping sweeps.'
   triggers:
   - trigger: webhook
     allowed_methods:
@@ -2402,3 +2401,453 @@
         status: down
         msg: '{{ st }}'
   mode: single
+- id: '1785777581922'
+  alias: Solis - Inverter Not Generating
+  description: Alerts Colm only (infra alert) when the inverter's own reported status
+    leaves 'Generating' for 15 minutes while the sun is up (elevation > 5 deg), and
+    sends an all-clear when it returns. The status register has read 'Generating'
+    continuously since the integration went live on 01-08-2026 (it does NOT drop at
+    night), so any other value - including unavailable/unknown - is a real fault or
+    a lost Modbus link. This is a different failure from the Uptime Kuma heartbeat,
+    which watches whether PV power reaches HA. input_boolean.solis_inverter_alert_active
+    tracks whether an alert is outstanding so the all-clear only fires after a real
+    alert.
+  triggers:
+  - platform: template
+    value_template: '{{ states(''sensor.solis_inverter_status'') != ''Generating''
+      and state_attr(''sun.sun'',''elevation'') | float(0) > 5 }}'
+    for:
+      minutes: 15
+    id: fault
+  - platform: template
+    value_template: '{{ states(''sensor.solis_inverter_status'') == ''Generating''
+      and is_state(''input_boolean.solis_inverter_alert_active'',''on'') }}'
+    for:
+      minutes: 2
+    id: cleared
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: fault
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.solis_inverter_alert_active
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: ⚠️ Solis inverter not generating
+          message: 'Inverter status has been "{{ states(''sensor.solis_inverter_status'')
+            }}" for 15 minutes with the sun up.
+
+
+            PV now: {{ states(''sensor.solis_pv_total_power'') }} W
+
+            Battery: {{ states(''sensor.solis_battery_soc'') }}%
+
+            Modbus link: {{ states(''sensor.solis_communication_health'') }}'
+    - conditions:
+      - condition: trigger
+        id: cleared
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.solis_inverter_alert_active
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: ✅ Solis inverter generating again
+          message: Status back to Generating. PV now {{ states('sensor.solis_pv_total_power')
+            }} W.
+  mode: single
+- id: '1785777737329'
+  alias: Solis - Modbus Link Unhealthy
+  description: 'Watches the solax-modbus integration''s own comms diagnostics and
+    pushes an alert when the link to the inverter degrades: communication health leaves
+    ''Healthy'' for 10 min, OR any register is quarantined (the integration stops
+    polling a register the inverter won''t answer), OR the polling success rate drops
+    below 90% for 10 min. Sends an all-clear when all three are good again. Worth
+    having because an RS485-to-Ethernet gateway keeps accepting TCP connections even
+    when the inverter has gone silent, so a plain port check cannot see this failure
+    - and because three of the five Energy-view badges (Solar, Battery, House) all
+    depend on this link and go unavailable together. Quarantined registers rechecks
+    every 300s.'
+  triggers:
+  - platform: template
+    value_template: '{{ states(''sensor.solis_communication_health'') != ''Healthy''
+      or states(''sensor.solis_communication_quarantined_registers'') | int(0) > 0
+      or (is_number(states(''sensor.solis_communication_success_rate'')) and states(''sensor.solis_communication_success_rate'')
+      | float(100) < 90) }}'
+    for:
+      minutes: 10
+    id: fault
+  - platform: template
+    value_template: '{{ is_state(''input_boolean.solis_modbus_alert_active'',''on'')
+      and states(''sensor.solis_communication_health'') == ''Healthy'' and states(''sensor.solis_communication_quarantined_registers'')
+      | int(1) == 0 and states(''sensor.solis_communication_success_rate'') | float(0)
+      >= 90 }}'
+    for:
+      minutes: 10
+    id: cleared
+  actions:
+  - variables:
+      detail: 'Health: {{ states(''sensor.solis_communication_health'') }}
+
+        Success rate: {{ states(''sensor.solis_communication_success_rate'') }}%
+
+        Quarantined registers: {{ states(''sensor.solis_communication_quarantined_registers'')
+        }}{% set r = state_attr(''sensor.solis_communication_quarantined_registers'',''registers'')
+        %}{% if r %} {{ r }}{% endif %}'
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: fault
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.solis_modbus_alert_active
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: "\U0001F50C Solis Modbus link unhealthy"
+          message: '{{ detail }}
+
+
+            Solar, Battery and House badges may go blank. Check the RS485 gateway
+            - it does not answer ping, so probe its Modbus TCP port instead.'
+    - conditions:
+      - condition: trigger
+        id: cleared
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.solis_modbus_alert_active
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: ✅ Solis Modbus link healthy again
+          message: '{{ detail }}'
+  mode: single
+- id: '1785777769996'
+  alias: Solis - Inverter Over Temperature
+  description: 'Colm only (infra alert). Two-stage inverter temperature alert. Warning
+    when sensor.solis_inverter_temperature stays above 65C for 10 min; urgent alert
+    above 75C for 5 min; all-clear once it falls back under 60C (hysteresis, so it
+    does not flap around a threshold). Thresholds set from measured history, not guessed:
+    daily max was 55.7C on 01-08-2026 (sunny, 28.9 kWh), 48.9C on 02-08 (rain), 51.8C
+    on 03-08, with daily means 34-43C. So a sunny-day peak is high 50s and 65C means
+    something has actually changed - blocked vents, a failed fan, or a much hotter
+    loft. Catches it before the inverter derates output to protect itself. Re-check
+    these numbers after a full summer of data.'
+  triggers:
+  - platform: numeric_state
+    entity_id: sensor.solis_inverter_temperature
+    above: 65
+    for:
+      minutes: 10
+    id: warn
+  - platform: numeric_state
+    entity_id: sensor.solis_inverter_temperature
+    above: 75
+    for:
+      minutes: 5
+    id: urgent
+  - platform: numeric_state
+    entity_id: sensor.solis_inverter_temperature
+    below: 60
+    for:
+      minutes: 10
+    id: cleared
+  conditions:
+  - condition: template
+    value_template: '{{ trigger.id != ''cleared'' or is_state(''input_boolean.solis_temperature_alert_active'',''on'')
+      }}'
+  actions:
+  - variables:
+      detail: 'Inverter temperature: {{ states(''sensor.solis_inverter_temperature'')
+        }} C
+
+        PV now: {{ states(''sensor.solis_pv_total_power'') }} W
+
+        Battery power: {{ states(''sensor.solis_battery_power'') }} W'
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: urgent
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.solis_temperature_alert_active
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: "\U0001F525 Solis inverter VERY hot (>75C)"
+          message: '{{ detail }}
+
+
+            Check airflow around the inverter now - it will derate or trip to protect
+            itself.'
+    - conditions:
+      - condition: trigger
+        id: warn
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.solis_temperature_alert_active
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: "\U0001F321️ Solis inverter running hot (>65C)"
+          message: '{{ detail }}
+
+
+            A sunny-day peak here is high 50s. Worth checking vents and the fan.'
+    - conditions:
+      - condition: trigger
+        id: cleared
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.solis_temperature_alert_active
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: ✅ Solis inverter temperature back to normal
+          message: '{{ detail }}'
+  mode: single
+- id: '1785777852680'
+  alias: Solis - Battery Depleted Early
+  description: 'Goes to BOTH Colm and Olivia (Colm, 03-08-2026) - unlike the other
+    Solis alerts this is a household message, not an infra one: it means the house
+    is about to import at the expensive day rate. Alerts when the battery falls to
+    25% between 17:00 and 23:00. The window ends at 23:00 because cheap night rate
+    starts then: the battery sitting on its floor after 23:00 costs little and is
+    normal. Threshold and window set from measured behaviour: over 01-08 to 03-08-2026
+    the battery reached its 20% floor between 23:00 and 02:00 every night and recharged
+    from about 03:00, so a plain ''SoC low'' alert would have fired every night and
+    meant nothing. The inverter''s own floor is 20% (number.solis_battery_minimum_soc)
+    with force-charge at 18%. Fires at most once per evening.'
+  triggers:
+  - platform: numeric_state
+    entity_id: sensor.solis_battery_soc
+    below: 25
+    for:
+      minutes: 5
+    id: low
+  conditions:
+  - condition: time
+    after: '17:00:00'
+    before: '23:00:00'
+  actions:
+  - variables:
+      title: "\U0001F50B Solis battery down early ({{ states('sensor.solis_battery_soc')
+        }}%)"
+      body: 'Battery hit 25% at {{ now().strftime(''%H:%M'') }} - still day rate until
+        23:00, so the house is importing at the expensive price from here.
+
+
+        Generated today: {{ states(''sensor.solis_power_generation_today'') }} kWh
+
+        House used today: {{ states(''sensor.solis_house_load_today'') }} kWh
+
+        House load now: {{ states(''sensor.solis_house_load'') }} W
+
+        Grid import today: {{ states(''sensor.solis_grid_import_today'') }} kWh
+
+
+        Reserve is {{ states(''sensor.solis_battery_minimum_soc'') }}% - the house
+        goes to grid below that.'
+  - action: notify.send_message
+    target:
+      entity_id: notify.np3
+    data:
+      title: '{{ title }}'
+      message: '{{ body }}'
+  - action: notify.send_message
+    target:
+      entity_id: notify.pixel_6a
+    data:
+      title: '{{ title }}'
+      message: '{{ body }}'
+  mode: single
+- id: '1785777964976'
+  alias: Solis - Battery Health Check
+  description: 'Colm only (infra alert). On the 1st of each month at 09:00, compares
+    sensor.solis_battery_soh against the value stored last month in input_number.solis_battery_soh_last_month,
+    notifies if it has dropped by more than 1 point, and then stores the current value
+    either way. Silent when healthy - the helper''s own history is the running record.
+    Purpose is slow-burn warranty evidence: a battery degrading faster than expected
+    is invisible day to day but obvious over a year of monthly readings. Baseline
+    seeded 03-08-2026 at 99%. Skips the comparison if the sensor is unavailable so
+    a dead Modbus link cannot fake a drop.'
+  triggers:
+  - platform: time
+    at: 09:00:00
+  conditions:
+  - condition: template
+    value_template: '{{ now().day == 1 }}'
+  - condition: template
+    value_template: '{{ is_number(states(''sensor.solis_battery_soh'')) }}'
+  actions:
+  - variables:
+      soh_now: '{{ states(''sensor.solis_battery_soh'') | float(0) }}'
+      soh_last: '{{ states(''input_number.solis_battery_soh_last_month'') | float(0)
+        }}'
+  - if:
+    - condition: template
+      value_template: '{{ soh_last > 0 and (soh_last - soh_now) > 1 }}'
+    then:
+    - action: notify.send_message
+      target:
+        entity_id: notify.np3
+      data:
+        title: "\U0001F50B❤️ Solis battery health dropped"
+        message: 'Battery State of Health is now {{ soh_now }}%, down {{ (soh_last
+          - soh_now) | round(1) }} points from {{ soh_last }}% last month.
+
+
+          Total charged: {{ states(''sensor.solis_total_battery_charge'') }} kWh
+
+          Total discharged: {{ states(''sensor.solis_total_battery_discharge'') }}
+          kWh
+
+
+          Worth noting for warranty.'
+  - action: input_number.set_value
+    target:
+      entity_id: input_number.solis_battery_soh_last_month
+    data:
+      value: '{{ soh_now }}'
+  mode: single
+- id: '1785778056339'
+  alias: Solis - String Imbalance East vs West
+  description: Colm only (infra alert). Watches for one PV string persistently underperforming
+    the other - the classic early signal of shading, soiling, a failed panel or a
+    dead optimiser. There are no per-string ENERGY sensors, only power, so this tracks
+    each string's daily PEAK power in input_number.solis_pv_peak_east_today / _west_today
+    (sampled every 5 min) and compares them at 23:30. Peak ratio (weaker/stronger)
+    measured over 01-08 to 03-08-2026 was 0.97, 0.88 and 0.76, so the alert threshold
+    is 0.50 - well clear of normal aspect and weather variation. A day only counts
+    if BOTH peaks exceed 500 W, so dull days and winter mornings are ignored rather
+    than mistaken for a fault. It alerts only after 5 qualifying days in a row below
+    the threshold (counter in input_number.solis_string_imbalance_days), and alerts
+    once per streak, not nightly. Both strings see the same sky, so a sustained one-sided
+    shortfall is real. Peaks reset at 00:01. The streak count is computed in a variable
+    before it is written, so the alert never depends on re-reading a helper it just
+    set.
+  triggers:
+  - platform: time_pattern
+    minutes: /5
+    id: sample
+  - platform: time
+    at: '23:30:00'
+    id: evaluate
+  - platform: time
+    at: 00:01:00
+    id: reset
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: sample
+      - condition: template
+        value_template: '{{ is_number(states(''sensor.solis_pv_power_east'')) and
+          is_number(states(''sensor.solis_pv_power_west'')) }}'
+      sequence:
+      - if:
+        - condition: template
+          value_template: '{{ states(''sensor.solis_pv_power_east'') | float(0) >
+            states(''input_number.solis_pv_peak_east_today'') | float(0) }}'
+        then:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.solis_pv_peak_east_today
+          data:
+            value: '{{ states(''sensor.solis_pv_power_east'') | float(0) | round(0)
+              }}'
+      - if:
+        - condition: template
+          value_template: '{{ states(''sensor.solis_pv_power_west'') | float(0) >
+            states(''input_number.solis_pv_peak_west_today'') | float(0) }}'
+        then:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.solis_pv_peak_west_today
+          data:
+            value: '{{ states(''sensor.solis_pv_power_west'') | float(0) | round(0)
+              }}'
+    - conditions:
+      - condition: trigger
+        id: evaluate
+      sequence:
+      - variables:
+          pe: '{{ states(''input_number.solis_pv_peak_east_today'') | float(0) }}'
+          pw: '{{ states(''input_number.solis_pv_peak_west_today'') | float(0) }}'
+      - variables:
+          qualifies: '{{ pe > 500 and pw > 500 }}'
+          ratio: '{{ (([pe, pw] | min) / ([pe, pw] | max)) if ([pe, pw] | max) > 0
+            else 1 }}'
+          weak: '{{ ''East'' if pe < pw else ''West'' }}'
+          newcount: '{{ (states(''input_number.solis_string_imbalance_days'') | int(0))
+            + 1 }}'
+      - condition: template
+        value_template: '{{ qualifies }}'
+      - if:
+        - condition: template
+          value_template: '{{ ratio < 0.5 }}'
+        then:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.solis_string_imbalance_days
+          data:
+            value: '{{ newcount }}'
+        - condition: template
+          value_template: '{{ newcount | int(0) == 5 }}'
+        - action: notify.send_message
+          target:
+            entity_id: notify.np3
+          data:
+            title: "\U0001F506 Solis {{ weak }} string underperforming"
+            message: 'The {{ weak }} string has peaked below half the other string
+              for 5 days running.
+
+
+              Today''s peaks - East {{ pe | round(0) }} W, West {{ pw | round(0) }}
+              W (ratio {{ ratio | round(2) }}).
+
+              Normal ratio here is 0.75 to 0.97.
+
+
+              Both strings see the same sky, so this is not weather. Worth checking
+              for shading, soiling, or a panel/optimiser fault on the {{ weak | lower
+              }} roof.'
+        else:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.solis_string_imbalance_days
+          data:
+            value: 0
+    - conditions:
+      - condition: trigger
+        id: reset
+      sequence:
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.solis_pv_peak_east_today
+        data:
+          value: 0
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.solis_pv_peak_west_today
+        data:
+          value: 0
+  mode: queued
+  max: 10

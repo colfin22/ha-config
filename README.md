@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7.1-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-59-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-65-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -94,7 +94,7 @@ This repository is the live, version-controlled configuration that runs the hous
 
 ## 🤖 Automations
 
-59 automations across the home. Key highlights:
+65 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
@@ -139,6 +139,16 @@ This repository is the live, version-controlled configuration that runs the hous
 - **Morning energy stats** — daily solar and energy summary pushed each morning
 - **Grid-free day** — notifies both phones at 20:00 if no grid electricity was imported after 8am; includes export total and estimated earnings
 - **Peak-rate nudge** — if the washing machine, dishwasher or tumble dryer starts a cycle during the 17:00–19:00 peak electricity window, both phones get a push suggesting the run could wait until after 19:00 (notification only, no announcement)
+
+#### Solar inverter monitoring
+Six alerts built on the local Modbus link to the inverter. Every threshold was set from the system's own measured history rather than a round number, so an ordinary sunny day cannot set them off.
+
+- **Inverter not generating** — the inverter reports its own running state, and that state holds steady around the clock, so anything else means a real fault or a lost link. Alerts if it persists for 15 minutes while the sun is up, and sends an all-clear when it recovers
+- **Modbus link unhealthy** — watches the integration's own comms diagnostics: link health, polling success rate, and any register the inverter has stopped answering. Needed because the RS485 gateway keeps accepting connections even when the inverter has gone quiet, so a simple port check cannot see this failure
+- **Inverter over temperature** — a warning stage and an urgent stage, clearing on the way back down with a gap between the two so it cannot flap between states. Both stages sit above the measured sunny-day peak
+- **Battery depleted early** — alerts only if the battery reaches its reserve while electricity is still at the day rate. It reaches that reserve most nights once the cheap rate has started, which is normal and stays silent. The one alert here that goes to both phones
+- **Battery health check** — a monthly state-of-health reading compared against the month before, kept as a slow-burn record for warranty purposes
+- **String imbalance** — the two roof aspects sit on separate strings, so their daily peaks can be compared. Alerts only after several qualifying days of one string trailing the other, which points at shading, soiling or a panel fault rather than weather
 
 ### 🏠 Infrastructure Monitoring
 - **Infrastructure health & backup alerts** — migrated to Node-RED for more complex workflows; see the **Infra Health & Alerts** flow below.

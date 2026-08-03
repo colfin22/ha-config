@@ -303,6 +303,46 @@
         "step": 0.5,
         "unit_of_measurement": "°C",
         "mode": "slider"
+      },
+      {
+        "id": "solis_battery_soh_last_month",
+        "name": "Solis Battery SOH Last Month",
+        "icon": "mdi:battery-heart",
+        "min": 0.0,
+        "max": 100.0,
+        "step": 0.1,
+        "unit_of_measurement": "%",
+        "mode": "box"
+      },
+      {
+        "id": "solis_pv_peak_east_today",
+        "name": "Solis PV Peak East Today",
+        "icon": "mdi:weather-sunset-up",
+        "min": 0.0,
+        "max": 10000.0,
+        "step": 1.0,
+        "unit_of_measurement": "W",
+        "mode": "box"
+      },
+      {
+        "id": "solis_pv_peak_west_today",
+        "name": "Solis PV Peak West Today",
+        "icon": "mdi:weather-sunset-down",
+        "min": 0.0,
+        "max": 10000.0,
+        "step": 1.0,
+        "unit_of_measurement": "W",
+        "mode": "box"
+      },
+      {
+        "id": "solis_string_imbalance_days",
+        "name": "Solis String Imbalance Days",
+        "icon": "mdi:counter",
+        "min": 0.0,
+        "max": 365.0,
+        "step": 1.0,
+        "unit_of_measurement": "d",
+        "mode": "box"
       }
     ]
   }

@@ -49,6 +49,21 @@
         "id": "update_tuesday_done",
         "name": "Update Tuesday Done",
         "icon": "mdi:check-circle"
+      },
+      {
+        "id": "solis_inverter_alert_active",
+        "name": "Solis Inverter Alert Active",
+        "icon": "mdi:solar-power-variant-outline"
+      },
+      {
+        "id": "solis_modbus_alert_active",
+        "name": "Solis Modbus Alert Active",
+        "icon": "mdi:lan-disconnect"
+      },
+      {
+        "id": "solis_temperature_alert_active",
+        "name": "Solis Temperature Alert Active",
+        "icon": "mdi:thermometer-alert"
       }
     ]
   }
