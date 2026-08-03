@@ -553,9 +553,12 @@
   mode: single
 - id: '1778225960347'
   alias: Cameras - Overnight Summary
-  description: At 7am sends an overnight camera summary. If a person was detected,
-    sends a high-priority alert with a snapshot and notes any other animals spotted.
-    If no person, sends an all-clear with any cats, dogs or birds mentioned.
+  description: At 7am sends an overnight camera summary. If the Frigate overnight
+    sensor is unavailable it says so rather than sending a false all-clear (added
+    03-08-2026 after the sensor was down for two days and the automation reported
+    All Clear off no data). If a person was detected, sends a high-priority alert
+    with a snapshot and notes any other animals spotted. If no person, sends an all-clear
+    with any cats, dogs or birds mentioned.
   triggers:
   - platform: time
     at: 07:00:00
@@ -583,33 +586,60 @@
         %}{% set parts.list = parts.list + ['\U0001F426 Bird' + (' ×' + bird_n.n |
         string if bird_n.n > 1 else '')] %}{% endif %}{{ parts.list | join('  ·  ')
         }}"
-  - if:
-    - condition: template
-      value_template: '{{ person_count > 0 }}'
-    then:
-    - action: notify.send_message
-      target:
-        entity_id: notify.np3
-      data:
-        title: "\U0001F6A8 Person Detected Overnight"
-        message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
-          > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count > 2
-          else '''' }}){% endif %}{% if other_line != '''' %}
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ not sensor_ok }}'
+      sequence:
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: ⚠️ Overnight check unavailable — {{ now().strftime('%A %-d %B') }}
+          message: 'The Frigate overnight sensor wasn''t reporting, so no all-clear
+            can be given for last night. Check Frigate and the camera summary sensors.{%
+            if other_line != '''' %}
 
 
-          Also overnight: {{ other_line }}{% endif %}'
-    - action: notify.send_message
-      target:
-        entity_id: notify.pixel_6a
-      data:
-        title: "\U0001F6A8 Person Detected Overnight"
-        message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
-          > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count > 2
-          else '''' }}){% endif %}{% if other_line != '''' %}
+            Animals still seen: {{ other_line }}{% endif %}'
+      - action: notify.send_message
+        target:
+          entity_id: notify.pixel_6a
+        data:
+          title: ⚠️ Overnight check unavailable — {{ now().strftime('%A %-d %B') }}
+          message: 'The Frigate overnight sensor wasn''t reporting, so no all-clear
+            can be given for last night. Check Frigate and the camera summary sensors.{%
+            if other_line != '''' %}
 
 
-          Also overnight: {{ other_line }}{% endif %}'
-    else:
+            Animals still seen: {{ other_line }}{% endif %}'
+    - conditions:
+      - condition: template
+        value_template: '{{ person_count > 0 }}'
+      sequence:
+      - action: notify.send_message
+        target:
+          entity_id: notify.np3
+        data:
+          title: "\U0001F6A8 Person Detected Overnight"
+          message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
+            > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count >
+            2 else '''' }}){% endif %}{% if other_line != '''' %}
+
+
+            Also overnight: {{ other_line }}{% endif %}'
+      - action: notify.send_message
+        target:
+          entity_id: notify.pixel_6a
+        data:
+          title: "\U0001F6A8 Person Detected Overnight"
+          message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
+            > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count >
+            2 else '''' }}){% endif %}{% if other_line != '''' %}
+
+
+            Also overnight: {{ other_line }}{% endif %}'
+    default:
     - action: notify.send_message
       target:
         entity_id: notify.np3
@@ -632,13 +662,15 @@
           Also spotted: {{ other_line }}{% else %}
 
           No other activity detected.{% endif %}'
-  mode: single
   variables:
     person_count: '{{ states(''sensor.frigate_overnight_person_count'') | int(0) }}'
     best_camera: '{{ states(''sensor.frigate_overnight_best_camera'') }}'
     best_time: '{{ states(''sensor.frigate_overnight_best_time'') | float(0) | timestamp_custom(''%-I:%M
       %p'') }}'
     camera_count: '{{ states(''sensor.frigate_overnight_camera_count'') | int(0) }}'
+    sensor_ok: '{{ states(''sensor.frigate_overnight_person_count'') not in [''unavailable'',
+      ''unknown'', ''none''] }}'
+  mode: single
 - id: '1778228718912'
   alias: Energy - Snapshot Daily Totals
   description: At 23:58 each night, saves today's energy sensor values to helpers

@@ -13,10 +13,7 @@ command_line:
       icon: mdi:motion-sensor
       scan_interval: 300
       command: >-
-        curl -s -c /tmp/fg_cookie.txt -X POST http://10.0.0.246:8971/api/login
-        -H 'Content-Type: application/json'
-        -d "{\"user\":\"homeassistant\",\"password\":\"$(cat /config/.frigate_pw)\"}"
-        -o /dev/null &&
+        bash /config/frigate_login.sh &&
         curl -s -b /tmp/fg_cookie.txt
         "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"
       value_template: >
@@ -34,6 +31,7 @@ command_line:
       icon: mdi:cctv
       scan_interval: 300
       command: >-
+        bash /config/frigate_login.sh &&
         curl -s -b /tmp/fg_cookie.txt
         "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"
       value_template: >
@@ -52,6 +50,7 @@ command_line:
       icon: mdi:clock
       scan_interval: 300
       command: >-
+        bash /config/frigate_login.sh &&
         curl -s -b /tmp/fg_cookie.txt
         "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"
       value_template: >
@@ -69,6 +68,7 @@ command_line:
       icon: mdi:cctv
       scan_interval: 300
       command: >-
+        bash /config/frigate_login.sh &&
         curl -s -b /tmp/fg_cookie.txt
         "http://10.0.0.246:8971/api/events?label=person&after=$(date -d 'today 00:00' +%s)&has_snapshot=1&limit=100"
       value_template: >
