@@ -1,0 +1,368 @@
+import glob
+import importlib
+import ipaddress
+import logging
+import re
+from collections.abc import Mapping
+from types import ModuleType
+from typing import Any, cast
+
+import voluptuous as vol
+from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.const import (
+    CONF_HOST,
+    CONF_NAME,
+    CONF_PORT,
+    CONF_SCAN_INTERVAL,
+    MAJOR_VERSION,
+    MINOR_VERSION,
+)
+from homeassistant.helpers import (
+    config_validation as cv,
+)
+from homeassistant.helpers import (
+    selector,
+)
+from homeassistant.helpers.schema_config_entry_flow import (
+    SchemaCommonFlowHandler,
+    SchemaConfigFlowHandler,
+    SchemaFlowError,
+    SchemaFlowFormStep,
+    SchemaFlowMenuStep,
+)
+
+from .connection import (
+    matching_config_entries,
+)
+from .const import (
+    CONF_BAUDRATE,
+    CONF_CORE_HUB,
+    CONF_ENERGY_DASHBOARD_DEVICE,
+    CONF_INTERFACE,
+    CONF_INVERTER_NAME_SUFFIX,
+    CONF_INVERTER_POWER_KW,
+    CONF_MODBUS_ADDR,
+    CONF_PLUGIN,
+    CONF_READ_BATTERY,
+    CONF_READ_DCB,
+    CONF_READ_EPS,
+    CONF_READ_PM,
+    CONF_SCAN_INTERVAL_FAST,
+    CONF_SCAN_INTERVAL_MEDIUM,
+    CONF_SERIAL_PORT,
+    CONF_TCP_TYPE,
+    CONF_TIME_OUT,
+    DEFAULT_BAUDRATE,
+    DEFAULT_ENERGY_DASHBOARD_DEVICE,
+    # PLUGIN_PATH_OLDSTYLE,
+    DEFAULT_INVERTER_NAME_SUFFIX,
+    DEFAULT_INVERTER_POWER_KW,
+    DEFAULT_MODBUS_ADDR,
+    DEFAULT_NAME,
+    DEFAULT_PLUGIN,
+    DEFAULT_PORT,
+    DEFAULT_READ_BATTERY,
+    DEFAULT_READ_DCB,
+    DEFAULT_READ_EPS,
+    DEFAULT_READ_PM,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SERIAL_PORT,
+    DEFAULT_TCP_TYPE,
+    DEFAULT_TIME_OUT,
+    DOMAIN,
+    PLUGIN_PATH,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+# ############################# plugin aux functions #################################################
+
+"""
+glob_plugin = {}
+
+def setPlugin(instancename, plugin):
+    global glob_plugin
+    glob_plugin[instancename] = plugin
+
+def getPlugin(instancename):
+    return glob_plugin.get(instancename) """
+
+
+def getPluginName(plugin_path: str) -> str:
+    """Extract plugin name from plugin path."""
+    return plugin_path[len(PLUGIN_PATH) - 4 : -3]
+
+
+def _normalized_hub_name(name: str) -> str:
+    """Normalize a hub name for uniqueness checks."""
+    return name.strip().casefold()
+
+
+def _configured_hub_names(handler: SchemaCommonFlowHandler) -> set[str]:
+    """Return normalized hub names already configured for this integration."""
+    names: set[str] = set()
+    for entry in handler.parent_handler.hass.config_entries.async_entries(DOMAIN):
+        name = entry.options.get(CONF_NAME) or entry.data.get(CONF_NAME)
+        if isinstance(name, str):
+            names.add(_normalized_hub_name(name))
+    return names
+
+
+# ####################################################################################################
+
+BAUDRATES = [
+    selector.SelectOptionDict(value="9600", label="9600"),
+    selector.SelectOptionDict(value="14400", label="14400"),
+    selector.SelectOptionDict(value="19200", label="19200"),
+    selector.SelectOptionDict(value="38400", label="38400"),
+    selector.SelectOptionDict(value="56000", label="56000"),
+    selector.SelectOptionDict(value="57600", label="57600"),
+    selector.SelectOptionDict(value="115200", label="115200"),
+]
+
+TCP_TYPES = [
+    selector.SelectOptionDict(value="tcp", label="Modbus TCP"),
+    selector.SelectOptionDict(value="rtu", label="Modbus RTU over TCP"),
+    selector.SelectOptionDict(value="ascii", label="Modbus ASCII over TCP"),
+]
+
+PLUGINS = [selector.SelectOptionDict(value=getPluginName(i), label=getPluginName(i)) for i in glob.glob(PLUGIN_PATH)]
+
+
+INTERFACES = [
+    selector.SelectOptionDict(value="tcp", label="TCP / Ethernet"),
+    selector.SelectOptionDict(value="serial", label="Serial"),
+    selector.SelectOptionDict(value="core", label="Hass core Hub"),
+]
+
+# Removed - using boolean checkbox instead
+
+CONFIG_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
+        vol.Required(CONF_INTERFACE, default="tcp"): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=INTERFACES),
+        ),
+        vol.Required(CONF_MODBUS_ADDR, default=DEFAULT_MODBUS_ADDR): int,
+        vol.Required(CONF_PLUGIN, default=DEFAULT_PLUGIN): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=PLUGINS),
+        ),
+        vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_SCAN_INTERVAL_MEDIUM, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_SCAN_INTERVAL_FAST, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_INVERTER_NAME_SUFFIX, description={"suggested_value": DEFAULT_INVERTER_NAME_SUFFIX}): str,
+        vol.Optional(CONF_INVERTER_POWER_KW, default=DEFAULT_INVERTER_POWER_KW): cv.positive_int,
+        vol.Optional(CONF_ENERGY_DASHBOARD_DEVICE, default=DEFAULT_ENERGY_DASHBOARD_DEVICE): bool,
+        vol.Optional(CONF_READ_EPS, default=DEFAULT_READ_EPS): bool,
+        vol.Optional(CONF_READ_DCB, default=DEFAULT_READ_DCB): bool,
+        vol.Optional(CONF_READ_PM, default=DEFAULT_READ_PM): bool,
+        vol.Optional(CONF_TIME_OUT, default=DEFAULT_TIME_OUT): int,
+    }
+)
+
+OPTION_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_INTERFACE, default="tcp"): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=INTERFACES),
+        ),
+        vol.Required(CONF_MODBUS_ADDR, default=DEFAULT_MODBUS_ADDR): int,
+        vol.Required(CONF_PLUGIN, default=DEFAULT_PLUGIN): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=PLUGINS),
+        ),
+        vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_SCAN_INTERVAL_MEDIUM, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_SCAN_INTERVAL_FAST, default=DEFAULT_SCAN_INTERVAL): int,
+        vol.Optional(CONF_INVERTER_NAME_SUFFIX): str,
+        vol.Optional(CONF_INVERTER_POWER_KW, default=DEFAULT_INVERTER_POWER_KW): cv.positive_int,
+        vol.Optional(CONF_ENERGY_DASHBOARD_DEVICE, default=DEFAULT_ENERGY_DASHBOARD_DEVICE): bool,
+        vol.Optional(CONF_READ_EPS, default=DEFAULT_READ_EPS): bool,
+        vol.Optional(CONF_READ_DCB, default=DEFAULT_READ_DCB): bool,
+        vol.Optional(CONF_READ_PM, default=DEFAULT_READ_PM): bool,
+        vol.Optional(CONF_TIME_OUT, default=DEFAULT_TIME_OUT): int,
+    }
+)
+
+SERIAL_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_SERIAL_PORT, default=DEFAULT_SERIAL_PORT): (
+            selector.SerialPortSelector() if hasattr(selector, "SerialPortSelector") else str
+        ),
+        vol.Optional(CONF_BAUDRATE, default=DEFAULT_BAUDRATE): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=BAUDRATES),
+        ),
+    }
+)
+
+TCP_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_HOST): str,
+        vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+        vol.Required(CONF_TCP_TYPE, default=DEFAULT_TCP_TYPE): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=TCP_TYPES),
+        ),
+    }
+)
+
+CORE_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_CORE_HUB): str,
+        # vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+        # vol.Required(CONF_TCP_TYPE, default=DEFAULT_TCP_TYPE): selector.SelectSelector(selector.SelectSelectorConfig(options=TCP_TYPES), ),
+    }
+)
+
+BATTERY_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_READ_BATTERY, default=DEFAULT_READ_BATTERY): bool,
+    }
+)
+
+
+async def _validate_base(handler: SchemaCommonFlowHandler, user_input: dict[str, Any]) -> dict[str, Any]:
+    _LOGGER.info(f"validating base: {user_input}")
+    """Validate config."""
+    user_input[CONF_INTERFACE]
+    user_input[CONF_MODBUS_ADDR]
+    name = user_input[CONF_NAME]
+    pluginconf_name = user_input[CONF_PLUGIN]
+
+    # convert old style to new style plugin name here - Remove later after a breaking upgrade
+    if pluginconf_name.startswith("custom_components") or pluginconf_name.startswith("/config") or pluginconf_name.startswith("plugin_"):
+        newpluginname = pluginconf_name.split("plugin_", 1)[1][:-3]  # getPluginName(pluginconf_name)
+        _LOGGER.warning(f"converting old style plugin name {pluginconf_name} to new style: {newpluginname} ")
+        user_input[CONF_PLUGIN] = newpluginname
+        pluginconf_name = newpluginname
+    # end of conversion
+
+    _LOGGER.info(f"validating base config for {name}: pre: {user_input}")
+    # if getPlugin(name) or ((name == DEFAULT_NAME) and (pluginconf_name != DEFAULT_PLUGIN)):
+    if (name == DEFAULT_NAME) and (pluginconf_name != DEFAULT_PLUGIN):
+        _LOGGER.warning(f"instance name {name} already defined or default name for non-default inverter")
+        user_input[CONF_NAME] = user_input[CONF_PLUGIN]  # getPluginName(user_input[CONF_PLUGIN])
+        raise SchemaFlowError("name_already_used")
+
+    normalized_name = _normalized_hub_name(name)
+    if normalized_name in _configured_hub_names(handler):
+        raise SchemaFlowError("name_already_used")
+
+    return user_input
+
+
+async def _validate_host(handler: SchemaCommonFlowHandler, user_input: Any) -> Any:
+    user_input[CONF_PORT]
+    host = user_input[CONF_HOST]
+    try:
+        if ipaddress.ip_address(host).version in (4, 6):
+            pass
+    except Exception as e:
+        _LOGGER.warning(e, exc_info=True)
+        _LOGGER.warning("valid IP address? Trying to validate it in another way")
+        disallowed = re.compile(r"[^a-zA-Z\d\-]")
+        res = all(x and not disallowed.search(x) for x in host.split("."))
+        if not res:
+            raise SchemaFlowError("invalid_host") from e
+    _LOGGER.info(f"validating host: returning data: {user_input}")
+
+    pluginconf_name = handler.options[CONF_PLUGIN]
+    plugin = await handler.parent_handler.hass.async_add_executor_job(_load_plugin, pluginconf_name)
+    user_input["support-battery"] = plugin.plugin_instance.BATTERY_CONFIG is not None
+
+    return user_input
+
+
+async def _validate_core_modbus_hub(handler: SchemaCommonFlowHandler, user_input: Any) -> Any:
+    hub_name = user_input[CONF_CORE_HUB]
+    non_empty = re.compile(r"\w")
+    try:
+        res = non_empty.search(hub_name)
+    except Exception as e:
+        raise SchemaFlowError(f"invalid core modbus hub name: '{hub_name}'") from e
+    if not res:
+        raise SchemaFlowError("core modbus hub name empty")
+    return user_input
+
+
+async def _next_step_modbus(user_input: Any) -> str:
+    return str(user_input[CONF_INTERFACE])  # either "tcp" or "serial"
+
+
+async def _next_step_battery(user_input: Any) -> str | None:
+    _LOGGER.debug(f"_next_step_battery: returning data: {user_input}")
+    if user_input.get("support-battery", False):
+        return "battery"
+    return "duplicate_inverter"
+
+
+def _current_config_entry_id(handler: SchemaCommonFlowHandler) -> str | None:
+    """Return the entry being edited by an options flow."""
+    try:
+        config_entry = getattr(handler.parent_handler, "config_entry", None)
+    except ValueError:
+        return None
+    if config_entry is None:
+        return None
+    return str(config_entry.entry_id)
+
+
+def _duplicate_inverter_entries(handler: SchemaCommonFlowHandler) -> list[Any]:
+    """Return other entries configured for the candidate connection."""
+    return matching_config_entries(
+        handler.parent_handler.hass,
+        handler.options,
+        exclude_entry_id=_current_config_entry_id(handler),
+    )
+
+
+async def _duplicate_inverter_schema(handler: SchemaCommonFlowHandler) -> vol.Schema | None:
+    """Only show the confirmation step when another config entry matches."""
+    if not _duplicate_inverter_entries(handler):
+        return None
+    return vol.Schema({})
+
+
+def _load_plugin(plugin_name: str) -> ModuleType:
+    _LOGGER.info("trying to load plugin - plugin_name: %s", plugin_name)
+    plugin = importlib.import_module(f".plugin_{plugin_name}", "custom_components.solax_modbus")
+    if not plugin:
+        _LOGGER.error("Could not import plugin with name: %s", plugin_name)
+    return plugin
+
+
+if (MAJOR_VERSION >= 2023) or ((MAJOR_VERSION == 2022) and (MINOR_VERSION >= 12)):  # type: ignore[comparison-overlap]  # backward compat
+    _LOGGER.info(f"detected HA core version {MAJOR_VERSION} {MINOR_VERSION}")
+    CONFIG_FLOW: dict[str, SchemaFlowFormStep | SchemaFlowMenuStep] = {
+        "user": SchemaFlowFormStep(CONFIG_SCHEMA, validate_user_input=_validate_base, next_step=_next_step_modbus),
+        "serial": SchemaFlowFormStep(SERIAL_SCHEMA, next_step=_next_step_battery),
+        "tcp": SchemaFlowFormStep(TCP_SCHEMA, validate_user_input=_validate_host, next_step=_next_step_battery),
+        "core": SchemaFlowFormStep(CORE_SCHEMA, validate_user_input=_validate_core_modbus_hub, next_step=_next_step_battery),
+        "battery": SchemaFlowFormStep(BATTERY_SCHEMA, next_step="duplicate_inverter"),
+        "duplicate_inverter": SchemaFlowFormStep(_duplicate_inverter_schema),
+    }
+    OPTIONS_FLOW: dict[str, SchemaFlowFormStep | SchemaFlowMenuStep] = {
+        "init": SchemaFlowFormStep(OPTION_SCHEMA, next_step=_next_step_modbus),
+        "serial": SchemaFlowFormStep(SERIAL_SCHEMA, next_step=_next_step_battery),
+        "tcp": SchemaFlowFormStep(TCP_SCHEMA, validate_user_input=_validate_host, next_step=_next_step_battery),
+        "core": SchemaFlowFormStep(CORE_SCHEMA, validate_user_input=_validate_core_modbus_hub, next_step=_next_step_battery),
+        "battery": SchemaFlowFormStep(BATTERY_SCHEMA, next_step="duplicate_inverter"),
+        "duplicate_inverter": SchemaFlowFormStep(_duplicate_inverter_schema),
+    }
+
+else:  # for older versions - REMOVE SOON
+    _LOGGER.error(f"detected old HA core version {MAJOR_VERSION} {MINOR_VERSION}")
+
+
+class ConfigFlowHandler(SchemaConfigFlowHandler, domain=DOMAIN):
+    # Handle a config or options flow for Utility Meter.
+
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Handle a flow initialized by the user."""
+        return await super().async_step_user(user_input)
+
+    _LOGGER.info(f"starting configflow - domain = {DOMAIN}")
+    config_flow = CONFIG_FLOW
+    options_flow = OPTIONS_FLOW
+
+    def async_config_entry_title(self, options: Mapping[str, Any]) -> str:
+        _LOGGER.info(f"title configflow {DOMAIN} {CONF_NAME}: {options}")
+        # Return config entry title
+        return cast(str, options[CONF_NAME]) if CONF_NAME in options else ""

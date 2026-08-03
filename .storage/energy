@@ -16,12 +16,12 @@
       },
       {
         "type": "battery",
-        "stat_energy_from": "sensor.battery_discharged_total",
-        "stat_energy_to": "sensor.battery_charged_total",
+        "stat_energy_from": "sensor.solis_battery_discharge_today",
+        "stat_energy_to": "sensor.solis_battery_charge_today",
         "power_config": {
-          "stat_rate": "sensor.battery_flow_now_inverted"
+          "stat_rate": "sensor.solis_battery_power"
         },
-        "stat_rate": "sensor.battery_flow_now_inverted"
+        "stat_rate": "sensor.solis_battery_power"
       },
       {
         "type": "grid",
@@ -38,6 +38,11 @@
           "stat_rate": "sensor.myenergi_eddi_power_grid"
         },
         "stat_rate": "sensor.myenergi_eddi_power_grid"
+      },
+      {
+        "type": "battery",
+        "stat_energy_from": "autarco:battery_discharged",
+        "stat_energy_to": "autarco:battery_charged"
       }
     ],
     "device_consumption": [

@@ -1,0 +1,757 @@
+import logging
+import pathlib
+from collections.abc import Callable, Sequence
+from copy import deepcopy
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import StrEnum
+from typing import Any, Self
+
+from homeassistant.components.button import ButtonEntityDescription
+from homeassistant.components.number import NumberEntityDescription
+from homeassistant.components.select import SelectEntityDescription
+from homeassistant.components.sensor import SensorEntityDescription
+from homeassistant.components.switch import SwitchEntityDescription
+from homeassistant.components.time import TimeEntityDescription
+from homeassistant.const import CONF_SCAN_INTERVAL
+
+# TODO: Review if this fallback is still needed.
+# UnitOfReactivePower was added in HA 2023.1 (Jan 2023). This fallback supports
+# HA versions older than 2023.1. Consider adding a minimum HA version to manifest.json
+# and removing this fallback if older versions are no longer supported.
+# See: https://developers.home-assistant.io/blog/2022/12/05/more-unit-enumerators
+try:
+    from homeassistant.const import (
+        UnitOfReactivePower,
+    )
+except ImportError:
+    from homeassistant.const import POWER_VOLT_AMPERE_REACTIVE
+
+    class UnitOfReactivePower(StrEnum):  # type: ignore[no-redef]
+        """Fallback for HA versions <2023.1."""
+
+        VOLT_AMPERE_REACTIVE = POWER_VOLT_AMPERE_REACTIVE
+
+
+# ================================= Definitions for config_flow ==========================================================
+
+DOMAIN = "solax_modbus"
+INVERTER_IDENT = "inverter"
+DEFAULT_NAME = "SolaX"
+DEFAULT_INVERTER_NAME_SUFFIX = "Inverter"
+DEFAULT_INVERTER_POWER_KW = 100
+DEFAULT_SCAN_INTERVAL = 15
+DEFAULT_PORT = 502
+DEFAULT_MODBUS_ADDR = 1
+DEFAULT_TCP_TYPE = "tcp"
+CONF_TCP_TYPE = "tcp_type"
+TMPDATA_EXPIRY = 120  # seconds before temp entities return to modbus value
+CONF_INVERTER_NAME_SUFFIX = "inverter_name_suffix"
+CONF_INVERTER_POWER_KW = "inverter_power_kw"
+CONF_READ_EPS = "read_eps"
+CONF_READ_DCB = "read_dcb"
+CONF_READ_PM = "read_pm"
+CONF_MODBUS_ADDR = "read_modbus_addr"
+CONF_INTERFACE = "interface"
+CONF_SERIAL_PORT = "read_serial_port"
+CONF_SolaX_HUB = "solax_hub"
+CONF_BAUDRATE = "baudrate"
+CONF_PLUGIN = "plugin"
+CONF_READ_BATTERY = "read_battery"
+CONF_CORE_HUB = "read_core_hub"
+CONF_ENERGY_DASHBOARD_DEVICE = "energy_dashboard_device"
+CONF_DEBUG_SETTINGS = "debug_settings"
+ATTR_MANUFACTURER = "SolaX Power"
+DEFAULT_INTERFACE = "tcp"
+DEFAULT_SERIAL_PORT = "/dev/ttyUSB0"
+DEFAULT_READ_EPS = False
+DEFAULT_READ_DCB = False
+DEFAULT_READ_PM = False
+DEFAULT_BAUDRATE = "19200"
+DEFAULT_PLUGIN = "solax"
+DEFAULT_READ_BATTERY = False
+ENERGY_DASHBOARD_DEVICE_ENABLED = True
+ENERGY_DASHBOARD_DEVICE_DISABLED = False
+DEFAULT_ENERGY_DASHBOARD_DEVICE = ENERGY_DASHBOARD_DEVICE_ENABLED
+PLUGIN_PATH = f"{pathlib.Path(__file__).parent.absolute()}/plugin_*.py"
+SLEEPMODE_NONE = None
+SLEEPMODE_ZERO = 0  # when no communication at all
+SLEEPMODE_LAST = 1  # when no communication at all
+SLEEPMODE_LASTAWAKE = 2  # when still responding but register must be ignored when not awake
+# keys for config
+CONF_SCAN_INTERVAL_MEDIUM = "scan_interval_medium"
+CONF_SCAN_INTERVAL_FAST = "scan_interval_fast"
+# values for scan_group attribute
+SCAN_GROUP_DEFAULT = CONF_SCAN_INTERVAL  # default scan group, slow; should always work
+SCAN_GROUP_MEDIUM = CONF_SCAN_INTERVAL_MEDIUM  # medium speed scanning (energy, temp, soc...)
+SCAN_GROUP_FAST = CONF_SCAN_INTERVAL_FAST  # fast scanning (power,...)
+SCAN_GROUP_AUTO = "auto"  # _MEDIUM for temperatures, frequency and energy (kWh), otherwise _DEFAULT
+CONF_TIME_OUT = "time_out"
+DEFAULT_TIME_OUT = 5
+
+# ================================= Button autorepeat initval codes for button value_functions ==========================
+BUTTONREPEAT_FIRST = 0  # first manual trigger click
+BUTTONREPEAT_LOOP = 1  # automated loop
+BUTTONREPEAT_POST = -1  # final call after autoduration expired - no action needed in most cases
+
+# ================================= Definitions for Sensor Declarations =================================================
+
+REG_HOLDING = 1  # modbus holding register
+REG_INPUT = 2  # modbus input register
+REGISTER_U16 = "_uint16"
+REGISTER_U32 = "_uint32"
+REGISTER_S16 = "_int16"
+REGISTER_S32 = "_int32"
+REGISTER_F32 = "_float32"  # 32-bit float
+REGISTER_ULSB16MSB16 = "_ulsb16msb16"  # probably same as REGISTER_U32 - suggest to remove later
+REGISTER_STR = "_string"  # nr of bytes must be specified in wordcount and is 2*wordcount
+REGISTER_WORDS = "_words"  # nr or words must be specified in wordcount
+REGISTER_U8L = "_int8L"
+REGISTER_U8H = "_int8H"
+REGISTER_U16_MAX = 0xFFFF
+REGISTER_INT_RANGES: dict[str, tuple[int, int]] = {
+    REGISTER_U16: (0, REGISTER_U16_MAX),
+    REGISTER_S16: (-(1 << 15), (1 << 15) - 1),
+    REGISTER_U32: (0, (1 << 32) - 1),
+    REGISTER_S32: (-(1 << 31), (1 << 31) - 1),
+}
+REGISTER_TYPE_WORDS: dict[str, int] = {
+    REGISTER_U16: 1,
+    REGISTER_S16: 1,
+    REGISTER_U32: 2,
+    REGISTER_S32: 2,
+    REGISTER_F32: 2,
+}
+WRITE_SINGLE_MODBUS = 1  # use write_single_modbus command
+WRITE_MULTISINGLE_MODBUS = 2  # use write_mutiple modbus command for single register
+WRITE_DATA_LOCAL = 3  # write only to local data storage (not persistent)
+WRITE_MULTI_MODBUS = 4  # use write_multiple modbus command
+
+_LOGGER = logging.getLogger(__name__)
+
+DEBOUNCE_TIME = timedelta(seconds=5)  # Time to prioritize user actions
+
+
+class PollOutcome(StrEnum):
+    """Result of a scheduled Modbus poll."""
+
+    SUCCESS = "success"
+    PARTIAL = "partial"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+    DISCARDED = "discarded"
+
+    @property
+    def communication_succeeded(self) -> bool:
+        """Return whether the poll completed without a communication failure."""
+        return self in (PollOutcome.SUCCESS, PollOutcome.PARTIAL, PollOutcome.DISCARDED)
+
+
+# ==================================== plugin base class ====================================================================
+
+
+@dataclass
+class base_battery_config:
+    """Configuration for battery sensors."""
+
+    battery_sensor_type: list[SelectEntityDescription] | None = None
+    battery_sensor_name_prefix: str | None = None
+    battery_sensor_key_prefix: str | None = None
+
+
+@dataclass
+class plugin_base:
+    """Base class for plugin implementations."""
+
+    plugin_name: str
+    plugin_manufacturer: str
+    SENSOR_TYPES: Sequence[SensorEntityDescription]
+    BUTTON_TYPES: Sequence[ButtonEntityDescription]
+    NUMBER_TYPES: Sequence[NumberEntityDescription]
+    SELECT_TYPES: Sequence[SelectEntityDescription]
+    SWITCH_TYPES: Sequence[SwitchEntityDescription]
+    TIME_TYPES: Sequence[TimeEntityDescription]
+    BATTERY_CONFIG: base_battery_config | None = None
+    ENERGY_DASHBOARD_MAPPING: Any = None  # Optional energy dashboard configuration
+    block_size: int = 100
+    auto_block_ignore_readerror: bool | None = None  # if True or False, inserts a ignore_readerror statement for each block
+    # order16: str | None = None # ignored since 2025.09 - assuming "big" for all plugins
+    order32: str | None = None  # "big" or "little" - used to be Endian.BIG or Endian.LITTLE
+    inverter_model: str | None = None
+    default_holding_scangroup: str = SCAN_GROUP_DEFAULT
+    default_input_scangroup: str = SCAN_GROUP_DEFAULT  # or SCAN_GROUP_AUTO
+    auto_default_scangroup: str = SCAN_GROUP_FAST  # only used when default_xxx_scangroup is set to SCAN_GROUP_AUTO
+    auto_slow_scangroup: str = SCAN_GROUP_MEDIUM  # only usedwhen default_xxx_scangroup is set to SCAN_GROUP_AUTO
+
+    def create_hub_instance(self) -> Self:
+        """Create an independent runtime plugin instance for one hub."""
+        return deepcopy(self)
+
+    def isAwake(self, datadict: dict[str, Any]) -> bool:
+        """Check if inverter is awake."""
+        return True  # always awake by default
+
+    def wakeupButton(self) -> str | None:
+        """Return the key for the wakeup button, if any."""
+        return None  # no wakeup button
+
+    async def async_determineInverterType(self, hub: Any, configdict: dict[str, Any]) -> int:
+        """Determine the inverter type from configuration."""
+        return 0
+
+    async def async_determineInverterData(self, hub: Any, configdict: dict[str, Any]) -> bool:
+        """Determine inverter data from hub."""
+        return False
+
+    def matchInverterWithMask(
+        self,
+        inverterspec: Any,
+        entitymask: Any,
+        serialnumber: str = "not relevant",
+        blacklist: list[str] | None = None,
+    ) -> bool:
+        """Match inverter with mask."""
+        return False
+
+    def localDataCallback(self, hub: Any) -> bool:
+        """Called when local data is updated or on startup."""
+        return True
+
+    def getModel(self, new_data: dict[str, Any]) -> str | None:
+        """Get model from data dictionary."""
+        return None
+
+    def getSoftwareVersion(self, new_data: dict[str, Any]) -> str | None:
+        """Get software version from data dictionary."""
+        return None
+
+    def getHardwareVersion(self, new_data: dict[str, Any]) -> str | None:
+        """Get hardware version from data dictionary."""
+        return None
+
+
+# =================================== base class for sensor entity descriptions =========================================
+
+
+@dataclass(kw_only=True, frozen=True)
+class BaseModbusSensorEntityDescription(SensorEntityDescription):
+    """Base class for modbus sensor declarations."""
+
+    allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    order32: str | None = None  # per-sensor 32-bit word order override ("big"/"little"); None = plugin default
+    modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
+    modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
+    scale: float | dict[Any, Any] | Callable[[Any, Any, dict[str, Any]], Any] = (
+        1  # can be float, dictionary or callable function(initval, descr, datadict)
+    )
+    read_scale_exceptions: list[Any] | None = None  # additional scaling when reading from modbus
+    read_scale: float = 1
+    blacklist: list[str] | None = None
+    register: int = -1  # initialize with invalid register
+    rounding: int = 1
+    register_type: int | None = None  # REG_HOLDING or REG_INPUT or REG_DATA
+    register_data_type: str | None = None  # REGISTER_U16, REGISTER_S32, REGISTER_F32, etc.
+    scan_group: str | None = None  # SCAN_GROUP_MEDIUM, SCAN_GROUP_FAST, SCAN_GROUP_DEFAULT, etc.
+    internal: bool = False  # internal sensors are used for reading data only; used for computed, selects, etc
+    newblock: bool = False  # set to True to start a new modbus read block operation - do not use frequently
+    # prevent_update: bool = False # if set to True, value will not be re-read/updated with each polling cycle; only when read value changes
+    value_function: Callable[[Any, Any, dict[str, Any]], Any] | None = None  #  value = function(initval, descr, datadict)
+    wordcount: int | None = None  # only for register_data_type = REGISTER_STR and REGISTER_WORDS
+    sleepmode: int | None = SLEEPMODE_LAST  # or SLEEPMODE_ZERO, SLEEPMODE_NONE or SLEEPMODE_LASTAWAKE
+    ignore_readerror: bool | Any = False  # not strictly boolean: boolean or static other value
+    # if False, read errors will invalidate the data
+    # if True, data will remain untouched
+    # if not False nor True (e.g. a number): ignore read errors for this block and return this static value
+    # A failing block read will be accepted as valid block if the first entity of the block contains a non-False ignore_readerror attribute.
+    # The other entitties of the block can also have an ignore_readerror attribute that determines the value returned upon failure
+    # so typically this attribute can be set to None or "Unknown" or any other value
+    # This only works if the first entity of a block contains this attribute
+    # When simply set to True, no initial value will be returned, but the block will be considered valid
+    value_series: int | None = None  # if not None, the value is part of a series of values with similar properties
+    # The name and key must contain a placeholder {} that is replaced by the preceding number
+    min_value: int | None = None
+    max_value: int | None = None
+    # Register keys that must be read. On partial polls, computed sensors are only
+    # recalculated when every explicitly declared dependency is fresh.
+    depends_on: list[str] | None = None
+    _energy_dashboard_device_info: Any = None  # DeviceInfo for energy dashboard
+    _energy_dashboard_mapping: Any = None  # EnergyDashboardMapping
+    _energy_dashboard_source_hub: Any = None  # Source hub reference
+    _is_riemann_sum_sensor: bool = False  # Whether this is a Riemann sum sensor
+    _riemann_mapping: Any = None  # Riemann mapping configuration
+    _riemann_data_hub: Any = None  # Riemann data hub reference
+    _is_daily_delta_sensor: bool = False  # Whether this is a daily delta sensor calculated from a cumulative total
+    _daily_delta_source_key: str | None = None  # Source cumulative total key for daily delta sensors
+
+
+@dataclass(kw_only=True, frozen=True)
+class BaseModbusButtonEntityDescription(ButtonEntityDescription):
+    """Base class for modbus button declarations."""
+
+    allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
+    modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
+    register: int | None = None
+    command: int | None = None
+    blacklist: list[str] | None = None  # none or list of serial number prefixes
+    write_method: int = WRITE_SINGLE_MODBUS  # WRITE_SINGLE_MOBUS or WRITE_MULTI_MODBUS or WRITE_DATA_LOCAL
+    value_function: Callable[[Any, Any, dict[str, Any]], Any] | None = None  #  value = function(initval, descr, datadict)
+    autorepeat: str | None = None  # if not None: name of entity that contains autorepeat duration in seconds
+    depends_on: list[str] | None = None  # list of modbus register keys that must be read
+
+
+@dataclass(kw_only=True, frozen=True)
+class BaseModbusSelectEntityDescription(SelectEntityDescription):
+    """Base class for modbus select declarations."""
+
+    allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
+    modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
+    register: int | None = None
+    option_dict: dict[int, str] | None = None
+    reverse_option_dict: dict[str, int] | None = None  # autocomputed
+    blacklist: list[str] | None = None  # none or list of serial number prefixes
+    write_method: int = WRITE_SINGLE_MODBUS  # WRITE_SINGLE_MOBUS or WRITE_MULTI_MODBUS or WRITE_DATA_LOCAL
+    initvalue: int | None = None  # initial default value for WRITE_DATA_LOCAL entities
+    register_data_type: str | None = None  # REGISTER_U16, REGISTER_S32, REGISTER_F32, etc.
+    sensor_key: str | None = None  # specify only when corresponding sensor has a different key name
+    depends_on: list[str] | None = None  # list of modbus register keys that must be read
+    value_function: Callable[[Any, Any, dict[str, Any]], Any] | None = None  # value function for autorepeat (same pattern as buttons)
+    autorepeat: bool = False  # if True: select will use value_function for autorepeat
+
+
+@dataclass(kw_only=True, frozen=True)
+class BaseModbusSwitchEntityDescription(SwitchEntityDescription):
+    """Base class for modbus switch declarations."""
+
+    allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
+    modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
+    register: int | None = None
+    register_bit: int | None = None
+    blacklist: list[str] | None = None  # none or list of serial number prefixes
+    write_method: int = WRITE_SINGLE_MODBUS  # WRITE_SINGLE_MODBUS or WRITE_MULTI_MODBUS or WRITE_DATA_LOCAL
+    initvalue: int | None = None  # initial default value for WRITE_DATA_LOCAL entities
+    sensor_key: str | None = None  # The associated sensor key
+    value_function: Callable[[int | None, bool | None, str | None, dict[str, Any]], int] | None = (
+        None  # Value function: (bit, state, sensor_key, datadict) -> payload
+    )
+    depends_on: list[str] | None = None  # list of modbus register keys that must be read
+
+
+@dataclass(kw_only=True, frozen=True)
+class BaseModbusTimeEntityDescription(TimeEntityDescription):
+    """Base class for modbus time declarations."""
+
+    allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
+    modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
+    scale: float | dict[Any, Any] | Callable[[Any, Any, dict[str, Any]], Any] = 1
+    read_scale_exceptions: list[Any] | None = None
+    read_scale: float = 1
+    register: int = -1
+    rounding: int = 1
+    register_type: int | None = None  # REG_HOLDING or REG_INPUT or REG_DATA
+    register_data_type: str | None = REGISTER_U16  # REGISTER_U16, REGISTER_S32, REGISTER_F32, etc.
+    scan_group: str | None = None  # SCAN_GROUP_MEDIUM, SCAN_GROUP_FAST, SCAN_GROUP_DEFAULT, etc.
+    newblock: bool = False  # set to True to start a new modbus read block operation
+    option_dict: dict[int, str] | None = None
+    reverse_option_dict: dict[str, int] | None = None  # autocomputed
+    blacklist: list[str] | None = None  # none or list of serial number prefixes
+    write_method: int = WRITE_SINGLE_MODBUS  # WRITE_SINGLE_MOBUS or WRITE_MULTI_MODBUS or WRITE_DATA_LOCAL
+    initvalue: int | None = None  # initial default value for WRITE_DATA_LOCAL entities
+    wordcount: int | None = None  # number of registers to write (for separate register format, e.g., hours and minutes in adjacent registers)
+    sleepmode: int | None = SLEEPMODE_LAST  # or SLEEPMODE_ZERO, SLEEPMODE_NONE or SLEEPMODE_LASTAWAKE
+    ignore_readerror: bool | Any = False
+    min_value: int | None = None
+    max_value: int | None = None
+    depends_on: list[str] | None = None  # list of modbus register keys that must be read
+
+
+@dataclass(kw_only=True, frozen=True)
+class BaseModbusNumberEntityDescription(NumberEntityDescription):
+    """Base class for modbus number declarations."""
+
+    allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
+    modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
+    register: int | None = None
+    read_scale_exceptions: list[Any] | None = None
+    read_scale: float = 1
+    fmt: str | None = None
+    scale: float = 1
+    state: str | None = None
+    max_exceptions: list[tuple[str, int | float]] | None = None  #  None or list with structure [ ('U50EC' , 40,) ]
+    min_exceptions_minus: list[tuple[str, int | float]] | None = None  # same structure as max_exceptions, values are applied with a minus
+    blacklist: list[str] | None = None  # None or list of serial number prefixes like
+    write_method: int = WRITE_SINGLE_MODBUS  # WRITE_SINGLE_MOBUS or WRITE_MULTI_MODBUS or WRITE_DATA_LOCAL
+    initvalue: int | None = None  # initial default value for WRITE_DATA_LOCAL entities
+    register_data_type: str | None = None  # REGISTER_U16, REGISTER_S32, REGISTER_F32, etc.
+    prevent_update: bool = False  # if set to True, value will not be re-read/updated with each polling cycle;
+    # update only when read value changes
+    sensor_key: str | None = None  # only specify this if corresponding sensor has a different key name
+    depends_on: list[str] | None = None  # list of modbus register keys that must be read
+    display_as_box: bool = True  # display numbers as an input box (default); set False for a slider.
+    suggested_display_precision: int | None = None
+
+
+def modbus_protocol_version(hub: Any) -> int:
+    """Return the detected Modbus protocol document version for a hub."""
+    version = getattr(hub, "modbus_protocol_version", None)
+    if version in (None, 0, "0", ""):
+        version = getattr(hub, "data", {}).get("modbus_protocol_version", 0)
+    try:
+        return int(version or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def matches_modbus_protocol(hub: Any, description: Any) -> bool:
+    """Return whether a description applies to the detected Modbus protocol version.
+
+    Unknown protocol versions keep legacy/fallback descriptions, but avoid creating
+    entities that explicitly require a newer protocol document.
+    """
+    min_version = getattr(description, "modbus_min", None)
+    max_version = getattr(description, "modbus_max", None)
+    if min_version is None and max_version is None:
+        return True
+
+    version = modbus_protocol_version(hub)
+    if version <= 0:
+        return min_version is None
+
+    if min_version is not None and version < min_version:
+        return False
+    if max_version is not None and version > max_version:
+        return False
+    return True
+
+
+# ========================= autorepeat aux functions to be used on hub.data dictionary ===============================
+
+
+def autorepeat_set(datadict: dict[str, Any], entitykey: str, value: float) -> None:
+    """Set autorepeat expiry time for an entity."""
+    datadict["_repeatUntil"][entitykey] = value
+
+
+def autorepeat_stop(datadict: dict[str, Any], entitykey: str) -> None:
+    """Stop autorepeat for an entity."""
+    datadict["_repeatUntil"][entitykey] = 0
+
+
+def autorepeat_stop_with_postaction(datadict: dict[str, Any], entitykey: str) -> None:
+    """Stop autorepeat with post-action trigger."""
+    datadict["_repeatUntil"][entitykey] = 1
+
+
+def autorepeat_remaining(datadict: dict[str, Any], entitykey: str, timestamp: float) -> int:
+    """Get remaining autorepeat time in seconds."""
+    remaining = datadict["_repeatUntil"].get(entitykey, 0) - timestamp
+    return int(remaining) if remaining > 0 else 0
+
+
+# ================================= Computed sensor value functions  =================================================
+
+
+MAX_PVSTRINGS: int = 10
+
+
+def value_str_default(val: Any, default: str) -> str:
+    return str(val) if val is not None else default
+
+
+def value_function_pv_power_total(initval: Any, descr: Any, datadict: dict[str, Any]) -> int | float:
+    """Calculate total PV power from all strings."""
+    # changed: for performance reasons, we should not iterate over the entire datadict every polling cycle (contains hundreds ...)
+    total: int | float = 0
+    i = 1
+    while i <= MAX_PVSTRINGS:
+        v = datadict.get(f"pv_power_{i}", None)
+        if v is None:
+            break
+        else:
+            total += v
+        i += 1
+    return total
+
+
+def value_function_battery_output(initval: Any, descr: Any, datadict: dict[str, Any]) -> int | float:
+    """Calculate battery output power (discharge)."""
+    val: int | float = datadict.get("battery_power_charge", 0)
+    if val < 0:
+        return abs(val)
+    return 0
+
+
+def value_function_battery_input(initval: Any, descr: Any, datadict: dict[str, Any]) -> int | float:
+    """Calculate battery input power (charge)."""
+    val: int | float = datadict.get("battery_power_charge", 0)
+    if val > 0:
+        return val
+    return 0
+
+
+def value_function_battery_output_solis(initval: Any, descr: Any, datadict: dict[str, Any]) -> int | float:
+    """Calculate battery output power for Solis inverters."""
+    inout: int = datadict.get("battery_charge_direction", 0)
+    val: int | float = datadict.get("battery_power", 0)
+    if inout == 1:
+        return abs(val)
+    return 0
+
+
+def value_function_battery_input_solis(initval: Any, descr: Any, datadict: dict[str, Any]) -> int | float:
+    """Calculate battery input power for Solis inverters."""
+    inout: int = datadict.get("battery_charge_direction", 0)
+    val: int | float = datadict.get("battery_power", 0)
+    if inout == 0:
+        return val
+    return 0
+
+
+def value_function_disabled_enabled(initval: Any, descr: Any, datadict: dict[str, Any]) -> str:
+    """Convert 0/1 to Disabled/Enabled string."""
+    scale = {
+        0: "Disabled",
+        1: "Enabled",
+    }
+    return scale.get(initval, str(initval) + " Unknown Status")
+
+
+def value_function_enable_disable(bit: int | None, state: bool | None, sensor_key: str | None, datadict: dict[str, Any]) -> int:
+    """Switch value function: write 1 for on, 0 for off (standard enable/disable register)."""
+    return 1 if state else 0
+
+
+def value_function_disable_enable(bit: int | None, state: bool | None, sensor_key: str | None, datadict: dict[str, Any]) -> int:
+    """Switch value function: write 0 for on, 1 for off (inverted-polarity register)."""
+    return 0 if state else 1
+
+
+def value_function_gain_offset(initval: Any, descr: Any, datadict: dict[str, Any]) -> float:
+    """Apply gain and offset calibration to power measurement."""
+    # Simple offset (unit) and gain (%) calibration of the measured power
+    offset: int | float = datadict.get(descr.key + "_offset", 0)
+    gain: int | float = datadict.get(descr.key + "_gain", 100)
+    return float((initval + offset) * (gain / 100.0))
+
+
+def value_function_grid_import(initval: Any, descr: Any, datadict: dict[str, Any]) -> int | float:
+    """Calculate grid import power."""
+    val: int | float = datadict.get("measured_power", 0)
+    if val < 0:
+        return abs(val)
+    return 0
+
+
+def value_function_grid_export(initval: Any, descr: Any, datadict: dict[str, Any]) -> int | float:
+    """Calculate grid export power."""
+    val: int | float = datadict.get("measured_power", 0)
+    if val > 0:
+        return val
+    return 0
+
+
+def value_function_sync_rtc(initval: Any, descr: Any, datadict: dict[str, Any]) -> list[tuple[str, int]]:
+    """Generate RTC sync values in dmy order."""
+    now = datetime.now()
+    return [
+        (
+            REGISTER_U16,
+            now.second,
+        ),
+        (
+            REGISTER_U16,
+            now.minute,
+        ),
+        (
+            REGISTER_U16,
+            now.hour,
+        ),
+        (
+            REGISTER_U16,
+            now.day,
+        ),
+        (
+            REGISTER_U16,
+            now.month,
+        ),
+        (
+            REGISTER_U16,
+            now.year % 100,
+        ),
+    ]
+
+
+def value_function_sync_rtc_ymd(initval: Any, descr: Any, datadict: dict[str, Any]) -> list[tuple[str, int]]:
+    """Generate RTC sync values in ymd order with optional offset."""
+    offset = datadict.get("sync_rtc_offset", 0)
+    if isinstance(offset, (float, int)):
+        now = datetime.now() + timedelta(seconds=offset)
+    else:
+        now = datetime.now()
+
+    return [
+        (
+            REGISTER_U16,
+            now.year % 100,
+        ),
+        (
+            REGISTER_U16,
+            now.month,
+        ),
+        (
+            REGISTER_U16,
+            now.day,
+        ),
+        (
+            REGISTER_U16,
+            now.hour,
+        ),
+        (
+            REGISTER_U16,
+            now.minute,
+        ),
+        (
+            REGISTER_U16,
+            now.second,
+        ),
+    ]
+
+
+def value_function_rtc(initval: Any, descr: Any, datadict: dict[str, Any]) -> datetime | None:
+    """Parse RTC value in dmy order."""
+    try:
+        (
+            rtc_seconds,
+            rtc_minutes,
+            rtc_hours,
+            rtc_days,
+            rtc_months,
+            rtc_years,
+        ) = initval
+        return datetime(
+            2000 + rtc_years % 100,
+            rtc_months,
+            rtc_days,
+            rtc_hours,
+            rtc_minutes,
+            rtc_seconds,
+            tzinfo=datetime.now().astimezone().tzinfo,
+        )
+    except Exception:
+        return None
+
+
+def value_function_rtc_ymd(initval: Any, descr: Any, datadict: dict[str, Any]) -> datetime | None:
+    """Parse RTC value in ymd order."""
+    try:
+        (
+            rtc_years,
+            rtc_months,
+            rtc_days,
+            rtc_hours,
+            rtc_minutes,
+            rtc_seconds,
+        ) = initval
+        val = f"{rtc_days:02}/{rtc_months:02}/{rtc_years % 100:02} {rtc_hours:02}:{rtc_minutes:02}:{rtc_seconds:02}"
+        return datetime.strptime(val, "%d/%m/%y %H:%M:%S")  # ok since sensor.py has been adapted
+    except Exception:
+        return None
+
+
+def value_function_gen4time(initval: Any, descr: Any, datadict: dict[str, Any]) -> str:
+    """Parse Gen4 time format."""
+    h = initval % 256
+    m = initval >> 8
+    return f"{h:02d}:{m:02d}"
+
+
+def value_function_gen23time(initval: Any, descr: Any, datadict: dict[str, Any]) -> str:
+    """Parse Gen2/3 time format."""
+    (
+        h,
+        m,
+    ) = initval
+    return f"{h:02d}:{m:02d}"
+
+
+def value_function_separate_registers_time(initval: Any, descr: Any, datadict: dict[str, Any]) -> str:
+    """Parse time from separate registers format (hours in first register, minutes in second)."""
+    # initval is a list/tuple of [hours, minutes] from REGISTER_WORDS with wordcount=2
+    if isinstance(initval, (list, tuple)) and len(initval) >= 2:
+        h = int(initval[0])
+        m = int(initval[1])
+        return f"{h:02d}:{m:02d}"
+    # Fallback for single value (shouldn't happen with proper sensor config)
+    return "00:00"
+
+
+def value_function_sofartime(initval: Any, descr: Any, datadict: dict[str, Any]) -> str:
+    """Parse Sofar time format."""
+    m = initval % 256
+    h = initval >> 8
+    return f"{h:02d}:{m:02d}"
+
+
+def value_function_firmware(initval: Any, descr: Any, datadict: dict[str, Any]) -> str:
+    """Parse firmware version from two bytes."""
+    m = initval % 256
+    h = initval >> 8
+    return f"{h}.{m:02d}"
+
+
+def value_function_firmware_decimal_hundredths(initval: Any, descr: Any, datadict: dict[str, Any]) -> str | Any:
+    """Decode firmware value expressed as integer hundredths (e.g. 611 -> 6.11)."""
+    try:
+        return f"{initval / 100:.2f}"
+    except Exception:
+        return initval
+
+
+def value_function_2byte_timestamp(initval: Any, descr: Any, datadict: dict[str, Any]) -> datetime | None:
+    """Parse 2-byte packed timestamp."""
+    # Real-time data timestamp
+    # Bit0-5: second, range 0-59
+    # Bit6-11: minute, range 0-59
+    # Bit12-16: hour, range 0-23
+    # Bit17-21: day, range 1-31
+    # Bit22-25: month, range 1-12
+    # Bit26-31: year, range 0-63 (from the year 2000)"
+    try:
+        second = initval & 0b111111
+        initval = initval >> 6
+        minute = initval & 0b111111
+        initval = initval >> 6
+        hour = initval & 0b11111
+        initval = initval >> 5
+        day = initval & 0b11111
+        initval = initval >> 5
+        month = initval & 0b1111
+        initval = initval >> 4
+        year = initval & 0b111111
+        val = f"{day:02}/{month:02}/{year:02} {hour:02}:{minute:02}:{second:02}"
+        return datetime.strptime(val, "%d/%m/%y %H:%M:%S")
+    except Exception:
+        return None
+
+
+# ================================= Computed Time Values =================================================
+
+TIME_OPTIONS: dict[int, str] = {}
+TIME_OPTIONS_GEN4: dict[int, str] = {}
+for h in range(0, 24):
+    for m in range(0, 60):
+        TIME_OPTIONS[m * 256 + h] = f"{h:02}:{m:02}"
+        TIME_OPTIONS_GEN4[h * 256 + m] = f"{h:02}:{m:02}"
+
+# For separate register format where hours and minutes are in adjacent registers
+# Hours written to first register, minutes written to second register
+TIME_OPTIONS_HOURS: dict[int, str] = {h: f"{h:02}" for h in range(0, 24)}
+TIME_OPTIONS_MINUTES: dict[int, str] = {m: f"{m:02}" for m in range(0, 60)}
+
+# Combined option dict for separate register format (hours in first register, minutes in second)
+# Used with wordcount=2 to write both registers sequentially
+TIME_OPTIONS_SEPARATE_REGISTERS: dict[int, str] = {h * 100 + m: f"{h:02}:{m:02}" for h in range(0, 24) for m in range(0, 60)}

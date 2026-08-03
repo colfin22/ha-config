@@ -1357,17 +1357,17 @@
               "cards": [
                 {
                   "type": "tile",
-                  "entity": "sensor.battery_charged_today",
+                  "entity": "sensor.solis_battery_charge_today",
                   "name": "Charged Today"
                 },
                 {
                   "type": "tile",
-                  "entity": "sensor.battery_discharged_today",
+                  "entity": "sensor.solis_battery_discharge_today",
                   "name": "Discharged Today"
                 },
                 {
                   "type": "gauge",
-                  "entity": "sensor.battery_state_of_charge",
+                  "entity": "sensor.solis_battery_soc",
                   "name": "Battery Level",
                   "min": 0,
                   "max": 100,
@@ -1597,7 +1597,7 @@
           "badges": [
             {
               "type": "entity",
-              "entity": "sensor.solar_power_production",
+              "entity": "sensor.solis_pv_total_power",
               "name": "Solar",
               "show_name": true
             },
@@ -1615,8 +1615,14 @@
             },
             {
               "type": "entity",
-              "entity": "sensor.battery_flow_now",
+              "entity": "sensor.solis_energy_dashboard_solis_battery_power",
               "name": "Battery",
+              "show_name": true
+            },
+            {
+              "type": "entity",
+              "entity": "sensor.solis_house_load",
+              "name": "House",
               "show_name": true
             }
           ]
@@ -3662,7 +3668,7 @@
           "cards": [
             {
               "type": "iframe",
-              "url": "/local/infra.html?v=20260720j",
+              "url": "/local/infra.html?v=20260801a",
               "disable_sandbox": true
             }
           ]

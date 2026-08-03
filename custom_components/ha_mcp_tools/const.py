@@ -24,7 +24,7 @@ DOMAIN = "ha_mcp_tools"
 # manifest bump that forgets this constant (or vice-versa) fails in CI. The
 # capability negotiation — not this version — gates each WS command (see
 # ``websocket_api.CAPABILITIES``).
-COMPONENT_VERSION = "1.1.0"
+COMPONENT_VERSION = "1.2.3"
 
 # Config-entry discriminator (``entry.data[CONF_ENTRY_TYPE]``). A missing value
 # means "tools" so the pre-existing services entry keeps working across the
@@ -40,8 +40,17 @@ TOOLS_ENTRY_TITLE = "HA-MCP File & YAML Tools"
 TOOLS_ENTRY_LEGACY_TITLE = "HA MCP Tools"
 MIN_EMBEDDED_HOME_ASSISTANT_VERSION = "2026.6.0"
 
-# Allowed directories for file operations (relative to config dir)
-ALLOWED_READ_DIRS = ["www", "themes", "custom_templates", "dashboards"]
+# Allowed directories for file operations (relative to config dir).
+# "blueprints" is read-only BY DEFAULT — in ALLOWED_READ_DIRS but not
+# ALLOWED_WRITE_DIRS, so ha_write_file / ha_delete_file reject it (raw blueprint
+# reads are safe: community YAML, no secrets — issue #1965). This is the default
+# allowlist, not an absolute guarantee: an admin who adds "blueprints" as a
+# custom extra directory (issue #1567, see _current_extra_dirs) grants it
+# read+write, since extra_dirs are honored on the write path too. Blueprint
+# writes should instead go through ha_import_blueprint (which invokes the
+# blueprint/save WS command internally). Prefer ha_get_blueprint for the parsed
+# body; raw read is the escape hatch for the exact on-disk text.
+ALLOWED_READ_DIRS = ["www", "themes", "custom_templates", "dashboards", "blueprints"]
 ALLOWED_WRITE_DIRS = ["www", "themes", "custom_templates", "dashboards"]
 
 # NON-OVERRIDABLE deny floor for the user-configurable extra read/write
@@ -445,12 +454,32 @@ SERVER_USER_NAME = "HA-MCP Server"
 # namespace (mirrors the webhook-proxy add-on's /api/mcp_proxy/oauth base).
 OAUTH_BASE = "/api/ha_mcp_tools/oauth"
 
-# HACS "add repository" deep link for the custom component. Shared learn_more_url
-# for every repair issue that ends with "install/reinstall the component via
-# HACS" (the component-outdated issue and the legacy-HACS-source issue below).
+# HACS repository full_names (``owner/repo``, the key HACS's repository registry
+# uses) this component may be tracked under: the dedicated integration mirror is
+# the current install path; the main ha-mcp server repo is the legacy pre-mirror
+# path (see install_source_check). Shared by the legacy-source check and the
+# HACS refresh nudge (hacs_nudge) so a repository rename lands in one place.
+HACS_MIRROR_REPO_FULL_NAME = "homeassistant-ai/ha-mcp-integration"
+HACS_LEGACY_REPO_FULL_NAME = "homeassistant-ai/ha-mcp"
+
+# HACS "add repository" deep link for the custom component. learn_more_url for
+# the legacy-HACS-source repair (install_source_check) only, whose fix really is
+# re-adding the repository. The update-held and component-outdated issues point
+# at UPDATE_HOLD_DOCS_URL instead — for an already-installed component this deep
+# link just opens a blank "add repository" dialog.
 HACS_COMPONENT_URL = (
     "https://my.home-assistant.io/redirect/hacs_repository/"
     "?owner=homeassistant-ai&repository=ha-mcp-integration&category=integration"
+)
+
+# Docs section explaining the automatic-update hold, linked as learn_more_url
+# from the update-held and component-outdated repair issues (both resolve by
+# updating an already-installed component, not by re-adding a repository). The
+# anchor is the GitHub slug of the "Held server updates" heading in
+# docs/in-process-server.md; hassfest forbids literal URLs inside strings.json.
+UPDATE_HOLD_DOCS_URL = (
+    "https://github.com/homeassistant-ai/ha-mcp/blob/master/docs/"
+    "in-process-server.md#held-server-updates"
 )
 
 # Usage guide for the conversation-agent LLM API option (#1745). Injected into
