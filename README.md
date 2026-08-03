@@ -70,7 +70,7 @@ This repository is the live, version-controlled configuration that runs the hous
 | [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; automation fires immediately on new alerts |
 | [Forecast.Solar](https://forecast.solar/) | Solar production forecast |
 | [Electricity Maps](https://www.electricitymaps.com/) | Grid CO2 intensity |
-| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — ESB Networks smart meter data via HDF - feeds Solar dashboard and InfluxDB |
+| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — ESB Networks smart meter data via HDF export; feeds long-term energy history and the tariff comparison. The official meter data arrives roughly a day and a half in arrears, so it is kept out of the live dashboard |
 
 ### Media & Lifestyle
 | Integration | Purpose |
