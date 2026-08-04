@@ -12,7 +12,7 @@ command_line:
       unique_id: frigate_overnight_person_count
       icon: mdi:motion-sensor
       scan_interval: 300
-      command: "sh /config/frigate_person_events.sh"
+      command: "ssh -i /config/.ssh/frigate_sensor -o StrictHostKeyChecking=no -o BatchMode=yes hassio@10.0.0.246 sh /home/hassio/frigate_events.sh"
       value_template: >
         {% set ns = namespace(n=0) %}
         {% for e in value_json %}
@@ -27,7 +27,7 @@ command_line:
       unique_id: frigate_overnight_best_camera
       icon: mdi:cctv
       scan_interval: 300
-      command: "sh /config/frigate_person_events.sh"
+      command: "ssh -i /config/.ssh/frigate_sensor -o StrictHostKeyChecking=no -o BatchMode=yes hassio@10.0.0.246 sh /home/hassio/frigate_events.sh"
       value_template: >
         {% set ns = namespace(cam='', ts=0) %}
         {% for e in value_json %}
@@ -43,7 +43,7 @@ command_line:
       unique_id: frigate_overnight_best_time
       icon: mdi:clock
       scan_interval: 300
-      command: "sh /config/frigate_person_events.sh"
+      command: "ssh -i /config/.ssh/frigate_sensor -o StrictHostKeyChecking=no -o BatchMode=yes hassio@10.0.0.246 sh /home/hassio/frigate_events.sh"
       value_template: >
         {% set ns = namespace(ts=0) %}
         {% for e in value_json %}
@@ -58,7 +58,7 @@ command_line:
       unique_id: frigate_overnight_camera_count
       icon: mdi:cctv
       scan_interval: 300
-      command: "sh /config/frigate_person_events.sh"
+      command: "ssh -i /config/.ssh/frigate_sensor -o StrictHostKeyChecking=no -o BatchMode=yes hassio@10.0.0.246 sh /home/hassio/frigate_events.sh"
       value_template: >
         {% set ns = namespace(cams=[]) %}
         {% for e in value_json %}
