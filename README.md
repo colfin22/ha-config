@@ -227,7 +227,7 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 
 ### Home Assistant statistics
 
-Home Assistant keeps its own hourly statistics indefinitely, separately from InfluxDB. When a data source is replaced the old readings are kept as standalone statistics, so the energy dashboard holds its full history rather than restarting: solar and battery back to 11-06-2025 from the previous inverter integration, and grid import and export from the official meter.
+Home Assistant keeps its own hourly statistics indefinitely, separately from InfluxDB. When a data source is replaced the old readings are kept as standalone statistics, so the energy dashboard holds its full history rather than restarting: solar and battery back to 11-06-2025 from the previous inverter integration, and grid import and export from the official meter. They are copied into InfluxDB each night as a second, independent copy that only ever gains new readings, so a fault in Home Assistant cannot overwrite the good one.
 
 ### Grafana dashboards
 
@@ -266,6 +266,7 @@ All alert automations respect a **22:00–07:00 quiet window** — overnight eve
 |---|---|---|
 | Home Assistant | Git — selective `.storage` files | `colfin22/ha-config` (this repo) |
 | Home Assistant VM | Proxmox hourly + daily snapshots — 24h/7d retention | — |
+| HA long-term statistics | Nightly copy into InfluxDB; only ever adds, never overwrites | — |
 | MikroTik | Proxmox cron → API export nightly at 02:00 | `colfin22/mikrotik-config` |
 | TrueNAS Config | Proxmox cron → API `config/save` weekly Sunday 02:00 | `colfin22/truenas-config` |
 | Frigate | Git — `config.yml` | `colfin22/frigate-config` |
