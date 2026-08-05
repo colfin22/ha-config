@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-66-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-67-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -94,7 +94,7 @@ This repository is the live, version-controlled configuration that runs the hous
 
 ## 🤖 Automations
 
-66 automations across the home. Key highlights:
+67 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
@@ -147,6 +147,7 @@ This repository is the live, version-controlled configuration that runs the hous
 - **Battery depleted early** — alerts only if the battery reaches its reserve while electricity is still at the day rate; reaching it later, once the cheap rate has started, is normal and stays silent
 - **Battery health check** — monthly state-of-health reading compared against the month before, kept as a slow-burn record for warranty purposes
 - **String imbalance** — the two roof aspects sit on separate strings, so their daily peaks are compared; alerts only after several qualifying days of one trailing the other, which points at shading, soiling or a panel fault rather than weather
+- **Inverter clock sync** — the cheap-rate battery charge runs to a window held in the inverter's own clock, and the inverter has no daylight-saving setting, so the clock is resynchronised on the last Sunday of March and October; without it the spring change would leave the tail of the charge running at the day rate
 
 ### 🏠 Infrastructure Monitoring
 - **Infrastructure health & backup alerts** — migrated to Node-RED for more complex workflows; see the **Infra Health & Alerts** flow below.

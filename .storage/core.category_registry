@@ -34,13 +34,6 @@
           "name": "Lighting"
         },
         {
-          "category_id": "01KR39AA23TP5MC0YZF92DVR8D",
-          "created_at": "2026-05-08T07:54:59.011013+00:00",
-          "icon": "mdi:thermometer",
-          "modified_at": "2026-05-08T07:54:59.011019+00:00",
-          "name": "Climate"
-        },
-        {
           "category_id": "01KR39AA2E0TDWWP01TZD0XZVG",
           "created_at": "2026-05-08T07:54:59.022742+00:00",
           "icon": "mdi:shield-lock",
@@ -81,6 +74,13 @@
           "icon": null,
           "modified_at": "2026-07-20T12:40:29.240247+00:00",
           "name": "Infrastructure"
+        },
+        {
+          "category_id": "01KZ9CFY8C1KMJW6K1SSRV9SSN",
+          "created_at": "2026-08-05T16:35:48.620636+00:00",
+          "icon": null,
+          "modified_at": "2026-08-05T16:35:48.620637+00:00",
+          "name": "Solar"
         }
       ],
       "scene": [
@@ -113,25 +113,11 @@
           "name": "Bedrooms"
         },
         {
-          "category_id": "01KR3WHA3NWB47V6G7998XT2DE",
-          "created_at": "2026-05-08T13:30:51.381507+00:00",
-          "icon": "mdi:home",
-          "modified_at": "2026-05-08T13:30:51.381511+00:00",
-          "name": "Whole House"
-        },
-        {
           "category_id": "01KR3WHAMCD531YKBAMF592HJ5",
           "created_at": "2026-05-08T13:30:51.916146+00:00",
           "icon": "mdi:desk",
           "modified_at": "2026-05-08T13:30:51.916149+00:00",
           "name": "Office"
-        },
-        {
-          "category_id": "01KSD0WDJKK8GJ1FKVXS4FKCZB",
-          "created_at": "2026-05-24T12:55:41.395522+00:00",
-          "icon": null,
-          "modified_at": "2026-05-24T12:55:41.395526+00:00",
-          "name": "Hallway"
         }
       ],
       "helpers": [
@@ -146,8 +132,8 @@
           "category_id": "01KR3WY7M1H9RBQJEFWF6XJT2Z",
           "created_at": "2026-05-08T13:37:54.817673+00:00",
           "icon": "mdi:lightning-bolt",
-          "modified_at": "2026-05-08T13:37:54.817678+00:00",
-          "name": "Electricity"
+          "modified_at": "2026-08-05T16:35:48.620562+00:00",
+          "name": "Energy"
         },
         {
           "category_id": "01KR3WY8F22A8542BHBY74RBEY",
@@ -181,8 +167,8 @@
           "category_id": "01KSBFXB6D2DZHV72AWBTYQXX8",
           "created_at": "2026-05-23T22:39:51.501342+00:00",
           "icon": "mdi:cog",
-          "modified_at": "2026-05-23T22:39:51.501346+00:00",
-          "name": "System"
+          "modified_at": "2026-08-05T16:35:48.620451+00:00",
+          "name": "Infrastructure"
         },
         {
           "category_id": "01KSM0812XQR8XC1BC175X41X5",
@@ -209,8 +195,8 @@
           "category_id": "01KSMJMS77QFP1C58QYR9SB27X",
           "created_at": "2026-05-27T11:20:46.567241+00:00",
           "icon": "mdi:cctv",
-          "modified_at": "2026-05-27T11:20:46.567245+00:00",
-          "name": "Camera"
+          "modified_at": "2026-08-05T16:35:48.618552+00:00",
+          "name": "Cameras"
         },
         {
           "category_id": "01KVMDXX4BTSN96A7G3FJT9DPV",

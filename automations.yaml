@@ -709,8 +709,8 @@
   - target:
       entity_id: input_number.yesterday_export_compensation
     data:
-      value: '{{ (states(''sensor.solis_grid_export_today'') | float(0) *
-        0.19) | round(4) }}'
+      value: '{{ (states(''sensor.solis_grid_export_today'') | float(0) * 0.19) |
+        round(4) }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.yesterday_eddi_diverted
@@ -1219,8 +1219,8 @@
     at: '20:00:00'
   conditions:
   - condition: template
-    value_template: '{{ (states(''sensor.solis_grid_import_today'') | float(0))
-      - (states(''input_number.grid_import_at_8am_baseline'') | float(0)) < 0.1 }}'
+    value_template: '{{ (states(''sensor.solis_grid_import_today'') | float(0)) -
+      (states(''input_number.grid_import_at_8am_baseline'') | float(0)) < 0.1 }}'
   actions:
   - action: notify.send_message
     target:
@@ -1232,11 +1232,11 @@
       message: 'You went the whole day without importing from the grid after 8am!
 
 
-        Exported: {{ states(''sensor.solis_grid_export_today'') | float(0)
-        | round(2) }} kWh
+        Exported: {{ states(''sensor.solis_grid_export_today'') | float(0) | round(2)
+        }} kWh
 
-        Earned: €{{ (states(''sensor.solis_grid_export_today'') | float(0)
-        * 0.19) | round(2) }}'
+        Earned: €{{ (states(''sensor.solis_grid_export_today'') | float(0) * 0.19)
+        | round(2) }}'
   mode: single
 - id: '1778325882100'
   alias: Energy - Snapshot Grid Import at 8am
@@ -2887,3 +2887,52 @@
           value: 0
   mode: queued
   max: 10
+- id: '1785945600001'
+  alias: Solis - Sync Inverter Clock at Clock Change
+  description: 'Colm only (infra alert). Presses button.solis_sync_rtc at 10:00 on
+    the last Sunday of March and October - the EU daylight-saving changeovers. WHY:
+    the timed night charge window (02:00-08:00) is defined in INVERTER time, and the
+    inverter has NO DST or timezone setting (Colm checked the unit itself 05-08-2026),
+    so it holds whatever wall clock it was last given. After the MARCH change the
+    inverter runs an hour behind local, its window fires 03:00-09:00, and the final
+    hour lands in the 0.37 day band instead of the 0.20 night band. October is harmless
+    for the tariff (the window moves earlier, still inside the 23:00-08:00 night band)
+    but is synced anyway because the RTC also gains about 14 minutes of drift on its
+    own - it was found 14 min ahead of UTC on 05-08-2026 - so twice a year clears
+    that too. Runs at 10:00 so the clock is never rewritten mid-charge, since after
+    a change the window can run as late as 09:00 local. The condition tracks the EU
+    rule (last Sunday) rather than hardcoded dates, so it needs no yearly maintenance.
+    LIMITATION: the integration exposes no RTC sensor, so HA cannot read the clock
+    back - the notification means ''sync attempted'', not ''sync confirmed''. To verify,
+    read registers 43000-43005 with Modbus fn03 on 10.0.0.248:502 (year/month/day/hour/min/sec,
+    one field per register).'
+  triggers:
+  - platform: time
+    at: '10:00:00'
+  conditions:
+  - condition: template
+    value_template: '{{ now().month in [3, 10] and now().weekday() == 6 and now().day
+      > 24 }}'
+  actions:
+  - action: button.press
+    target:
+      entity_id: button.solis_sync_rtc
+  - delay:
+      seconds: 10
+  - action: notify.send_message
+    target:
+      entity_id: notify.np3
+    data:
+      title: "\U0001F550 Solis clock synced after the clock change"
+      message: 'Pressed Sync RTC at {{ now().strftime(''%H:%M on %d-%m-%Y'') }} ({{
+        ''March'' if now().month == 3 else ''October'' }} changeover).
+
+
+        The inverter has no DST setting, so its clock was an hour out until this ran.
+        The 02:00-08:00 night charge window should now line up with the 0.20 night
+        rate again.
+
+
+        HA cannot read the inverter clock back - this is ''sync attempted''. If tonight''s
+        charge looks wrong, check it manually.'
+  mode: single
