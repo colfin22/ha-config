@@ -219,11 +219,15 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 
 | Measurement | Source | Range | Fields |
 |---|---|---|---|
-| `myenergi_daily` | myenergi Eddi CSV exports | 11-06-2025 → present | Solar generated, grid import, grid export, green energy, Eddi divert |
+| `myenergi_daily` | Nightly from HA; corrected from official CSV exports | 11-06-2025 → present | Solar generated, grid import, grid export, green energy, Eddi divert |
 | `autarco_daily` | Local inverter (measurement name is historic) | 11-06-2025 → present | Solar production, export, import, consumption |
 | `esbn_daily` | ESB Networks HDF (official meter) | 28-05-2024 → present | Import, export (about two days in arrears) |
 | `esbn_halfhourly` | ESB Networks HDF | 28-05-2024 → ~2 days ago | Half-hourly import/export profile |
 | All HA entities | HA InfluxDB integration | 28-05-2026 → present | Every entity state written continuously — preserves history beyond recorder purge |
+
+### Home Assistant statistics
+
+Home Assistant keeps its own hourly statistics indefinitely, separately from InfluxDB. When a data source is replaced the old readings are kept as standalone statistics, so the energy dashboard holds its full history rather than restarting: solar and battery back to 11-06-2025 from the previous inverter integration, and grid import and export from the official meter.
 
 ### Grafana dashboards
 
