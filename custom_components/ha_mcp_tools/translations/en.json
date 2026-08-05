@@ -27,7 +27,15 @@
         "step": {
             "tools_info": {
                 "title": "HA-MCP File & YAML Tools",
-                "description": "This entry provides the privileged file and YAML editing services used by ha-mcp's opt-in file/YAML tools. There is nothing to configure here yet. Which directories the file tools may access is managed from the ha-mcp server's own settings (its Settings UI / allowed-paths), not here. Per-entry options may appear on this screen in a future release."
+                "description": "Configure the privileged file and YAML editing services used by ha-mcp's opt-in file/YAML tools. These settings also appear in the ha-mcp server's own settings UI and apply live, with no restart. A non-overridable deny floor still blocks sensitive paths (e.g. .storage) and trust-boundary keys (homeassistant, http, frontend, lovelace).",
+                "data": {
+                    "allowed_dirs": "Extra file directories",
+                    "extra_yaml_keys": "Extra YAML write keys"
+                },
+                "data_description": {
+                    "allowed_dirs": "Directories relative to the config directory, each granted read and write (e.g. pyscript). Traversal and out-of-config entries are dropped.",
+                    "extra_yaml_keys": "Top-level keys ha_config_set_yaml may write in addition to the built-in ones, for YAML-first integrations on this install (e.g. alert2). Trust-boundary keys are dropped."
+                }
             },
             "init": {
                 "title": "HA-MCP Server",
@@ -131,5 +139,23 @@
                 "name": "Update"
             }
         }
+    },
+    "common": {
+        "connect_direct_access": "Direct access from the Home Assistant machine: {url}",
+        "connect_local_lan": "Local/LAN (when Network access is \"Local network\"): {url}",
+        "connect_remote_url": "Remote connect URL: {url}",
+        "connect_urls_label": "Connect URL(s):",
+        "connect_urls_pending": "The connect URLs appear here (and in the Home Assistant log) once the server has started.",
+        "connect_webhook_disabled": "Remote access via webhook is disabled (local-only mode).",
+        "oauth_creds_pending": "The Client ID and Client Secret appear here once the server has started.",
+        "oauth_not_serving": "Legacy OAuth is not serving these yet — restart Home Assistant when it asks you to, to activate them.",
+        "oauth_select_legacy_mode": "Set Authentication mode to legacy OAuth above and save to generate a Client ID and Client Secret.",
+        "panel_hint": "Open the [HA-MCP settings panel](/ha-mcp) for tool management and server settings.",
+        "tools_module_installed": "Beta/advanced file & YAML tools module (optional): Installed",
+        "tools_module_not_installed": "Beta/advanced file & YAML tools module (optional): Not installed — press \"Add entry\" on this integration's page and choose \"HA-MCP File & YAML Tools\" to add it",
+        "tools_module_not_loaded": "Beta/advanced file & YAML tools module (optional): Installed but not loaded — enable or reload the \"HA-MCP File & YAML Tools\" entry on this integration's page",
+        "version_line": "Component {component_version} - Server ha-mcp {server_version} ({channel} channel)",
+        "version_not_installed": "not installed yet",
+        "version_unknown": "unknown"
     }
 }

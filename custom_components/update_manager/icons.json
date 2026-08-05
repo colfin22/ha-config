@@ -1,0 +1,29 @@
+{
+    "entity": {
+        "sensor": {
+            "ready": {
+                "default": "mdi:update"
+            },
+            "waiting": {
+                "default": "mdi:timer-sand"
+            },
+            "blocked": {
+                "default": "mdi:shield-alert-outline"
+            },
+            "skipped": {
+                "default": "mdi:skip-next-outline"
+            },
+            "not_installable": {
+                "default": "mdi:block-helper"
+            }
+        },
+        "switch": {
+            "enabled": {
+                "default": "mdi:update",
+                "state": {
+                    "off": "mdi:update-off"
+                }
+            }
+        }
+    }
+}

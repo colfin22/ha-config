@@ -1,0 +1,834 @@
+"""Owns the one shared computation of "how should each pending update be
+staged right now". Built once per config entry and read by both the summary
+sensor (a cheap debug view, see FUTURE.md) and, eventually, the websocket API
+Phase 2's panel will use -- neither should duplicate this refresh logic or
+the recorder lookups it can trigger.
+
+Also the single place that notices when an update actually completes
+(installed_version changed), regardless of who/what triggered it (a manual
+click, or install_manager.py's own auto-install), and tells anyone who
+registered an install listener (see install_log.py).
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import Callable
+from datetime import datetime, timedelta
+from typing import Any
+
+from homeassistant.components.update import UpdateEntityFeature
+from homeassistant.core import Event, HomeAssistant, State, callback
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.event import EventStateChangedData, async_track_time_interval
+from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
+
+from .community_verdict import CommunityVerdictManager
+from .const import (
+    CONF_EXCLUDED_ENTITIES,
+    CONF_LARGE_WAIT_DAYS,
+    CONF_MEDIUM_WAIT_DAYS,
+    CONF_SMALL_WAIT_DAYS,
+    CONF_TRUSTED_VOTERS,
+    DEFAULT_WAIT_DAYS,
+    DOMAIN,
+)
+from .semver import classify_version_size
+from .staging import StagingRules, evaluate_staging, wait_for_size
+
+_LOGGER = logging.getLogger(__name__)
+
+_AVAILABLE_SINCE_STORAGE_VERSION = 1
+_AVAILABLE_SINCE_STORAGE_KEY = f"{DOMAIN}_available_since"
+
+_LAST_INSTALLED_STORAGE_VERSION = 1
+_LAST_INSTALLED_STORAGE_KEY = f"{DOMAIN}_last_installed_version"
+
+# Same lookback window previous-state-tracker's config_flow.py already uses
+# for its own best-effort recorder history lookup.
+_HISTORY_LOOKBACK = timedelta(days=30)
+
+# Home Assistant Core/Supervisor/OS's own update entities, identified by
+# their unique_id (verified against homeassistant/components/hassio/
+# entity.py's HassioCoreEntity/HassioSupervisorEntity/HassioOSEntity --
+# f"home_assistant_{core,supervisor,os}_{ATTR_VERSION_LATEST}", and
+# ATTR_VERSION_LATEST = "version_latest" per hassio/const.py). Matched by
+# unique_id rather than by platform == "hassio": that platform also
+# provides regular add-ons' update entities, which are a different,
+# instelbaar category (see FUTURE.md), not this hard exception.
+_HARD_EXCLUDED_UNIQUE_IDS = frozenset(
+    {
+        "home_assistant_core_version_latest",
+        "home_assistant_supervisor_version_latest",
+        "home_assistant_os_version_latest",
+    }
+)
+
+# A registry entry's unique_id is whatever it was when first created, not
+# whatever today's hassio/entity.py would generate -- it doesn't get
+# migrated just because the integration's own code changed since. Found
+# live: a real instance's Core/Supervisor/OS update entities didn't match
+# _HARD_EXCLUDED_UNIQUE_IDS at all, despite that matching current source.
+# These conventional entity_ids are the fallback for exactly that drift --
+# not the primary check (entity_id can, in the abstract, be renamed, unique_id
+# can't), but nobody actually renames these three in practice, so it's a
+# safe net for whatever unique_id scheme a given instance's registry
+# happens to still be carrying.
+_HARD_EXCLUDED_ENTITY_IDS = frozenset(
+    {
+        "update.home_assistant_core_update",
+        "update.home_assistant_supervisor_update",
+        "update.home_assistant_operating_system_update",
+    }
+)
+
+
+def _matches_hard_exclusion(entity_id: str, unique_id: str | None) -> bool:
+    return entity_id in _HARD_EXCLUDED_ENTITY_IDS or unique_id in _HARD_EXCLUDED_UNIQUE_IDS
+
+
+def _is_hard_excluded_from_auto_install(hass: HomeAssistant, entity_id: str) -> bool:
+    """Core/Supervisor/HAOS always stay manual, never auto-install,
+    regardless of any setting -- decided 2026-07-15, see FUTURE.md: the
+    impact of a misser here is the whole HA instance, not one integration/
+    add-on/device. Still shown normally otherwise (real size classification,
+    a real ready/waiting/blocked status) -- this only ever gates
+    install_manager.py's auto-install, never the informational display."""
+    entry = er.async_get(hass).async_get(entity_id)
+    return _matches_hard_exclusion(entity_id, entry.unique_id if entry else None)
+
+
+def hard_excluded_entity_ids(hass: HomeAssistant) -> list[str]:
+    """The real entity_ids (if these entities exist on this instance at all)
+    behind _HARD_EXCLUDED_UNIQUE_IDS -- exposed via websocket_api.py's
+    get_settings so the panel's excluded-entities picker can show *which*
+    entities are always excluded regardless of what's selected there
+    (direct user feedback: the helper text said so, but nothing in the
+    picker itself showed them, and they can't be added/removed from that
+    list anyway since this exclusion doesn't come from it).
+
+    Called on every settings-tab load/save, so this tries the 3 known
+    conventional entity_ids directly (O(1) each via the registry's own
+    index) rather than scanning every entity on the instance; only the
+    rare drift case (see _HARD_EXCLUDED_ENTITY_IDS's own comment -- a
+    conventional entity_id not actually present under that exact id) falls
+    back to a full scan, and only for whatever wasn't already found."""
+    registry = er.async_get(hass)
+    found: set[str] = set()
+    remaining_unique_ids = set(_HARD_EXCLUDED_UNIQUE_IDS)
+    for entity_id in _HARD_EXCLUDED_ENTITY_IDS:
+        entry = registry.async_get(entity_id)
+        if entry is not None:
+            found.add(entity_id)
+            remaining_unique_ids.discard(entry.unique_id)
+    if remaining_unique_ids:
+        for entry in registry.entities.values():
+            if entry.unique_id in remaining_unique_ids:
+                found.add(entry.entity_id)
+    return sorted(found)
+
+
+def _is_excluded_from_auto_install(hass: HomeAssistant, entity_id: str, excluded_entities: frozenset[str]) -> bool:
+    """The hard Core/Supervisor/HAOS exclusion, plus whatever the user
+    picked themselves on the settings screen (direct user feedback: expected
+    a way to add their own entities to the same always-manual behaviour, not
+    just the 3 hardcoded ones). Same rule either way: still shown normally
+    in Updates/Historie, install_manager.py just never auto-installs it."""
+    return _is_hard_excluded_from_auto_install(hass, entity_id) or entity_id in excluded_entities
+
+
+def excluded_entities_from_options(options: dict) -> frozenset[str]:
+    return frozenset(options.get(CONF_EXCLUDED_ENTITIES, []))
+
+
+def trusted_voters_from_options(options: dict) -> list[str]:
+    return list(options.get(CONF_TRUSTED_VOTERS, []))
+
+# Brief pause between recorder history lookups during the initial bulk
+# scan at startup -- a large instance can have 100+ update entities, and
+# firing that many recorder queries back to back right at startup (already
+# a busy time) isn't necessary just because we technically can.
+_STARTUP_QUERY_STAGGER = 0.05
+
+# state_changed only fires again once an entity's own state/installed_version/
+# latest_version actually changes -- a wait period can elapse with no such
+# change at all (the entity just sits there reporting the same pending
+# update), and without a separate timer nothing would ever recompute
+# status/remaining_seconds for it again. Found live: an update stuck on
+# "waiting" whose entity never changed state afterward stayed "waiting"
+# forever and was never announced/auto-installed, even once its configured
+# wait had long since elapsed. Purely a recompute from already-cached facts
+# (no recorder round-trip, see async_update_rules's own comment) so a
+# frequent-ish interval is cheap; 15 minutes is well under the coarsest
+# configurable wait granularity (whole days) so it doesn't visibly lag.
+_RECHECK_INTERVAL = timedelta(minutes=15)
+
+InstallListener = Callable[[str, str, str, State], None]
+
+
+def rules_from_options(options: dict) -> StagingRules:
+    """Builds a StagingRules from the settings panel's stored values, falling
+    back to const.py's own DEFAULT_WAIT_DAYS for anything not set yet (e.g.
+    before the settings have ever been saved) -- not staging.py's own
+    DEFAULT_RULES, whose large_wait=None means "always blocked". DEFAULT_WAIT_DAYS
+    gives "large" a real, finite wait, so a freshly-created config entry
+    (options == {}) reads like a freshly-saved default setup, not like a
+    deliberate "block all major updates forever" choice nobody actually
+    made. Fixed 2026-07-16: found live -- a brand new install showed a major
+    update as blocked/red before anyone had ever opened the settings tab."""
+
+    def _wait(days_key: str) -> timedelta:
+        return timedelta(days=options.get(days_key, DEFAULT_WAIT_DAYS[days_key]))
+
+    return StagingRules(
+        small_wait=_wait(CONF_SMALL_WAIT_DAYS),
+        medium_wait=_wait(CONF_MEDIUM_WAIT_DAYS),
+        large_wait=_wait(CONF_LARGE_WAIT_DAYS),
+    )
+
+
+async def _async_available_since(hass: HomeAssistant, entity_id: str, current_latest_version: str) -> datetime:
+    """Best-effort: when did `latest_version` first become its current
+    value? Falls back to "now" (the conservative choice -- treats it as
+    brand new, so any wait period starts from scratch) whenever recorder
+    history can't answer that, e.g. recorder not loaded, this entity
+    excluded from recording, or genuinely no history yet."""
+    now = dt_util.utcnow()
+    try:
+        from homeassistant.components.recorder import get_instance, history, is_entity_recorded
+
+        if not is_entity_recorded(hass, entity_id):
+            return now
+
+        start = now - _HISTORY_LOOKBACK
+        result = await get_instance(hass).async_add_executor_job(
+            history.get_significant_states,
+            hass,
+            start,
+            now,
+            [entity_id],
+            None,  # filters
+            False,  # include_start_time_state
+            False,  # significant_changes_only -- want every value seen, not just the "big" ones
+            False,  # minimal_response
+            False,  # no_attributes -- need latest_version, unlike previous-state-tracker's lookup
+        )
+        states = result.get(entity_id, [])
+
+        available_since = now
+        matched_to_window_start = True
+        for state in reversed(states):
+            if state.attributes.get("latest_version") == current_latest_version:
+                available_since = state.last_changed
+            else:
+                matched_to_window_start = False
+                break
+
+        if states and matched_to_window_start:
+            # Matched every record we have, all the way back to the start
+            # of the lookback window -- it's been this value at least that
+            # long, quite possibly longer; `start` is the best lower bound
+            # available, not a claim that it appeared exactly then.
+            return start
+        return available_since
+    except Exception:
+        _LOGGER.debug("Couldn't look up update history for %s", entity_id, exc_info=True)
+        return now
+
+
+class UpdateManagerCoordinator:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        rules: StagingRules,
+        excluded_entities: frozenset[str] = frozenset(),
+        community_verdict_manager: CommunityVerdictManager | None = None,
+    ) -> None:
+        self.hass = hass
+        self.rules = rules
+        self.excluded_entities = excluded_entities
+        # None-able (unlike every other manager reference this coordinator
+        # holds) so this class still works standalone without it, e.g. in a
+        # future test, see community_verdict.py's own docstring for what
+        # this is for, purely read-only, no effect on staging status itself.
+        self._community_verdict_manager = community_verdict_manager
+        # entity_id -> {"entity_id", "version_size", "status", "remaining_seconds", "installable"}
+        self.cache: dict[str, dict] = {}
+        # entity_id -> {"version", "since"}: the authoritative "when did
+        # `version` first become this entity's latest_version" record, see
+        # _async_get_available_since. Persisted (unlike self.cache, which is
+        # rebuilt from scratch on every restart) precisely because it must
+        # survive a restart intact: direct user feedback, the recorder-only
+        # lookup this replaces could quietly reset an update's wait back to
+        # "just now" after a restart, the entity briefly going unavailable,
+        # or an integration reload, none of which mean the update actually
+        # just became available again.
+        self._available_since: dict[str, dict[str, str]] = {}
+        self._available_since_store: Store[dict[str, dict[str, str]]] = Store(
+            hass, _AVAILABLE_SINCE_STORAGE_VERSION, _AVAILABLE_SINCE_STORAGE_KEY
+        )
+        # entity_id -> this entity's own installed_version, as of the last
+        # time we saw it (any refresh, not just an install) -- persisted
+        # (unlike self.cache) precisely so a restart has something to
+        # compare the live post-restart value against, see
+        # _async_recover_install_across_restart. Installing HA Core itself
+        # (and likely Supervisor/OS) always requires a full HA restart, so
+        # the before/after installed_version transition happens *across*
+        # that restart boundary -- _handle_state_changed only ever compares
+        # a live event's own old_state/new_state, and a freshly-starting
+        # process's first-ever state report for any entity has no old_state
+        # at all, so that listener structurally can never see this specific
+        # transition. Found live, 2026-07-27: HA Core updates never
+        # appeared on the History page at all.
+        self._last_installed_version: dict[str, str] = {}
+        self._last_installed_store: Store[dict[str, str]] = Store(
+            hass, _LAST_INSTALLED_STORAGE_VERSION, _LAST_INSTALLED_STORAGE_KEY
+        )
+        self._listeners: list[Callable[[], None]] = []
+        self._install_listeners: list[InstallListener] = []
+        self._unsub_state_changed: Callable[[], None] | None = None
+        self._unsub_recheck: Callable[[], None] | None = None
+        # The master pause switch (const.py's CONF_ENABLED) -- the single,
+        # shared source of truth install_manager.py/staging_skip.py both
+        # read directly (self._coordinator.master_enabled) instead of each
+        # keeping its own independently-set copy. Found by review: two
+        # hand-synced private copies, each updated from its own call site,
+        # could silently disagree if a future settings-apply path ever
+        # forgot to notify one of the two managers -- reading one shared
+        # flag off the coordinator both already hold a reference to makes
+        # that impossible (whichever manager *does* get told about a
+        # change updates the one flag the other reads too, even if its own
+        # notification was missed).
+        self.master_enabled: bool = True
+        # Wired up by __init__.py right after both this coordinator and
+        # staging_skip.py's StagingSkipManager exist (that manager depends
+        # on this coordinator, so can't be passed in at construction time
+        # here) -- lets _async_refresh_one tell "we skipped this ourselves,
+        # purely to hide a still-postponed update from HA's own update
+        # count" apart from "the user skipped this for their own reason",
+        # without this module needing to import/depend on that one.
+        # Defaults to "never ours" so this coordinator still works
+        # standalone (e.g. in tests) without that wiring.
+        self._is_own_skip: Callable[[str, str], bool] = lambda entity_id, version: False
+
+    def set_master_enabled(self, enabled: bool) -> None:
+        self.master_enabled = enabled
+
+    def async_add_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
+        """Registers a callback fired after any recompute. Returns an unsub."""
+        self._listeners.append(listener)
+
+        def _remove() -> None:
+            self._listeners.remove(listener)
+
+        return _remove
+
+    def async_add_install_listener(self, listener: InstallListener) -> Callable[[], None]:
+        """Registers a callback fired whenever an update entity's
+        installed_version actually changes (an install completed, by
+        whatever means)."""
+        self._install_listeners.append(listener)
+
+        def _remove() -> None:
+            self._install_listeners.remove(listener)
+
+        return _remove
+
+    def set_own_skip_checker(self, checker: Callable[[str, str], bool]) -> None:
+        self._is_own_skip = checker
+
+    async def async_start(self) -> None:
+        # Gathered, not two sequential awaits -- these are two fully
+        # independent Store reads, found by code review, 2026-07-27.
+        available_since, last_installed_version = await asyncio.gather(
+            self._available_since_store.async_load(), self._last_installed_store.async_load()
+        )
+        self._available_since = available_since or {}
+        self._last_installed_version = last_installed_version or {}
+
+        # Subscribe *before* the initial bulk scan, not after -- found via
+        # live testing on a real instance (some pending updates never
+        # showed up at all). The staggered scan below can easily take
+        # several seconds on a large instance (100+ update entities); any
+        # update entity whose very first state (another integration finishing
+        # its own setup later than ours, e.g.) appeared in that window would
+        # be in neither the scan's snapshot nor caught by a listener that
+        # wasn't attached yet, and so was silently missed forever. Listening
+        # first means the worst case is now a harmless redundant refresh
+        # (the scan reaching that same entity a moment later), not a gap.
+        self._unsub_state_changed = self.hass.bus.async_listen("state_changed", self._handle_state_changed)
+        self._unsub_recheck = async_track_time_interval(self.hass, self._async_periodic_recheck, _RECHECK_INTERVAL)
+
+        for entity_id in self.hass.states.async_entity_ids("update"):
+            self._recover_install_across_restart(entity_id)
+            await self._async_refresh_one(entity_id)
+            await asyncio.sleep(_STARTUP_QUERY_STAGGER)
+
+    @callback
+    def _recover_install_across_restart(self, entity_id: str) -> None:
+        """Retroactively fires the install listeners for an install that
+        completed entirely while HA was down (see self._last_installed_version's
+        own comment for why _handle_state_changed's live event comparison
+        can never catch this on its own). Must run before _async_refresh_one
+        for this same entity_id -- that call is what advances
+        self._last_installed_version to the current value, so this needs to
+        compare against the old persisted value first.
+
+        Same call shape as the live path (listener(entity_id, old, new,
+        state)), so install_log.py's own listener doesn't need to know
+        this ever happened any differently. coordinator.cache is always
+        empty for this entity_id at this point (rebuilt from scratch every
+        restart, no entry yet), so the listener's own available_since
+        naturally comes back None here -- an honest "we don't know", not a
+        guess, since HA genuinely wasn't running to observe when this
+        update actually became available.
+
+        Known limitation, found by code review, 2026-07-27: for the same
+        reason, __init__.py's own _on_install always logs this as a manual
+        install, never an auto-install, even if install_manager.py's own
+        InstallManager actually dispatched it right before the restart --
+        was_auto_installed() reads InstallManager._recently_executed, an
+        in-memory-only dict that can't survive a restart any more than
+        this coordinator's own un-persisted cache can. Today this is only
+        ever *actually* wrong for a non-Core/Supervisor/OS entity that's
+        both auto-install-eligible in this integration's own rules and
+        happens to need a restart before its own installed_version updates
+        (Core/Supervisor/OS themselves are hard-excluded from auto-install
+        entirely, so "manual" is always correct for them regardless) --
+        narrow enough, and persisting dispatch records across a restart
+        invasive enough, that this is left as a documented gap rather than
+        fixed here."""
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            return
+        new_installed = state.attributes.get("installed_version")
+        if not new_installed:
+            return
+        old_installed = self._last_installed_version.get(entity_id)
+        if old_installed is not None and old_installed != new_installed:
+            self._fire_install_listeners(entity_id, old_installed, new_installed, state)
+
+    def _fire_install_listeners(self, entity_id: str, old_installed: str, new_installed: str, state: State) -> None:
+        """The one place every install listener actually gets called, shared
+        by the live path (_handle_state_changed) and the restart-recovery
+        path (_recover_install_across_restart above) -- found by review,
+        these previously each had their own identical `for listener in
+        list(self._install_listeners): listener(...)` loop."""
+        for listener in list(self._install_listeners):
+            listener(entity_id, old_installed, new_installed, state)
+
+    def _fire_listeners(self) -> None:
+        """The one place every plain (no-argument) listener actually gets
+        called -- found by code review, 2026-07-27: this exact `for listener
+        in list(self._listeners): listener()` loop was independently
+        duplicated at three call sites (_async_periodic_recheck,
+        async_update_rules, _async_handle_changed), mirroring the same
+        duplication _fire_install_listeners above was already extracted to
+        fix for the install-listener list."""
+        for listener in list(self._listeners):
+            listener()
+
+    @callback
+    def async_stop(self) -> None:
+        if self._unsub_state_changed is not None:
+            self._unsub_state_changed()
+            self._unsub_state_changed = None
+        if self._unsub_recheck is not None:
+            self._unsub_recheck()
+            self._unsub_recheck = None
+
+    def _recompute_all(self, now: datetime) -> None:
+        """The actual status/remaining_seconds/auto_install_excluded
+        recompute, from already-cached facts (installed_version/
+        latest_version/available_since don't change here) -- shared by
+        async_update_rules (new rules) and _async_periodic_recheck (same
+        rules, just time having passed).
+
+        Skips entries already cached as "skipped" -- that status isn't
+        derived from staging rules at all (see _cache_skipped), it's a
+        direct reflection of HA's own skipped_version state; recomputing
+        staging over it here would silently overwrite it back to a
+        ready/waiting/blocked verdict on every settings save or periodic
+        recheck, even though the entity's real HA state never actually
+        changed (still genuinely skipped). Only a real _async_refresh_one,
+        triggered by an actual state_changed event, should ever transition
+        an entry in or out of "skipped" -- with one exception: if
+        is_own_skip now recognizes this exact entity/version as our own
+        automatic skip, it falls through to a normal staging verdict below
+        instead of staying protected. Found live: staging_skip.py's own
+        _async_skip has a narrow race window (its own docstring/comment
+        explains it) where the entity's state_changed event -- and so this
+        cache's very first "skipped" classification -- can land before its
+        internal record was written, permanently misclassifying an
+        auto-skip as a real user one (that guard above alone would leave it
+        stuck that way forever, since its own state never changes again).
+        This check heals that on the very next recompute instead of
+        requiring a restart."""
+        for entity_id, cached in self.cache.items():
+            if cached["status"] == "skipped":
+                if not self._is_own_skip(entity_id, cached["latest_version"]):
+                    continue
+            available_since = dt_util.parse_datetime(cached["available_since"])
+            result = evaluate_staging(cached["version_size"], available_since, now, self.rules)
+            cached["status"] = result.status
+            cached["remaining_seconds"] = (
+                round(result.remaining.total_seconds()) if result.remaining is not None else None
+            )
+            cached["auto_install_excluded"] = _is_excluded_from_auto_install(
+                self.hass, entity_id, self.excluded_entities
+            )
+
+    @callback
+    def _async_periodic_recheck(self, now: datetime) -> None:
+        self._recompute_all(now)
+        self._fire_listeners()
+
+    async def async_update_rules(self, rules: StagingRules, excluded_entities: frozenset[str] | None = None) -> None:
+        """Applies newly-saved staging rules (and, since 2026-07-16, the
+        user's own excluded-entities picks) without a full entry reload (see
+        __init__.py's update_listener): the already-cached installed_version/
+        latest_version/available_since facts don't change just because the
+        settings did, only the derived ready/waiting/blocked verdict (and
+        now also auto_install_excluded) does -- cheap to recompute in place,
+        no recorder round-trip needed. Found live: the Updates/History tabs
+        briefly went empty after every settings save, while the old
+        reload-based approach tore down and rebuilt the whole cache from
+        scratch (a multi-second, staggered bulk scan)."""
+        self.rules = rules
+        if excluded_entities is not None:
+            self.excluded_entities = excluded_entities
+        self._recompute_all(dt_util.utcnow())
+        self._fire_listeners()
+
+    @callback
+    def _handle_state_changed(self, event: Event[EventStateChangedData]) -> None:
+        entity_id = event.data["entity_id"]
+        if not entity_id.startswith("update."):
+            return
+
+        old_state = event.data["old_state"]
+        new_state = event.data["new_state"]
+
+        old_installed = old_state.attributes.get("installed_version") if old_state else None
+        new_installed = new_state.attributes.get("installed_version") if new_state else None
+        if old_installed is not None and new_installed is not None and old_installed != new_installed:
+            self._fire_install_listeners(entity_id, old_installed, new_installed, new_state)
+
+        old_latest = old_state.attributes.get("latest_version") if old_state else None
+        new_latest = new_state.attributes.get("latest_version") if new_state else None
+        old_key = (old_state.state, old_installed, old_latest) if old_state else None
+        new_key = (new_state.state, new_installed, new_latest) if new_state else None
+        if old_state is not None and new_state is not None and old_key == new_key:
+            # Some other attribute changed (e.g. in_progress toggling
+            # during an install) -- not something a fresh recorder lookup
+            # would answer differently, skip it rather than re-querying.
+            return
+
+        self.hass.async_create_task(self._async_handle_changed(entity_id))
+
+    async def _async_handle_changed(self, entity_id: str) -> None:
+        await self._async_refresh_one(entity_id)
+        self._fire_listeners()
+
+    async def async_refresh_one(self, entity_id: str) -> None:
+        """Public entry point for a caller that changed something
+        is_own_skip's own answer for this entity depends on (see
+        websocket_api.py's skip handler) and wants this coordinator's
+        cached classification to catch up right now, rather than waiting
+        for a real state_changed event or the periodic recheck -- calling
+        the real update.skip service again when skipped_version already
+        equals latest_version is a harmless no-op from HA's own
+        perspective, so no state_changed event fires to trigger this on
+        its own."""
+        await self._async_handle_changed(entity_id)
+
+    async def _async_refresh_one(self, entity_id: str) -> None:
+        state = self.hass.states.get(entity_id)
+        if state is None:
+            self.cache.pop(entity_id, None)
+            if self._available_since.pop(entity_id, None) is not None:
+                await self._available_since_store.async_save(self._available_since)
+            if self._last_installed_version.pop(entity_id, None) is not None:
+                self._last_installed_store.async_delay_save(lambda: self._last_installed_version, 1.0)
+            return
+
+        # Advances the restart-recovery baseline (see
+        # _recover_install_across_restart) to whatever's live right now,
+        # regardless of "on"/"off"/skipped below -- this only cares about
+        # installed_version itself, not whether an update is pending.
+        # Delay-saved, not awaited immediately: this runs on every relevant
+        # state change, not just installs, and a lost write only costs a
+        # duplicate retroactive fire after a crash landing in that exact
+        # window, not a wrong user-visible decision (same risk already
+        # accepted for community_verdict.py's own cache).
+        live_installed = state.attributes.get("installed_version")
+        if live_installed and self._last_installed_version.get(entity_id) != live_installed:
+            self._last_installed_version[entity_id] = live_installed
+            self._last_installed_store.async_delay_save(lambda: self._last_installed_version, 1.0)
+
+        # HA's own update entities are always exactly "on" (an update is
+        # available) or "off" -- "off" normally means genuinely up to
+        # date, but also covers a *skipped* update (homeassistant/
+        # components/update/__init__.py's own state logic: latest_version
+        # == skipped_version reports "off" too, confirmed against source).
+        if state.state != "on":
+            current = state.attributes.get("installed_version")
+            latest = state.attributes.get("latest_version")
+            skipped_version = state.attributes.get("skipped_version")
+            # `current` guarded explicitly, not just implied by `current !=
+            # latest` -- that comparison is also True whenever `current` is
+            # None (a real, reachable state for an entity that hasn't
+            # reported installed_version yet), and both branches below
+            # eventually call classify_version_size, which unconditionally
+            # calls .strip() on it. The sibling "on" branch further down
+            # already guards the same way for the same reason.
+            if latest and current and skipped_version == latest and current != latest:
+                if self._is_own_skip(entity_id, latest):
+                    # staging_skip.py's own doing -- purely a mechanism for
+                    # hiding a still-postponed update from HA's own update
+                    # count, not a fact the user should see reflected here
+                    # at all (direct user feedback: "skipped by us ==
+                    # postponed" -- it should read exactly as if state were
+                    # still "on"). Evaluate normally, not as skipped.
+                    await self._async_cache_active(entity_id, state, current, latest)
+                else:
+                    # A real, user-initiated skip (HA's own UI, or our own
+                    # Skip button) -- surface it distinctly instead of
+                    # treating it identically to nothing pending at all,
+                    # see the panel's own "Skipped" group.
+                    self._cache_skipped(entity_id, state, current, latest)
+                return
+            self.cache.pop(entity_id, None)
+            return
+
+        current = state.attributes.get("installed_version")
+        latest = state.attributes.get("latest_version")
+        if not current or not latest:
+            self.cache.pop(entity_id, None)
+            return
+        await self._async_cache_active(entity_id, state, current, latest)
+
+    async def _async_get_available_since(self, entity_id: str, latest_version: str) -> datetime:
+        """The authoritative "when did `latest_version` first become this
+        entity's latest_version", read from self._available_since (see
+        __init__'s own comment) whenever it already has a record for this
+        exact version, so a later restart/availability blip/integration
+        reload can never quietly re-derive a different answer for a
+        version we've already anchored. Only falls through to
+        _async_available_since's best-effort recorder lookup the first
+        time this entity/version pair is ever seen, then remembers that
+        result from here on: a one-time backfill, not a lookup repeated
+        on every refresh."""
+        record = self._available_since.get(entity_id)
+        if record is not None and record.get("version") == latest_version:
+            parsed = dt_util.parse_datetime(record.get("since", ""))
+            if parsed is not None:
+                return parsed
+
+        available_since = await _async_available_since(self.hass, entity_id, latest_version)
+        self._available_since[entity_id] = {"version": latest_version, "since": available_since.isoformat()}
+        await self._available_since_store.async_save(self._available_since)
+        return available_since
+
+    async def _async_cache_active(self, entity_id: str, state: State, current: str, latest: str) -> None:
+        size = classify_version_size(current, latest)
+        now = dt_util.utcnow()
+        # Uses this entry's actual configured rules (settings panel), not
+        # always the hardcoded defaults -- a user may have given "large" a
+        # real wait instead of "always blocked" (see FUTURE.md). Only skip
+        # the recorder query when the *configured* wait for this size is
+        # None, since only then can available_since not change the answer.
+        rules = self.rules
+        configured_wait = wait_for_size(rules, size)
+        if configured_wait is None:
+            available_since = now
+        else:
+            available_since = await self._async_get_available_since(entity_id, latest)
+        result = evaluate_staging(size, available_since, now, rules)
+        # Some update entities (e.g. firmware that must be flashed manually)
+        # only ever report that a newer version exists, with no install
+        # action at all -- ready/waiting/blocked is still meaningful for
+        # "should you move to this version", but install_manager.py's
+        # auto-install must gate on this: never call update.install on an
+        # entity that doesn't support it.
+        installable = bool(state.attributes.get("supported_features", 0) & UpdateEntityFeature.INSTALL)
+        # Whatever's already known, synchronously, no fetch: found by
+        # review, this used to await the real lookup right here, serializing
+        # a network round-trip (on a cache miss/expiry) into every single
+        # entity's staging-status write below, even though the verdict is
+        # purely cosmetic and never gates this decision. A real refresh (if
+        # needed) is fired as its own background task instead, see
+        # _async_refresh_community_verdict.
+        community_verdict = (
+            self._community_verdict_manager.peek_cached_verdict(entity_id, latest, current)
+            if self._community_verdict_manager is not None
+            else None
+        )
+        # Same reasoning as community_verdict above: whatever's already
+        # known, synchronously, refreshed as its own background task below.
+        trusted_vote, trusted_voters_matched = (
+            self._community_verdict_manager.peek_cached_trusted_vote(entity_id, latest, current)
+            if self._community_verdict_manager is not None
+            else (None, [])
+        )
+        if self._community_verdict_manager is not None:
+            self.hass.async_create_task(
+                self._async_refresh_community_verdict(
+                    entity_id, state.attributes.get("release_url"), latest, current
+                )
+            )
+        self.cache[entity_id] = {
+            "entity_id": entity_id,
+            "installed_version": current,
+            "latest_version": latest,
+            "version_size": size,
+            "status": result.status,
+            "remaining_seconds": (
+                round(result.remaining.total_seconds()) if result.remaining is not None else None
+            ),
+            "installable": installable,
+            # Exposed mainly so the recorder lookup above can actually be
+            # checked by hand (diagnostics download) instead of only being
+            # inferable from status/remaining_seconds.
+            "available_since": available_since.isoformat(),
+            # Core/Supervisor/HAOS, plus whatever the user picked themselves:
+            # always manual, regardless of the size/auto-install settings --
+            # install_manager.py checks this before ever auto-installing.
+            # Doesn't change size/status here, those stay informational.
+            "auto_install_excluded": _is_excluded_from_auto_install(self.hass, entity_id, self.excluded_entities),
+            # True only for a "waiting" entity that's *also* currently
+            # hidden from HA's own update count via staging_skip.py's own
+            # auto-skip (direct user feedback, 2026-07-17: the distinction
+            # between "we skipped this" and "the user skipped this" was
+            # only ever inspectable by reading is_own_skip's own logic --
+            # exposed here directly instead, on the summary sensor and the
+            # panel's websocket payload alike, for debugging without
+            # needing either).
+            "hidden_by_update_manager": bool(
+                state.attributes.get("skipped_version") == latest and self._is_own_skip(entity_id, latest)
+            ),
+            # None when not HACS-identified (see community_verdict.py) or
+            # not yet rated, never a placeholder/empty object. The panel
+            # renders no badge at all for either case, see FUTURE.md's own
+            # read-only-first scoping for this feature.
+            "community_verdict": community_verdict,
+            # (verdict, matched usernames) from the configured trusted-
+            # voters list (see const.py's CONF_TRUSTED_VOTERS), already
+            # aggregated -- (None, []) when nobody's configured, or none of
+            # them has voted on this exact version. install_manager.py's
+            # own effective_auto_install_state (announcer.py) reads
+            # trusted_vote to decide eligibility; the panel reads both to
+            # explain a block on the still-pending update itself.
+            "trusted_vote": trusted_vote,
+            "trusted_voters_matched": trusted_voters_matched,
+        }
+
+    async def _async_refresh_community_verdict(
+        self,
+        entity_id: str,
+        release_url: str | None,
+        latest: str,
+        installed_version: str,
+        *,
+        force: bool = False,
+    ) -> None:
+        """Its own task, not awaited inline by _async_cache_active (see that
+        method's own comment): patches this entity's cache entry once the
+        real lookup resolves, but only if that entry still exists and still
+        refers to the exact same jump (both latest_version AND
+        installed_version -- entity_id's own cache entry may have moved on,
+        e.g. a newer version, no longer pending at all, or even an
+        intermediate manual install changing installed_version underneath
+        this same latest_version, by the time this background fetch
+        finishes). Patches trusted_vote/trusted_voters_matched too --
+        async_get_verdict fetches and caches both in the same call, see
+        community_verdict.py's own docstring.
+
+        force=True bypasses CommunityVerdictManager's own hour-long
+        freshness window -- see async_force_refresh_community_verdicts
+        below, the only caller that ever passes this."""
+        assert self._community_verdict_manager is not None
+        verdict = await self._community_verdict_manager.async_get_verdict(
+            entity_id, release_url, latest, installed_version, force=force
+        )
+        trusted_vote, trusted_voters_matched = self._community_verdict_manager.peek_cached_trusted_vote(
+            entity_id, latest, installed_version
+        )
+        cached = self.cache.get(entity_id)
+        if (
+            cached is not None
+            and cached.get("latest_version") == latest
+            and cached.get("installed_version") == installed_version
+        ):
+            cached["community_verdict"] = verdict
+            cached["trusted_vote"] = trusted_vote
+            cached["trusted_voters_matched"] = trusted_voters_matched
+
+    async def async_force_refresh_community_verdicts(self) -> None:
+        """Bypasses CommunityVerdictManager's own hour-long freshness window
+        for every currently-active entity, so the panel's manual refresh
+        button can guarantee genuinely fresh community-votes data instead of
+        silently showing whatever was cached up to an hour ago -- direct
+        user feedback, 2026-07-25 ("als ik op de refresh knop druk wil ik
+        dat hij ook de meest recente info van de votes naar binnen haalt").
+
+        Concurrent, not sequential: raw.githubusercontent.com reads aren't
+        rate-limited (see community_verdict.py's own docstring), and this is
+        a rare, deliberate, user-initiated action, not a background poll --
+        same reasoning already applied to the per-dialog verdict_for_version
+        fetch. self.cache is only ever entities with something currently
+        pending (see _async_refresh_one's own pop-when-not-active logic), so
+        this is already a naturally bounded set, not every tracked entity.
+
+        Snapshotted via list(...) before gathering: an unrelated
+        state_changed event could mutate self.cache concurrently with this
+        (e.g. an install finishing mid-refresh), and iterating a dict while
+        something else mutates it would raise."""
+        if self._community_verdict_manager is None:
+            return
+
+        async def _refresh_one(entity_id: str, cached: dict[str, Any]) -> None:
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                return
+            await self._async_refresh_community_verdict(
+                entity_id,
+                state.attributes.get("release_url"),
+                cached["latest_version"],
+                cached["installed_version"],
+                force=True,
+            )
+
+        await asyncio.gather(*(_refresh_one(entity_id, cached) for entity_id, cached in list(self.cache.items())))
+
+    def _cache_skipped(self, entity_id: str, state: State, current: str, latest: str) -> None:
+        # No staging computation here (state itself is "off", not "on" --
+        # never ran through _async_cache_active), so no remaining_seconds/
+        # real available_since either; available_since falls back to
+        # whatever was last known, or now if this entity's never been
+        # cached before, same conservative default _async_available_since
+        # itself falls back to.
+        previous = self.cache.get(entity_id)
+        available_since = previous["available_since"] if previous else dt_util.utcnow().isoformat()
+        self.cache[entity_id] = {
+            "entity_id": entity_id,
+            "installed_version": current,
+            "latest_version": latest,
+            "version_size": classify_version_size(current, latest),
+            "status": "skipped",
+            "remaining_seconds": None,
+            "installable": bool(state.attributes.get("supported_features", 0) & UpdateEntityFeature.INSTALL),
+            "available_since": available_since,
+            "auto_install_excluded": _is_excluded_from_auto_install(self.hass, entity_id, self.excluded_entities),
+            # Always False here -- reaching _cache_skipped at all already
+            # means the caller's own is_own_skip check said this isn't
+            # ours (see _async_refresh_one). See _async_cache_active's own
+            # comment for what this field is for.
+            "hidden_by_update_manager": False,
+            # Not fetched for a skipped entity (this method isn't async, and
+            # a skipped/postponed row isn't this slice's target anyway),
+            # key still present so every cache entry has the same shape,
+            # see _async_cache_active's own comment.
+            "community_verdict": previous.get("community_verdict") if previous else None,
+        }

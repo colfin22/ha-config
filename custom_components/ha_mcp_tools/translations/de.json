@@ -27,7 +27,15 @@
         "step": {
             "tools_info": {
                 "title": "HA-MCP File & YAML Tools",
-                "description": "Dieser Eintrag stellt die privilegierten Datei- und YAML-Bearbeitungsdienste bereit, die von den opt-in Datei/YAML-Tools von ha-mcp verwendet werden. Hier gibt es noch nichts zu konfigurieren. Welche Verzeichnisse die Datei-Tools nutzen dürfen, wird in den eigenen Einstellungen des ha-mcp-Servers (Settings UI / allowed-paths) verwaltet, nicht hier. Pro-Eintrag-Optionen könnten in einem zukünftigen Release auf diesem Bildschirm erscheinen."
+                "description": "Konfiguriere die privilegierten Datei- und YAML-Bearbeitungsdienste, die von den opt-in Datei/YAML-Tools von ha-mcp verwendet werden. Diese Einstellungen erscheinen auch in der eigenen Einstellungs-UI des ha-mcp-Servers und werden live wirksam, ohne Neustart. Eine nicht überschreibbare Deny-Grenze blockiert weiterhin sensible Pfade (z. B. .storage) und Vertrauensgrenzen-Keys (homeassistant, http, frontend, lovelace).",
+                "data": {
+                    "allowed_dirs": "Zusätzliche Datei-Verzeichnisse",
+                    "extra_yaml_keys": "Zusätzliche YAML-Schreib-Keys"
+                },
+                "data_description": {
+                    "allowed_dirs": "Verzeichnisse relativ zum Konfigurationsverzeichnis, jeweils mit Lese- und Schreibzugriff (z. B. pyscript). Traversal- und Einträge außerhalb des Konfig-Verzeichnisses werden verworfen.",
+                    "extra_yaml_keys": "Top-Level-Keys, die ha_config_set_yaml zusätzlich zu den eingebauten schreiben darf, für YAML-first-Integrationen auf dieser Installation (z. B. alert2). Vertrauensgrenzen-Keys werden verworfen."
+                }
             },
             "init": {
                 "title": "HA-MCP Server",
@@ -131,5 +139,23 @@
                 "name": "Update"
             }
         }
+    },
+    "common": {
+        "connect_direct_access": "Direkter Zugriff von der Home Assistant Maschine: {url}",
+        "connect_local_lan": "Lokal/LAN (wenn Netzwerkzugriff auf „Local network“ steht): {url}",
+        "connect_remote_url": "Remote-Verbindungs-URL: {url}",
+        "connect_urls_label": "Verbindungs-URL(s):",
+        "connect_urls_pending": "Die Verbindungs-URLs erscheinen hier (und im Home Assistant Log), sobald der Server gestartet ist.",
+        "connect_webhook_disabled": "Remote-Zugriff über Webhook ist deaktiviert (nur-lokal-Modus).",
+        "oauth_creds_pending": "Client ID und Client Secret erscheinen hier, sobald der Server gestartet ist.",
+        "oauth_not_serving": "Legacy OAuth bedient diese noch nicht — starte Home Assistant neu, wenn du dazu aufgefordert wirst, um sie zu aktivieren.",
+        "oauth_select_legacy_mode": "Setze den Authentifizierungsmodus oben auf Legacy OAuth und speichere, um eine Client ID und ein Client Secret zu erzeugen.",
+        "panel_hint": "Öffne das [HA-MCP Einstellungs-Panel](/ha-mcp) für Tool-Verwaltung und Servereinstellungen.",
+        "tools_module_installed": "Beta-/Erweitert-Modul für Datei- & YAML-Tools (optional): Installiert",
+        "tools_module_not_installed": "Beta-/Erweitert-Modul für Datei- & YAML-Tools (optional): Nicht installiert — klicke auf „Eintrag hinzufügen“ auf der Seite dieser Integration und wähle „HA-MCP File & YAML Tools“",
+        "tools_module_not_loaded": "Beta-/Erweitert-Modul für Datei- & YAML-Tools (optional): Installiert, aber nicht geladen — aktiviere oder lade den Eintrag „HA-MCP File & YAML Tools“ auf der Seite dieser Integration neu",
+        "version_line": "Komponente {component_version} - Server ha-mcp {server_version} ({channel}-Kanal)",
+        "version_not_installed": "noch nicht installiert",
+        "version_unknown": "unbekannt"
     }
 }

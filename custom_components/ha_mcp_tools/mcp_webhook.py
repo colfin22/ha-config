@@ -100,8 +100,15 @@ _STRIPPED_REQUEST_HEADERS = frozenset(
 # instead of a mislabeled JSON blob. ``text/html`` and friends stay coerced.
 _ALLOWED_CONTENT_TYPES = ("application/json", "text/event-stream", "text/plain")
 
-# Long timeout for streamed MCP responses (matches mcp_proxy).
-_CLIENT_TIMEOUT = aiohttp.ClientTimeout(total=300, sock_connect=10, sock_read=300)
+# Timeout for streamed MCP responses (matches mcp_proxy). Deliberately NO
+# wall-clock ``total``: an MCP response stream is long-lived by design (the
+# upcoming spec's ``subscriptions/listen`` holds one open indefinitely), so a
+# ``total`` bound would cut a *healthy* stream and force the client to
+# re-subscribe. ``sock_read`` bounds a *dead* one instead — idle detection, not
+# elapsed time. ``connect`` stays finite: it covers connection-POOL acquisition
+# (not just the TCP connect ``sock_connect`` bounds), so a pool exhausted by
+# long-lived streams fails a new request in 30 s instead of hanging it forever.
+_CLIENT_TIMEOUT = aiohttp.ClientTimeout(connect=30, sock_connect=10, sock_read=300)
 
 # TOP-LEVEL hass.data flag recording that the ha_auth discovery views are bound
 # for this HA session. Deliberately NOT under DOMAIN so it survives
@@ -291,11 +298,31 @@ def _protected_resource_document(webhook_id: str, base: str) -> dict[str, Any]:
     }
 
 
+def oauth_issuer(base: str) -> str:
+    """Issuer identifier this component's OWN authorization servers advertise.
+
+    Single source for the ``issuer`` field of the legacy and none-mode documents
+    below and for the RFC 9207 ``iss`` authorization-response parameter that
+    :mod:`oauth_legacy` / :mod:`oauth_autoapprove` put on their redirects — RFC
+    9207 §2 requires the redirect's ``iss`` to equal the advertised issuer
+    exactly.
+    """
+    return f"{base}{OAUTH_BASE}"
+
+
+def issuer_for_request(request: web.Request) -> str:
+    """:func:`oauth_issuer` for the public base URL ``request`` resolves to."""
+    return oauth_issuer(_build_base_url(request))
+
+
 def _legacy_authorization_server_document(base: str) -> dict[str, Any]:
     """RFC 8414 authorization-server metadata for legacy mode's own root
     ``/authorize`` + ``/token`` views (see :mod:`oauth_legacy`)."""
     return {
-        "issuer": f"{base}{OAUTH_BASE}",
+        "issuer": oauth_issuer(base),
+        # RFC 9207 §3: authorization responses carry ``iss`` (oauth_legacy's
+        # redirects); omission reads as "not supported" to discovery clients.
+        "authorization_response_iss_parameter_supported": True,
         "authorization_endpoint": f"{base}{AUTHORIZE_PATH}",
         "token_endpoint": f"{base}{TOKEN_PATH}",
         "response_types_supported": ["code"],
@@ -323,7 +350,10 @@ def _none_mode_authorization_server_document(base: str) -> dict[str, Any]:
     ``authorization_code`` is advertised.
     """
     return {
-        "issuer": f"{base}{OAUTH_BASE}",
+        "issuer": oauth_issuer(base),
+        # RFC 9207 §3: authorization responses carry ``iss`` (the auto-approve
+        # redirects); omission reads as "not supported" to discovery clients.
+        "authorization_response_iss_parameter_supported": True,
         "authorization_endpoint": f"{base}{OAUTH_BASE}/authorize",
         "token_endpoint": f"{base}{OAUTH_BASE}/token",
         "response_types_supported": ["code"],
