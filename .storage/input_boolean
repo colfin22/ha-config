@@ -64,6 +64,21 @@
         "id": "solis_temperature_alert_active",
         "name": "Solis Temperature Alert Active",
         "icon": "mdi:thermometer-alert"
+      },
+      {
+        "id": "hot_water_ready_today",
+        "name": "Hot Water Ready Today",
+        "icon": "mdi:water-boiler"
+      },
+      {
+        "id": "appliance_nudge_sent_colm",
+        "name": "Appliance Nudge Sent Colm",
+        "icon": "mdi:washing-machine"
+      },
+      {
+        "id": "appliance_nudge_sent_olivia",
+        "name": "Appliance Nudge Sent Olivia",
+        "icon": "mdi:washing-machine"
       }
     ]
   }
