@@ -2200,7 +2200,7 @@
     action: notify.mobile_app_pixel_6a
   mode: single
 - id: '1783159541803'
-  alias: Peak Rate - Appliance Started Nudge
+  alias: Peak/Evening Rate - Appliance Started Nudge
   description: 'If the washing machine, tumble dryer or dishwasher starts a cycle
     during the expensive evening (5-11pm), push to Colm + Olivia. The message names
     the band actually in force: 39c/kWh during the 5-7pm peak, 37c from 7-11pm. Points
