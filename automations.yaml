@@ -2201,9 +2201,12 @@
   mode: single
 - id: '1783159541803'
   alias: Peak Rate - Appliance Started Nudge
-  description: If the washing machine, tumble dryer or dishwasher starts a cycle during
-    the 5-7pm peak electricity window (39c/kWh), push to Colm + Olivia suggesting
-    it could wait until after 7pm. Notification-only (no TTS).
+  description: 'If the washing machine, tumble dryer or dishwasher starts a cycle
+    during the 5-7pm peak electricity window (39c/kWh), push to Colm + Olivia. Points
+    at the biggest saving available: tomorrow''s morning solar if the forecast is
+    worth waiting for (combined tomorrow forecast >= 10 kWh), otherwise the 23:00-08:00
+    night rate at 20c. Waiting only until 7pm was the old advice and is nearly pointless
+    - it saves 2c/kWh. Notification-only (no TTS).'
   triggers:
   - platform: state
     entity_id: input_select.washing_machine_run_status
@@ -2223,24 +2226,30 @@
       appliance: '{{ {''input_select.washing_machine_run_status'':''washing machine'',''input_select.tumble_dryer_run_status'':''tumble
         dryer'',''input_select.dishwasher_run_status'':''dishwasher''}[trigger.entity_id]
         }}'
-  - action: notify.mobile_app_np3
-    data:
+      solar_tomorrow: '{{ (states(''sensor.energy_production_tomorrow'') | float(0)
+        + states(''sensor.energy_production_tomorrow_2'') | float(0)) | round(1) }}'
+  - variables:
+      nudge_message: The {{ appliance }} started during the 5-7pm peak (39c/kWh).
+        {% if solar_tomorrow | float(0) >= 10 %}Better left until the morning, when
+        solar usually covers it for nothing ({{ solar_tomorrow }} kWh forecast tomorrow).{%
+        else %}Better left until after 11pm, when the night rate drops to 20c - only
+        {{ solar_tomorrow }} kWh of solar forecast tomorrow.{% endif %}
+  - data:
       title: 'Peak rate: {{ appliance }} running'
-      message: The {{ appliance }} started during the 5-7pm peak (39c/kWh vs 37c after
-        7pm). Consider waiting until after 7.
+      message: '{{ nudge_message }}'
       data:
         tag: peak_appliance_nudge
         channel: Energy
         notification_icon: mdi:flash-alert
-  - action: notify.mobile_app_pixel_6a
-    data:
+    action: notify.mobile_app_np3
+  - data:
       title: 'Peak rate: {{ appliance }} running'
-      message: The {{ appliance }} started during the 5-7pm peak (39c/kWh vs 37c after
-        7pm). Consider waiting until after 7.
+      message: '{{ nudge_message }}'
       data:
         tag: peak_appliance_nudge
         channel: Energy
         notification_icon: mdi:flash-alert
+    action: notify.mobile_app_pixel_6a
   mode: queued
   max: 3
 - id: '1784209486509'
