@@ -203,7 +203,7 @@ The wider fleet — the Proxmox nodes, every LXC and VM, and the MikroTik estate
 | **Floorplan** | SVG-based downstairs + upstairs with live entity overlays |
 | **Appliances** | Washing machine, dishwasher and other appliance monitoring |
 | **Map** | Device tracker map — household presence |
-| **Network** | Self-hosted, tabbed homelab **infrastructure** dashboard, embedded as a live status page: hosts, storage, network and app health at a glance, with 24-hour trend graphs, radial gauges, a status matrix and per-service response times, drawn from Uptime Kuma, InfluxDB, Zabbix and Home Assistant |
+| **Network** | Embedded **infrastructure** status page — hosts, storage, network and app health at a glance |
 
 ![The Network tab — a self-hosted homelab infrastructure dashboard: hosts, storage, network and app health at a glance, with 24-hour CPU/RAM trends, a service-status matrix and pending updates](docs/network-tab-dashboard-2.png)
 
