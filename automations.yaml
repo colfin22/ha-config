@@ -2937,11 +2937,11 @@
         charge looks wrong, check it manually.'
   mode: single
 - id: '1785952118761'
-  alias: Energy - Hot Water Ready Latch
+  alias: Solis - Hot Water Ready Latch
   description: Latches ON the first time the eddi reports 'Max temp reached' each
     day, so the appliance nudge knows the tank is hot. Needed because the status flaps
     Diverting/Max temp/Paused dozens of times a day - a point-in-time check would
-    be a coin toss. Reset at midnight by 'Energy - Reset Appliance Nudge Flags'.
+    be a coin toss. Reset at midnight by 'Solis - Reset Appliance Nudge Flags'.
   triggers:
   - platform: state
     entity_id: sensor.myenergi_eddi_23323250_status
@@ -2952,7 +2952,7 @@
     action: input_boolean.turn_on
   mode: single
 - id: '1785952120399'
-  alias: Energy - Reset Appliance Nudge Flags
+  alias: Solis - Reset Appliance Nudge Flags
   description: Midnight reset of the hot-water latch and the per-person appliance
     nudge flags.
   triggers:
@@ -2967,7 +2967,7 @@
     action: input_boolean.turn_off
   mode: single
 - id: '1785952140395'
-  alias: Energy - Good Time To Run Appliances
+  alias: Solis - Good Time To Run Appliances
   description: 'Friendly nudge that it''s a good moment to run a big appliance: battery
     full, hot water done, real solar surplus. Notify only - the appliances are dumb
     and cannot be started remotely. Only fires while House Mode is Home (Away = never,
