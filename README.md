@@ -64,13 +64,13 @@ This repository is the live, version-controlled configuration that runs the hous
 ### Energy & Environment
 | Integration | Purpose |
 |---|---|
-| [SolaX Modbus](https://github.com/wills106/homeassistant-solax-modbus) | Solar inverter and battery read locally over RS485 — battery charge and health, per-string production, grid and house load; replaced the Autarco cloud integration |
+| [SolaX Modbus](https://github.com/wills106/homeassistant-solax-modbus) | Solar inverter and battery read locally over RS485 — battery charge and health, per-string production, grid and house load |
 | [myenergi](https://myenergi.com/) | Eddi hot water diverter — solar sent to the immersion, the only source for this |
 | [Netatmo](https://www.netatmo.com/) Smart Thermostat | Controlled locally over HomeKit; heating logic runs in Node-RED (see below) |
 | [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; automation fires immediately on new alerts |
 | [Forecast.Solar](https://forecast.solar/) | Solar production forecast |
 | [Electricity Maps](https://www.electricitymaps.com/) | Grid CO2 intensity |
-| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — ESB Networks smart meter data via HDF export; feeds long-term energy history and the tariff comparison. The official meter data arrives roughly two days in arrears, so it is kept out of the live dashboard |
+| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — official smart meter readings (HDF export), two days in arrears; feeds long-term history and tariff comparison |
 
 ### Media & Lifestyle
 | Integration | Purpose |
