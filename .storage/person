@@ -6,7 +6,7 @@
     "items": [
       {
         "id": "12_the_oaks",
-        "name": "Colm Finn",
+        "name": "Colm",
         "user_id": "da11950c94184bf281a21b4b1a06cdb7",
         "device_trackers": [
           "device_tracker.np3"
@@ -15,7 +15,7 @@
       },
       {
         "id": "daire_finn",
-        "name": "Daire Finn",
+        "name": "Daire",
         "device_trackers": [
           "device_tracker.pixel_9a"
         ],
@@ -24,7 +24,7 @@
       },
       {
         "id": "olivia_finn",
-        "name": "Olivia Finn",
+        "name": "Olivia",
         "device_trackers": [
           "device_tracker.pixel_6a"
         ],
@@ -33,7 +33,7 @@
       },
       {
         "id": "cian_finn",
-        "name": "Cian Finn",
+        "name": "Cian",
         "device_trackers": [
           "device_tracker.pixel_7a"
         ],
@@ -42,7 +42,7 @@
       },
       {
         "id": "aoife_finn",
-        "name": "Aoife Finn",
+        "name": "Aoife",
         "device_trackers": [],
         "user_id": null,
         "picture": "/api/image/serve/b3f0e81d13597da87439ffab22b9997c/512x512"
