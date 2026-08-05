@@ -2,7 +2,7 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7.1-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![Automations](https://img.shields.io/badge/Automations-66-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
@@ -64,13 +64,13 @@ This repository is the live, version-controlled configuration that runs the hous
 ### Energy & Environment
 | Integration | Purpose |
 |---|---|
-| [SolaX Modbus](https://github.com/wills106/homeassistant-solax-modbus) | Solar inverter and battery, read directly over RS485 with no cloud in the path — battery charge and state of health, per-string production for each roof aspect, grid and house load. Replaced the Autarco cloud integration after that vendor went into liquidation; the migration completed on 02-08-2026 and the old integration has since been removed, with its fifteen months of recorded history preserved alongside the new data |
-| [myenergi](https://myenergi.com/) | Solar production, Eddi diverter — preferred for live stats (faster updates) |
+| [SolaX Modbus](https://github.com/wills106/homeassistant-solax-modbus) | Solar inverter and battery read locally over RS485 — battery charge and health, per-string production, grid and house load; replaced the Autarco cloud integration |
+| [myenergi](https://myenergi.com/) | Eddi hot water diverter — solar sent to the immersion, the only source for this |
 | [Netatmo](https://www.netatmo.com/) Smart Thermostat | Controlled locally over HomeKit; heating logic runs in Node-RED (see below) |
 | [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; automation fires immediately on new alerts |
 | [Forecast.Solar](https://forecast.solar/) | Solar production forecast |
 | [Electricity Maps](https://www.electricitymaps.com/) | Grid CO2 intensity |
-| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — ESB Networks smart meter data via HDF export; feeds long-term energy history and the tariff comparison. The official meter data arrives roughly a day and a half in arrears, so it is kept out of the live dashboard |
+| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — ESB Networks smart meter data via HDF export; feeds long-term energy history and the tariff comparison. The official meter data arrives roughly two days in arrears, so it is kept out of the live dashboard |
 
 ### Media & Lifestyle
 | Integration | Purpose |
@@ -135,7 +135,7 @@ This repository is the live, version-controlled configuration that runs the hous
 - **Heating** — the house heating runs in Node-RED, driven by House Mode and the time of day (see the **Heating Control** flow below). The Netatmo thermostat is controlled locally over HomeKit and holds a flat baseline; Node-RED sets the comfort, evening, overnight and away temperatures on top.
 
 ### ⚡ Energy
-- **Top days** — solar production and grid export top 5 best days tracked independently; both leaderboards update automatically each evening at 23:59 using myenergi sensors
+- **Top days** — solar production and grid export top 5 best days tracked independently; both leaderboards update automatically each evening at 23:59
 - **Morning energy stats** — daily solar and energy summary pushed each morning
 - **Grid-free day** — notifies both phones at 20:00 if no grid electricity was imported after 8am; includes export total and estimated earnings
 - **Peak-rate nudge** — if the washing machine, dishwasher or tumble dryer starts a cycle during the 17:00–19:00 peak electricity window, both phones get a push suggesting the run could wait until after 19:00 (notification only, no announcement)
@@ -220,9 +220,9 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 | Measurement | Source | Range | Fields |
 |---|---|---|---|
 | `myenergi_daily` | myenergi Eddi CSV exports | 11-06-2025 → present | Solar generated, grid import, grid export, green energy, Eddi divert |
-| `autarco_daily` | Autarco inverter | 11-06-2025 → present | Solar production, export, import, consumption |
-| `esbn_daily` | ESB Networks HDF (official meter) | 28-05-2024 → present | Import, export (3–4 day lag; recent days gap-filled from Autarco) |
-| `esbn_halfhourly` | ESB Networks HDF | 28-05-2024 → ~3 days ago | Half-hourly import/export profile |
+| `autarco_daily` | Local inverter (measurement name is historic) | 11-06-2025 → present | Solar production, export, import, consumption |
+| `esbn_daily` | ESB Networks HDF (official meter) | 28-05-2024 → present | Import, export (about two days in arrears) |
+| `esbn_halfhourly` | ESB Networks HDF | 28-05-2024 → ~2 days ago | Half-hourly import/export profile |
 | All HA entities | HA InfluxDB integration | 28-05-2026 → present | Every entity state written continuously — preserves history beyond recorder purge |
 
 ### Grafana dashboards
@@ -287,7 +287,7 @@ This repo (`ha-config`) and the [Node-RED flows repo](https://github.com/colfin2
 - [LLM Vision](https://github.com/valentinfrlch/ha-llmvision) — AI camera analysis
 - [mikrotik_router](https://github.com/tomaae/homeassistant-mikrotik_router) — network monitoring
 - [Music Assistant](https://music-assistant.io/) — multi-room audio engine (integration + Jukebox addon)
-- [myenergi](https://github.com/CJNE/ha-myenergi) — solar diverter (Eddi)
+- [myenergi](https://github.com/CJNE/ha-myenergi) — hot water diverter (Eddi)
 - [proxmoxve](https://github.com/doudz/homeassistant-proxmoxve) — hypervisor monitoring
 - [solax_modbus](https://github.com/wills106/homeassistant-solax-modbus) — solar inverter over local Modbus (battery, strings, grid)
 - [truenas](https://github.com/tomaae/homeassistant-truenas) — NAS monitoring
