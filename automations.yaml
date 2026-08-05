@@ -307,7 +307,7 @@
   - target:
       entity_id: input_number.import_kwh_at_11pm
     data:
-      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+      value: '{{ states(''sensor.solis_grid_import_today'') | float(0) }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.electricity_rate
@@ -325,7 +325,7 @@
   - target:
       entity_id: input_number.import_kwh_at_8am
     data:
-      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+      value: '{{ states(''sensor.solis_grid_import_today'') | float(0) }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.electricity_rate
@@ -343,7 +343,7 @@
   - target:
       entity_id: input_number.import_kwh_at_5pm
     data:
-      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+      value: '{{ states(''sensor.solis_grid_import_today'') | float(0) }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.electricity_rate
@@ -361,7 +361,7 @@
   - target:
       entity_id: input_number.import_kwh_at_7pm
     data:
-      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+      value: '{{ states(''sensor.solis_grid_import_today'') | float(0) }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.electricity_rate
@@ -682,17 +682,17 @@
   - target:
       entity_id: input_number.yesterday_solar_generated
     data:
-      value: '{{ states(''sensor.myenergi_eddi_generated_today'') | float(0) }}'
+      value: '{{ states(''sensor.solis_power_generation_today'') | float(0) }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.yesterday_grid_import
     data:
-      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) }}'
+      value: '{{ states(''sensor.solis_grid_import_today'') | float(0) }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.yesterday_grid_export
     data:
-      value: '{{ states(''sensor.myenergi_eddi_grid_export_today'') | float(0) }}'
+      value: '{{ states(''sensor.solis_grid_export_today'') | float(0) }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.yesterday_import_cost
@@ -701,7 +701,7 @@
         set d = (states(''input_number.import_kwh_at_5pm'') | float(0)) - n %}{% set
         p = (states(''input_number.import_kwh_at_7pm'') | float(0)) - (states(''input_number.import_kwh_at_5pm'')
         | float(0)) %}{% set e = (states(''input_number.import_kwh_at_11pm'') | float(0))
-        - (states(''input_number.import_kwh_at_7pm'') | float(0)) %}{% set ln = [states(''sensor.myenergi_eddi_grid_import_today'')
+        - (states(''input_number.import_kwh_at_7pm'') | float(0)) %}{% set ln = [states(''sensor.solis_grid_import_today'')
         | float(0) - states(''input_number.import_kwh_at_11pm'') | float(0), 0] |
         max %}{{ [n * 0.20 + d * 0.37 + p * 0.39 + e * 0.37 + ln * 0.20, 0] | max
         | round(4) }}'
@@ -709,7 +709,7 @@
   - target:
       entity_id: input_number.yesterday_export_compensation
     data:
-      value: '{{ (states(''sensor.myenergi_eddi_grid_export_today'') | float(0) *
+      value: '{{ (states(''sensor.solis_grid_export_today'') | float(0) *
         0.19) | round(4) }}'
     action: input_number.set_value
   - target:
@@ -1219,7 +1219,7 @@
     at: '20:00:00'
   conditions:
   - condition: template
-    value_template: '{{ (states(''sensor.myenergi_eddi_grid_import_today'') | float(0))
+    value_template: '{{ (states(''sensor.solis_grid_import_today'') | float(0))
       - (states(''input_number.grid_import_at_8am_baseline'') | float(0)) < 0.1 }}'
   actions:
   - action: notify.send_message
@@ -1232,10 +1232,10 @@
       message: 'You went the whole day without importing from the grid after 8am!
 
 
-        Exported: {{ states(''sensor.myenergi_eddi_grid_export_today'') | float(0)
+        Exported: {{ states(''sensor.solis_grid_export_today'') | float(0)
         | round(2) }} kWh
 
-        Earned: €{{ (states(''sensor.myenergi_eddi_grid_export_today'') | float(0)
+        Earned: €{{ (states(''sensor.solis_grid_export_today'') | float(0)
         * 0.19) | round(2) }}'
   mode: single
 - id: '1778325882100'
@@ -1250,7 +1250,7 @@
     target:
       entity_id: input_number.grid_import_at_8am_baseline
     data:
-      value: '{{ states(''sensor.myenergi_eddi_grid_import_today'') | float(0) | round(3)
+      value: '{{ states(''sensor.solis_grid_import_today'') | float(0) | round(3)
         }}'
   mode: single
 - id: '1778349216347'
@@ -1715,7 +1715,7 @@
 - id: '1780000000002'
   alias: Energy - Update Solar Top 5
   description: At 23:59, checks if today's solar production beats any of the top 5
-    records and updates the leaderboard. Uses myenergi_eddi_generated_today via input_number.yesterday_solar_generated.
+    records and updates the leaderboard. Uses solis_power_generation_today via input_number.yesterday_solar_generated.
   triggers:
   - platform: time
     at: '23:59:00'

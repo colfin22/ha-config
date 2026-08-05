@@ -1467,13 +1467,13 @@
             },
             {
               "type": "entity",
-              "entity": "sensor.myenergi_eddi_power_import",
+              "entity": "sensor.grid_import_power",
               "name": "Import",
               "show_name": true
             },
             {
               "type": "entity",
-              "entity": "sensor.myenergi_eddi_power_export",
+              "entity": "sensor.grid_export_power",
               "name": "Export",
               "show_name": true
             },

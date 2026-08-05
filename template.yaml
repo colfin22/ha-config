@@ -10,3 +10,31 @@
       unique_id: front_doorbell_motion_detected
       auto_off: 15
       state: 'true'
+
+# Grid import/export power, split out of the single signed Solis meter sensor.
+# sensor.solis_meter_active_power: POSITIVE = export, NEGATIVE = import
+# (inverted vs the old sensor.myenergi_eddi_power_import/_export these replace).
+# Verified 431/536 paired 5-min buckets, and 30/31 net-direction agreement above 500 W.
+- sensor:
+    - name: Grid Import Power
+      unique_id: grid_import_power
+      unit_of_measurement: W
+      device_class: power
+      state_class: measurement
+      icon: mdi:transmission-tower-export
+      availability: >-
+        {{ states('sensor.solis_meter_active_power') not in
+           ['unknown', 'unavailable', 'none', ''] }}
+      state: >-
+        {{ [0, 0 - (states('sensor.solis_meter_active_power') | float(0))] | max | round(0) }}
+    - name: Grid Export Power
+      unique_id: grid_export_power
+      unit_of_measurement: W
+      device_class: power
+      state_class: measurement
+      icon: mdi:transmission-tower-import
+      availability: >-
+        {{ states('sensor.solis_meter_active_power') not in
+           ['unknown', 'unavailable', 'none', ''] }}
+      state: >-
+        {{ [0, states('sensor.solis_meter_active_power') | float(0)] | max | round(0) }}

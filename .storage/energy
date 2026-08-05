@@ -6,13 +6,13 @@
     "energy_sources": [
       {
         "type": "solar",
-        "stat_energy_from": "sensor.myenergi_eddi_generated_today",
+        "stat_energy_from": "sensor.solis_power_generation_today",
         "config_entry_solar_forecast": [
           "01JXPJMG6BC05FZFQB0TV873RK",
           "01K40SHTJ10NC784ZR0EEM2HTG",
           "01K40SPFD7K6MKP6MQ6KJSRFWS"
         ],
-        "stat_rate": "sensor.myenergi_eddi_power_generation"
+        "stat_rate": "sensor.solis_pv_total_power"
       },
       {
         "type": "battery",
@@ -25,8 +25,8 @@
       },
       {
         "type": "grid",
-        "stat_energy_from": "sensor.myenergi_eddi_grid_import_today",
-        "stat_energy_to": "sensor.myenergi_eddi_grid_export_today",
+        "stat_energy_from": "sensor.solis_meter_grid_import_total",
+        "stat_energy_to": "sensor.solis_meter_grid_export_total",
         "stat_cost": null,
         "stat_compensation": null,
         "entity_energy_price": "input_number.electricity_rate",
@@ -35,14 +35,31 @@
         "number_energy_price_export": 0.19,
         "cost_adjustment_day": 0.0,
         "power_config": {
-          "stat_rate": "sensor.myenergi_eddi_power_grid"
+          "stat_rate": "sensor.solis_meter_active_power"
         },
-        "stat_rate": "sensor.myenergi_eddi_power_grid"
+        "stat_rate": "sensor.solis_meter_active_power"
       },
       {
         "type": "battery",
         "stat_energy_from": "autarco:battery_discharged",
         "stat_energy_to": "autarco:battery_charged"
+      },
+      {
+        "type": "solar",
+        "stat_energy_from": "autarco:solar_energy_production",
+        "config_entry_solar_forecast": null
+      },
+      {
+        "type": "grid",
+        "stat_energy_from": "esbn:grid_import",
+        "stat_energy_to": "esbn:grid_export",
+        "stat_cost": null,
+        "stat_compensation": null,
+        "entity_energy_price": null,
+        "number_energy_price": null,
+        "entity_energy_price_export": null,
+        "number_energy_price_export": null,
+        "cost_adjustment_day": 0.0
       }
     ],
     "device_consumption": [
