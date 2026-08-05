@@ -3,7 +3,7 @@
 # 🏠 Colm's Home Assistant Config
 
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-67-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Automations](https://img.shields.io/badge/Automations-70-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -94,7 +94,7 @@ This repository is the live, version-controlled configuration that runs the hous
 
 ## 🤖 Automations
 
-67 automations across the home. Key highlights:
+70 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
@@ -138,7 +138,7 @@ This repository is the live, version-controlled configuration that runs the hous
 - **Top days** — solar production and grid export top 5 best days tracked independently; both leaderboards update automatically each evening at 23:59
 - **Morning energy stats** — daily solar and energy summary pushed each morning
 - **Grid-free day** — notifies both phones at 20:00 if no grid electricity was imported after 8am; includes export total and estimated earnings
-- **Peak-rate nudge** — if the washing machine, dishwasher or tumble dryer starts a cycle during the 17:00–19:00 peak electricity window, both phones get a push suggesting the run could wait until after 19:00 (notification only, no announcement)
+- **Peak/evening-rate nudge** — if the washing machine, dishwasher or tumble dryer starts a cycle between 17:00 and 23:00, both phones get a push naming the rate actually in force and pointing at the real saving: tomorrow morning's solar when the forecast is worth waiting for, otherwise the cheap overnight rate (notification only, no announcement)
 
 ### ☀️ Solar
 - **Inverter not generating** — the inverter reports its own running state and that state holds steady around the clock, so anything else means a real fault or a lost link; alerts after 15 minutes with the sun up and sends an all-clear on recovery
@@ -147,6 +147,7 @@ This repository is the live, version-controlled configuration that runs the hous
 - **Battery depleted early** — alerts only if the battery reaches its reserve while electricity is still at the day rate; reaching it later, once the cheap rate has started, is normal and stays silent
 - **Battery health check** — monthly state-of-health reading compared against the month before, kept as a slow-burn record for warranty purposes
 - **String imbalance** — the two roof aspects sit on separate strings, so their daily peaks are compared; alerts only after several qualifying days of one trailing the other, which points at shading, soiling or a panel fault rather than weather
+- **Good time to run appliances** — the appliances are ordinary machines that cannot be started remotely, so this is a nudge rather than a switch: when the battery is full, the water is hot and real surplus is going out to the grid, whoever is at home is told it's a good moment to put a machine on, one at a time. Silent when the house is empty, held back until morning if everyone is asleep, and once per person per day
 - **Inverter clock sync** — the cheap-rate battery charge runs to a window held in the inverter's own clock, and the inverter has no daylight-saving setting, so the clock is resynchronised on the last Sunday of March and October; without it the spring change would leave the tail of the charge running at the day rate
 
 ### 🏠 Infrastructure Monitoring
