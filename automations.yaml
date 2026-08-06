@@ -591,10 +591,7 @@
       - condition: template
         value_template: '{{ not sensor_ok }}'
       sequence:
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: ⚠️ Overnight check unavailable — {{ now().strftime('%A %-d %B') }}
           message: 'The Frigate overnight sensor wasn''t reporting, so no all-clear
             can be given for last night. Check Frigate and the camera summary sensors.{%
@@ -602,10 +599,10 @@
 
 
             Animals still seen: {{ other_line }}{% endif %}'
-      - action: notify.send_message
-        target:
-          entity_id: notify.pixel_6a
-        data:
+          data:
+            notification_icon: mdi:cctv
+        action: notify.mobile_app_np3
+      - data:
           title: ⚠️ Overnight check unavailable — {{ now().strftime('%A %-d %B') }}
           message: 'The Frigate overnight sensor wasn''t reporting, so no all-clear
             can be given for last night. Check Frigate and the camera summary sensors.{%
@@ -613,14 +610,14 @@
 
 
             Animals still seen: {{ other_line }}{% endif %}'
+          data:
+            notification_icon: mdi:cctv
+        action: notify.mobile_app_pixel_6a
     - conditions:
       - condition: template
         value_template: '{{ person_count > 0 }}'
       sequence:
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: "\U0001F6A8 Person Detected Overnight"
           message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
             > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count >
@@ -628,10 +625,10 @@
 
 
             Also overnight: {{ other_line }}{% endif %}'
-      - action: notify.send_message
-        target:
-          entity_id: notify.pixel_6a
-        data:
+          data:
+            notification_icon: mdi:cctv
+        action: notify.mobile_app_np3
+      - data:
           title: "\U0001F6A8 Person Detected Overnight"
           message: 'Person spotted on {{ best_camera }} at {{ best_time }}{% if camera_count
             > 1 %} (+{{ camera_count - 1 }} other camera{{ ''s'' if camera_count >
@@ -639,11 +636,11 @@
 
 
             Also overnight: {{ other_line }}{% endif %}'
+          data:
+            notification_icon: mdi:cctv
+        action: notify.mobile_app_pixel_6a
     default:
-    - action: notify.send_message
-      target:
-        entity_id: notify.np3
-      data:
+    - data:
         title: "\U0001F7E2 All Clear Overnight — {{ now().strftime('%A %-d %B') }}"
         message: 'No people detected on any camera.{% if other_line != '''' %}
 
@@ -651,10 +648,10 @@
           Also spotted: {{ other_line }}{% else %}
 
           No other activity detected.{% endif %}'
-    - action: notify.send_message
-      target:
-        entity_id: notify.pixel_6a
-      data:
+        data:
+          notification_icon: mdi:cctv
+      action: notify.mobile_app_np3
+    - data:
         title: "\U0001F7E2 All Clear Overnight — {{ now().strftime('%A %-d %B') }}"
         message: 'No people detected on any camera.{% if other_line != '''' %}
 
@@ -662,6 +659,9 @@
           Also spotted: {{ other_line }}{% else %}
 
           No other activity detected.{% endif %}'
+        data:
+          notification_icon: mdi:cctv
+      action: notify.mobile_app_pixel_6a
   variables:
     person_count: '{{ states(''sensor.frigate_overnight_person_count'') | int(0) }}'
     best_camera: '{{ states(''sensor.frigate_overnight_best_camera'') }}'
@@ -726,10 +726,7 @@
   - platform: time
     at: 07:45:00
   actions:
-  - action: notify.send_message
-    target:
-      entity_id: notify.np3
-    data:
+  - data:
       title: ⚡ Energy Summary — {{ day_name }}
       message: "{% if solar >= 15 %}☀️{% elif solar >= 8 %}\U0001F324️{% elif solar
         >= 3 %}⛅{% else %}\U0001F325️{% endif %} Solar: {{ solar | round(2) }} kWh\n\U0001F525
@@ -738,10 +735,10 @@
         | round(2) }} kWh  (€{{ import_cost | round(2) }})\n{% if net_cost <= 0 %}\U0001F49A
         Saved: €{{ (net_cost * -1) | round(2) }}{% else %}\U0001F4B8 Net cost: €{{
         net_cost | round(2) }}{% endif %}"
-  - action: notify.send_message
-    target:
-      entity_id: notify.pixel_6a
-    data:
+      data:
+        notification_icon: mdi:home-lightning-bolt
+    action: notify.mobile_app_np3
+  - data:
       title: ⚡ Energy Summary — {{ day_name }}
       message: "{% if solar >= 15 %}☀️{% elif solar >= 8 %}\U0001F324️{% elif solar
         >= 3 %}⛅{% else %}\U0001F325️{% endif %} Solar: {{ solar | round(2) }} kWh\n\U0001F525
@@ -750,6 +747,9 @@
         | round(2) }} kWh  (€{{ import_cost | round(2) }})\n{% if net_cost <= 0 %}\U0001F49A
         Saved: €{{ (net_cost * -1) | round(2) }}{% else %}\U0001F4B8 Net cost: €{{
         net_cost | round(2) }}{% endif %}"
+      data:
+        notification_icon: mdi:home-lightning-bolt
+    action: notify.mobile_app_pixel_6a
   variables:
     solar: '{{ states(''input_number.yesterday_solar_generated'') | float(0) }}'
     imported: '{{ states(''input_number.yesterday_grid_import'') | float(0) }}'
@@ -951,24 +951,24 @@
         after: 07:00:00
         before: '22:00:00'
       sequence:
-      - action: notify.send_message
-        data:
+      - data:
           title: Zigbee2MQTT Down
           message: Z2M bridge went down at {{ triggered_at }} and is still down. Restart
             the Zigbee container on its host.
-        target:
-          entity_id: notify.np3
+          data:
+            notification_icon: mdi:zigbee
+        action: notify.mobile_app_np3
     default:
     - wait_for_trigger:
       - platform: time
         at: 07:00:00
-    - action: notify.send_message
-      data:
+    - data:
         title: Zigbee2MQTT Went Down Overnight
         message: 'Z2M bridge went down at {{ triggered_at }}. Current state: {{ states(''binary_sensor.zigbee2mqtt_bridge_connection_state'')
           }}. Restart the Zigbee container on its host.'
-      target:
-        entity_id: notify.np3
+        data:
+          notification_icon: mdi:zigbee
+      action: notify.mobile_app_np3
   mode: single
 - id: '1778243937781'
   alias: Sitting Room - Power Off After 30min No Presence
@@ -1081,18 +1081,18 @@
           'precipitation_probability_max')[1] | round | int }}%  ({{ state_attr('sensor.away_weather_forecast',
           'precipitation_sum')[1] | round(1) }}mm)\n\U0001F4A8  Wind: {{ state_attr('sensor.away_weather_forecast',
           'wind_speed_10m_max')[1] | round | int }} km/h"
-  - action: notify.send_message
-    target:
-      entity_id: notify.np3
-    data:
+  - data:
       title: '{{ notif_title }}'
       message: '{{ notif_message }}'
-  - action: notify.send_message
-    target:
-      entity_id: notify.pixel_6a
-    data:
+      data:
+        notification_icon: mdi:weather-night
+    action: notify.mobile_app_np3
+  - data:
       title: '{{ notif_title }}'
       message: '{{ notif_message }}'
+      data:
+        notification_icon: mdi:weather-night
+    action: notify.mobile_app_pixel_6a
   mode: single
   variables:
     colm_dist: '{{ distance(''person.colm_finn'', ''zone.home'') | float(0) }}'
@@ -1194,18 +1194,18 @@
           'precipitation_probability_max')[0] | round | int }}%  ({{ state_attr('sensor.away_weather_forecast',
           'precipitation_sum')[0] | round(1) }}mm)\n\U0001F4A8  Wind: {{ state_attr('sensor.away_weather_forecast',
           'wind_speed_10m_max')[0] | round | int }} km/h"
-  - action: notify.send_message
-    target:
-      entity_id: notify.np3
-    data:
+  - data:
       title: '{{ notif_title }}'
       message: '{{ notif_message }}'
-  - action: notify.send_message
-    target:
-      entity_id: notify.pixel_6a
-    data:
+      data:
+        notification_icon: mdi:weather-partly-cloudy
+    action: notify.mobile_app_np3
+  - data:
       title: '{{ notif_title }}'
       message: '{{ notif_message }}'
+      data:
+        notification_icon: mdi:weather-partly-cloudy
+    action: notify.mobile_app_pixel_6a
   mode: single
   variables:
     colm_dist: '{{ distance(''person.colm_finn'', ''zone.home'') | float(0) }}'
@@ -1222,12 +1222,7 @@
     value_template: '{{ (states(''sensor.solis_grid_import_today'') | float(0)) -
       (states(''input_number.grid_import_at_8am_baseline'') | float(0)) < 0.1 }}'
   actions:
-  - action: notify.send_message
-    target:
-      entity_id:
-      - notify.np3
-      - notify.pixel_6a
-    data:
+  - data:
       title: ☀️ Grid-Free Day!
       message: 'You went the whole day without importing from the grid after 8am!
 
@@ -1237,6 +1232,22 @@
 
         Earned: €{{ (states(''sensor.solis_grid_export_today'') | float(0) * 0.19)
         | round(2) }}'
+      data:
+        notification_icon: mdi:leaf
+    action: notify.mobile_app_np3
+  - data:
+      title: ☀️ Grid-Free Day!
+      message: 'You went the whole day without importing from the grid after 8am!
+
+
+        Exported: {{ states(''sensor.solis_grid_export_today'') | float(0) | round(2)
+        }} kWh
+
+        Earned: €{{ (states(''sensor.solis_grid_export_today'') | float(0) * 0.19)
+        | round(2) }}'
+      data:
+        notification_icon: mdi:leaf
+    action: notify.mobile_app_pixel_6a
   mode: single
 - id: '1778325882100'
   alias: Energy - Snapshot Grid Import at 8am
@@ -2482,10 +2493,7 @@
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.solis_inverter_alert_active
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: ⚠️ Solis inverter not generating
           message: 'Inverter status has been "{{ states(''sensor.solis_inverter_status'')
             }}" for 15 minutes with the sun up.
@@ -2496,6 +2504,9 @@
             Battery: {{ states(''sensor.solis_battery_soc'') }}%
 
             Modbus link: {{ states(''sensor.solis_communication_health'') }}'
+          data:
+            notification_icon: mdi:solar-power-variant
+        action: notify.mobile_app_np3
     - conditions:
       - condition: trigger
         id: cleared
@@ -2503,13 +2514,13 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.solis_inverter_alert_active
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: ✅ Solis inverter generating again
           message: Status back to Generating. PV now {{ states('sensor.solis_pv_total_power')
             }} W.
+          data:
+            notification_icon: mdi:solar-power-variant
+        action: notify.mobile_app_np3
   mode: single
 - id: '1785777737329'
   alias: Solis - Modbus Link Unhealthy
@@ -2557,16 +2568,16 @@
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.solis_modbus_alert_active
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: "\U0001F50C Solis Modbus link unhealthy"
           message: '{{ detail }}
 
 
             Solar, Battery and House badges may go blank. Check the RS485 gateway
             - it does not answer ping, so probe its Modbus TCP port instead.'
+          data:
+            notification_icon: mdi:lan-disconnect
+        action: notify.mobile_app_np3
     - conditions:
       - condition: trigger
         id: cleared
@@ -2574,12 +2585,12 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.solis_modbus_alert_active
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: ✅ Solis Modbus link healthy again
           message: '{{ detail }}'
+          data:
+            notification_icon: mdi:lan-disconnect
+        action: notify.mobile_app_np3
   mode: single
 - id: '1785777769996'
   alias: Solis - Inverter Over Temperature
@@ -2631,16 +2642,16 @@
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.solis_temperature_alert_active
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: "\U0001F525 Solis inverter VERY hot (>75C)"
           message: '{{ detail }}
 
 
             Check airflow around the inverter now - it will derate or trip to protect
             itself.'
+          data:
+            notification_icon: mdi:thermometer-alert
+        action: notify.mobile_app_np3
     - conditions:
       - condition: trigger
         id: warn
@@ -2648,15 +2659,15 @@
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.solis_temperature_alert_active
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: "\U0001F321️ Solis inverter running hot (>65C)"
           message: '{{ detail }}
 
 
             A sunny-day peak here is high 50s. Worth checking vents and the fan.'
+          data:
+            notification_icon: mdi:thermometer-alert
+        action: notify.mobile_app_np3
     - conditions:
       - condition: trigger
         id: cleared
@@ -2664,12 +2675,12 @@
       - action: input_boolean.turn_off
         target:
           entity_id: input_boolean.solis_temperature_alert_active
-      - action: notify.send_message
-        target:
-          entity_id: notify.np3
-        data:
+      - data:
           title: ✅ Solis inverter temperature back to normal
           message: '{{ detail }}'
+          data:
+            notification_icon: mdi:thermometer-alert
+        action: notify.mobile_app_np3
   mode: single
 - id: '1785777852680'
   alias: Solis - Battery Depleted Early
@@ -2713,18 +2724,18 @@
 
         Reserve is {{ states(''sensor.solis_battery_minimum_soc'') }}% - the house
         goes to grid below that.'
-  - action: notify.send_message
-    target:
-      entity_id: notify.np3
-    data:
+  - data:
       title: '{{ title }}'
       message: '{{ body }}'
-  - action: notify.send_message
-    target:
-      entity_id: notify.pixel_6a
-    data:
+      data:
+        notification_icon: mdi:battery-alert
+    action: notify.mobile_app_np3
+  - data:
       title: '{{ title }}'
       message: '{{ body }}'
+      data:
+        notification_icon: mdi:battery-alert
+    action: notify.mobile_app_pixel_6a
   mode: single
 - id: '1785777964976'
   alias: Solis - Battery Health Check
@@ -2753,10 +2764,7 @@
     - condition: template
       value_template: '{{ soh_last > 0 and (soh_last - soh_now) > 1 }}'
     then:
-    - action: notify.send_message
-      target:
-        entity_id: notify.np3
-      data:
+    - data:
         title: "\U0001F50B❤️ Solis battery health dropped"
         message: 'Battery State of Health is now {{ soh_now }}%, down {{ (soh_last
           - soh_now) | round(1) }} points from {{ soh_last }}% last month.
@@ -2769,6 +2777,9 @@
 
 
           Worth noting for warranty.'
+        data:
+          notification_icon: mdi:battery-heart-variant
+      action: notify.mobile_app_np3
   - action: input_number.set_value
     target:
       entity_id: input_number.solis_battery_soh_last_month
@@ -2859,10 +2870,7 @@
             value: '{{ newcount }}'
         - condition: template
           value_template: '{{ newcount | int(0) == 5 }}'
-        - action: notify.send_message
-          target:
-            entity_id: notify.np3
-          data:
+        - data:
             title: "\U0001F506 Solis {{ weak }} string underperforming"
             message: 'The {{ weak }} string has peaked below half the other string
               for 5 days running.
@@ -2877,6 +2885,9 @@
               Both strings see the same sky, so this is not weather. Worth checking
               for shading, soiling, or a panel/optimiser fault on the {{ weak | lower
               }} roof.'
+            data:
+              notification_icon: mdi:scale-balance
+          action: notify.mobile_app_np3
         else:
         - action: input_number.set_value
           target:
@@ -2941,10 +2952,7 @@
       drift_after: '{% set r = states(''sensor.solis_rtc'') %}{% if r not in [''unknown'',''unavailable'',''none'','''']
         %}{{ ((as_timestamp(now()) - as_timestamp(strptime(r,''%Y-%m-%d %H:%M:%S'')))
         | abs) | round(0) | int }}{% else %}unknown{% endif %}'
-  - action: notify.send_message
-    target:
-      entity_id: notify.np3
-    data:
+  - data:
       title: "\U0001F550 Solis clock synced after the clock change"
       message: 'Pressed Sync RTC at {{ now().strftime(''%H:%M on %d-%m-%Y'') }} ({{
         ''March'' if now().month == 3 else ''October'' }} changeover).
@@ -2964,6 +2972,9 @@
         unavailable. Check registers 43000-43005 manually.{% elif drift_after | int
         < 120 %}Sync confirmed.{% else %}SYNC DID NOT TAKE. Check manually.{% endif
         %}'
+      data:
+        notification_icon: mdi:clock-check
+    action: notify.mobile_app_np3
   mode: single
 - id: '1785952118761'
   alias: Solis - Hot Water Ready Latch
