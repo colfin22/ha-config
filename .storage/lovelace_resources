@@ -100,11 +100,6 @@
         "type": "module"
       },
       {
-        "id": "2fdf0118008d4c99991ca8dcb67b65b4",
-        "url": "/hacsfiles/atmospheric-weather-card/atmospheric-weather-card.js?hacstag=114503784850",
-        "type": "module"
-      },
-      {
         "id": "812ff7f6863e4dd8898b2ae5c0d3532e",
         "url": "/hacsfiles/platinum-weather-card/platinum-weather-card.js?hacstag=488086721105",
         "type": "module"
@@ -122,11 +117,6 @@
       {
         "id": "1ff8fec70dca4a128dcc393efc97256c",
         "url": "/hacsfiles/alarmo-card/alarmo-card.js?hacstag=391372854169",
-        "type": "module"
-      },
-      {
-        "id": "9cd01019964645f7a4b53e0edf2105cc",
-        "url": "/hacsfiles/cat-thermostat-card/cat-thermostat-card.js?hacstag=11411278718090",
         "type": "module"
       },
       {

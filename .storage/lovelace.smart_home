@@ -969,67 +969,6 @@
                   }
                 },
                 {
-                  "type": "custom:atmospheric-weather-card",
-                  "weather_entity": "weather.forecast_home",
-                  "sun_entity": "sun.sun",
-                  "moon_phase_entity": "sensor.moon_phase",
-                  "theme_entity": "sun.sun",
-                  "card_style": "standalone",
-                  "card_height": 130,
-                  "card_padding": "16px",
-                  "card_square": false,
-                  "celestial_size": "50px",
-                  "celestial_position": "fixed",
-                  "celestial_alignment": "right",
-                  "celestial_x": 45,
-                  "celestial_y": "center",
-                  "chip_area_position": "bottom-left",
-                  "card_hide_text": false,
-                  "chip_text_size": "12px",
-                  "chip_padding": "6px 10px",
-                  "chip_gap": "8px",
-                  "chip_area_background": true,
-                  "card_tap_action": {
-                    "action": "more-info"
-                  },
-                  "perf_fps": 60,
-                  "perf_cloud_quality": 2,
-                  "perf_effects": 2,
-                  "perf_dpr": 2,
-                  "chips": [
-                    {
-                      "entity": "weather.forecast_home_2",
-                      "attribute": "temperature",
-                      "position": "custom",
-                      "position_anchor": "top-left",
-                      "position_x": "16px",
-                      "position_y": "16px",
-                      "text_size": "34px",
-                      "background": false,
-                      "padding": "0px 4px",
-                      "hide_icon": true,
-                      "hide_label": true,
-                      "fancy_unit": true,
-                      "value_weight": "600",
-                      "behind_effects": true
-                    },
-                    {
-                      "entity": "weather.forecast_home_2",
-                      "attribute": "humidity",
-                      "name": "HMD"
-                    },
-                    {
-                      "entity": "weather.forecast_home_2",
-                      "attribute": "wind_speed",
-                      "name": "Wind"
-                    }
-                  ],
-                  "grid_options": {
-                    "rows": "auto",
-                    "columns": 12
-                  }
-                },
-                {
                   "type": "weather-forecast",
                   "entity": "weather.forecast_home",
                   "forecast_type": "daily"
@@ -1479,7 +1418,7 @@
             },
             {
               "type": "entity",
-              "entity": "sensor.solis_energy_dashboard_solis_battery_power",
+              "entity": "sensor.battery_flow_now",
               "name": "Battery",
               "show_name": true
             },
