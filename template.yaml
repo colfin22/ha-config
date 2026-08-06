@@ -38,3 +38,25 @@
            ['unknown', 'unavailable', 'none', ''] }}
       state: >-
         {{ [0, states('sensor.solis_meter_active_power') | float(0)] | max | round(0) }}
+
+# Signed battery flow, reconstructed from the two direction-specific Solis sensors.
+# sensor.solis_battery_power is an UNSIGNED MAGNITUDE (never negative, whichever way the
+# battery is moving) and sensor.solis_energy_dashboard_solis_battery_power is exactly -|flow|,
+# so NEITHER carries direction. input/output are mutually exclusive and do.
+# POSITIVE = CHARGING, NEGATIVE = DISCHARGING - the same convention as the old Autarco
+# sensor.battery_flow_now this badge used for 14 months (measured 3,462 vs 186 hours, 94.9%).
+- sensor:
+    - name: Battery Flow Now
+      unique_id: battery_flow_now
+      unit_of_measurement: W
+      device_class: power
+      state_class: measurement
+      icon: mdi:battery-charging
+      availability: >-
+        {{ states('sensor.solis_battery_input_energy') not in
+           ['unknown', 'unavailable', 'none', ''] and
+           states('sensor.solis_battery_output_energy') not in
+           ['unknown', 'unavailable', 'none', ''] }}
+      state: >-
+        {{ ((states('sensor.solis_battery_input_energy') | float(0))
+            - (states('sensor.solis_battery_output_energy') | float(0))) | round(0) }}
