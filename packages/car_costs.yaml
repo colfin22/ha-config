@@ -141,7 +141,11 @@ automation:
               data:
                 title: Car reminder
                 message: "{{ msg }}"
+                data:
+                  notification_icon: mdi:car-wrench
             - action: notify.mobile_app_pixel_6a
               data:
                 title: Car reminder
                 message: "{{ msg }}"
+                data:
+                  notification_icon: mdi:car-wrench
