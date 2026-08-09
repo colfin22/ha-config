@@ -2238,8 +2238,8 @@
       appliance: '{{ {''input_select.washing_machine_run_status'':''washing machine'',''input_select.tumble_dryer_run_status'':''tumble
         dryer'',''input_select.dishwasher_run_status'':''dishwasher''}[trigger.entity_id]
         }}'
-      solar_tomorrow: '{{ (states(''sensor.energy_production_tomorrow'') | float(0)
-        + states(''sensor.energy_production_tomorrow_2'') | float(0)) | round(1) }}'
+      solar_tomorrow: '{{ states(''sensor.energy_production_tomorrow'') | float(0)
+        | round(1) }}'
       band: '{{ ''the 5-7pm peak (39c/kWh)'' if now().hour < 19 else ''the evening
         rate (37c/kWh)'' }}'
   - variables:
@@ -3049,8 +3049,8 @@
     entity_id: sensor.grid_export_power
     above: 1500
   - condition: template
-    value_template: '{{ (states(''sensor.energy_production_today_remaining'') | float(0)
-      + states(''sensor.energy_production_today_remaining_2'') | float(0)) >= 3 }}'
+    value_template: '{{ states(''sensor.energy_production_today_remaining'') | float(0)
+      >= 3 }}'
   - condition: template
     value_template: '{{ (is_state(''person.colm_finn'',''home'') and is_state(''input_boolean.appliance_nudge_sent_colm'',''off''))
       or (is_state(''person.olivia_finn'',''home'') and is_state(''input_boolean.appliance_nudge_sent_olivia'',''off''))
@@ -3096,3 +3096,69 @@
     nudge_message: Exporting {{ (states('sensor.grid_export_power') | float(0) / 1000)
       | round(1) }} kW, battery {{ states('sensor.solis_battery_soc') | round(0) }}%,
       water hot. One at a time, not all together.
+- id: '1786285267844'
+  alias: Update Manager - Notify NP3
+  description: Push to NP3 when Update Manager announces a pending auto-install, completes
+    an install, or fails one. Built from the integration README's example, extended
+    from one event to all three.
+  triggers:
+  - trigger: event
+    event_type: update_manager_announced
+    id: announced
+  - trigger: event
+    event_type: update_manager_installed
+    id: installed
+  - trigger: event
+    event_type: update_manager_install_failed
+    id: failed
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: announced
+      sequence:
+      - action: notify.mobile_app_np3
+        data:
+          title: Update scheduled
+          message: Update Manager wants to update {{ device_name }} to {{ trigger.event.data.to_version
+            }} on {{ as_timestamp(trigger.event.data.execute_at) | timestamp_custom('%d-%m-%Y
+            %H:%M') }}.
+          data:
+            notification_icon: mdi:clock-alert-outline
+            clickAction: /update-manager/updates
+            group: update_manager
+            tag: um-{{ trigger.event.data.entity_id }}
+    - conditions:
+      - condition: trigger
+        id: installed
+      sequence:
+      - action: notify.mobile_app_np3
+        data:
+          title: Update installed
+          message: '{{ device_name }} updated {{ trigger.event.data.from_version }}
+            to {{ trigger.event.data.to_version }} ({{ ''automatic'' if trigger.event.data.auto_installed
+            else ''manual'' }}).'
+          data:
+            notification_icon: mdi:package-up
+            clickAction: /update-manager/updates
+            group: update_manager
+            tag: um-{{ trigger.event.data.entity_id }}
+    - conditions:
+      - condition: trigger
+        id: failed
+      sequence:
+      - action: notify.mobile_app_np3
+        data:
+          title: Update failed
+          message: '{{ device_name }} failed to install {{ trigger.event.data.to_version
+            }}.'
+          data:
+            notification_icon: mdi:alert-octagon
+            clickAction: /update-manager/updates
+            group: update_manager
+            tag: um-{{ trigger.event.data.entity_id }}
+  variables:
+    device_name: '{{ state_attr(trigger.event.data.entity_id, ''friendly_name'') |
+      regex_replace("\\s*Update$", "") }}'
+  mode: queued
+  max: 10
