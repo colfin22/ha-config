@@ -46,6 +46,16 @@ rest:
         availability: >-
           {% set c = value_json.cars | selectattr('id','eq',1) | first | default(none) %}
           {{ c is not none and c.l_per_100km is not none }}
+      # Fuel spend only, and it needs just the amount and the odometer, so it has a
+      # value even when a fill has no litres and the L/100km above goes away. It
+      # moves with the price at the pump as well as with the driving.
+      - name: Olivias car fuel cost per 100 km
+        unique_id: car_costs_car1_eur100km
+        value_template: "{{ (value_json.cars | selectattr('id','eq',1) | first).eur_per_100km }}"
+        unit_of_measurement: "€/100km"
+        availability: >-
+          {% set c = value_json.cars | selectattr('id','eq',1) | first | default(none) %}
+          {{ c is not none and c.eur_per_100km is not none }}
       - name: Olivias car cost per km
         unique_id: car_costs_car1_cost_per_km
         value_template: "{{ (value_json.cars | selectattr('id','eq',1) | first).cost_per_km | round(2) }}"
@@ -110,6 +120,16 @@ rest:
         availability: >-
           {% set c = value_json.cars | selectattr('id','eq',2) | first | default(none) %}
           {{ c is not none and c.l_per_100km is not none }}
+      # Fuel spend only, and it needs just the amount and the odometer, so it has a
+      # value even when a fill has no litres and the L/100km above goes away. It
+      # moves with the price at the pump as well as with the driving.
+      - name: Colms car fuel cost per 100 km
+        unique_id: car_costs_car2_eur100km
+        value_template: "{{ (value_json.cars | selectattr('id','eq',2) | first).eur_per_100km }}"
+        unit_of_measurement: "€/100km"
+        availability: >-
+          {% set c = value_json.cars | selectattr('id','eq',2) | first | default(none) %}
+          {{ c is not none and c.eur_per_100km is not none }}
       - name: Colms car cost per km
         unique_id: car_costs_car2_cost_per_km
         value_template: "{{ (value_json.cars | selectattr('id','eq',2) | first).cost_per_km | round(2) }}"
