@@ -105,3 +105,7 @@ Solis_data.json
 
 # Frigate homeassistant-user password, read by the command_line sensors (public repo)
 .frigate_pw
+
+# Car photos copied from the Car Costs app for the Cars dashboard tab.
+# They show registration plates, and this is a public repo.
+www/car_costs/
