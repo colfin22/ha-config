@@ -10,6 +10,8 @@ frontend:
 recorder:
   purge_keep_days: 7
   exclude:
+    entities:
+      - sensor.solis_rtc
     entity_globs:
       - image.*
       - binary_sensor.*_occupancy
