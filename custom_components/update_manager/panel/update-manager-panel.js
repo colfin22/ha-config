@@ -1,5 +1,5 @@
 /**
- * Update Manager: HA sidebar panel (Phase 2, see FUTURE.md)
+ * Update Manager: HA sidebar panel
  *
  * Registered by panel.py via panel_custom, served as a plain ES module --
  * no build step, same convention as this project family's Lovelace cards
@@ -12,12 +12,13 @@
  * and HACS's own panel use -- real per-tab URLs under this panel's own path,
  * not just in-memory tab state) and ha-form for the settings screen.
  *
- * Read-only Updates/Historie tabs, backed by websocket_api.py's
- * update_manager/updates + update_manager/install_log. Instellingen
- * replaces the interim options flow (update_manager/get_settings +
- * update_manager/save_settings) -- see FUTURE.md's "Tussenstap" note.
+ * Read-only Updates/History tabs, backed by websocket_api.py's
+ * update_manager/updates + update_manager/install_log. Settings
+ * replaces the interim config_flow options step (update_manager/get_settings +
+ * update_manager/save_settings), which was always meant as a temporary
+ * stand-in from before this panel existed.
  *
- * Auto-install (see FUTURE.md's "Auto-install (niveau 3): ontwerp") never
+ * Auto-install never
  * installs anything the instant it becomes eligible: install_manager.py
  * announces it first (a cancellable countdown), and this panel is where
  * that countdown and its cancel button actually live -- deliberately not a
@@ -38,12 +39,44 @@
 // panel, which was the bug found via live testing: tabs navigated to the
 // site root (e.g. /updates) instead of /update-manager/updates.
 const PANEL_PATH = "/update-manager";
+// HA Core's own, fixed, well-known update entity_id -- confirmed against
+// real bug reports/service-call examples referencing it, same one
+// hacs_identity.py's own _HOME_ASSISTANT_COMPONENT_BY_ENTITY_ID already
+// keys off (kept in sync by hand, JS/Python can't literally share a
+// constant). Only used to decide whether to also fetch the Core-specific
+// announcement blog link (_fetchCoreAnnouncement) -- see that method's own
+// comment.
+const CORE_UPDATE_ENTITY_ID = "update.home_assistant_core_update";
 // Raw MDI SVG path data, not an icon name -- hass-tabs-subpage's tabs
 // render via ha-svg-icon (.path=), unlike <ha-icon icon="mdi:...">
 // elsewhere in this file, which resolves a name to a path itself at
 // runtime. Copied verbatim from @mdi/js (mdiUpdate/mdiHistory/mdiCog) since
 // importing that package would need a build step, same reasoning as
 // avoiding Lit everywhere else in this project.
+// home-assistant-js-websocket's own Connection.sendMessagePromise (what
+// hass.callWS calls into) rejects with the bare number 3 (its own
+// ERR_CONNECTION_LOST constant, lib/errors.ts) instead of an Error object
+// when the connection itself drops while a command is still in flight --
+// its own real docs call this out as the one special-case rejection shape
+// reachable from an in-progress command (the other numbered error codes
+// there are all about the initial auth/connect handshake, never seen from
+// a live callWS failure). Found live, 2026-08-09:
+// _loadAll's own catch fell through to String(err) for this, surfacing as
+// the literal, meaningless "Couldn't load Update Manager: 3" -- see
+// LOAD_ERROR_CONNECTION_LOST below for how that's now told apart from a
+// real error message.
+const WS_ERR_CONNECTION_LOST = 3;
+// A distinct sentinel object, not a plain string -- _loadAll's own catch
+// can't look up the actual translated text yet (this._tr may still be
+// null at that point, before _translationsReady resolves; see get _tr's
+// own comment), so it stores this marker instead and _renderContent
+// resolves the real string once translations are guaranteed ready, the
+// same point every other piece of this method's own text already comes
+// from. A plain string marker (e.g. "connection_lost") risked (however
+// unlikely) colliding with a genuine err.message that happened to read
+// the same; an object reference never can.
+const LOAD_ERROR_CONNECTION_LOST = Symbol("connection_lost");
+
 const ICON_UPDATE =
   "M21,10.12H14.22L16.96,7.3C14.23,4.6 9.81,4.5 7.08,7.2C4.35,9.91 4.35,14.28 7.08,17C9.81,19.7 14.23,19.7 16.96,17C18.32,15.65 19,14.08 19,12.1H21C21,14.08 20.12,16.65 18.36,18.39C14.85,21.87 9.15,21.87 5.64,18.39C2.14,14.92 2.11,9.28 5.62,5.81C9.13,2.34 14.76,2.34 18.27,5.81L21,3V10.12M12.5,8V12.25L16,14.33L15.28,15.54L11,13V8H12.5Z";
 const ICON_HISTORY =
@@ -78,6 +111,57 @@ const ICON_CHEVRON_DOWN = "M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,
 const ICON_THUMB_UP =
   "M23 10a2 2 0 0 0-2-2h-6.32l.96-4.57c.02-.1.03-.21.03-.32c0-.41-.17-.79-.44-1.06L14.17 1L7.59 7.58C7.22 7.95 7 8.45 7 9v10a2 2 0 0 0 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73zM1 21h4V9H1z";
 const ICON_ALERT = "M13 14h-2V9h2m0 9h-2v-2h2M1 21h22L12 2z";
+// mdiDeleteOutline, verified against @mdi/js 7.4.47's own real source --
+// Postponement's own weekday schedule row, its own remove button (see
+// _buildPostponementCard). A trash icon, not mdiClose (tried first,
+// changed 2026-08-11, direct user feedback: this project's own Trusted
+// voters field already uses this same icon for its own per-item remove
+// button, ha-input-multi's real source confirms -- matching it here
+// instead of a third, different icon for what's functionally the same
+// "remove this one item from a list" action).
+const ICON_DELETE_OUTLINE =
+  "M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19M8,9H16V19H8V9M15.5,4L14.5,3H9.5L8.5,4H5V6H19V4H15.5Z";
+// mdiWrench, verified against @mdi/js 7.4.47's own real source (not
+// guessed) -- the "stuck, needs your attention" trailing icon/Repair icon,
+// deliberately not ICON_ALERT above (that's specifically for a problematic
+// community verdict, a different meaning entirely) and deliberately not a
+// plain warning triangle either: nothing here is actually broken, it's
+// just taking unusually long and might need a nudge, which is exactly what
+// HA's own Repairs page already uses a wrench for.
+const ICON_WRENCH =
+  "M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z";
+
+// How long a plain, un-gated entity must stay observed installing before
+// _buildUpdatesList promotes it into the "Installing" section -- direct
+// user feedback: a custom card update (no progress reporting, installs in
+// well under a second) would otherwise flash the whole section in and out
+// of existence for a fraction of a second, for no benefit to anyone. Not
+// polled on a timer: opportunistically re-checked on whichever hass push
+// happens to land next (see this._installingSince's own comment) -- an
+// install fast enough to never cross this delay at all is, by definition,
+// too fast to be worth showing here in the first place.
+const INSTALLING_PROMOTE_DELAY_MS = 1000;
+
+// How long an entity keeps counting as "installing" for display purposes
+// after the last time its own in_progress attribute was actually observed
+// true, even while it currently reads false -- found live, 2026-08-10: a
+// sleepy Zigbee end device's own in_progress genuinely toggles false
+// between wake cycles while the install is still ongoing (the exact same
+// phenomenon rollout_manager.py's own _FRONT_GRACE, whose value this
+// mirrors, already exists to tolerate server-side). Every check here used
+// to read in_progress instantaneously, with no memory of "was this true a
+// moment ago" -- a render landing during one of those gaps (most visible
+// right after a manual refresh, whose own reload skips the reactive
+// _updateInstallProgress path entirely and so has nothing to fall back on)
+// excluded the entity from the "Installing" section outright, with nothing
+// scheduled to look again until some unrelated later push happened to
+// catch it awake, which itself could take a while for a device that flips
+// true only briefly between longer sleep stretches. Not long enough to
+// bridge every real sleep gap (some battery devices sleep for minutes),
+// only to stop a single false reading -- however it was observed -- from
+// immediately hiding an entity that was, and very likely still is,
+// genuinely mid-install.
+const INSTALLING_FLICKER_GRACE_MS = 60000;
 
 // The one place "problematic -> alert icon, else thumb-up" gets decided --
 // found by code review, 2026-07-27: this exact ternary (or its count>0
@@ -88,8 +172,8 @@ function verdictIcon(isProblematic) {
 }
 
 // TRANSLATIONS itself now lives in its own file, translations.js (2026-08-07,
-// direct user feedback: "Ik wil alle copy, bij alle projecten, centraal
-// kunnen beheren per taal"), loaded dynamically below rather than via a
+// direct user feedback: wanting all copy, across every project, managed
+// centrally per language), loaded dynamically below rather than via a
 // plain static `import` -- see _loadTranslations' own comment for why a
 // static import would risk exactly the kind of stale-browser-cache bug
 // panel.py's own _panel_js_cache_key already exists to prevent for this
@@ -124,15 +208,20 @@ function tabForPath(relativePath) {
 }
 
 // Native ha-form all the way through (direct user feedback: a hand-rolled
-// table, while compact, stopped feeling like standard HA) -- one always-
-// expanded section per size (so nothing needs a click to reveal, still
-// "speaks for itself"), each holding its two fields stacked, not side by
-// side (direct user feedback: let each take the full width). The two field
-// labels do repeat across the 3 sections, but only ever one size's worth is
-// what you're looking at at a
-// time -- the section title itself (tr.size_*, shown once per size, with
-// its explanation) is what would otherwise have needed repeating.
+// table, while compact, stopped feeling like standard HA). Postponement's
+// own wait_days and Auto-update's own auto_install each get one plain,
+// always-visible field per size, not an expandable section (2026-08-11,
+// direct user feedback backed by Fitts's Law: the two used to share one
+// expandable per size, but once they moved into separate cards each held
+// only a single field, and a click-to-reveal that hides exactly one control
+// costs more than it saves).
 const SIZES = ["small", "medium", "large"];
+
+// Monday..Sunday, matching const.py's own WEEKDAY_READY_OPTION_KEYS order
+// (and so datetime.weekday() on the backend) -- the postponement schedule's
+// own per-day rows are built from this the same way per-size sections are
+// built from SIZES above.
+const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
 // vote_reason_* translation keys, one shared source of truth (see
 // _buildVoteControls): found by review, two independently hand-written
@@ -159,14 +248,6 @@ const _JOURNEY_B_REASON_ORDER = [
 ];
 const _JOURNEY_A_REASON_ORDER = ["breaking change", "requires a newer HA version", "is a dev/pre-release build"];
 
-function fieldKind(name) {
-  for (const size of SIZES) {
-    if (name === `${size}_wait_days`) return "wait_days";
-    if (name === `${size}_auto_install`) return "auto_install";
-  }
-  return null;
-}
-
 // Found via live testing: a config entry's stored options never get
 // automatically cleaned up by HA, so fields from an earlier design (e.g.
 // the removed *_blocked/*_mode from before 2026-07-16) can keep sitting in
@@ -175,9 +256,20 @@ function fieldKind(name) {
 // on both load and save means stale keys just quietly stop being sent,
 // instead of silently accumulating.
 function knownSettingsFields() {
-  const names = ["enabled", "announce_hours", "excluded_entities", "hide_postponed", "trusted_voters"];
+  const names = [
+    "enabled",
+    "announce_hours",
+    "excluded_entities",
+    "hide_postponed",
+    "show_skipped_updates",
+    "show_not_installable_updates",
+    "trusted_voters",
+  ];
   for (const size of SIZES) {
     names.push(`${size}_wait_days`, `${size}_auto_install`);
+  }
+  for (const day of WEEKDAYS) {
+    names.push(`${day}_ready_enabled`, `${day}_ready_time`);
   }
   return names;
 }
@@ -189,7 +281,12 @@ function knownSettingsFields() {
 // value-changed handler (see entitiesForm/trustedForm below): this is the
 // one place every settings field already passes through before being sent,
 // so a future third list-typed field is covered automatically instead of
-// needing to remember this same fix on its own.
+// needing to remember this same fix on its own. Blank entries (e.g. a
+// trusted-voter row cleared back to "" rather than removed via its own
+// trash icon, see trustedForm's own comment) are dropped here too, at save
+// time only -- not from _formData/the live widget's own state, which would
+// delete ha-input-multi's freshly-added blank row before the user can type
+// into it (found live, 2026-08-11).
 const LIST_SETTINGS_FIELDS = new Set(["excluded_entities", "trusted_voters"]);
 
 function pickKnownSettings(data) {
@@ -197,7 +294,7 @@ function pickKnownSettings(data) {
   const result = {};
   for (const key of known) {
     if (!(key in data)) continue;
-    result[key] = LIST_SETTINGS_FIELDS.has(key) ? data[key] || [] : data[key];
+    result[key] = LIST_SETTINGS_FIELDS.has(key) ? (data[key] || []).filter((v) => v && String(v).trim()) : data[key];
   }
   return result;
 }
@@ -239,9 +336,8 @@ function compareUpdates(a, b, settings) {
   // Within "ready": an entity already counting down to a real scheduled
   // auto-install (pending_install) sorts soonest-execute_at-first among
   // others like it, ahead of "ready" entities with nothing scheduled yet --
-  // direct user feedback, 2026-07-27 ("in ready to update zou ik verwachten
-  // dat de geplande geautomatiseerde updates op volgorde gesorteerd staan
-  // van nu naar later"). Plain ready entities (no pending_install) keep the
+  // direct user feedback, 2026-07-27: within "ready to update", scheduled
+  // automatic updates were expected to sort soonest-first. Plain ready entities (no pending_install) keep the
   // existing oldest-available-first order below.
   if (a.status === "ready" && b.status === "ready") {
     const aScheduled = a.pending_install != null;
@@ -312,11 +408,17 @@ function autoInstallEnabledFor(u, settings) {
 // string (same shape as pending_install.execute_at) so callers can reuse
 // relativeTime's formatting, or null when this can't/shouldn't be
 // projected (not waiting, or auto-install isn't actually enabled for it).
+// auto_install_cancelled (see install_manager.py's own is_cancelled) also
+// suppresses this -- cancelling auto-install for a
+// still-"waiting" update (before a real, formal announcement even exists)
+// already worked server-side, but this function had no way to know that,
+// so the dialog kept showing the exact same projection and Cancel button
+// right after clicking it, reading as "cancel doesn't do anything".
 function projectedAutoInstallTime(u, settings) {
   if (u.status !== "waiting" || u.remaining_seconds == null) return null;
+  if (u.auto_install_cancelled) return null;
   if (!autoInstallEnabledFor(u, settings) || settings.announce_hours == null) return null;
-  const totalSeconds = u.remaining_seconds + settings.announce_hours * 3600;
-  return new Date(Date.now() + totalSeconds * 1000).toISOString();
+  return new Date(new Date(u.ready_at).getTime() + settings.announce_hours * 3600 * 1000).toISOString();
 }
 
 // The real moment this "waiting" update's own announcement would actually
@@ -334,8 +436,13 @@ function projectedAutoInstallTime(u, settings) {
 // install either.
 function projectedAnnouncementTime(u, settings) {
   if (u.status !== "waiting" || u.remaining_seconds == null) return null;
+  // Same auto_install_cancelled guard as projectedAutoInstallTime above,
+  // and for the same reason: a cancelled version's announcement will never
+  // actually happen either (decide_action's own cancelled_to_version
+  // check), so projecting one here would be just as misleading.
+  if (u.auto_install_cancelled) return null;
   if (!autoInstallEnabledFor(u, settings)) return null;
-  return new Date(Date.now() + u.remaining_seconds * 1000).toISOString();
+  return u.ready_at;
 }
 
 // "Ready" (green) covers two different situations: nothing planned yet
@@ -377,8 +484,7 @@ function statusText(tr, u, settings, hass) {
     if (projected) {
       text = tr.status_pending_install(absoluteWhen(tr, projected, hass));
     } else if (u.remaining_seconds != null) {
-      const readyAt = new Date(Date.now() + u.remaining_seconds * 1000).toISOString();
-      text = tr.status_waiting_manual(absoluteWhen(tr, readyAt, hass));
+      text = tr.status_waiting_manual(absoluteWhen(tr, u.ready_at, hass));
     } else {
       text = tr.status_waiting_soon;
     }
@@ -410,8 +516,7 @@ function timerBadge(tr, u, settings, hass) {
     const projected = projectedAutoInstallTime(u, settings);
     if (projected) return { icon: ICON_AUTO_DOWNLOAD, text: capitalize(absoluteWhen(tr, projected, hass, true)) };
     if (u.remaining_seconds != null) {
-      const readyAt = new Date(Date.now() + u.remaining_seconds * 1000).toISOString();
-      return { icon: ICON_CLOCK_OUTLINE, text: capitalize(absoluteWhen(tr, readyAt, hass, true)) };
+      return { icon: ICON_CLOCK_OUTLINE, text: capitalize(absoluteWhen(tr, u.ready_at, hass, true)) };
     }
     return { icon: ICON_CLOCK_OUTLINE, text: tr.relative_soon };
   }
@@ -568,8 +673,9 @@ function buildKeyValueRows(pairs) {
 // per-entry one (appendReleaseNotesSection/ensureCommunitySection's own
 // sibling code), both of which now render this link as *part of* that
 // section instead of off on its own in the facts block, 2026-08-01, direct
-// user feedback: "als die notes ontbreken, dan staat die link bij de
-// details ipv onder het kopje 'Release notes'". null when there's no
+// user feedback: when there were no notes, the link ended up sitting
+// among the plain details instead of under its own "Release notes"
+// heading. null when there's no
 // releaseUrl at all -- callers skip inserting it entirely in that case.
 function buildReleaseUrlLinkRow(tr, releaseUrl) {
   if (!releaseUrl) return null;
@@ -699,7 +805,7 @@ function installMethodText(tr, entry) {
 //
 // Two categories pulled out of that ready/waiting/blocked bucketing
 // entirely, both shown last (direct user feedback: "Skipped" at the top
-// read as "heel vreemd" -- neither of these is something you act on via
+// read as quite odd -- neither of these is something you act on via
 // the usual ready/waiting flow, so both sink below it), in the same
 // relative order and with the same precedence rule as HA's own real
 // Updates page (ha-config-section-updates.ts, confirmed against its real
@@ -711,11 +817,28 @@ function installMethodText(tr, entry) {
 // coordinator.py's own is_own_skip distinction; our own staging_skip.py
 // auto-skips never show up as this status at all, they just read as
 // "waiting").
-function groupUpdates(tr, updates) {
-  const notInstallable = updates.filter((u) => !u.installable);
-  const rest = updates.filter((u) => u.installable);
-  const skipped = rest.filter((u) => u.status === "skipped");
-  const installable = rest.filter((u) => u.status !== "skipped");
+// showSkipped/showNotInstallable (both default true, matching what every
+// existing install already saw before these existed at all) -- the
+// Updates tab's own overflow-menu checkboxes (see _ensureShell), backed
+// by this._formData.show_skipped_updates/.show_not_installable_updates,
+// direct user feedback, 2026-08-07: two independent, saved toggles (not
+// HA's own single shared one), living in the same menu/location HA's own
+// page puts its own single toggle. Classification itself is unchanged by
+// either flag -- hiding a group drops it from the returned list below, it
+// never reclassifies those entities into ready/waiting/blocked instead.
+// Shared with _syncOverflowMenu (see its own comment), so the "what counts
+// as skipped/not installable" rule only lives in one place.
+function isNotInstallableUpdate(u) {
+  return !u.installable;
+}
+function isSkippedUpdate(u) {
+  return u.installable && u.status === "skipped";
+}
+
+function groupUpdates(tr, updates, showSkipped = true, showNotInstallable = true) {
+  const notInstallable = updates.filter(isNotInstallableUpdate);
+  const skipped = updates.filter(isSkippedUpdate);
+  const installable = updates.filter((u) => u.installable && u.status !== "skipped");
 
   const byStatus = { ready: [], waiting: [], blocked: [] };
   installable.forEach((u) => {
@@ -726,10 +849,10 @@ function groupUpdates(tr, updates) {
   if (byStatus.ready.length) groups.push({ key: "ready", title: tr.group_ready, entities: byStatus.ready });
   if (byStatus.waiting.length) groups.push({ key: "waiting", title: tr.group_waiting, entities: byStatus.waiting });
   if (byStatus.blocked.length) groups.push({ key: "blocked", title: tr.group_blocked, entities: byStatus.blocked });
-  if (skipped.length) {
+  if (showSkipped && skipped.length) {
     groups.push({ key: "skipped", title: tr.group_skipped(skipped.length), entities: skipped });
   }
-  if (notInstallable.length) {
+  if (showNotInstallable && notInstallable.length) {
     groups.push({ key: "not_installable", title: tr.group_not_installable(notInstallable.length), entities: notInstallable });
   }
   return groups;
@@ -814,7 +937,18 @@ function absoluteWhen(tr, iso, hass, compact) {
   // "today" from our own tr object right next to a Dutch weekday name
   // from the browser's own locale).
   const locale = tr.locale;
-  const time = date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit", hour12: useAmPm(hass) });
+  // Exactly midnight almost always means no specific time was ever set --
+  // "any time that day" (see postponement_schedule.py's own DayRule.time
+  // being None), not a genuine to-the-minute target -- direct user
+  // feedback, 2026-08-11: showing the bare digits "00:00" left it
+  // genuinely ambiguous whether that meant the start or the end of that
+  // day. Dropped entirely in that case (null, not a "00:00" string) --
+  // every when_*/tr string below already knows how to read a null time as
+  // "just the day, no time attached".
+  const isMidnight = date.getHours() === 0 && date.getMinutes() === 0;
+  const time = isMidnight
+    ? null
+    : date.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit", hour12: useAmPm(hass) });
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const now = new Date();
   const dayDiff = Math.round((startOfDay(date) - startOfDay(now)) / 86400000);
@@ -823,7 +957,7 @@ function absoluteWhen(tr, iso, hass, compact) {
     // moment is still later today -- the bare time can never be misread as
     // "already happened" or as some other day, so "today" never actually
     // disambiguates anything here.
-    if (compact) return time;
+    if (compact) return time || tr.when_today(null);
     return tr.when_today(time);
   }
   if (dayDiff === 1) {
@@ -833,8 +967,14 @@ function absoluteWhen(tr, iso, hass, compact) {
     // happened today and naturally reads as its next occurrence, tomorrow.
     // If the target time hasn't passed yet today (tomorrow's 20:00 while
     // it's 08:00 now), a bare "20:00" would look identical to a same-day
-    // 20:00 -- the word has to stay in that case.
-    if (compact && date.getHours() * 60 + date.getMinutes() <= now.getHours() * 60 + now.getMinutes()) return time;
+    // 20:00 -- the word has to stay in that case. `time &&` guards this
+    // shortcut out entirely when time is null -- a bare "00:00" would
+    // otherwise (00:00 always being <= whatever "now"'s own clock is)
+    // almost always have taken this branch, showing the exact ambiguous
+    // digits this whole fix exists to avoid, with no day word to anchor it.
+    if (compact && time && date.getHours() * 60 + date.getMinutes() <= now.getHours() * 60 + now.getMinutes()) {
+      return time;
+    }
     return tr.when_tomorrow(time);
   }
   if (dayDiff > 1 && dayDiff < 7) return tr.when_weekday(date.toLocaleDateString(locale, { weekday: "long" }), time);
@@ -880,8 +1020,38 @@ function historySections(tr, entries) {
   return buckets.filter((bucket) => bucket.items.length);
 }
 
+// HACS's own update entities (custom_components/hacs/update.py's own
+// HacsRepositoryUpdateEntity.entity_picture, confirmed against its real
+// source) hardcode entity_picture to the legacy, central
+// brands.home-assistant.io CDN, never the newer local Brands Proxy API
+// (/api/brands/integration/<domain>/icon.png, HA 2026.3+) that actually
+// reads a custom integration's own bundled brand/icon.png -- direct user
+// feedback: several integrations' own icons (this project's own included)
+// genuinely exist but never showed up, in Update Manager's own lists *and*
+// HA's native more-info dialog alike, since both read this exact same
+// attribute. That central repo has stopped accepting new custom-integration
+// registrations, so anything registered before that closure (older,
+// established integrations) still resolves there, anything newer never
+// will, regardless of how correct its own local brand folder is. The proxy
+// is a strict superset of the legacy CDN (falls back to serving the same
+// central-repo asset itself whenever there's no local brand folder to
+// prefer), so rewriting to it here is safe even for a domain that was never
+// affected in the first place. ?placeholder=no (same query param HA core's
+// own SupervisorCoreUpdateEntity.entity_picture already uses for exactly
+// this reason) asks the proxy for a real 404 on a genuine miss instead of
+// its own generic placeholder graphic, so a domain with no brand icon at
+// all still falls back to state-badge's normal domain icon instead of a
+// wrong, generic one.
+const _HACS_BRANDS_ICON_RE = /^https:\/\/brands\.home-assistant\.io\/_\/([a-z0-9_]+)\/icon\.png$/;
 function entityState(hass, entityId) {
-  return hass && hass.states && hass.states[entityId];
+  const state = hass && hass.states && hass.states[entityId];
+  const picture = state && state.attributes && state.attributes.entity_picture;
+  const match = typeof picture === "string" && _HACS_BRANDS_ICON_RE.exec(picture);
+  if (!match) return state;
+  return {
+    ...state,
+    attributes: { ...state.attributes, entity_picture: `/api/brands/integration/${match[1]}/icon.png?placeholder=no` },
+  };
 }
 
 // Same three helpers more-info-update.ts itself exports from data/update.ts
@@ -899,19 +1069,116 @@ function updateIsInstalling(state) {
 }
 
 // The Updates list row's own trailing indicator while installing (see
-// _buildListRow) -- matches ha-config-updates.ts's own real
-// _renderUpdateProgress exactly: a percentage ring when the entity
-// supports it and reports one, a plain spinner otherwise. Replaces the
-// row's normal timer pill + chevron entirely while installing, same as
-// HA's own row replaces its trailing chevron with exactly this and
-// nothing else.
+// _buildListRow) -- a percentage ring once the entity reports one *and*
+// it's actually above zero, a plain spinner otherwise. Replaces the row's
+// normal timer pill + chevron entirely while installing, same as HA's own
+// row replaces its trailing chevron with exactly this and nothing else.
+// Deliberately NOT the same as ha-config-updates.ts's own real
+// _renderUpdateProgress (confirmed against its actual source): that shows
+// a ring the instant update_percentage is merely non-null, including a
+// literal 0 -- a ring frozen at 0% reads
+// as nothing happening at all, not as "just started". A plain spinner
+// until the percentage is genuinely > 0 (real download/flash progress)
+// reads honestly either way; shouldShowProgressRing below is the one
+// place this rule lives, shared with _patchListRowProgress so the two
+// can't drift apart.
+// A small, self-built SVG ring (track + indicator), not Home Assistant's
+// own ha-progress-ring -- found live, 2026-08-11, confirmed directly (not
+// guessed) via the browser console: `customElements.get('ha-progress-
+// ring')` returned undefined even after 100+ refreshes of a session that
+// only ever opened this panel. Confirmed against home-assistant/
+// frontend's own source: unlike ha-spinner (used by its own loading
+// screen and sidebar, so always loaded before any panel gets a chance to
+// render at all), ha-progress-ring is only ever loaded by a handful of
+// specific pages (Settings > Updates, a config flow's own progress step,
+// zwave_js's own dialogs) -- an external panel script has no import
+// relationship with any of those and no reliable way to force one of
+// them to load first. A ring this project builds and fully owns has no
+// such dependency at all, so it's simply always there.
+//
+// Every visual/behavioral detail below is taken directly from the real
+// source, not approximated: home-assistant/frontend's own
+// ha-progress-ring.ts (the "small" = 28px size mapping, --track-width:
+// 4px fixed regardless of size, --track-color/--indicator-color falling
+// back to --divider-color/--primary-color) layered on top of
+// @home-assistant/webawesome's own wa-progress-ring component (the actual
+// radius/circumference/offset math in its updated(), and its own
+// progress-ring.styles.js: round line cap only on the indicator, a 0.35s
+// stroke-dashoffset transition, the whole ring rotated -90deg so the
+// indicator starts at 12 o'clock) -- verified against the published
+// @home-assistant/webawesome npm package's own dist output directly, not
+// guessed from how a progress ring "usually" looks.
+const PROGRESS_RING_SIZE = 28;
+const PROGRESS_RING_STROKE = 4;
+const PROGRESS_RING_RADIUS = PROGRESS_RING_SIZE / 2 - PROGRESS_RING_STROKE / 2;
+const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+function _progressRingOffset(percentage) {
+  const clamped = Math.max(0, Math.min(100, percentage));
+  return PROGRESS_RING_CIRCUMFERENCE - (clamped / 100) * PROGRESS_RING_CIRCUMFERENCE;
+}
+
+function buildProgressRing(percentage, label) {
+  const center = PROGRESS_RING_SIZE / 2;
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("width", PROGRESS_RING_SIZE);
+  svg.setAttribute("height", PROGRESS_RING_SIZE);
+  svg.setAttribute("viewBox", `0 0 ${PROGRESS_RING_SIZE} ${PROGRESS_RING_SIZE}`);
+  svg.classList.add("progress-ring");
+  svg.style.rotate = "-90deg";
+  svg.style.transformOrigin = "50% 50%";
+  svg.setAttribute("role", "progressbar");
+  svg.setAttribute("aria-label", label);
+  svg.setAttribute("aria-valuemin", "0");
+  svg.setAttribute("aria-valuemax", "100");
+  const track = document.createElementNS(SVG_NS, "circle");
+  track.setAttribute("cx", center);
+  track.setAttribute("cy", center);
+  track.setAttribute("r", PROGRESS_RING_RADIUS);
+  track.setAttribute("fill", "none");
+  track.setAttribute("stroke", "var(--divider-color)");
+  track.setAttribute("stroke-width", PROGRESS_RING_STROKE);
+  svg.appendChild(track);
+  const indicator = document.createElementNS(SVG_NS, "circle");
+  indicator.setAttribute("cx", center);
+  indicator.setAttribute("cy", center);
+  indicator.setAttribute("r", PROGRESS_RING_RADIUS);
+  indicator.setAttribute("fill", "none");
+  indicator.setAttribute("stroke", "var(--primary-color)");
+  indicator.setAttribute("stroke-width", PROGRESS_RING_STROKE);
+  indicator.setAttribute("stroke-linecap", "round");
+  indicator.setAttribute("stroke-dasharray", `${PROGRESS_RING_CIRCUMFERENCE} ${PROGRESS_RING_CIRCUMFERENCE}`);
+  indicator.style.transitionProperty = "stroke-dashoffset";
+  indicator.style.transitionDuration = "0.35s";
+  indicator.classList.add("progress-ring-indicator");
+  svg.appendChild(indicator);
+  svg.setAttribute("aria-valuenow", percentage);
+  indicator.setAttribute("stroke-dashoffset", _progressRingOffset(percentage));
+  return svg;
+}
+
+// Live value update for an already-built ring (see buildProgressRing) --
+// _patchListRowProgress's own cheaper alternative to tearing the whole
+// node down and rebuilding it on every single percentage tick, same
+// reasoning that method's own docstring already gives. The CSS transition
+// set up on the indicator itself (see buildProgressRing) is what actually
+// animates the change smoothly, this just sets the new target.
+function setProgressRingValue(svgEl, percentage) {
+  svgEl.setAttribute("aria-valuenow", percentage);
+  svgEl.querySelector(".progress-ring-indicator").setAttribute("stroke-dashoffset", _progressRingOffset(percentage));
+}
+
+function isProgressRingNode(node) {
+  return !!(node && node.classList && node.classList.contains("progress-ring"));
+}
+
+function shouldShowProgressRing(state) {
+  return !!(state && state.attributes.update_percentage > 0);
+}
 function installingIndicatorNode(state, tr) {
-  if (state && state.attributes.update_percentage != null) {
-    const ring = document.createElement("ha-progress-ring");
-    ring.size = "small";
-    ring.value = state.attributes.update_percentage;
-    ring.label = tr.status_installing;
-    return ring;
+  if (shouldShowProgressRing(state)) {
+    return buildProgressRing(state.attributes.update_percentage, tr.status_installing);
   }
   const spinner = document.createElement("ha-spinner");
   spinner.size = "small";
@@ -927,6 +1194,16 @@ function friendlyEntityName(hass, entityId) {
   const state = entityState(hass, entityId);
   const name = (state && state.attributes && state.attributes.friendly_name) || entityId;
   return name.replace(/\s+update$/i, "");
+}
+
+// Shared by the "Installing" section's own stuck row and the detail
+// dialog's own stuck alert -- "3h 40m" style, at least 1 minute (never
+// "0m", which would read as if nothing at all had happened yet).
+function formatStuckDuration(tr, since) {
+  const totalMinutes = Math.max(1, Math.round((Date.now() - since.getTime()) / 60000));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? tr.duration_hours_minutes(hours, minutes) : tr.duration_minutes(minutes);
 }
 
 // Matches ha-config-updates.ts's own real supporting-text line (confirmed
@@ -1024,12 +1301,25 @@ function _replaceGithubEmojiShortcodes(text) {
 // #1234 -- negative lookbehind on \w and # themselves, so this doesn't
 // match in the middle of a longer token (a version like "2026.7.4" has no
 // "#" in it so that's not a real risk, but a heading like "### 1234" or an
-// already-composed "##1234" would be, without the lookbehind).
-const _GITHUB_ISSUE_REF_RE = /(?<![\w#])#(\d+)\b/g;
+// already-composed "##1234" would be, without the lookbehind). Also "["
+// -- direct user feedback, 2026-08-08, a real Home Assistant Core release
+// (2026.8.1): its own notes are written entirely in GitHub's *reference*-style
+// link shape ("([@shtefko] - [#177201])", with the actual
+// "[#177201]: https://github.com/home-assistant/core/pull/177201" definition
+// further down), not the plain inline "#1234" prose this was built for.
+// Without excluding a preceding "[", the #1234 *inside* that reference
+// label got linkified too, turning "[#177201]: url" into
+// "[[#177201](.../issues/177201)]: url" -- no longer a link definition
+// ha-markdown's own renderer recognizes at all, so instead of staying
+// invisible (as a real reference definition does) the whole block of
+// them rendered as a wall of literal link text underneath the notes.
+const _GITHUB_ISSUE_REF_RE = /(?<![\w#[])#(\d+)\b/g;
 // @username -- GitHub handles are alphanumeric/hyphen, 1-39 chars, can't
 // start or end with a hyphen (not enforced here, a trailing-hyphen handle
 // simply doesn't exist to link to, low stakes). Negative lookbehind on
-// \w/@/. so this doesn't fire mid-email-address (e.g. "user@example.com").
+// \w/@/./[ so this doesn't fire mid-email-address (e.g. "user@example.com")
+// or inside an existing "[@username]" reference label, same reasoning as
+// _GITHUB_ISSUE_REF_RE's own "[" exclusion above.
 // Optional trailing "[bot]" captured separately -- found by review,
 // 2026-08-02, checking real popular repos for more edge cases: GitHub's
 // own auto-generated release notes ("bumped by @dependabot[bot] in #1234")
@@ -1039,7 +1329,7 @@ const _GITHUB_ISSUE_REF_RE = /(?<![\w#])#(\d+)\b/g;
 // github.com/{name} (that 404s for most bots) -- without this, the "[bot]"
 // suffix was also left dangling as plain text right after the link
 // instead of being part of it.
-const _GITHUB_MENTION_RE = /(?<![\w@.])@([a-zA-Z0-9][a-zA-Z0-9-]{0,38})(\[bot\])?/g;
+const _GITHUB_MENTION_RE = /(?<![\w@.[])@([a-zA-Z0-9][a-zA-Z0-9-]{0,38})(\[bot\])?/g;
 
 function _linkifyGithubReferences(text, owner, repo) {
   if (!owner || !repo) return text;
@@ -1101,8 +1391,8 @@ function _decorateReleaseNotes(notes, releaseUrl) {
 // releaseUrl) are excluded so a repo's own release notes linking back to
 // its own earlier release is never mistaken for "an upstream project".
 // null whenever no such link is found, or more than one *distinct* repo is
-// referenced -- direct user feedback: "misschien alleen doen als er 1 link
-// in zit en niet meer?", several dependency bumps mentioned at once is a
+// referenced -- direct user feedback, suggesting this only apply when
+// there's exactly one link: several dependency bumps mentioned at once is a
 // real, common shape too, and guessing which one is "the" upstream project
 // among several would be exactly the kind of unreliable guess this whole
 // feature otherwise avoids.
@@ -1289,10 +1579,28 @@ class UpdateManagerPanel extends HTMLElement {
     this._route = null;
     this._updates = null;
     this._rolloutGroups = [];
+    this._rolloutStatusByEntityId = new Map();
+    this._tierWaiting = new Set();
+    this._stuck = new Map();
+    // entityId -> Date.now() it was first observed installing=true, purely
+    // client-side (distinct from rollout_manager.py's own server-side
+    // per-entity tracking) -- feeds INSTALLING_PROMOTE_DELAY_MS's own
+    // debounce, see that constant's own comment.
+    this._installingSince = new Map();
+    // entityId -> Date.now() it was last observed installing=true, kept
+    // separately from _installingSince above (which resets on any false
+    // reading) -- feeds INSTALLING_FLICKER_GRACE_MS's own tolerance, see
+    // that constant's own comment and _isEffectivelyInstalling below.
+    this._installingLastTrueAt = new Map();
+    // Set of entityIds, from the server -- see _loadAll's own comment and
+    // _isEffectivelyInstalling below.
+    this._recentlyInstalling = new Set();
+    // entityId -> the last real (non-null) update_percentage seen -- feeds
+    // _stateWithRememberedPercentage below.
+    this._lastKnownPercentage = new Map();
     this._installLog = null;
     this._settings = null;
     this._defaults = null;
-    this._hardExcludedEntities = [];
     this._dialogEntityId = null;
     this._dialogLastState = null;
     this._dialogStatusTextNode = null;
@@ -1301,9 +1609,8 @@ class UpdateManagerPanel extends HTMLElement {
     this._formData = null;
     this._loadError = null;
     // Release notes for an already-published version/entry don't change --
-    // direct user feedback, 2026-08-01: "als ik een dialog vaker achter
-    // elkaar open moet hij die content telkens opnieuw ophalen. overbodig
-    // toch?" Cleared only by a full page reload (no explicit eviction),
+    // direct user feedback, 2026-08-01: re-fetching the same content every
+    // single time a dialog reopens was unnecessary. Cleared only by a full page reload (no explicit eviction),
     // shared by _fetchGithubReleaseNotesFallback and
     // _fetchNativeReleaseNotes below (different key prefixes, one Map).
     // Deliberately NOT extended to the community verdict fetch
@@ -1333,6 +1640,7 @@ class UpdateManagerPanel extends HTMLElement {
       this._updateShell();
       this._updateDialogProgress();
       this._updateInstallProgress();
+      this._checkForNewUpdateEntities();
     }
   }
 
@@ -1407,6 +1715,36 @@ class UpdateManagerPanel extends HTMLElement {
     // fresh object, see _updateShell's own comment) is a safe, late
     // catch-up regardless of what raced what earlier.
     this._updateShell();
+    // Seeds this._installingSince/this._installSnapshots for the first
+    // time -- found live, 2026-08-09: an entity
+    // already genuinely installing before this page even loaded rendered
+    // under "Ready to update" first, only jumping into the Installing
+    // section a few seconds later. Root cause: this._installingSince
+    // (INSTALLING_PROMOTE_DELAY_MS's own debounce) is normally seeded by
+    // _updateInstallProgress, but that's only ever called reactively (see
+    // set hass's own non-first branch) -- never on this very first load,
+    // so the very first render here had nothing to debounce from at all.
+    // Safe to call this early: on a first-ever call, this._installSnapshots
+    // is still empty, so every per-entity diff below short-circuits on its
+    // own `if (!prev) continue`, and none of its three trailing render/
+    // reload branches can fire -- it only seeds state here, the explicit
+    // _renderContent() right after remains the one real render.
+    //
+    // Backdated past INSTALLING_PROMOTE_DELAY_MS for anything already
+    // installing at this exact point, not left at Date.now() the way
+    // _updateInstallProgress would otherwise seed it -- that delay exists
+    // to avoid a flash-then-vanish for something installing near-instantly
+    // (see that constant's own comment), which plainly isn't what's
+    // happening for an entity that was already installing before this
+    // page even loaded. Set first, so the call below (only ever seeding a
+    // still-*unset* entry, see its own `if (!this._installingSince.has(...))`
+    // guard) leaves this backdated value alone instead of overwriting it.
+    for (const u of this._updates || []) {
+      if (this._isEffectivelyInstalling(u.entity_id)) {
+        this._installingSince.set(u.entity_id, Date.now() - INSTALLING_PROMOTE_DELAY_MS);
+      }
+    }
+    this._updateInstallProgress();
     this._renderContent();
   }
 
@@ -1419,11 +1757,69 @@ class UpdateManagerPanel extends HTMLElement {
         this._hass.callWS({ type: "update_manager/get_settings" }),
       ]);
       this._updates = updatesResp.updates;
+      // Stamped once, right here, not recomputed from Date.now() wherever
+      // remaining_seconds is displayed (statusText/timerBadge/
+      // projectedAutoInstallTime/projectedAnnouncementTime and the dialog's
+      // own Ready alert all used to do that independently) -- found live,
+      // 2026-08-11, in two stages. First fix: compute it once here at fetch
+      // time instead of on every later render (e.g. _updateDialogProgress
+      // firing again on some unrelated hass push, with this._updates itself
+      // still the same, not-yet-refetched snapshot) -- that stopped it
+      // drifting *within* one fetch, but every fresh fetch still did
+      // Date.now() + remaining_seconds using *this* client's clock, and
+      // remaining_seconds is a coordinator.py cache snapshot that's only
+      // actually re-derived every _RECHECK_INTERVAL (up to 15 minutes
+      // stale) -- so every single fetch still overshot the true target by
+      // however stale that snapshot already was server-side, and a user
+      // watching the pill across a couple of fetches saw it keep creeping
+      // forward (10:00 -> 10:01 -> 10:07) even though nothing had actually
+      // changed. Second fix, this one: ready_at now comes from the backend
+      // directly (coordinator.py's own _cache_timing_fields, computed once
+      // from the server's own `now` the moment the underlying facts were
+      // actually derived, not reconstructed client-side from a duration
+      // whose reference point the client has no way to know) -- read
+      // verbatim everywhere from here on, same as pending_install.execute_at
+      // already is.
       this._rolloutGroups = updatesResp.rollout_groups || [];
+      // Built once per load, not re-derived on every _rolloutStatusFor
+      // call -- found by code review, 2026-08-10: that method used to
+      // linearly scan every group and .find() each group's own entity
+      // list on every single call, and it's called once per entity inside
+      // both _buildInstallingCard's and _buildUpdatesList's own per-render
+      // loops (O(updates * groups * entries) per render instead of
+      // O(updates + queued entries)).
+      this._rolloutStatusByEntityId = new Map();
+      for (const group of this._rolloutGroups) {
+        const frontEntityId = group.entities[0].entity_id;
+        for (const entry of group.entities) {
+          this._rolloutStatusByEntityId.set(entry.entity_id, { status: entry.status, frontEntityId });
+        }
+      }
+      // Tier-gate equivalent of _rolloutGroups above (see rollout_manager.py's
+      // own tier_blocked_entity_ids/stuck_entity_ids) -- entityId Sets, not
+      // arrays, since every use of these is a membership check.
+      this._tierWaiting = new Set(updatesResp.tier_waiting || []);
+      // entityIds rollout_manager.py's own periodic tracking has recently
+      // (see its own _RECENTLY_INSTALLING_GRACE) observed in_progress true
+      // -- consulted by _isEffectivelyInstalling as a source of truth that
+      // survives this exact reload/panel re-entry, unlike
+      // this._installingLastTrueAt's own client-side memory.
+      this._recentlyInstalling = new Set(updatesResp.recently_installing || []);
+      // entityId -> { since: Date, isZigbee } (see rollout_manager.py's own
+      // stuck_since_snapshot) -- since feeds the row/dialog's own real,
+      // live duration text ("Installing for 3h 40m"); isZigbee picks
+      // between the dialog's battery-wake-up tip and the neutral "kan nog
+      // gewoon goedkomen" text, resolved server-side (see that method's
+      // own comment for why, not duplicated here).
+      this._stuck = new Map(
+        Object.entries(updatesResp.stuck || {}).map(([id, info]) => [
+          id,
+          { since: new Date(info.since), isZigbee: !!info.is_zigbee },
+        ])
+      );
       this._installLog = logResp.entries.slice().reverse();
       this._settings = settingsResp.options;
       this._defaults = settingsResp.defaults;
-      this._hardExcludedEntities = settingsResp.hard_excluded_entities || [];
       if (!this._formData) {
         // const.py's own DEFAULT_WAIT_DAYS as the silent fallback for
         // anything not actually stored yet, not an empty object --
@@ -1437,18 +1833,99 @@ class UpdateManagerPanel extends HTMLElement {
         // values), so both need their own explicit empty-array default the
         // same way.
         const fallback = this._defaults || {};
+        // The postponement schedule's own 14 fields default to disabled/
+        // empty (fully optional, matches coordinator.py's own
+        // schedule_from_options default), not part of const.py's
+        // DEFAULT_WAIT_DAYS -- those are wait/auto-install tuning values,
+        // this is a plain off-by-default behavior toggle, same reasoning
+        // hide_postponed/show_skipped_updates above already get their own
+        // explicit default here rather than coming from `fallback`.
+        const scheduleDefaults = {};
+        for (const day of WEEKDAYS) {
+          scheduleDefaults[`${day}_ready_enabled`] = false;
+          scheduleDefaults[`${day}_ready_time`] = "";
+        }
         this._formData = {
           enabled: true,
           excluded_entities: [],
           trusted_voters: [],
           hide_postponed: true,
+          show_skipped_updates: true,
+          show_not_installable_updates: true,
+          ...scheduleDefaults,
           ...fallback,
           ...pickKnownSettings(this._settings),
         };
       }
       this._loadError = null;
     } catch (err) {
-      this._loadError = (err && err.message) || String(err);
+      this._loadError = err === WS_ERR_CONNECTION_LOST ? LOAD_ERROR_CONNECTION_LOST : (err && err.message) || String(err);
+    }
+    // Snapshot of every update.* entity_id hass currently considers
+    // *available* (state !== "unavailable"/"unknown") -- not merely
+    // present, and not just the ones update_manager/updates actually
+    // returned (an excluded/hard-excluded entity legitimately never
+    // appears in this._updates, but still belongs in this snapshot -- see
+    // _checkForNewUpdateEntities's own comment for both distinctions).
+    // Taken even on a failed load (this._hass is still valid then) so a
+    // reconnect-triggered retry doesn't immediately look "new" again.
+    if (this._hass) {
+      this._knownAvailableUpdateEntityIds = new Set(
+        Object.entries(this._hass.states)
+          .filter(([id, s]) => id.startsWith("update.") && s.state !== "unavailable" && s.state !== "unknown")
+          .map(([id]) => id)
+      );
+    }
+  }
+
+  // Right after a Home Assistant restart, update.* entities (Zigbee2MQTT's
+  // own in particular) can take anywhere from seconds to minutes to report
+  // in, well after this panel's own first _loadAll() already ran -- direct
+  // user feedback: "het duurt ook even na het herstarten voor alle update
+  // entities beschikbaar komen... update manager toont die ook niet direct,
+  // pas na een refresh". Root cause: every other reactive check in this
+  // class (_updateInstallProgress in particular) only ever iterates
+  // this._updates, the *already-known* list from the last _loadAll() --
+  // an entity that didn't exist yet at that point is invisible to a loop
+  // that never looks past what it already has, so nothing here ever
+  // noticed a brand new one arriving. There's no server-pushed update
+  // channel to lean on instead (websocket_api.py's own commands are all
+  // plain request/response, no subscribe), so this fills that gap from the
+  // client side: every hass push (already firing constantly, see set hass)
+  // is compared against the snapshot _loadAll() itself maintains, and a
+  // full reload is triggered the moment a genuinely new *available*
+  // update.* id shows up.
+  //
+  // Checked by *availability*, not merely by entity_id presence -- found
+  // live, 2026-08-10, right after the entity_id-only
+  // version of this shipped, still missing MQTT-backed entities that took
+  // a while to actually report in:
+  // Home Assistant registers an MQTT-backed entity's own entity_id in
+  // hass.states well before Zigbee2MQTT actually reconnects and reports
+  // real data, sitting at state "unavailable" in the meantime -- so the
+  // entity_id itself was never actually "new" by the time this panel first
+  // loaded, only its *availability* was, and the plain key-presence check
+  // never once fired for it.
+  //
+  // Compared against *every available* update.* entity hass knows, not
+  // just this._updates's own ids -- an entity update_manager itself
+  // excludes (const.py's own excluded_entities/hard-excluded list) would
+  // otherwise never make it into this._updates at all, and so would look
+  // "new" again on literally every single push forever, reloading in an
+  // endless loop.
+  _checkForNewUpdateEntities() {
+    if (!this._hass || this._reloadingForNewEntities) return;
+    if (!this._knownAvailableUpdateEntityIds) return;
+    for (const id in this._hass.states) {
+      if (!id.startsWith("update.") || this._knownAvailableUpdateEntityIds.has(id)) continue;
+      const state = this._hass.states[id];
+      if (state.state === "unavailable" || state.state === "unknown") continue;
+      this._reloadingForNewEntities = true;
+      this._loadAll().then(() => {
+        this._reloadingForNewEntities = false;
+        if (this._tab === "updates") this._renderContent();
+      });
+      return;
     }
   }
 
@@ -1525,7 +2002,17 @@ class UpdateManagerPanel extends HTMLElement {
   // no match found) -- callers substitute it in place of their own
   // releaseUrl for the link specifically, see insertReleaseNotesSection's
   // own linkUrl parameter.
-  async _fetchGithubReleaseNotesFallback(releaseUrl, fromVersion, toVersion) {
+  // entityId lets the backend re-derive a fresh, correct release_url
+  // instead of trusting `releaseUrl` as given -- direct user feedback,
+  // 2026-08-08, found on a real History item for a jump landing on Core's
+  // own 2026.8.0: a History entry's own release_url is a frozen snapshot,
+  // captured once at install time (install_log.py), so one logged before
+  // this project's own corrected_release_url fix existed still carries
+  // Core's old, broken, non-version-specific native URL -- no heading, no
+  // intro, nothing, since that URL was never a real github.com one to begin
+  // with. See _handle_github_release_notes's own entity_id comment for why
+  // passing it is always safe, not just for Core.
+  async _fetchGithubReleaseNotesFallback(releaseUrl, fromVersion, toVersion, entityId) {
     if (!releaseUrl) return { notes: null, correctedUrl: null };
     const cacheKey = `github:${releaseUrl}:${fromVersion || ""}:${toVersion || ""}`;
     if (this._releaseNotesCache.has(cacheKey)) return this._releaseNotesCache.get(cacheKey);
@@ -1536,11 +2023,39 @@ class UpdateManagerPanel extends HTMLElement {
         release_url: releaseUrl,
         ...(fromVersion ? { from_version: fromVersion } : {}),
         ...(toVersion ? { to_version: toVersion } : {}),
+        ...(entityId ? { entity_id: entityId } : {}),
       });
     } catch {
       return { notes: null, correctedUrl: null };
     }
     const resolved = { notes: (result && result.notes) || null, correctedUrl: (result && result.corrected_url) || null };
+    this._releaseNotesCache.set(cacheKey, resolved);
+    return resolved;
+  }
+
+  // Same cache, a "core" key prefix so it can never collide with this
+  // method's own "github"/"native" siblings -- see websocket_api.py's own
+  // _async_fetch_core_announcement for what this actually fetches
+  // (home-assistant.io's own release-notes blog, not GitHub). Only ever
+  // called for the one Core update entity (see CORE_UPDATE_ENTITY_ID), used
+  // to override that entity's own "Open release announcement" link -- see
+  // withCoreAnnouncement's own comment. Only `url` is used here; the same
+  // backend function's own `intro` field is used server-side, embedded
+  // straight into a .0 release's own notes section instead (see
+  // websocket_api.py's own _async_core_aware_section), not read here at
+  // all. Cached by latest_version alone, not per-entity: every install of
+  // the same version resolves to the exact same blog post, nothing
+  // instance-specific about it.
+  async _fetchCoreAnnouncement(latestVersion) {
+    const cacheKey = `core:${latestVersion}`;
+    if (this._releaseNotesCache.has(cacheKey)) return this._releaseNotesCache.get(cacheKey);
+    let result;
+    try {
+      result = await this._hass.callWS({ type: "update_manager/core_announcement", latest_version: latestVersion });
+    } catch {
+      result = null;
+    }
+    const resolved = { url: (result && result.url) || null };
     this._releaseNotesCache.set(cacheKey, resolved);
     return resolved;
   }
@@ -1641,14 +2156,14 @@ class UpdateManagerPanel extends HTMLElement {
       // coordinator already had cached. Every entity, not just the ones
       // this integration currently tracks as pending: a brand-new update
       // that just became available wouldn't be "pending" anywhere yet, the
-      // whole point of checking. Direct user feedback, 2026-08-01 ("kan die
-      // knop ook 'check for updates' doen? zoals ha zelf doet").
+      // whole point of checking. Direct user feedback, 2026-08-01, asking
+      // for this button to also do what HA's own "check for updates" does.
       //
       // Excludes anything already installing, unlike HA's own
       // checkForEntityUpdates (confirmed against its real source, it
       // doesn't make this exception either) -- direct user feedback,
-      // 2026-08-02: "als een update in progress is, ik op refresh druk en
-      // refreshen eerder klaar is dan de update, dan verdwijnt de spinner".
+      // 2026-08-02: when an update was in progress and a refresh finished
+      // before the update itself did, the spinner disappeared prematurely.
       // Forcing a fresh poll on an entity that's busy installing risks the
       // underlying integration reporting a momentarily inconsistent state
       // while it's occupied (integration-specific, outside anything we
@@ -1657,11 +2172,11 @@ class UpdateManagerPanel extends HTMLElement {
       // its spinner, down with it. There's no real reason to check for an
       // even newer version on something already mid-install anyway.
       const updateEntityIds = Object.keys(this._hass.states).filter(
-        (entityId) => entityId.startsWith("update.") && !updateIsInstalling(this._hass.states[entityId])
+        (entityId) => entityId.startsWith("update.") && !this._isEffectivelyInstalling(entityId)
       );
       // Awaited before _loadAll(), not alongside it: direct user feedback,
-      // 2026-07-25 ("als ik op de refresh knop druk wil ik dat hij ook de
-      // meest recente info van de votes naar binnen haalt") -- community
+      // 2026-07-25, wanting the refresh button to also pull in the latest
+      // vote data -- community
       // verdicts otherwise stay cached for up to an hour
       // (community_verdict.py's own _REFRESH_INTERVAL), same as any other
       // background-refreshed fact. This forces a fresh fetch for every
@@ -1745,13 +2260,109 @@ class UpdateManagerPanel extends HTMLElement {
     // top-level HA panel, not a back arrow.
     subpage.mainPage = true;
 
+    // A single wrapping div, not each toolbar icon slotted separately --
+    // found live: hass-tabs-subpage's own #toolbar-icon wrapper (confirmed
+    // against its real source) has no display:flex of its own for
+    // whatever lands in its "toolbar-icon" slot; only its own
+    // ::slotted([slot="toolbar-icon"]) rule gives *each* individually
+    // slotted element its own display:flex (for centering that one
+    // element's own content), which says nothing about how multiple
+    // *siblings* stack relative to each other -- with only the refresh
+    // button ever slotted before, that ambiguity never surfaced. Now that
+    // there are two, they stacked vertically instead of sitting side by
+    // side. Slotting one flex-row wrapper instead sidesteps the whole
+    // question: hass-tabs-subpage's own rule still applies (to this one
+    // wrapper), and this file's own toolbar-icons rule below lays out
+    // *its* children in a row itself.
+    const toolbarIcons = document.createElement("div");
+    toolbarIcons.className = "toolbar-icons";
+    toolbarIcons.setAttribute("slot", "toolbar-icon");
+
+    // Overflow (⋮) menu, same underlying component (ha-dropdown/
+    // ha-dropdown-item) HA's own real /config/system/updates page uses
+    // for its own "Show skipped updates" toggle (ha-config-section-
+    // updates.ts, confirmed against its real source), deliberately
+    // following its pattern/interaction/placement. Two independent
+    // checkboxes (HA's own page shares one toggle for both groups) --
+    // unlike HA's own page, which resets its toggle on every visit, both
+    // are saved through the normal settings autosave, so the choice
+    // sticks across sessions -- see _updateShell's own comment for how
+    // their own .checked state stays in sync with that saved value.
+    //
+    // Placed *before* refreshBtn in this wrapper (left of it, not right
+    // like HA's own page), and only ever shown on the Updates tab (see
+    // _syncOverflowMenu) so that refresh keeps the same screen position on
+    // every tab. This whole icon group sits flush against the toolbar's
+    // own right edge (hass-tabs-subpage's own tab bar/title area to its
+    // left absorbs all remaining space, confirmed against its real
+    // source), so refreshBtn, being *last*, keeps the exact same
+    // on-screen position regardless of whether this menu is currently
+    // shown or hidden -- putting the menu *after* refreshBtn instead
+    // would have made refreshBtn's own position shift sideways every
+    // time the menu appears/disappears.
+    const menuBtn = document.createElement("button");
+    menuBtn.className = "icon-btn";
+    menuBtn.title = this._hass.localize("ui.common.menu");
+    menuBtn.setAttribute("slot", "trigger");
+    menuBtn.innerHTML = `<ha-icon icon="mdi:dots-vertical"></ha-icon>`;
+
+    const overflowMenu = document.createElement("ha-dropdown");
+    overflowMenu.appendChild(menuBtn);
+
+    const makeMenuCheckbox = (value, label) => {
+      const item = document.createElement("ha-dropdown-item");
+      item.type = "checkbox";
+      item.value = value;
+      item.textContent = label;
+      overflowMenu.appendChild(item);
+      return item;
+    };
+    const showSkippedItem = makeMenuCheckbox("show_skipped_updates", this._tr.menu_show_skipped_updates);
+    const showNotInstallableItem = makeMenuCheckbox(
+      "show_not_installable_updates",
+      this._tr.menu_show_not_installable_updates
+    );
+
+    // Own instance fields (not re-queried from the DOM each time), so
+    // _updateShell can refresh their own .checked whenever this._formData
+    // changes elsewhere -- this menu is built exactly once (see this
+    // method's own top-level guard), so nothing else keeps these two
+    // elements' own .checked in sync on its own otherwise.
+    this._showSkippedMenuItem = showSkippedItem;
+    this._showNotInstallableMenuItem = showNotInstallableItem;
+
+    // wa-select bubbles up from whichever ha-dropdown-item was clicked
+    // (HA's own real event, confirmed against ha-dropdown.ts's own
+    // HaDropdownSelectEvent type) -- same field this project's own
+    // settings fields already write straight into this._formData on every
+    // change (see e.g. _buildGeneralCard), just triggered from this menu
+    // instead of a form. Toggles the clicked field's own current value
+    // (checkbox items don't carry their own new value in the event,
+    // unlike ha-form's value-changed), immediately re-renders (so the
+    // Updates tab reflects the new filter right away, not after the
+    // debounced save resolves) and schedules the same autosave every
+    // other setting already goes through.
+    overflowMenu.addEventListener("wa-select", (e) => {
+      const field = e.detail.item.value;
+      if (field !== "show_skipped_updates" && field !== "show_not_installable_updates") return;
+      this._formData = { ...this._formData, [field]: !this._formData[field] };
+      showSkippedItem.checked = this._formData.show_skipped_updates;
+      showNotInstallableItem.checked = this._formData.show_not_installable_updates;
+      this._renderContent();
+      this._scheduleAutosave();
+    });
+
+    toolbarIcons.appendChild(overflowMenu);
+    this._overflowMenuEl = overflowMenu;
+
     const refreshBtn = document.createElement("button");
     refreshBtn.className = "icon-btn refresh-btn";
     refreshBtn.title = this._tr.refresh;
-    refreshBtn.setAttribute("slot", "toolbar-icon");
     refreshBtn.innerHTML = `<ha-icon icon="mdi:refresh"></ha-icon>`;
     refreshBtn.addEventListener("click", () => this._refresh());
-    subpage.appendChild(refreshBtn);
+    toolbarIcons.appendChild(refreshBtn);
+
+    subpage.appendChild(toolbarIcons);
 
     const content = document.createElement("div");
     content.className = "content";
@@ -1815,6 +2426,52 @@ class UpdateManagerPanel extends HTMLElement {
     // and skip -- found live: the tab bar never visibly showed which tab
     // was current at all.
     if (this._route) this._subpageEl.route = { ...this._route };
+
+    // Keeps the overflow menu's own two checkboxes (see _ensureShell)
+    // reflecting whatever this._formData actually holds -- that menu is
+    // only ever built once, but this._formData itself doesn't exist yet
+    // at that exact moment (built later, inside _loadAll, see its own
+    // comment) and can also change afterwards from other sources (a
+    // fresh _loadAll response). _updateShell already runs after every one
+    // of those, so re-applying .checked here (cheap, idempotent) keeps
+    // both in sync without needing its own separate refresh mechanism.
+    if (this._showSkippedMenuItem && this._formData) {
+      this._showSkippedMenuItem.checked = this._formData.show_skipped_updates;
+      this._showNotInstallableMenuItem.checked = this._formData.show_not_installable_updates;
+    }
+  }
+
+  // Keeps the overflow menu (and its own two checkboxes) matching what's
+  // actually in the list right now, not just which tab is active. A
+  // checkbox for a group that's currently empty toggles nothing visible,
+  // which reads as broken -- so each checkbox is hidden while its own
+  // group is empty, and the whole menu (trigger included) is hidden too
+  // once *both* are empty, rather than opening onto two checkboxes that
+  // both do nothing. The saved setting itself is untouched either way
+  // (this._formData keeps whatever value it already had, still going
+  // through the normal autosave), so it's preserved across that -- once
+  // something actually gets skipped again later, the checkbox reappears
+  // already set the way it was left.
+  //
+  // Called from _renderContent only, not _updateShell -- every real trigger
+  // for this (a tab switch via the route setter, or this._updates changing
+  // via _loadAll) already calls _renderContent right after _updateShell in
+  // the same synchronous flow, so a second call from _updateShell would
+  // just re-check the same, unchanged inputs (the two setters that call
+  // _updateShell alone, hass/narrow, never touch this._tab or this._updates).
+  _syncOverflowMenu() {
+    if (!this._overflowMenuEl) return;
+    const updates = this._updates || [];
+    const hasNotInstallable = updates.some(isNotInstallableUpdate);
+    const hasSkipped = updates.some(isSkippedUpdate);
+    if (this._showSkippedMenuItem) {
+      this._showSkippedMenuItem.style.display = hasSkipped ? "" : "none";
+    }
+    if (this._showNotInstallableMenuItem) {
+      this._showNotInstallableMenuItem.style.display = hasNotInstallable ? "" : "none";
+    }
+    this._overflowMenuEl.style.display =
+      this._tab === "updates" && (hasSkipped || hasNotInstallable) ? "" : "none";
   }
 
   // Fired on every hass push (see set hass), same as more-info-update.ts's
@@ -1880,8 +2537,8 @@ class UpdateManagerPanel extends HTMLElement {
   // installingIndicatorNode/_buildListRow), and whether its
   // installed_version just changed. The latter is the one signal every
   // real install eventually produces, even for entities that never bother
-  // reporting in_progress at all -- found live ("het lijkt wel alsof de
-  // update manager nooit up to date is"): relying on the in_progress
+  // reporting in_progress at all -- found live, where Update Manager looked
+  // like it was never actually up to date: relying on the in_progress
   // transition alone (the dialog's own former approach) left both the
   // dialog and this list looking stuck on those entities, and the list
   // never refreshed at all unless the dialog happened to be open for that
@@ -1895,7 +2552,7 @@ class UpdateManagerPanel extends HTMLElement {
     let dialogEntityVersionChanged = false;
     for (const u of this._updates) {
       const state = entityState(this._hass, u.entity_id);
-      const installing = updateIsInstalling(state);
+      const installing = this._isEffectivelyInstalling(u.entity_id, state);
       const installedVersion = state && state.attributes && state.attributes.installed_version;
       // Direct user feedback, 2026-08-02: "als er op de achtergrond ontdekt
       // wordt dat er een nieuwe update beschikbaar voor is, dan ververst de
@@ -1907,6 +2564,33 @@ class UpdateManagerPanel extends HTMLElement {
       // nothing short of closing and reopening it ever re-reading the truth.
       const latestVersion = state && state.attributes && state.attributes.latest_version;
       next.set(u.entity_id, { installing, installedVersion, latestVersion });
+      // Every push while installing, not gated on installingChanged below --
+      // see _patchListRowProgress's own comment for why this needs its own,
+      // more frequent hook.
+      if (installing) this._patchListRowProgress(u.entity_id, state);
+      // Feeds INSTALLING_PROMOTE_DELAY_MS's own debounce (see that
+      // constant's own comment) -- when this first flips true, not
+      // re-touched on every later push while it stays true.
+      if (installing) {
+        if (!this._installingSince.has(u.entity_id)) {
+          this._installingSince.set(u.entity_id, Date.now());
+          // Guarantees the promotion itself actually gets (re-)evaluated
+          // once the debounce window has genuinely passed, even if
+          // nothing else happens to trigger a render in the meantime --
+          // found live, 2026-08-09: nothing visibly happened at all,
+          // spinner included, until some unrelated event triggered a
+          // render. Below,
+          // installingChanged only fires a render once, right at this
+          // exact instant (elapsed = 0, too early to promote); nothing
+          // was otherwise scheduled to look again right as the delay
+          // itself elapsed.
+          setTimeout(() => {
+            if (this._tab === "updates") this._renderContent();
+          }, INSTALLING_PROMOTE_DELAY_MS);
+        }
+      } else {
+        this._installingSince.delete(u.entity_id);
+      }
       const prev = previous.get(u.entity_id);
       if (!prev) continue;
       if (prev.installing !== installing) installingChanged = true;
@@ -1919,9 +2603,9 @@ class UpdateManagerPanel extends HTMLElement {
     if (dialogEntityVersionChanged) {
       // _afterDialogAction already does exactly loadAll + reopen-in-place
       // (if this._dialogEntityId still matches) + renderContent -- direct
-      // user feedback, 2026-07-27 ("na het installeren van een update
-      // vanuit een dialog verwacht je dat je het history-dialog te zien
-      // krijgt voor die entity"). The Install button itself is deliberately
+      // user feedback, 2026-07-27: after installing an update from a
+      // dialog, that entity's own History entry was expected to show up
+      // there. The Install button itself is deliberately
       // fire-and-forget (see its own click handler's comment: awaiting it
       // either closed the dialog too early or left it stuck spinning for a
       // slow install), so nothing previously told an already-open dialog
@@ -1930,27 +2614,65 @@ class UpdateManagerPanel extends HTMLElement {
       // this method rather than re-inlining its own loadAll/reopen/render
       // sequence a second time.
       this._afterDialogAction(this._dialogEntityId);
-    } else if (anyVersionChanged) {
-      // Gated on the Updates tab, same as installingChanged right below --
-      // found live, 2026-08-07, direct user feedback: typing in the
-      // Settings tab's trusted-voters field (a free-text ha-form) could
-      // lose focus mid-word, "niet altijd, soms". Root cause: this branch
-      // used to call _renderContent() unconditionally whenever *any*
-      // tracked update entity's version changed anywhere in the system --
-      // entirely unrelated to whatever tab is actually showing, and with
-      // no regard for a field the user might be actively editing.
-      // _renderContent() wipes and rebuilds the current tab's whole DOM
-      // (innerHTML = ""), which replaces the <ha-form> element itself,
-      // not just its value -- the browser can't keep focus on a node that
-      // no longer exists. Settings' own content never depends on
-      // this._updates at all, so skipping the render there loses nothing:
-      // _loadAll() still refreshes the underlying data in the background,
-      // and switching to Updates/History later renders it fresh anyway.
+    } else if (anyVersionChanged || installingChanged) {
+      // A reload, not just a render of whatever this._updates/
+      // this._rolloutGroups/this._tierWaiting already happened to have --
+      // two independent reasons land here, found live on separate
+      // occasions: (1) 2026-08-07, a version changing anywhere in the
+      // system used to call _renderContent() unconditionally regardless of
+      // which tab was showing, and _renderContent()'s own innerHTML wipe
+      // could drop focus mid-word out of the Settings tab's trusted-voters
+      // field; (2) 2026-08-09, rollout_manager.py's own queue can advance
+      // past a stalled front and dispatch the next device entirely
+      // server-side, with nothing client-triggered involved -- a plain
+      // render off the still-stale, pre-advance this._rolloutGroups then
+      // showed the newly-dispatched device with no progress indicator at
+      // all. Gated on the Updates tab either way: the reload itself always
+      // happens (Settings' own content never depends on this._updates, so
+      // skipping its render there loses nothing, and switching to Updates/
+      // History later renders it fresh anyway), the render only when it'd
+      // actually be seen.
       this._loadAll().then(() => {
         if (this._tab === "updates") this._renderContent();
       });
-    } else if (installingChanged && this._tab === "updates") {
-      this._renderContent();
+    }
+  }
+
+  // The Updates list row's own progress ring/spinner (installingIndicatorNode,
+  // _buildListRow) used to only ever get (re)built when installingChanged
+  // fired above, i.e. exactly once per install, right when it *starts* --
+  // direct user feedback, 2026-08-07: HA's own more-info dialog showed a
+  // correct, live-updating percentage for the same entity at the same time,
+  // while our own row's ring stayed frozen at whatever update_percentage
+  // happened to be at that first instant (often 0, or not yet reported at
+  // all). Not a bad percentage from the entity itself -- update_percentage
+  // is read the same way in both places, straight off hass.states, no
+  // caching -- purely that nothing here ever told this one row to redraw
+  // again while `installing` itself stayed true the whole time. This runs on
+  // every hass push for every currently-installing entity instead (see the
+  // call site above), a much cheaper live-patch of just this one node
+  // rather than a full _renderContent() on every single percentage tick.
+  _patchListRowProgress(entityId, rawState) {
+    if (this._tab !== "updates" || !this._contentEl) return;
+    const row = this._contentEl.querySelector(`[data-entity-id="${CSS.escape(entityId)}"]`);
+    const indicator = row && row.querySelector(".row-end > .progress-ring, .row-end > ha-spinner");
+    if (!indicator) return;
+    // See _stateWithRememberedPercentage's own comment: this push's own
+    // update_percentage can genuinely be absent even though the install
+    // itself is still very much ongoing, so this is never trusted directly
+    // -- falls back to the last real percentage this entity reported
+    // itself, if this still counts as installing at all.
+    const state = this._stateWithRememberedPercentage(entityId, rawState);
+    const percentage = state && state.attributes && state.attributes.update_percentage;
+    const isRing = isProgressRingNode(indicator);
+    if (isRing !== shouldShowProgressRing(state)) {
+      // A percentage just crossed 0 (or dropped back to it/disappeared) --
+      // the node itself needs to change shape (spinner <-> ring), not just
+      // a value tweak. Same rule installingIndicatorNode's own initial
+      // build already uses (shouldShowProgressRing), not duplicated here.
+      indicator.replaceWith(installingIndicatorNode(state, this._tr));
+    } else if (isRing) {
+      setProgressRingValue(indicator, percentage);
     }
   }
 
@@ -1966,19 +2688,81 @@ class UpdateManagerPanel extends HTMLElement {
   // loading state of its own, no per-entity clear-skip handling either,
   // since a "ready" entity is never skipped/postponed by our own grouping
   // to begin with.
+  //
+  // No client-side tiering here anymore -- the same disruption-order
+  // (safe/firmware/host_firmware/supervisor/core/os) is now enforced
+  // server-side, in rollout_manager.py's own tier gate (install_tiers.py),
+  // the exact same shared gate every dispatch path already goes through
+  // regardless of how it was triggered. This method is back to exactly
+  // what it always was before that existed: fire every entity concurrently,
+  // let the server decide per entity_id whether to actually dispatch now
+  // or hold it back -- see _buildUpdatesList's own "ready" row loop
+  // (this._tierWaiting/this._stuck) for how the panel shows that back.
   async _updateAllInGroup(group) {
     const entityIds = group.entities
-      .filter((u) => !updateIsInstalling(entityState(this._hass, u.entity_id)))
+      .filter((u) => !this._isEffectivelyInstalling(u.entity_id))
       .map((u) => u.entity_id);
     if (!entityIds.length) return;
-    // Dispatched concurrently, not one at a time: each entity's own
-    // dispatch-or-queue decision is fully independent (RolloutManager's own
-    // gate already provides correct ordering for anything Zigbee-paced, see
-    // rollout_manager.py), so serializing these on the client would only
-    // slow "Update all" down for no correctness benefit.
+    // Fired immediately, before any of the actual dispatch/reload work
+    // below -- clicking Update all otherwise showed nothing happening
+    // right away, even with the
+    // reload below in place (several WS round-trips, not instant). This
+    // confirms the click itself registered, independent of how long the
+    // real work ends up taking.
+    this._showToast(this._tr.update_all_started_toast(entityIds.length));
     const results = await Promise.allSettled(
       entityIds.map((entityId) => this._hass.callWS({ type: "update_manager/install", entity_id: entityId }))
     );
+    // Seeded here, optimistically, for every entity the server just
+    // genuinely dispatched (`queued: false`, see websocket_api.py's own
+    // _handle_install -- update.install itself is fired as a background
+    // task there, not awaited, so its own in_progress attribute hasn't
+    // necessarily flipped true yet by the time this response comes back)
+    // -- found live, 2026-08-10: dispatching two same-network
+    // Zigbee devices at once showed the *queued* one jump into Installing
+    // immediately ("Waiting for X"), while X itself briefly stayed under
+    // Ready to update until its own real state caught up a moment later,
+    // reading as broken even though both facts were individually true.
+    // Backdated past INSTALLING_PROMOTE_DELAY_MS,
+    // same as _initialLoad's own precedent for an entity already installing
+    // before the debounce would otherwise apply, so both entities of a
+    // pair like this promote into Installing together instead of visibly
+    // one after the other.
+    results.forEach((result, i) => {
+      if (result.status === "fulfilled" && result.value && result.value.queued === false) {
+        // _installingLastTrueAt too, not just _installingSince below --
+        // found live, 2026-08-11: seeding _installingSince alone stopped
+        // being enough once _isEffectivelyInstalling (gating entry into
+        // the Installing section at all, see its own comment) started
+        // reading _installingLastTrueAt as its own first check. A fresh
+        // dispatch's own in_progress genuinely might not have propagated
+        // yet by the time this render happens, so without this, this
+        // entity's own optimistically-backdated _installingSince below was
+        // simply never reached at all -- most visible for a Zigbee
+        // network's own new front entity specifically, since every entity
+        // actually queued behind it shows immediately regardless (a
+        // different, unconditional code path, see _buildUpdatesList's own
+        // force-include comment), leaving the front looking like the only
+        // one that "didn't start" even though it's exactly the one that
+        // did.
+        this._installingLastTrueAt.set(entityIds[i], Date.now());
+        this._installingSince.set(entityIds[i], Date.now() - INSTALLING_PROMOTE_DELAY_MS);
+      }
+    });
+    // Reloads this._rolloutGroups/this._tierWaiting (and this._updates)
+    // right after dispatching, then rebuilds -- found live, 2026-08-09:
+    // nothing visibly happened at all, no spinner either.
+    // Without this, an entity the server actually *queued*
+    // (a Zigbee-model sibling asked to install while one's already in
+    // flight, or a tier-blocked one) never showed up as queued at all --
+    // its own real HA state never changes while merely queued, so nothing
+    // reactive (_updateInstallProgress, driven by real state_changed
+    // pushes) ever had anything to react to for it. Fires regardless of
+    // whether any install actually succeeded: the tier/rollout picture can
+    // have shifted either way, and the panel should reflect the real,
+    // current one either way.
+    await this._loadAll();
+    this._renderContent();
     results.forEach((result, i) => {
       if (result.status !== "rejected") return;
       const entityId = entityIds[i];
@@ -2021,6 +2805,10 @@ class UpdateManagerPanel extends HTMLElement {
       return;
     }
     if (!this._contentEl) return;
+    // See _syncOverflowMenu's own comment -- this is the one place reliably
+    // re-run every time this._updates itself changes (a refresh, an
+    // install/skip/unskip finishing, etc.), not just on a tab switch.
+    this._syncOverflowMenu();
     // Found by review: the device-flow poll (_buildCommunityCard) used to
     // only ever get cleared by rebuilding the Settings card itself, so
     // switching to another tab mid-poll (waiting for GitHub approval) left
@@ -2047,7 +2835,20 @@ class UpdateManagerPanel extends HTMLElement {
           : "content content--list";
 
     if (this._loadError) {
-      this._contentEl.innerHTML = `<div class="error">${escapeHtml(this._tr.load_error_prefix)}${escapeHtml(this._loadError)}</div>`;
+      // A real ha-alert, not bare colored text -- a load error used to
+      // show as plain, unstyled red text in the corner of the page.
+      // Matches how every other warning/error in this
+      // panel already looks (the paused banner, the stuck alert, the held-
+      // back alert), instead of a one-off, unstyled treatment nothing else
+      // here uses. this._tr guaranteed non-null here: _renderContent's own
+      // caller already waits on _translationsReady before ever reaching
+      // this point (see its own guard near the top of this method).
+      const errorAlert = document.createElement("ha-alert");
+      errorAlert.alertType = "error";
+      errorAlert.title = this._tr.load_error_title;
+      errorAlert.textContent =
+        this._loadError === LOAD_ERROR_CONNECTION_LOST ? this._tr.load_error_connection_lost : this._loadError;
+      this._contentEl.appendChild(errorAlert);
       return;
     }
     if (!hasData) {
@@ -2119,9 +2920,21 @@ class UpdateManagerPanel extends HTMLElement {
   // pill, left of timerBadgeInfo's own pill, so a row can show both a
   // community verdict and a timer countdown at once instead of one
   // replacing the other, read-only slice added 2026-07-22.
+  //
+  // timerBadgeInfo.statusIcon/statusText (see the "Installing" section's
+  // own _buildInstallingCard) is a third, mutually-exclusive shape --
+  // "Waiting for other updates to finish first"
+  // simply doesn't fit in a pill sized for a short countdown ("Tomorrow
+  // 14:00"). The trailing chevron is replaced entirely by statusIcon, same
+  // "no chevron while something else needs to say its piece" precedent as
+  // the installing spinner above; the second, wrapping subtitle line is
+  // where the actual explanation lives instead of squeezed into the pill.
   _buildListRow(entityId, supportingText, onClick, timerBadgeInfo, verdictBadgeInfo) {
     const row = document.createElement("ha-list-item-button");
     row.hasMeta = true;
+    // Lets _patchListRowProgress find this exact row again later without a
+    // full re-render, see that method's own comment for why.
+    row.dataset.entityId = entityId;
 
     const start = document.createElement("div");
     start.slot = "start";
@@ -2138,6 +2951,14 @@ class UpdateManagerPanel extends HTMLElement {
     const supporting = document.createElement("span");
     supporting.slot = "supporting-text";
     supporting.textContent = supportingText;
+    if (timerBadgeInfo && timerBadgeInfo.statusText) {
+      supporting.classList.add("wraps");
+      supporting.appendChild(document.createElement("br"));
+      const statusLine = document.createElement("span");
+      statusLine.className = timerBadgeInfo.statusAttention ? "status-line attn" : "status-line";
+      statusLine.textContent = timerBadgeInfo.statusText;
+      supporting.appendChild(statusLine);
+    }
     row.appendChild(supporting);
 
     const end = document.createElement("div");
@@ -2148,7 +2969,14 @@ class UpdateManagerPanel extends HTMLElement {
     // source): its trailing chevron is *replaced* by the spinner/ring
     // while installing, never shown alongside it.
     if (timerBadgeInfo && timerBadgeInfo.installing) {
-      end.appendChild(installingIndicatorNode(entityState(this._hass, entityId), this._tr));
+      end.appendChild(
+        installingIndicatorNode(this._stateWithRememberedPercentage(entityId, entityState(this._hass, entityId)), this._tr)
+      );
+    } else if (timerBadgeInfo && timerBadgeInfo.statusIcon) {
+      const statusIcon = document.createElement("ha-svg-icon");
+      statusIcon.path = timerBadgeInfo.statusIcon;
+      statusIcon.className = timerBadgeInfo.statusAttention ? "status-icon attn" : "status-icon";
+      end.appendChild(statusIcon);
     } else {
       if (verdictBadgeInfo) end.appendChild(this._buildTimerPill(verdictBadgeInfo));
       if (timerBadgeInfo) end.appendChild(this._buildTimerPill(timerBadgeInfo));
@@ -2161,8 +2989,8 @@ class UpdateManagerPanel extends HTMLElement {
   }
 
   // One card per active Zigbee rollout group (see rollout_manager.py's own
-  // docstring: only ever appears once a second same-model/-version device
-  // is asked to install while one is already in flight, reactive not
+  // docstring: only ever appears once a second device on the same Zigbee
+  // network is asked to install while one is already in flight, reactive not
   // proactive: an untouched sibling still sitting in "Ready to update"
   // shows no queue card at all). Same building blocks as the normal
   // ready/waiting/blocked cards below (_buildListRow, installingIndicatorNode),
@@ -2194,53 +3022,154 @@ class UpdateManagerPanel extends HTMLElement {
     return { card, content, header };
   }
 
-  _buildRolloutGroupCard(group) {
+  // One unified card for everything currently installing or held back
+  // behind something else -- generalizes what used to be a per-Zigbee-
+  // group-only card to also cover the tier gate (install_tiers.py) and
+  // plain, un-gated installs (a solo "safe" update, dispatched
+  // immediately, never gated by anything). A section named "Installing"
+  // that only shows one of the three kinds of in-progress install isn't
+  // self-explanatory -- the section name has to mean what it says.
+  // Pulled entirely out of "Ready to update" (see _buildUpdatesList's own
+  // _installingEntityIds), never reordered there, same principle the
+  // rollout-queue-only version already established.
+  //
+  // Zigbee waits keep their own, named "waiting for X" text (always
+  // exactly one specific device directly in front, a single-file queue);
+  // tier waits stay generic (tr.tier_waiting_text) -- the tier ahead can
+  // be several entities at once (every "safe" update in the same batch),
+  // so there's no one name to point at, same reasoning already settled
+  // for the tier gate's own badge text.
+  _buildInstallingCard(entityIds) {
     const tr = this._tr;
-    const { card, content } = this._buildCardShell(
-      group.network === "z2m" ? tr.rollout_queue_title_z2m : tr.rollout_queue_title_zha
-    );
-
-    const subtitle = document.createElement("p");
-    subtitle.className = "hint";
-    subtitle.textContent = tr.rollout_queue_subtitle;
-    content.appendChild(subtitle);
-
-    // Always the *front* (currently installing) entity's name, not each
-    // row's own immediate predecessor: once the front entity finishes,
-    // every remaining entry shifts up and only the new front one is
-    // actually blocking progress, so it's the one accurate "waiting for"
-    // target regardless of how far back in line a given row sits.
-    const frontName = friendlyEntityName(this._hass, group.entities[0].entity_id);
-
+    const { card, content } = this._buildCardShell(tr.installing_section_title);
     const list = document.createElement("ha-list-base");
-    group.entities.forEach((entry) => {
-      const installing = entry.status === "installing";
-      list.appendChild(
-        this._buildListRow(
-          entry.entity_id,
-          [deviceAreaName(this._hass, entry.entity_id), group.to_version].filter(Boolean).join(" ⋅ "),
-          () => this._openDetailDialog(entry.entity_id),
-          installing ? { installing: true } : { icon: ICON_CLOCK_OUTLINE, text: tr.rollout_queue_waiting(frontName) }
-        )
-      );
-    });
+
+    // Genuinely installing first, then stuck, then merely waiting/queued
+    // (never yet dispatched at all) -- found live, 2026-08-11: entityIds
+    // itself carries no ordering of its own (this._updates' own order,
+    // essentially arbitrary), so a device that's actually installing right
+    // now could land anywhere, including dead last, below several that
+    // aren't doing anything yet. A stable sort (JS's own Array.sort
+    // guarantee), so entities within the same group keep whatever order
+    // they already had.
+    const priority = (entityId) => {
+      if (this._stuck.get(entityId)) return 1;
+      if (this._isEffectivelyInstalling(entityId)) return 0;
+      return 2;
+    };
+    entityIds
+      .slice()
+      .sort((a, b) => priority(a) - priority(b))
+      .forEach((entityId) => {
+        const u = this._updates.find((x) => x.entity_id === entityId);
+        const supportingText = [deviceAreaName(this._hass, entityId), u ? u.latest_version : null]
+          .filter(Boolean)
+          .join(" ⋅ ");
+        let timerBadgeInfo;
+        const stuck = this._stuck.get(entityId);
+        if (stuck) {
+          timerBadgeInfo = {
+            statusIcon: ICON_WRENCH,
+            statusText: tr.stuck_waiting_text(formatStuckDuration(tr, stuck.since)),
+            statusAttention: true,
+          };
+        } else if (this._isEffectivelyInstalling(entityId)) {
+          timerBadgeInfo = { installing: true };
+        } else {
+          // this._rolloutStatusFor already walks this._rolloutGroups to
+          // answer "who's in front of me" for the dialog's own Install-button
+          // swap -- found by review: this used to be a second, independent
+          // walk of the same groups, built fresh here just to get the same
+          // front entity's name. Only ever a genuinely queued-behind-someone
+          // entity here (status !== "installing") -- _buildUpdatesList's own
+          // installingEntityIds no longer force-includes a queue's *front*
+          // entity just because rollout_groups still lists it as such (see
+          // that method's own comment), so there's no ambiguous "front but
+          // not really installing" case left to handle here at all.
+          const rolloutStatus = this._rolloutStatusFor(entityId);
+          if (rolloutStatus) {
+            timerBadgeInfo = { statusIcon: ICON_CLOCK_OUTLINE, statusText: tr.rollout_queue_waiting(friendlyEntityName(this._hass, rolloutStatus.frontEntityId)) };
+          } else {
+            timerBadgeInfo = { statusIcon: ICON_CLOCK_OUTLINE, statusText: tr.tier_waiting_text };
+          }
+        }
+        list.appendChild(
+          this._buildListRow(entityId, supportingText, () => this._openDetailDialog(entityId), timerBadgeInfo)
+        );
+      });
     content.appendChild(list);
     return card;
   }
 
-  // Looks up entityId inside this._rolloutGroups (see rollout_manager.py's
-  // own rollout_groups_snapshot), null if it isn't part of any active
+  // The tolerant "does this entity still count as installing, for display
+  // purposes" check -- see INSTALLING_FLICKER_GRACE_MS's own comment for
+  // why a bare, instantaneous in_progress read (what a plain
+  // updateIsInstalling(entityState(...)) call gives) isn't enough on its
+  // own for every place that decides whether an entity belongs in the
+  // "Installing" section. Also true for anything rollout_manager.py's own
+  // recently_installing (this._recentlyInstalling, see _loadAll's own
+  // comment) still vouches for -- found live, 2026-08-10: leaving and
+  // re-entering the panel (or a plain refresh) creates a brand new
+  // instance of this class with nothing in this._installingLastTrueAt yet,
+  // so a render landing exactly when a sleepy device's own in_progress
+  // happened to read false had no history of its own to fall back on
+  // either -- unlike the server side, which doesn't reset just because the
+  // browser tab did. Updates this._installingLastTrueAt itself whenever it
+  // finds in_progress genuinely true (from either source), so every call
+  // site shares the exact same record of "when was this last actually
+  // seen installing" from here on, without needing to keep re-consulting
+  // the server. `state`, if the caller already has it, saves a redundant
+  // entityState() lookup.
+  _isEffectivelyInstalling(entityId, state = entityState(this._hass, entityId)) {
+    if (updateIsInstalling(state) || this._recentlyInstalling.has(entityId)) {
+      this._installingLastTrueAt.set(entityId, Date.now());
+      return true;
+    }
+    const lastTrue = this._installingLastTrueAt.get(entityId);
+    if (lastTrue != null && Date.now() - lastTrue < INSTALLING_FLICKER_GRACE_MS) return true;
+    this._installingLastTrueAt.delete(entityId);
+    return false;
+  }
+
+  // Fills in the last known real update_percentage when the live state
+  // doesn't currently have one, for an entity that still counts as
+  // installing (_isEffectivelyInstalling, same reasoning) -- shared by
+  // every place that decides spinner-vs-ring (installingIndicatorNode via
+  // _buildListRow, and _patchListRowProgress), so a fresh full rebuild
+  // (_refresh's own reload, leaving and re-entering the panel, any of the
+  // other renders that don't go through the reactive live-patch path)
+  // doesn't throw away real, recent progress just because this one
+  // particular push happens to be missing it -- found live, 2026-08-11,
+  // right after the live-patch-only version of this fix: percentage
+  // showed correctly only sometimes, and specifically reverted again after
+  // a refresh, because that path rebuilds the indicator from scratch with
+  // no memory of its own to fall back on.
+  _stateWithRememberedPercentage(entityId, state) {
+    const live = state && state.attributes && state.attributes.update_percentage;
+    if (live != null) {
+      this._lastKnownPercentage.set(entityId, live);
+      return state;
+    }
+    if (!this._isEffectivelyInstalling(entityId, state)) {
+      this._lastKnownPercentage.delete(entityId);
+      return state;
+    }
+    const remembered = this._lastKnownPercentage.get(entityId);
+    return remembered == null
+      ? state
+      : { ...state, attributes: { ...state.attributes, update_percentage: remembered } };
+  }
+
+  // O(1) lookup into this._rolloutStatusByEntityId (built once per
+  // _loadAll() from this._rolloutGroups, see rollout_manager.py's own
+  // rollout_groups_snapshot), null if entityId isn't part of any active
   // queue right now. Used both to exclude a queued/installing entity from
   // its normal ready/waiting/blocked group (see _buildUpdatesList) and to
   // swap the dialog's Install button for the same "waiting for X" state
   // (no-override decision, see rollout_manager.py's own docstring: a
   // queued device can't jump the line from here either).
   _rolloutStatusFor(entityId) {
-    for (const group of this._rolloutGroups) {
-      const entry = group.entities.find((e) => e.entity_id === entityId);
-      if (entry) return { status: entry.status, frontEntityId: group.entities[0].entity_id };
-    }
-    return null;
+    return this._rolloutStatusByEntityId.get(entityId) || null;
   }
 
   // Default sort: safest first (green, then orange, then red), see
@@ -2282,20 +3211,85 @@ class UpdateManagerPanel extends HTMLElement {
       return outer;
     }
 
-    // Active rollout-queue cards go above the normal ready/waiting/blocked
-    // groups (see _buildRolloutGroupCard): any entity shown there is
-    // excluded from its normal group in the same pass below, no duplicate
-    // row for the same entity in two places at once.
-    const queuedEntityIds = new Set();
-    this._rolloutGroups.forEach((group) => {
-      outer.appendChild(this._buildRolloutGroupCard(group));
-      group.entities.forEach((e) => queuedEntityIds.add(e.entity_id));
+    // Everything currently installing or held back (tier gate or Zigbee
+    // model gate) goes into one "Installing" card above the normal
+    // ready/waiting/blocked groups (see _buildInstallingCard); any entity
+    // shown there is excluded from its normal group in the same pass
+    // below, no duplicate row for the same entity in two places at once.
+    // A plain, un-gated install only joins after INSTALLING_PROMOTE_DELAY_MS
+    // (see this._installingSince's own comment) -- queued entries (already
+    // committed to a real, multi-item wait) show immediately, no debounce.
+    const installingEntityIds = [];
+    const now = Date.now();
+    this._updates.forEach((u) => {
+      const entityId = u.entity_id;
+      // Only a genuinely queued-behind-someone entity (or a tier-waiting
+      // one) is included unconditionally here -- a Zigbee queue's own
+      // *front* entity is deliberately NOT force-included just because
+      // rollout_groups still lists it as such: found live, 2026-08-09,
+      // expected it to revert back to the "ready" group instead --
+      // a front entity that's stopped actually
+      // installing (about to be advanced past server-side, see
+      // rollout_manager.py's own _async_advance_past_stalled_front) has
+      // no business still looking like it's installing here just because
+      // this._rolloutGroups hasn't caught up to that yet. Falling through
+      // to the plain updateIsInstalling check below instead means: still
+      // genuinely installing -> shown normally (debounced); not -> not
+      // shown here at all, reverting to wherever its own real status
+      // (still "ready" from before it was dispatched) already puts it.
+      const rolloutStatus = this._rolloutStatusFor(entityId);
+      if (this._tierWaiting.has(entityId) || (rolloutStatus && rolloutStatus.status !== "installing")) {
+        installingEntityIds.push(entityId);
+        return;
+      }
+      if (!this._isEffectivelyInstalling(entityId)) return;
+      // Seeded here too, not only reactively by _updateInstallProgress --
+      // found live: the progress spinner still didn't always show on an
+      // installing update item. A render triggered by a
+      // path that never goes through _updateInstallProgress first (e.g.
+      // _afterDialogAction's own _loadAll()+_renderContent(), right after
+      // a server-side Zigbee queue advance dispatches the next device on
+      // its own) could reach here for a genuinely, already-installing
+      // entity this._installingSince had simply never seeded yet -- since
+      // stayed null forever, so this entity never promoted into the
+      // Installing section at all, spinner or otherwise, until some
+      // unrelated later event happened to also flip its own in_progress
+      // (re-triggering _updateInstallProgress's own seeding instead).
+      // Same seed-then-schedule-a-followup-render pattern as that method's
+      // own, so the debounce window still gets a guaranteed second look.
+      if (!this._installingSince.has(entityId)) {
+        this._installingSince.set(entityId, Date.now());
+        setTimeout(() => {
+          if (this._tab === "updates") this._renderContent();
+        }, INSTALLING_PROMOTE_DELAY_MS);
+      }
+      const since = this._installingSince.get(entityId);
+      if (since != null && now - since >= INSTALLING_PROMOTE_DELAY_MS) installingEntityIds.push(entityId);
     });
+    if (installingEntityIds.length) outer.appendChild(this._buildInstallingCard(installingEntityIds));
 
-    const remainingUpdates = this._updates.filter((u) => !queuedEntityIds.has(u.entity_id));
+    const installingSet = new Set(installingEntityIds);
+    const remainingUpdates = this._updates.filter((u) => !installingSet.has(u.entity_id));
     if (!remainingUpdates.length) return outer;
 
-    const groups = groupUpdates(tr, remainingUpdates);
+    const groups = groupUpdates(
+      tr,
+      remainingUpdates,
+      this._formData.show_skipped_updates,
+      this._formData.show_not_installable_updates
+    );
+
+    // remainingUpdates is non-empty (checked above) but groups came back
+    // empty -- every one of them is skipped/not-installable and both of
+    // the overflow menu's own toggles happen to be off right now. Direct
+    // user feedback: without this, the tab silently rendered nothing at
+    // all here, indistinguishable from updates_empty's own genuine
+    // "nothing to do" case above, which said something completely
+    // different (and wrong) about the actual state.
+    if (!groups.length) {
+      outer.appendChild(buildEmptyStateCard(tr.updates_hidden_by_filter));
+      return outer;
+    }
 
     const wrap = document.createElement("div");
     wrap.className = "update-groups";
@@ -2429,8 +3423,8 @@ class UpdateManagerPanel extends HTMLElement {
   // A real ha-dialog (built once, see _ensureShell), repopulated per click
   // -- not HA's native more-info, which has no notion of Update Manager's
   // own staging status, pending-install countdown/cancel, or per-entity
-  // install history (direct user feedback/idea: "misschien zelfs een
-  // custom detailpagina of dialog per update entity"). A button at the
+  // install history (direct user feedback/idea: a custom detail page or
+  // dialog per update entity). A button at the
   // bottom still opens the real more-info, for the entity's raw attributes
   // and its own native controls.
   //
@@ -2441,7 +3435,20 @@ class UpdateManagerPanel extends HTMLElement {
   // ha-more-info-state-header.ts's layout), status uses ha-alert (real
   // color/left-border treatment, not a plain paragraph), and version facts
   // use the same key/value ".row" pattern more-info-update.ts itself uses.
-  _openDetailDialog(entityId, historyEntry = null) {
+  // communityOverride ({ problematic_count, trusted_vote, trusted_voters_matched }),
+  // when given, replaces u.community_verdict/u.trusted_vote/u.trusted_voters_matched
+  // (the coordinator's own cache, up to an hour old) for this one build --
+  // see the pendingCommunitySection call below, which re-invokes this whole
+  // method with the Community section's own live verdict_for_version fetch
+  // once it disagrees with what's currently shown. Found by review,
+  // 2026-08-08: heldBackByCommunity (and the Cancel button/"will update
+  // automatically" alert it gates) used to be computed once, purely from
+  // that stale cache, and never revisited -- casting a vote in this same
+  // dialog session (or just opening it while the cache and the live
+  // aggregate already disagreed, no voting needed) left a contradictory
+  // alert/Cancel button in place until the dialog was closed and reopened
+  // by hand.
+  _openDetailDialog(entityId, historyEntry = null, communityOverride = null) {
     // While an update is actually installing, HA's own more-info dialog
     // already has the real thing (a live progress bar, a real percentage)
     // -- direct user feedback, 2026-08-01: "als hij installing is wil ik
@@ -2489,6 +3496,31 @@ class UpdateManagerPanel extends HTMLElement {
     // the entity's unrelated current pending update dragged in above it.
     const showPendingUpdate = u && !historyEntry;
 
+    // Hoisted here, 2026-08-10, so a queued entity's own dialog explains
+    // what it's waiting for and offers a way to leave the queue, going
+    // back to ready, instead of just a plain, uninformative status alert
+    // (see below). A queued entity's own staging status is
+    // already "ready" (rollout_manager.py's own pacing is a completely
+    // separate gate, see _buildUpdatesList's own force-include comment) --
+    // statusText/timerBadge below have no rollout awareness of their own
+    // (correct for the list row/pill, which already gets this from
+    // _buildInstallingCard's own separate handling), so without this the
+    // dialog fell straight through to a plain "Ready to update" alert, no
+    // explanation of what it's actually waiting for and no way to leave
+    // the queue.
+    const rolloutStatus = showPendingUpdate ? this._rolloutStatusFor(entityId) : null;
+    const isQueuedInRollout = !!(rolloutStatus && rolloutStatus.status === "queued");
+    // Same underlying question as isQueuedInRollout above, same "same
+    // scalable principle" answer -- see this._tierWaiting's own comment
+    // (install_tiers.py's disruption-order gate, entirely separate from
+    // the Zigbee-network one): this entity's own staging status is
+    // "ready" here too, so it needs the exact same dialog treatment
+    // (explains what it's waiting for, "Open update" stays clickable as a
+    // deliberate override, see that button's own comment) -- just no
+    // Cancel equivalent, since tier-blocking is a live, continuously
+    // re-evaluated gate, not a queue position to leave.
+    const isTierWaiting = !!(showPendingUpdate && this._tierWaiting.has(entityId));
+
     // Hoisted above the header, direct user feedback 2026-07-29: the
     // header's own brief .state value always shows the plain status
     // (ready/waiting/skipped/blocked) regardless of what the alert below
@@ -2504,18 +3536,38 @@ class UpdateManagerPanel extends HTMLElement {
     // negative vote showed both "will update automatically" *and* "held
     // back" side by side, and a Cancel button for an install that was
     // never actually going to run).
+    // communityOverride, once the Community section's own live fetch is in
+    // (see this method's own doc comment above), replaces the coordinator's
+    // stale cache values below -- effectiveTrustedVote only matters for the
+    // heldBackAlert's own text further down (a trusted voter's problematic
+    // vote gets named specifically), the count is what actually drives
+    // heldBackByCommunity itself. Guarded by showPendingUpdate the same way
+    // communityProblematicCount below already is, not just `u.trusted_vote`
+    // directly -- found live, 2026-08-09: `u` is undefined for the
+    // overwhelmingly common History-entry case (an already-installed
+    // entity with no *current* pending update to match in this._updates),
+    // and this line threw synchronously for every one of them, before
+    // dialog.open was ever reached -- no History dialog could open at all.
+    const effectiveTrustedVote = communityOverride ? communityOverride.trusted_vote : showPendingUpdate ? u.trusted_vote : undefined;
+    const effectiveTrustedVotersMatched = communityOverride ? communityOverride.trusted_voters_matched : showPendingUpdate ? u.trusted_voters_matched : undefined;
     const communityProblematicCount = showPendingUpdate
-      ? (u.community_verdict && u.community_verdict.problematic_count) || 0
+      ? communityOverride
+        ? communityOverride.problematic_count
+        : (u.community_verdict && u.community_verdict.problematic_count) || 0
       : 0;
     const heldBackByCommunity =
-      showPendingUpdate && communityBlocksAutoInstall(u) && !u.auto_install_excluded && u.status !== "skipped";
+      showPendingUpdate &&
+      effectiveTrustedVote !== "healthy" &&
+      communityProblematicCount > 0 &&
+      !u.auto_install_excluded &&
+      u.status !== "skipped";
     // Hoisted so both the header (always uses it) and this check (compares
     // against it) share one computation. The status alert itself is now
     // skipped entirely whenever it would add nothing beyond the header's
     // own bare word -- direct user feedback, 2026-07-29, after "Skipped"
     // still showed twice even once the header/alert dedup only omitted
-    // the header: "die alert mag wel weg. want de status is al skipped en
-    // clear skipped staat in de footer" -- Unskip already lives in the
+    // the header: the alert itself could go too, since the status already
+    // says "skipped" and Unskip already lives in the
     // footer (see below), so a plain "Skipped"/"Ready to update"/
     // "Discouraged" alert with nothing else to say no longer has any
     // reason to exist at all, not just a reason to go quiet. Never
@@ -2530,7 +3582,19 @@ class UpdateManagerPanel extends HTMLElement {
     // Computed once here (rather than again down at the alert's own text
     // node below) since both need the exact same value: this comparison,
     // and, if it turns out to differ, the alert's initial text itself.
-    const dialogStatusText = showPendingUpdate ? statusText(tr, u, this._settings, this._hass) : null;
+    // isQueuedInRollout/isTierWaiting override statusText's own result --
+    // see those variables' own comments: statusText has no rollout/tier
+    // awareness at all (this entity's real staging status is plain
+    // "ready"), so without this override the dialog showed the same bare
+    // "Ready to update" text as the header, and willShowStatusAlert below
+    // stayed false.
+    const dialogStatusText = showPendingUpdate
+      ? isQueuedInRollout
+        ? tr.rollout_queue_waiting(friendlyEntityName(this._hass, rolloutStatus.frontEntityId))
+        : isTierWaiting
+          ? tr.tier_waiting_text
+          : statusText(tr, u, this._settings, this._hass)
+      : null;
     const willShowStatusAlert = showPendingUpdate && !heldBackByCommunity && headerStateText !== dialogStatusText;
 
     // state-info + a right-aligned ".state" value, in a
@@ -2598,7 +3662,7 @@ class UpdateManagerPanel extends HTMLElement {
     // specific History-tab row (historyEntry set) means the user wants
     // that one past install, not also the entity's unrelated current
     // pending update dragged in above it -- direct user feedback,
-    // 2026-07-27 ("je verwacht die bovenkant helemaal niet"). Same signal
+    // 2026-07-27: that top section wasn't expected there at all. Same signal
     // _openDetailDialog's own defaultExpandIndex already uses for the same
     // reasoning. The Updates-tab/rollout-queue entry points (both `u`
     // truthy, no historyEntry) are unaffected.
@@ -2629,15 +3693,15 @@ class UpdateManagerPanel extends HTMLElement {
       if (willShowStatusAlert) {
         // "info" (blue), not the status-driven default, whenever there's
         // an actual scheduled auto-install countdown (u.pending_install)
-        // to show -- direct user feedback, 2026-07-29: "zou het niet
-        // logischer zijn als de alert met 'will update automatically...'
-        // blauw is ipv groen? het is info en geen success toch?" A plain
+        // to show -- direct user feedback, 2026-07-29, questioning why the
+        // "will update automatically..." alert was green rather than blue:
+        // that's informational, not a success. A plain
         // "ready" with nothing scheduled yet is a genuinely positive
         // status worth "success" green; "will update automatically at X"
         // is a scheduled fact, not an accomplishment, regardless of which
         // underlying status (most often "ready", but not exclusively)
         // happens to have that schedule attached to it.
-        const statusAlertType = u.pending_install
+        const statusAlertType = u.pending_install || isQueuedInRollout || isTierWaiting
           ? "info"
           : STATUS_ALERT_TYPE[u.status] || STATUS_ALERT_TYPE[_FALLBACK_STATUS];
         const statusAlert = document.createElement("ha-alert");
@@ -2649,11 +3713,16 @@ class UpdateManagerPanel extends HTMLElement {
         // its real source), the text itself already explains what's
         // happening (statusText), the icon just ties it visually to the
         // same download/clock icon used elsewhere for "when".
-        const dialogBadge = timerBadge(tr, u, this._settings, this._hass);
-        if (dialogBadge) {
+        // timerBadge, like statusText, has no rollout/tier awareness of
+        // its own -- ICON_CLOCK_OUTLINE directly, same icon
+        // _buildInstallingCard's own rollout-queue/tier-wait badges
+        // already use for this exact situation.
+        const dialogBadgeIcon =
+          isQueuedInRollout || isTierWaiting ? ICON_CLOCK_OUTLINE : (timerBadge(tr, u, this._settings, this._hass) || {}).icon;
+        if (dialogBadgeIcon) {
           const customIcon = document.createElement("ha-svg-icon");
           customIcon.slot = "icon";
-          customIcon.path = dialogBadge.icon;
+          customIcon.path = dialogBadgeIcon;
           statusAlert.appendChild(customIcon);
         }
         // Kept as its own text node reference, not a one-shot string --
@@ -2719,6 +3788,88 @@ class UpdateManagerPanel extends HTMLElement {
           statusAlert.appendChild(cancelBtn);
           this._dialogActionButtons.push(cancelBtn);
         }
+        // Lets someone skip the remaining postponement wait itself, not
+        // just cancel an already-scheduled auto-install. Gated on u.status
+        // directly, not on cancelToVersion above (a different question --
+        // "is an auto-install actually scheduled") -- this must also help
+        // someone with auto-install
+        // disabled for this size who just wants to manually install
+        // without waiting out the postponement period. Never reachable
+        // while heldBackByCommunity is true, same reasoning as the Cancel
+        // button's own comment above (this whole block is gated on
+        // willShowStatusAlert).
+        let readyAlert = null;
+        if (u.status === "waiting") {
+          const readyBtn = document.createElement("ha-progress-button");
+          readyBtn.slot = "action";
+          readyBtn.style.setProperty("--wa-color-on-normal", "var(--primary-text-color)");
+          readyBtn.appearance = "plain";
+          readyBtn.label = tr.dialog_force_ready;
+          readyBtn.disabled = updateIsInstalling(this._dialogLastState);
+          readyBtn.addEventListener("click", () =>
+            _runProgressAction(readyBtn, async () => {
+              await this._hass.callWS({
+                type: "update_manager/force_ready",
+                entity_id: entityId,
+                to_version: u.latest_version,
+              });
+              await this._afterDialogAction(entityId);
+            })
+          );
+          // A separate alert, not appended into statusAlert above, whenever
+          // that one already has its own Cancel button -- direct user
+          // feedback, 2026-08-11: two unrelated actions (cancel the
+          // scheduled auto-install vs. skip the wait entirely) crammed onto
+          // one "will update automatically at X" message read as confusing,
+          // neither button's relationship to that sentence was clear. Reuses
+          // status_waiting_manual, the exact sentence statusText itself
+          // would show for this entity if no auto-install were scheduled at
+          // all -- Ready's own action is exactly "become that instead, right
+          // now". No such conflict when cancelToVersion is falsy (no Cancel
+          // button competing for the same alert), so readyBtn joins
+          // statusAlert directly, same as before.
+          if (cancelToVersion) {
+            readyAlert = document.createElement("ha-alert");
+            readyAlert.alertType = "info";
+            readyAlert.appendChild(document.createTextNode(tr.status_waiting_manual(absoluteWhen(tr, u.ready_at, this._hass))));
+            readyAlert.appendChild(readyBtn);
+          } else {
+            statusAlert.appendChild(readyBtn);
+          }
+          this._dialogActionButtons.push(readyBtn);
+        }
+        // Lets someone leave a genuinely not-yet-dispatched wait and go back
+        // to a normal, standalone ready update -- whichever of the two ways
+        // that can currently happen: a Zigbee rollout queue entry, or a
+        // tier-blocked one (held back purely by the disruption-order gate).
+        // Never the front of a Zigbee queue, which is already actively
+        // installing -- a different operation entirely, not exposed here.
+        // Either way the entity's own staging status was already "ready"
+        // the whole time, so no further state change is needed beyond
+        // leaving the wait for it to show as a normal, standalone ready
+        // update again -- same backend call handles both, see
+        // rollout_manager.py's own async_cancel_queued docstring.
+        if (isQueuedInRollout || isTierWaiting) {
+          const cancelQueuedBtn = document.createElement("ha-progress-button");
+          cancelQueuedBtn.slot = "action";
+          cancelQueuedBtn.style.setProperty("--wa-color-on-normal", "var(--primary-text-color)");
+          cancelQueuedBtn.appearance = "plain";
+          cancelQueuedBtn.label = tr.cancel_auto_install;
+          cancelQueuedBtn.disabled = updateIsInstalling(this._dialogLastState);
+          cancelQueuedBtn.addEventListener("click", () =>
+            _runProgressAction(cancelQueuedBtn, async () => {
+              await this._hass.callWS({ type: "update_manager/cancel_queued", entity_id: entityId });
+              await this._afterDialogAction(entityId);
+            })
+          );
+          statusAlert.appendChild(cancelQueuedBtn);
+          this._dialogActionButtons.push(cancelQueuedBtn);
+        }
+        // readyAlert first, statusAlert second -- direct user feedback,
+        // 2026-08-12: read top to bottom, "ready now" (skip the rest of the
+        // wait) belongs above "will update automatically at X" (the
+        // scheduled outcome if you do nothing), not below it.
+        if (readyAlert) body.appendChild(readyAlert);
         body.appendChild(statusAlert);
       }
 
@@ -2741,8 +3892,8 @@ class UpdateManagerPanel extends HTMLElement {
         const heldBackAlert = document.createElement("ha-alert");
         heldBackAlert.alertType = "warning";
         heldBackAlert.textContent =
-          u.trusted_vote === "problematic"
-            ? tr.dialog_auto_install_held_back(joinUsernames(tr, u.trusted_voters_matched || []))
+          effectiveTrustedVote === "problematic"
+            ? tr.dialog_auto_install_held_back(joinUsernames(tr, effectiveTrustedVotersMatched || []))
             : tr.dialog_auto_install_held_back_community(communityProblematicCount);
         body.appendChild(heldBackAlert);
       }
@@ -2752,8 +3903,8 @@ class UpdateManagerPanel extends HTMLElement {
       // same fact History shows once installed), or "waiting" with at most
       // a *projected* one (projectedAnnouncementTime, only meaningful once
       // auto-install is actually enabled for its size) -- never both.
-      // Direct user feedback, 2026-08-01: "bij postponed zie je niet
-      // wanneer hij announced gaat worden en bij ready net zo goed" --
+      // Direct user feedback, 2026-08-01: neither "postponed" nor "ready"
+      // showed when auto-install would actually be announced --
       // History already shows this fact for a completed install, the live
       // dialog showed it nowhere at all.
       let announcementLabel = null;
@@ -2777,14 +3928,62 @@ class UpdateManagerPanel extends HTMLElement {
         ])
       );
 
+      // Shown once this entity has crossed rollout_manager.py's own
+      // _STUCK_THRESHOLD (see this._stuck's own comment) -- direct user
+      // feedback: "We zijn de update manager, dat betekent dat we de
+      // gebruiker moeten helpen". Icon is the same wrench the row/Repairs
+      // already use, via ha-alert's own real icon slot (not a hack --
+      // ha-alert's own source has <slot name="icon"> for exactly this).
+      // Action lives in the alert itself (ha-alert's own action slot too),
+      // not the footer among Skip/Cancel/Close -- that disconnected the
+      // action from its own explanation. Deliberately
+      // not called "Skip" -- that already exists and means something else
+      // (stop suggesting this version); this doesn't cancel the install,
+      // which may still finish on its own, it only stops this entity from
+      // holding anything else back (see RolloutManager.async_stop_waiting_for's
+      // own docstring).
+      const stuckInfo = this._stuck.get(entityId);
+      if (stuckInfo) {
+        const alert = document.createElement("ha-alert");
+        alert.alertType = "warning";
+        alert.title = tr.dialog_stuck_title(formatStuckDuration(tr, stuckInfo.since));
+        const alertIcon = document.createElement("ha-svg-icon");
+        alertIcon.slot = "icon";
+        alertIcon.path = ICON_WRENCH;
+        alert.appendChild(alertIcon);
+        const alertBody = document.createElement("span");
+        alertBody.textContent = stuckInfo.isZigbee ? tr.dialog_stuck_body_zigbee : tr.dialog_stuck_body_neutral;
+        alert.appendChild(alertBody);
+        const stopWaitingBtn = document.createElement("ha-button");
+        stopWaitingBtn.slot = "action";
+        stopWaitingBtn.appearance = "plain";
+        stopWaitingBtn.textContent = tr.dialog_stop_waiting;
+        stopWaitingBtn.addEventListener("click", async () => {
+          stopWaitingBtn.disabled = true;
+          await this._hass.callWS({ type: "update_manager/stop_waiting", entity_id: entityId });
+          if (!isDialogStale()) await this._afterDialogAction(entityId);
+        });
+        alert.appendChild(stopWaitingBtn);
+        body.appendChild(alert);
+      }
+
       // Not rendered here -- moved into the Release notes section below
       // (appendReleaseNotesSection), 2026-08-01, direct user feedback:
-      // "Read release announcement is soms een wat vreemde tekst als die
-      // notes er gewoon boven staan. En als die notes ontbreken, dan staat
-      // die link bij de details ipv onder het kopje 'Release notes'." Kept
-      // here only as the plain attribute read -- straight from the
-      // entity's own state, not something we compute ourselves.
-      const releaseUrl = state && state.attributes && state.attributes.release_url;
+      // "Read release announcement" read oddly once the actual notes were
+      // sitting right above it, and when there were no notes, the link
+      // ended up among the plain details instead of under its own
+      // "Release notes" heading. Kept
+      // here only as the plain attribute read.
+      //
+      // u.release_url (coordinator.py's own cache, via update_manager/updates),
+      // not state.attributes.release_url directly, 2026-08-07: for a Core
+      // update specifically, the entity's own native release_url is a real
+      // bug (always "https://www.home-assistant.io/latest-release-notes/",
+      // never version-specific, see hacs_identity.py's own
+      // corrected_release_url docstring) -- the backend already corrects
+      // this once, for every entity, so the frontend just uses that instead
+      // of re-reading (and getting wrong) the raw attribute itself.
+      const releaseUrl = u.release_url;
 
       // Journey A (report-only, no healthy button) unconditionally -- this
       // is inherently about a not-yet-installed version, regardless of
@@ -2793,7 +3992,18 @@ class UpdateManagerPanel extends HTMLElement {
       // which could let a not-yet-installed version get voted "healthy" if
       // a historyEntry also happened to be passed).
       const pendingCommunitySection = this._buildCommunitySection(
-        tr, entityId, u.installed_version, u.latest_version, false, isDialogStale
+        tr, entityId, u.installed_version, u.latest_version, false, isDialogStale,
+        // Corrects heldBackByCommunity/the alert above and the "Open
+        // update" button's own accent styling in place, but only once the
+        // Community section's own live fetch (or a fresh vote within it)
+        // actually disagrees with what this exact dialog was built with --
+        // avoids rebuilding on every routine open where the two already
+        // agree. See this method's own doc comment for the bug this fixes.
+        (live) => {
+          if (isDialogStale()) return;
+          if (live.problematic_count === communityProblematicCount && live.trusted_vote === effectiveTrustedVote) return;
+          this._openDetailDialog(entityId, historyEntry, live);
+        }
       );
       if (pendingCommunitySection) body.appendChild(pendingCommunitySection);
 
@@ -2807,9 +4017,8 @@ class UpdateManagerPanel extends HTMLElement {
       // expose a plain release_summary attribute instead -- more-info-
       // update.ts falls back to exactly that same attribute when the
       // feature isn't supported, so we do too. Neither of those is
-      // guaranteed to actually have anything, though (direct user feedback,
-      // 2026-08-01, confirmed live -- "dus het is absoluut niet alleen
-      // hacs": HACS's own async_release_notes() returns None whenever
+      // guaranteed to actually have anything, though (confirmed live,
+      // 2026-08-01, and not just for HACS: HACS's own async_release_notes() returns None whenever
       // pending_restart is still true or the installed version isn't in its
       // own published_tags, and Home Assistant Supervisor's own update
       // entity doesn't support RELEASE_NOTES at all), so both paths below
@@ -2840,6 +4049,25 @@ class UpdateManagerPanel extends HTMLElement {
         insertReleaseNotesSection(body, releaseNotesAnchor, tr, notes, releaseUrl, u.installed_version, u.latest_version, linkUrl);
         if (notes) this._appendUpstreamReleaseNotes(body, releaseNotesAnchor, tr, notes, releaseUrl, u.installed_version, u.latest_version);
       };
+      // entityId === CORE_UPDATE_ENTITY_ID only: also resolve the blog
+      // announcement's own link (_fetchCoreAnnouncement's own comment),
+      // overriding just the *link*. The intro for a .0 release is no
+      // longer added here -- websocket_api.py's own _async_core_aware_section
+      // now embeds it directly into `notes` itself, under that .0 release's
+      // own "## {version}" heading, for every .0 release in a compiled
+      // multi-version range, not just the newest one (direct user feedback,
+      // 2026-08-08: a jump like 2026.7.0 -> 2026.8.4 must show *every*
+      // skipped version, each headed on its own, patches with GitHub's raw
+      // PR list, .0 releases with just that short intro -- adding a second,
+      // separate top-of-section intro here on top of that would have shown
+      // the same text twice for a single-version .0 jump). A no-op
+      // passthrough for every other entity, so both branches below can call
+      // this unconditionally.
+      const withCoreAnnouncement = async (correctedUrl) => {
+        if (entityId !== CORE_UPDATE_ENTITY_ID) return { linkUrl: correctedUrl };
+        const { url } = await this._fetchCoreAnnouncement(u.latest_version);
+        return { linkUrl: url || correctedUrl };
+      };
       if (supportsReleaseNotes) {
         const loader = buildReleaseNotesLoader();
         body.insertBefore(loader, releaseNotesAnchor);
@@ -2862,11 +4090,12 @@ class UpdateManagerPanel extends HTMLElement {
           let correctedUrl = null;
           if (!finalNotes) {
             ({ notes: finalNotes, correctedUrl } = await this._fetchGithubReleaseNotesFallback(
-              releaseUrl, u.installed_version, u.latest_version
+              releaseUrl, u.installed_version, u.latest_version, entityId
             ));
           }
+          const { linkUrl } = await withCoreAnnouncement(correctedUrl);
           loader.remove();
-          if (!isDialogStale() && (finalNotes || releaseUrl)) appendReleaseNotesSection(finalNotes, correctedUrl);
+          if (!isDialogStale() && (finalNotes || releaseUrl)) appendReleaseNotesSection(finalNotes, linkUrl);
         });
       } else {
         const releaseSummary = state && state.attributes && state.attributes.release_summary;
@@ -2875,9 +4104,18 @@ class UpdateManagerPanel extends HTMLElement {
         } else {
           const loader = buildReleaseNotesLoader();
           body.insertBefore(loader, releaseNotesAnchor);
-          this._fetchGithubReleaseNotesFallback(releaseUrl, u.installed_version, u.latest_version).then(({ notes, correctedUrl }) => {
+          // Same fromVersion/toVersion range for Core as for any other
+          // entity -- websocket_api.py's own compiled multi-version range
+          // (and, for Core specifically, its per-release .0 intro
+          // substitution, see _async_core_aware_section's own comment) now
+          // handles Core's release cadence correctly on its own, so this no
+          // longer needs to special-case Core down to a single version.
+          this._fetchGithubReleaseNotesFallback(
+            releaseUrl, u.installed_version, u.latest_version, entityId
+          ).then(async ({ notes, correctedUrl }) => {
+            const { linkUrl } = await withCoreAnnouncement(correctedUrl);
             loader.remove();
-            if (!isDialogStale() && (notes || releaseUrl)) appendReleaseNotesSection(notes, correctedUrl);
+            if (!isDialogStale() && (notes || releaseUrl)) appendReleaseNotesSection(notes, linkUrl);
           });
         }
       }
@@ -3042,9 +4280,8 @@ class UpdateManagerPanel extends HTMLElement {
         // durable changelog) has no such problem and stays.
         // The release_url link now renders as *part of* this section (see
         // buildReleaseUrlLinkRow's own comment), not off on its own further
-        // down -- 2026-08-01, direct user feedback: "als die notes
-        // ontbreken, dan staat die link bij de details ipv onder het
-        // kopje 'Release notes'".
+        // down -- 2026-08-01: when there were no notes, the link ended up
+        // among the plain details instead of under its own "Release notes" heading.
         // entry.release_notes, when present, is normally trusted as-is --
         // except when it looks like HACS's own compile is anchored to
         // completely the wrong end, not just imprecisely scoped (which
@@ -3121,7 +4358,26 @@ class UpdateManagerPanel extends HTMLElement {
           // fetch itself can still take a moment after that click.
           const loader = buildReleaseNotesLoader();
           expandWrap.insertBefore(loader, changelogAnchor.nextSibling);
-          this._fetchGithubReleaseNotesFallback(entry.release_url, entry.from_version, entry.to_version).then(({ notes, correctedUrl }) => {
+          const isCore = entry.entity_id === CORE_UPDATE_ENTITY_ID;
+          // Same fromVersion/toVersion range for Core as for any other
+          // entity -- see the pending-update section's own comment above
+          // this same call.
+          this._fetchGithubReleaseNotesFallback(
+            entry.release_url, entry.from_version, entry.to_version, entry.entity_id
+          ).then(async ({ notes, correctedUrl }) => {
+            // Core-only link override -- see _fetchCoreAnnouncement's own
+            // comment. entry.to_version (the version this History entry
+            // actually installed), not entry.from_version: the announcement
+            // link describes what was *installed*, same as entry.release_url
+            // itself already does. No intro override here anymore -- a .0
+            // release anywhere in `notes` already carries its own intro,
+            // embedded server-side under its own heading (see
+            // websocket_api.py's own _async_core_aware_section).
+            let linkUrl = correctedUrl;
+            if (isCore) {
+              const announcement = await this._fetchCoreAnnouncement(entry.to_version);
+              linkUrl = announcement.url || correctedUrl;
+            }
             loader.remove();
             if (isDialogStale()) return;
             // changelogAnchor.nextSibling evaluated fresh right here (not
@@ -3137,7 +4393,7 @@ class UpdateManagerPanel extends HTMLElement {
             // find the wrong node (its own just-inserted <hr>, not the
             // original insertion point).
             const insertionPoint = changelogAnchor.nextSibling;
-            insertReleaseNotesSection(expandWrap, insertionPoint, tr, notes, entry.release_url, entry.from_version, entry.to_version, correctedUrl);
+            insertReleaseNotesSection(expandWrap, insertionPoint, tr, notes, entry.release_url, entry.from_version, entry.to_version, linkUrl);
             if (notes) this._appendUpstreamReleaseNotes(expandWrap, insertionPoint, tr, notes, entry.release_url, entry.from_version, entry.to_version);
           });
         };
@@ -3320,23 +4576,14 @@ class UpdateManagerPanel extends HTMLElement {
     const canOpenUpdate = !!(showPendingUpdate && u.installable);
     const openBtn = document.createElement("ha-progress-button");
     if (canOpenUpdate) {
-      // A queued (not yet dispatched) Zigbee rollout entry can't jump the
-      // line from here either (no-override decision, see
-      // rollout_manager.py's own docstring): same "waiting for X" text
-      // the queue card itself shows, button disabled instead of opening
-      // HA's own dialog -- opening it would let someone install directly
-      // there, bypassing the whole point of pacing.
-      const rolloutStatus = this._rolloutStatusFor(entityId);
-      const isQueued = !!(rolloutStatus && rolloutStatus.status === "queued");
       // "accent" (not "filled") for the genuinely strong/primary look --
       // confirmed against ha-button's own real source: "filled" uses the
       // softer --wa-color-fill-normal, "accent" the bolder --wa-color-
       // fill-loud, exactly the "loud" variant meant for a page's one
-      // primary action. Direct user feedback, 2026-07-29, after seeing
-      // "filled" render as a pale, secondary-looking blue: "voelt
-      // secondair ipv primair." Only "accent" once this is actually ready
-      // -- "bij een update die ready is kan de open update knop wel
-      // gewoon primair zijn" -- while still waiting/skipped/blocked,
+      // primary action. Direct user feedback, 2026-07-29, after "filled"
+      // rendered as a pale, secondary-looking blue that felt secondary
+      // rather than primary. Only "accent" once this is actually ready,
+      // when the open-update button can just be primary -- while still waiting/skipped/blocked,
       // encouraging manual install with the loudest button in the dialog
       // would work against the whole point of staging in the first
       // place. Still the exact same button either way, just quieter
@@ -3346,34 +4593,54 @@ class UpdateManagerPanel extends HTMLElement {
       // its loudest button inviting exactly the manual install the
       // warning right above it is discouraging.
       openBtn.appearance = u.status === "ready" && !heldBackByCommunity ? "accent" : "plain";
-      openBtn.label = isQueued
-        ? tr.rollout_queue_waiting(friendlyEntityName(this._hass, rolloutStatus.frontEntityId))
-        : tr.dialog_open_update;
-      openBtn.disabled = isQueued || updateButtonIsDisabled(this._dialogLastState);
+      // Kept as the plain, standard "Open update" label even while queued/
+      // tier-waiting -- the "waiting for X" fact is already shown in the
+      // status alert right above this button, so repeating it as the
+      // button's own label was redundant, just longer. Left clickable
+      // either way, deliberately: this entity's own staging status is
+      // already "ready" regardless of queue/tier position (see
+      // rollout_manager.py's own docstring), and clicking through to HA's
+      // own dialog from here (see this button's own click handler below,
+      // reached for a tier-waiting entity too, since it never had a
+      // rolloutStatus-based safe path to begin with) is a real, explicit
+      // choice to install ahead of its own turn, not an accident --
+      // someone doing that on purpose is accepting whatever disruption/
+      // mesh-instability risk that carries themselves.
+      openBtn.label = tr.dialog_open_update;
+      openBtn.disabled = updateButtonIsDisabled(this._dialogLastState);
     } else {
       openBtn.appearance = "plain";
       openBtn.label = tr.dialog_more_info;
     }
     openBtn.addEventListener("click", () => {
-      // A rollout-group member (any status, not just "queued") installs
-      // via update_manager/install directly instead of opening HA's own
-      // dialog -- found by code review, 2026-07-29: rollout_manager.py's
-      // own pacing is only ever consulted through that websocket command
-      // (see websocket_api.py's own _handle_install); HA's real dialog
-      // calls update.install directly, completely invisible to it. Two
-      // identical Zigbee devices could otherwise both install at once by
-      // going through HA's own dialog one after the other, exactly the
-      // mesh-instability scenario this whole feature exists to prevent --
-      // isQueued alone (disabling the button while waiting your turn)
-      // wasn't enough, since a *not yet queued* member handing off to
-      // HA's dialog was just as capable of racing a sibling that starts
-      // installing microseconds later.
+      // A rollout-group member not yet queued (about to become the front,
+      // or racing to become one) installs via update_manager/install
+      // directly instead of opening HA's own dialog -- found by code
+      // review, 2026-07-29: rollout_manager.py's own pacing is only ever
+      // consulted through that websocket command (see websocket_api.py's
+      // own _handle_install); HA's real dialog calls update.install
+      // directly, completely invisible to it. Two Zigbee devices on the
+      // same network could otherwise both install at once by going through
+      // HA's own dialog one after the other, exactly the mesh-instability
+      // scenario this whole feature exists to prevent. A genuinely queued
+      // entry falls through to HA's own dialog below on purpose, unlike
+      // this case: clicking through from here while queued is the explicit
+      // "install ahead of my own turn anyway" override the button's own
+      // disabled state above deliberately allows now.
       const rolloutStatus = canOpenUpdate ? this._rolloutStatusFor(entityId) : null;
       if (canOpenUpdate && rolloutStatus && rolloutStatus.status !== "queued") {
         _runProgressAction(openBtn, async () => {
           const msg = { type: "update_manager/install", entity_id: entityId };
           if (state && (state.attributes.supported_features || 0) & 8) msg.backup = true;
           await this._hass.callWS(msg);
+          // Same reasoning as _updateAllInGroup's own reload -- this
+          // dispatch might have landed this entity (or, more likely, a
+          // sibling it's now sharing a queue with) in a tier/rollout-queue
+          // wait with no state_changed of its own to react to yet. Same
+          // established pattern the Cancel button right above already
+          // uses (await callWS, then _afterDialogAction) for exactly this
+          // "reflect what the server actually decided" reason.
+          await this._afterDialogAction(entityId);
         });
         return;
       }
@@ -3384,16 +4651,16 @@ class UpdateManagerPanel extends HTMLElement {
     dialog.appendChild(actions);
 
     // A short, fixed delay before actually showing the dialog -- direct
-    // user feedback, 2026-08-01: "de dialogs lijken allemaal vlak na het
-    // openen te verspringen omdat er dan nieuwe data is geladen" (the
+    // user feedback, 2026-08-01: every dialog visibly shifted layout right
+    // after opening, since the
     // Community section and Release notes above are both still-pending
     // fetches at this exact point, each popping in and shifting layout
-    // once they land). Deliberately NOT tied to those actual fetches
+    // once they land. Deliberately NOT tied to those actual fetches
     // finishing (awaiting them would be the more correct fix, but a
-    // slower one to land) -- explicit user tradeoff: "een vaste vertraging
-    // die de meeste gevallen dekt is voldoende", and just as important,
-    // "het moet niet opvallen, je moet nog steeds het idee hebben dat de
-    // dialog direct opent". 150ms (bumped up from the original 100ms,
+    // slower one to land) -- explicit tradeoff: a fixed delay covering
+    // most cases is good enough, and just as important, it must stay
+    // unnoticeable -- the dialog still has to feel like it opens
+    // instantly. 150ms (bumped up from the original 100ms,
     // 2026-08-02, alongside the release-notes loader below) is still short
     // enough to stay under the generally-cited "feels instant" perception
     // threshold, long enough to let most of these fetches (a single small
@@ -3442,27 +4709,81 @@ class UpdateManagerPanel extends HTMLElement {
     }
   }
 
-  // "General": the settings that aren't specific to any one update size,
-  // the master pause switch (const.py's CONF_ENABLED) and whether a
-  // postponed update stays hidden from Home Assistant's own update count
-  // (const.py's CONF_HIDE_POSTPONED). First card on the page, above "Update
-  // rules": merged from two separate cards (2026-07-21, direct user
-  // feedback: both were "general Update Manager settings", not a rule
-  // about any one size, and having them apart read as two unrelated
-  // toggles rather than one coherent "how does Update Manager behave
-  // overall" section). No intro paragraph explaining "postponed" here
-  // anymore either (also direct user feedback, same day): that concept is
-  // about the per-size wait itself, not a general behavior, so belongs
-  // with "Postponement period" in Update rules, not up here, and the
-  // page had too much text regardless. The word carries enough of its own
-  // meaning in context (a field literally called "Postponement period"
-  // right below, "Hide postponed updates" here) without a paragraph
-  // spelling it out first.
-  // Plain ha-form, both fields' label and helper fully native (reverted
+  // Shared by every plain "label [+ description] + one ha-selector control"
+  // row across General/Postponement/Auto-update below (2026-08-11 code
+  // review: five call sites were hand-copying the same heading/description/
+  // selector/value-changed/autosave wiring with only the field name and
+  // selector config actually varying). The weekday schedule rows
+  // (_buildPostponementCard's own renderSchedule) don't go through this --
+  // those need a second control (the remove button) alongside the
+  // selector, not just one.
+  _buildSettingsRow(tr, { headingText, descriptionText, selector, key, coerce = (v) => v }) {
+    const row = document.createElement("ha-settings-row");
+    const heading = document.createElement("span");
+    heading.slot = "heading";
+    heading.textContent = headingText;
+    row.appendChild(heading);
+    if (descriptionText) {
+      const description = document.createElement("span");
+      description.slot = "description";
+      description.textContent = descriptionText;
+      row.appendChild(description);
+    }
+    const control = document.createElement("ha-selector");
+    control.hass = this._hass;
+    control.selector = selector;
+    // Found live, 2026-08-11: ha-input's own real source always renders a
+    // hint-line slot, only visually collapsed (its own "hint-hidden" class)
+    // when there's no hint text *and* required is false among other
+    // conditions -- ha-selector's own required defaults to true. Nothing
+    // built through this helper is ever genuinely "required" in the HTML-
+    // validation sense (a real value/default is always already in
+    // _formData), so this is safe everywhere.
+    control.required = false;
+    control.value = coerce(this._formData[key]);
+    control.addEventListener("value-changed", (e) => {
+      this._formData = { ...this._formData, [key]: e.detail.value };
+      control.value = e.detail.value;
+      this._scheduleAutosave();
+    });
+    row.appendChild(control);
+    return row;
+  }
+
+  // "General": just the master pause switch (const.py's CONF_ENABLED) now --
+  // "Hide postponed updates" moved out into "Postponement" (issue #4's
+  // schedule feature, 2026-08-11): it's about postponed updates
+  // specifically, not a general behavior, same reasoning that already took
+  // the old intro paragraph explaining "postponed" out of this card back on
+  // 2026-07-21 (see that same day's own history: the word belongs with
+  // "Postponement period", not here). No longer a "two merged toggles"
+  // card -- a single genuinely general, instance-wide toggle stands fine on
+  // its own.
+  // Plain ha-form, the field's label and helper fully native (reverted
   // 2026-07-21, direct user feedback after trying both a hand-built
   // ha-settings-row version and a split-per-field manual-.hint version:
   // neither was wanted, this plain ha-form rendering is "how it was" and
   // should stay that way).
+  // The master switch as one ha-settings-row (heading + its own full
+  // explanation + the switch), same shape every setting on this page uses
+  // now -- switched from ha-list-item-base to ha-settings-row entirely
+  // (2026-08-11, direct user feedback pointing at /profile/general's own
+  // real "Number format" row as a reference that looks right, unlike ours):
+  // confirmed against ha-settings-row.ts's own real source, this is the
+  // older, far more established HA component for exactly this "label +
+  // description + arbitrary end control" shape (35 real usages across the
+  // frontend, vs. ha-row-item's own 26, and specifically the one real HA
+  // code uses whenever the end control isn't just a plain button/switch).
+  // Two real, load-bearing differences from ha-row-item found by reading
+  // its own static styles: its own supporting text genuinely wraps
+  // (`.secondary { white-space: normal }`, confirmed -- ha-row-item's own
+  // equivalent is nowrap-only), so field_enabled_helper moves back into
+  // the row itself instead of a separate paragraph; and its own content
+  // slot gets real breathing-room padding (--settings-row-content-padding-
+  // block, 16px top+bottom) around whatever control sits in it, rather
+  // than tightly centering it -- exactly what a full-height ha-input
+  // (56px + 8px own bottom padding, confirmed against its own real source)
+  // needs to not look cramped/misaligned next to a couple of text lines.
   _buildGeneralCard(tr) {
     const card = document.createElement("ha-card");
     card.outlined = true;
@@ -3471,21 +4792,82 @@ class UpdateManagerPanel extends HTMLElement {
     const body = document.createElement("div");
     body.className = "card-content";
 
-    const form = document.createElement("ha-form");
-    form.hass = this._hass;
-    form.schema = [
-      { name: "enabled", selector: { boolean: {} } },
-      { name: "hide_postponed", selector: { boolean: {} } },
-    ];
-    form.data = this._formData;
-    form.computeLabel = (s) => (s.name === "enabled" ? tr.field_enabled : tr.field_hide_postponed);
-    form.computeHelper = (s) => (s.name === "enabled" ? tr.field_enabled_helper : tr.field_hide_postponed_helper);
-    form.addEventListener("value-changed", (e) => {
-      this._formData = { ...this._formData, ...e.detail.value };
-      form.data = this._formData;
-      this._scheduleAutosave();
-    });
-    body.appendChild(form);
+    body.appendChild(
+      this._buildSettingsRow(tr, {
+        headingText: tr.field_enabled,
+        descriptionText: tr.field_enabled_helper,
+        selector: { boolean: {} },
+        key: "enabled",
+        coerce: (v) => !!v,
+      })
+    );
+
+    card.appendChild(body);
+    return card;
+  }
+
+  // Its own card, above Postponement -- pulled out of General (2026-08-11,
+  // direct user feedback, "ik ben zoekende"): both Postponement's own
+  // wait_days and Auto-update's own auto_install toggle depend on this
+  // same concept, so it deserves a place of its own rather than living
+  // inside General (whose own remaining content, the master switch, isn't
+  // otherwise related to it) or a per-row (?) tooltip (tried and reverted
+  // earlier the same day). A plain <ul> bullet list was tried first
+  // (cloud-companion-pref.ts's own real shape for similar enumerable
+  // content) but reverted the same day, direct user feedback ("ziet er
+  // niet uit"): a generic bullet list reads as inconsistent now that
+  // every other card on this page speaks the same ha-list-item-base
+  // visual language. ha-list-item-base itself doesn't fit either though --
+  // these descriptions are genuinely too long for its own single-line
+  // supporting-text (same constraint field_enabled_helper hit), and there's
+  // no control that would belong in slot="end" anyway, purely
+  // informational. Label + a real (wrapping) paragraph instead -- the
+  // exact same field-label/section-intro pairing already used for
+  // General's own switch explanation and excludedLabel/excludedHint below
+  // (_buildAutoInstallCard), just one pair per size instead of one for
+  // the whole card.
+  _buildSizesCard(tr) {
+    const card = document.createElement("ha-card");
+    card.outlined = true;
+    card.header = tr.sizes_section_title;
+
+    const body = document.createElement("div");
+    body.className = "card-content";
+
+    const intro = document.createElement("p");
+    intro.className = "section-intro";
+    intro.textContent = tr.sizes_intro_lead;
+    body.appendChild(intro);
+
+    // Each size's own label+description pair grouped in its own sub-div,
+    // not appended straight to .card-content -- same reasoning as every
+    // other grouped-pair block this session: .card-content's own generic
+    // 16px top-margin would otherwise separate the label from its own
+    // description exactly as much as it separates one size from the next.
+    const sizesGroup = document.createElement("div");
+    sizesGroup.className = "sizes-group";
+    for (const size of SIZES) {
+      const sizeBlock = document.createElement("div");
+      // .subsection-label, not .field-label -- direct user feedback,
+      // 2026-08-11 ("de hierarchie is iets wat op de pagina goed is maar in
+      // de secties/cards zelf nog niet"): at the same size and only a color
+      // difference from its own description, "Small" didn't read as a
+      // heading over its own paragraph, it read as just more body text --
+      // a real contributor to this card feeling cluttered despite having
+      // only three short blocks. Medium weight sets it apart the same way
+      // Postponement/Auto-update's own new group headings do.
+      const label = document.createElement("p");
+      label.className = "subsection-label";
+      label.textContent = tr[`size_${size}_short`];
+      sizeBlock.appendChild(label);
+      const desc = document.createElement("p");
+      desc.className = "section-intro";
+      desc.textContent = tr[`size_${size}_desc`]();
+      sizeBlock.appendChild(desc);
+      sizesGroup.appendChild(sizeBlock);
+    }
+    body.appendChild(sizesGroup);
+
     card.appendChild(body);
     return card;
   }
@@ -3511,26 +4893,30 @@ class UpdateManagerPanel extends HTMLElement {
     // of size (see _buildGeneralCard), not a rule about any one of them.
     wrap.appendChild(this._buildGeneralCard(tr));
 
-    wrap.appendChild(this._buildUpdateRulesCard(tr));
+    // Above Postponement, not inside General -- see _buildSizesCard's own
+    // comment for why this is its own card.
+    wrap.appendChild(this._buildSizesCard(tr));
+
+    wrap.appendChild(this._buildPostponementCard(tr));
     // Always rendered now (changed 2026-07-23): used to only appear once
     // some size's own auto_install toggle was on, but the trusted-voter
-    // override living in this same card (see _buildAutoInstallCard) is
-    // reachable independent of any size toggle -- direct user feedback,
-    // "installeer altijd automatisch als [klaptafel] een update als healthy
-    // heeft beoordeeld, ongeacht mijn eigen rules" makes no sense to hide
+    // override living in this same card (see _buildAutoInstallCard) works
+    // independently of any size toggle -- always trusting a specific
+    // person's healthy verdict, regardless of your own size rules, makes
+    // no sense to hide
     // behind a size setting that isn't otherwise involved.
     wrap.appendChild(this._buildAutoInstallCard(tr));
     // No explicit Save button -- every field autosaves itself (debounced,
-    // see _scheduleAutosave), direct user feedback: "kunnen we niet direct
-    // saven bij elke edit ipv via een losse button?".
+    // see _scheduleAutosave), direct user feedback: a separate Save button
+    // added nothing over saving on every edit directly.
 
     wrap.appendChild(this._buildCommunityCard(tr));
 
     // Always last, below every card -- same "Slideshow Card vX.Y.Z" link
     // this project's own sibling Lovelace cards already put at the bottom
-    // of their editor, direct user feedback: "die GitHub link met versie
-    // die we in elke card editor in de footer hebben staan wil ik voor
-    // update manager helemaal onderop de settings pagina hebben".
+    // of their editor, direct user feedback: that same versioned GitHub
+    // link belongs at the very bottom of Update Manager's own Settings
+    // page too.
     wrap.appendChild(this._buildVersionLink());
 
     return wrap;
@@ -3547,11 +4933,12 @@ class UpdateManagerPanel extends HTMLElement {
     return link;
   }
 
-  // Account linking only (read-only slice, 2026-07-22): no voting UI yet,
-  // just "is a GitHub account linked or not". Device Flow, not the usual
+  // Account linking only: just "is a GitHub account linked or not", voting
+  // itself lives elsewhere (the update detail dialog's own vote buttons,
+  // see update_manager/vote below). Device Flow, not the usual
   // OAuth redirect: no client secret needed anywhere, matching this whole
-  // feature's own "no hosted server" principle (see FUTURE.md/
-  // github_auth.py). this._communityLinkPollTimer is cleared unconditionally
+  // feature's own "no hosted server" principle (see github_auth.py).
+  // this._communityLinkPollTimer is cleared unconditionally
   // up front, not just on success/failure: rebuilding this card (a tab
   // switch, any other settings re-render) must never leave a previous
   // card's poll loop running detached in the background.
@@ -3569,7 +4956,7 @@ class UpdateManagerPanel extends HTMLElement {
     body.className = "card-content";
 
     const hint = document.createElement("p");
-    hint.className = "hint";
+    hint.className = "section-intro";
     hint.textContent = tr.community_section_desc;
     body.appendChild(hint);
 
@@ -3577,12 +4964,28 @@ class UpdateManagerPanel extends HTMLElement {
     body.appendChild(statusContainer);
     card.appendChild(body);
 
+    // Its own footer, a sibling of .card-content (not nested inside it) --
+    // confirmed against home-assistant/frontend's own real
+    // cloud-account-overview.ts (its own "Manage account"/"Sign out"
+    // buttons live in exactly this shape, class="card-actions" directly
+    // under ha-card): ha-card's own native styles already give a slotted
+    // ".card-actions" child a divider/padding for free, no CSS of our own
+    // needed for that part. Right-aligned (this card only ever has one
+    // action showing at a time, unlike the reference's own two side by
+    // side) -- direct user feedback: Unlink used to sit directly under
+    // "Linked as X" in the same flow as the informational text above it,
+    // instead of reading as a distinct action the way it does here.
+    const actionsContainer = document.createElement("div");
+    actionsContainer.className = "card-actions";
+    card.appendChild(actionsContainer);
+
     const renderNotLinked = () => {
       if (this._communityLinkPollTimer) {
         clearInterval(this._communityLinkPollTimer);
         this._communityLinkPollTimer = null;
       }
       statusContainer.innerHTML = "";
+      actionsContainer.innerHTML = "";
       const linkBtn = document.createElement("ha-progress-button");
       linkBtn.appearance = "filled";
       linkBtn.label = tr.community_link;
@@ -3592,11 +4995,12 @@ class UpdateManagerPanel extends HTMLElement {
           renderPending(result);
         })
       );
-      statusContainer.appendChild(linkBtn);
+      actionsContainer.appendChild(linkBtn);
     };
 
     const renderLinked = (username) => {
       statusContainer.innerHTML = "";
+      actionsContainer.innerHTML = "";
       const linkedText = document.createElement("p");
       linkedText.textContent = tr.community_linked_as(username);
       statusContainer.appendChild(linkedText);
@@ -3609,11 +5013,12 @@ class UpdateManagerPanel extends HTMLElement {
           renderNotLinked();
         })
       );
-      statusContainer.appendChild(unlinkBtn);
+      actionsContainer.appendChild(unlinkBtn);
     };
 
     const renderPending = (result) => {
       statusContainer.innerHTML = "";
+      actionsContainer.innerHTML = "";
       const instructions = document.createElement("p");
       instructions.textContent = tr.community_link_instructions;
       statusContainer.appendChild(instructions);
@@ -3687,7 +5092,11 @@ class UpdateManagerPanel extends HTMLElement {
   // direct user feedback, 2026-07-22: the section read as cluttered, and a
   // sentence that's the same for every single vote didn't need to always
   // cost its own line.
-  _buildCommunitySection(tr, entityId, fromVersion, toVersion, allowHealthy, isDialogStale) {
+  // onLiveVerdict, when given, is called with { problematic_count,
+  // trusted_vote, trusted_voters_matched } once this section's own live
+  // verdict_for_version fetch resolves, and again after every vote cast in
+  // it -- see _openDetailDialog's own doc comment for what this is for.
+  _buildCommunitySection(tr, entityId, fromVersion, toVersion, allowHealthy, isDialogStale, onLiveVerdict) {
     if (!toVersion || !fromVersion) return null;
 
     const section = document.createElement("div");
@@ -3759,6 +5168,11 @@ class UpdateManagerPanel extends HTMLElement {
       // aggregate row below covers it on its own ("N people reported...").
       // No votes at all, anywhere: this row states that plainly.
       const counts = result.verdict || { healthy_count: 0, problematic_count: 0 };
+      onLiveVerdict?.({
+        problematic_count: counts.problematic_count,
+        trusted_vote: result.trusted_vote,
+        trusted_voters_matched: result.trusted_voters_matched,
+      });
       const myVerdict = result.my_verdict;
       if (myVerdict) {
         applyMyVerdictRow(verdictRow, verdictText, tr, myVerdict);
@@ -3845,9 +5259,9 @@ class UpdateManagerPanel extends HTMLElement {
       }
 
       // Other jumps landing on this same destination version, if any --
-      // direct user feedback, 2026-07-24: "in de update dialog wil ik dan
-      // ook zien welke sprongen naar de gewenste nieuwe versie wel en niet
-      // als veilig zijn beoordeeld", with my own jump (verdictRow above)
+      // direct user feedback, 2026-07-24, wanting the dialog to also show
+      // which other jumps to this same target version were rated safe or
+      // not, with my own jump (verdictRow above)
       // always shown first/primary. Nothing rendered at all when there
       // simply aren't any yet (no empty-state message) -- this data is
       // inherently sparse early on, and a "nothing here" line would just
@@ -3870,8 +5284,9 @@ class UpdateManagerPanel extends HTMLElement {
 
       // Every *other* problematic voter's own reason for this exact jump
       // (your own, if any, is already handled above as my_reason) -- direct
-      // user feedback, 2026-07-29: "ik zie in de interface nergens de
-      // reden staan. Dat had ik wel verwacht." A vote's reason was
+      // user feedback, 2026-07-29: a problematic vote's own reason was
+      // nowhere to be found in the interface, even though it was expected
+      // to be there. A vote's reason was
       // collected on submission (see _buildVoteControls/_VOTE_REASON_LABEL_KEYS
       // below) but never read back anywhere until now; reusing that same
       // label map here so the vocabulary reads identically going in and
@@ -3905,6 +5320,22 @@ class UpdateManagerPanel extends HTMLElement {
       this._buildVoteControls(controlsContainer, tr, entityId, toVersion, allowHealthy, myVerdict, (verdict) => {
         applyMyVerdictRow(verdictRow, verdictText, tr, verdict);
         updateAggregateRow(verdict);
+        // counts itself stays frozen at the original fetch (see
+        // updateAggregateRow's own comment); a vote cast just now in this
+        // session isn't reflected in it yet, so its own contribution is
+        // added/removed here the same optimistic way updateAggregateRow
+        // already does, relative to that same original myVerdict baseline
+        // -- correct regardless of how many times you re-vote in one
+        // session, since it's always compared against that one fixed point.
+        const optimisticProblematic = Math.max(
+          0,
+          counts.problematic_count - (myVerdict === "problematic" ? 1 : 0) + (verdict === "problematic" ? 1 : 0)
+        );
+        onLiveVerdict?.({
+          problematic_count: optimisticProblematic,
+          trusted_vote: result.trusted_vote,
+          trusted_voters_matched: result.trusted_voters_matched,
+        });
       });
     })();
 
@@ -4078,13 +5509,20 @@ class UpdateManagerPanel extends HTMLElement {
     formContainer.appendChild(submitBtn);
   }
 
-  // "Update rules": plain and functional -- the earlier "Stoplicht"/
-  // traffic-light framing (and its emoji-dot legend) was dropped entirely
+  // "Update rules": plain and functional -- the earlier traffic-light
+  // framing (and its emoji-dot legend) was dropped entirely
   // (direct user feedback: the emoji looked bad throughout, and the
-  // metaphor wasn't pulling its weight). Once the community layer exists
-  // (Fase 1/3, see FUTURE.md) that becomes its own, separately-named card
-  // next to this one -- revisit both cards' naming together then, not now.
-  _buildUpdateRulesCard(tr) {
+  // metaphor wasn't pulling its weight). The community layer now has its
+  // own separate card (_buildCommunityCard below), not folded into this one.
+  // "Postponement": per-size wait_days, "Hide postponed updates" (moved in
+  // from General, 2026-08-11, issue #4 -- it's about postponed updates
+  // specifically, not a general behavior), and the new optional schedule of
+  // allowed ready days/times. The per-size auto-install toggle moved *out*
+  // of here into "Auto-update" the same day: installing automatically is a
+  // different concern from postponing, and now shares a card with the
+  // announcement-notice/always-manual/trusted-voter settings that already
+  // only matter once auto-install is in play.
+  _buildPostponementCard(tr) {
     const card = document.createElement("ha-card");
     card.outlined = true;
     card.header = tr.settings_header;
@@ -4092,64 +5530,183 @@ class UpdateManagerPanel extends HTMLElement {
     const body = document.createElement("div");
     body.className = "card-content";
 
+    // Normal body size (see _buildGeneralCard's own comment on
+    // .section-intro -- real HA reference pages use plain body text for
+    // their actual explanation, not a smaller secondary style).
     const hint = document.createElement("p");
-    hint.className = "hint";
+    hint.className = "section-intro";
     hint.textContent = tr.settings_hint;
     body.appendChild(hint);
 
-    // Back to ha-form's own `type: "expandable"` schema entries (reverted
-    // 2026-07-21: a hand-built ha-expansion-panel per size was tried
-    // instead, to get an auto-install icon next to the chevron, but direct
-    // user feedback was that the native ha-form-expandable version, with
-    // its own styling/spacing integrated into the rest of this same form,
-    // was better, and losing the icon idea was the right trade).
-    // expanded is now false, not true: confirmed against ha-form-expandable's
-    // own source, the ha-expansion-panel underneath it already lets you
-    // click its header to open/close regardless of this initial value, so
-    // it only ever controlled the *default* state, which used to be
-    // permanently open for no real reason.
-    const form = document.createElement("ha-form");
-    form.hass = this._hass;
-    form.schema = SIZES.map((size) => ({
-      name: size,
-      type: "expandable",
-      title: tr[`size_${size}_short`],
-      expanded: false,
-      flatten: true,
-      // Stacked, not a "grid" side by side (direct user feedback: each
-      // should be free to take the full width, a number field and a
-      // checkbox don't need to compete for half the row each).
-      schema: [
-        { name: `${size}_wait_days`, selector: { number: { min: 0, max: 365, mode: "box" } } },
-        { name: `${size}_auto_install`, selector: { boolean: {} } },
-      ],
-    }));
-    form.data = this._formData;
-    form.computeLabel = (s) => {
-      const kind = fieldKind(s.name);
-      if (kind === "wait_days") return tr.field_wait_days;
-      if (kind === "auto_install") return tr.field_auto_install;
-      return s.name;
+    // ha-settings-row for every row here, not ha-row-item/ha-list-item-base
+    // (switched entirely 2026-08-11, direct user feedback pointing at
+    // /profile/general's own real "Number format" row -- see
+    // _buildGeneralCard's own comment for the full reasoning: ha-settings-
+    // row's own content slot gives a control real breathing-room padding
+    // instead of tightly centering it, and its own description genuinely
+    // wraps). Also fixes the earlier Fitts's-Law problem (an expand-click
+    // hiding a single field) for free -- these rows were never expandable
+    // to begin with. What each size actually means lives in General's own
+    // intro paragraph, not a per-row tooltip (tried, reverted the same
+    // day, direct user feedback: "die tooltips vind ik niks").
+    // A real heading over this group of rows, not just settings_hint's own
+    // paragraph above -- direct user feedback, 2026-08-11: within-card
+    // hierarchy needed the same treatment the page's own card-level
+    // structure already had. .subsection-label, not .field-label -- this
+    // heads a *group* of rows, not one row's own label+description pair.
+    const sizeRowsLabel = document.createElement("p");
+    sizeRowsLabel.className = "subsection-label subsection-gap";
+    sizeRowsLabel.textContent = tr.postponement_sizes_label;
+    body.appendChild(sizeRowsLabel);
+    const sizeRows = document.createElement("div");
+    for (const size of SIZES) {
+      sizeRows.appendChild(
+        this._buildSettingsRow(tr, {
+          headingText: tr[`size_${size}_short`],
+          selector: { number: { min: 0, max: 365, mode: "box", unit_of_measurement: tr.field_wait_days_unit } },
+          key: `${size}_wait_days`,
+        })
+      );
+    }
+    body.appendChild(sizeRows);
+
+    // A real divider, not just extra whitespace, ahead of the schedule
+    // section below -- direct user feedback, 2026-08-11 ("dividers met 16px
+    // padding aan beide kanten?"): the wait-days mechanism above and the
+    // schedule below are genuinely separate concerns (the schedule is an
+    // optional extra layer on top, see next_allowed_ready's own docstring),
+    // worth a harder visual break than a subsection-label alone gives.
+    // Styled from ha-form-divider.ts's own real, verified source (a plain
+    // <hr>, no dedicated HA component for this outside ha-form itself) --
+    // used at every genuine subsection boundary on this page (direct user
+    // feedback, 2026-08-11), not between every row within one.
+    body.appendChild(document.createElement("hr")).className = "divider";
+
+    // The optional schedule itself (issue #4) -- fully off by default (see
+    // coordinator.py's own schedule_from_options). Redesigned 2026-08-11
+    // (twice the same day): first pass used a single multi-select for every
+    // day (Hick's/Miller's/Jakob's Laws: 7 always-visible expandables gave
+    // a rarely-used, fully optional feature far more visual weight than it
+    // deserves) with a separate time row appearing underneath once a day
+    // was picked -- direct user feedback found the split itself confusing
+    // ("waarom moet ik maandag op een andere plek weghalen dan waar ik het
+    // instel"): removing a day and configuring its own time lived in two
+    // different controls. Now each added day is one self-contained row
+    // (name, time, its own remove button) -- add and configure and remove
+    // all happen in the same place. The add-control itself only lists days
+    // not yet added (so it can't ever need a "remove" of its own), and
+    // disappears entirely once all seven are -- nothing left to add.
+    const scheduleHint = document.createElement("p");
+    scheduleHint.className = "section-intro";
+    scheduleHint.textContent = tr.settings_schedule_hint;
+    body.appendChild(scheduleHint);
+
+    const scheduleRows = document.createElement("div");
+    body.appendChild(scheduleRows);
+
+    const addDayPicker = document.createElement("ha-selector");
+    addDayPicker.hass = this._hass;
+    addDayPicker.label = tr.field_ready_days_add;
+    addDayPicker.required = false;
+    body.appendChild(addDayPicker);
+
+    const renderSchedule = () => {
+      scheduleRows.innerHTML = "";
+      const addedDays = WEEKDAYS.filter((day) => this._formData[`${day}_ready_enabled`]);
+      for (const day of addedDays) {
+        const row = document.createElement("ha-settings-row");
+        const heading = document.createElement("span");
+        heading.slot = "heading";
+        heading.textContent = tr[`weekday_${day}_short`];
+        row.appendChild(heading);
+
+        // Time + remove grouped in their own inner row -- keeps them
+        // close together, appended into ha-settings-row's own default
+        // (content) slot as a single unit.
+        const controls = document.createElement("div");
+        controls.className = "schedule-time-row-controls";
+
+        // No .label of its own (direct user feedback: "At" rendered as a
+        // second label stacked above the field, redundant with the day
+        // name already right next to it) -- field_ready_time_helper above
+        // already explains what an empty value means.
+        const timeSelector = document.createElement("ha-selector");
+        timeSelector.hass = this._hass;
+        timeSelector.selector = { time: { no_second: true } };
+        timeSelector.required = false;
+        timeSelector.value = this._formData[`${day}_ready_time`] || undefined;
+        timeSelector.addEventListener("value-changed", (e) => {
+          // ha-selector's time value is always "HH:MM:SS" (ha-time-input
+          // appends ":00" regardless of no_second, which only hides the
+          // seconds field itself) -- truncated to "HH:MM" here since that's
+          // what the backend's save schema validates against.
+          const value = e.detail.value ? e.detail.value.slice(0, 5) : "";
+          this._formData = { ...this._formData, [`${day}_ready_time`]: value };
+          timeSelector.value = value || undefined;
+          this._scheduleAutosave();
+        });
+        controls.appendChild(timeSelector);
+
+        const removeBtn = document.createElement("ha-icon-button");
+        removeBtn.path = ICON_DELETE_OUTLINE;
+        removeBtn.label = tr.field_ready_remove(tr[`weekday_${day}_short`]);
+        removeBtn.addEventListener("click", () => {
+          this._formData = { ...this._formData, [`${day}_ready_enabled`]: false, [`${day}_ready_time`]: "" };
+          this._scheduleAutosave();
+          renderSchedule();
+        });
+        controls.appendChild(removeBtn);
+
+        row.appendChild(controls);
+        scheduleRows.appendChild(row);
+      }
+      scheduleRows.style.display = addedDays.length ? "" : "none";
+
+      const remainingDays = WEEKDAYS.filter((day) => !addedDays.includes(day));
+      // mode: "dropdown" pinned explicitly -- ha-selector-select's own
+      // default heuristic (confirmed against its real source) switches to
+      // a radio-button list once fewer than 6 options remain, which here
+      // meant the widget's own presentation kept changing shape as days
+      // got added. Direct user feedback: keep it a dropdown throughout.
+      addDayPicker.selector = {
+        select: {
+          mode: "dropdown",
+          options: remainingDays.map((day) => ({ value: day, label: tr[`weekday_${day}_short`] })),
+        },
+      };
+      addDayPicker.value = undefined;
+      addDayPicker.style.display = remainingDays.length ? "" : "none";
     };
-    form.computeHelper = (s) => {
-      // The per-size expandable section's own description (its `name` is
-      // just "small"/"medium"/"large"), rendered by ha-form-expandable as
-      // its own line below the header, not squeezed into the title
-      // itself, and visible regardless of expanded state.
-      if (SIZES.includes(s.name)) return tr[`size_${s.name}_desc`]();
-      // No per-field helper for auto_install (direct user feedback:
-      // text-heavy page): it used to repeat the exact same sentence
-      // identically under Small, Medium, and Large, since all three
-      // sections used to be always expanded at once. Said once now, in
-      // settings_hint above, instead of three times in a row.
-      return "";
-    };
-    form.addEventListener("value-changed", (e) => {
-      this._formData = { ...this._formData, ...e.detail.value };
-      form.data = this._formData;
+    renderSchedule();
+
+    addDayPicker.addEventListener("value-changed", (e) => {
+      const day = e.detail.value;
+      if (!day) return;
+      this._formData = { ...this._formData, [`${day}_ready_enabled`]: true, [`${day}_ready_time`]: "" };
       this._scheduleAutosave();
+      renderSchedule();
     });
-    body.appendChild(form);
+
+    // Moved to the bottom, not the top (reverted 2026-08-11, direct user
+    // feedback: "voelt hierarchisch logischer") -- it's a display
+    // preference that applies regardless of *which* mechanism above (wait
+    // days or the schedule) is currently the binding one, so it reads
+    // better as a trailing toggle under both than as the card's own lead
+    // setting ahead of the mechanics it modifies the display of. A divider
+    // ahead of it too now (direct user feedback, 2026-08-11), not just
+    // .subsection-gap -- every subsection boundary on this page gets the
+    // same divider treatment, not just the two biggest ones.
+    body.appendChild(document.createElement("hr")).className = "divider";
+    body.appendChild(
+      this._buildSettingsRow(tr, {
+        headingText: tr.field_hide_postponed,
+        descriptionText: tr.field_hide_postponed_helper,
+        selector: { boolean: {} },
+        key: "hide_postponed",
+        coerce: (v) => !!v,
+      })
+    );
+
     card.appendChild(body);
     return card;
   }
@@ -4158,6 +5715,11 @@ class UpdateManagerPanel extends HTMLElement {
   // auto-install toggle is on (see _buildSettingsCard's own comment on
   // this: the trusted-voter override living here is reachable independent
   // of any size toggle, so hiding this card behind one made no sense).
+  // Per-size auto-install toggle moved *in* here from "Postponement"
+  // (2026-08-11, issue #4): installing automatically is this card's own
+  // concern, postponing is Postponement's. No size_*_desc repeated here --
+  // that explanation (what each size actually means) lives in Postponement
+  // only, whichever card someone opens first.
   // Announcement above the entities list, not below (direct user feedback:
   // that list can grow long and would push the announcement setting
   // further down the page).
@@ -4169,39 +5731,64 @@ class UpdateManagerPanel extends HTMLElement {
     const body = document.createElement("div");
     body.className = "card-content";
 
-    const hint = document.createElement("p");
-    hint.className = "hint";
-    hint.textContent = tr.auto_install_section_desc;
-    body.appendChild(hint);
+    // No intro paragraph here (removed 2026-08-11, direct user feedback:
+    // "erg overbodig") -- the card header ("Auto-update") and each row's
+    // own label already say what this section is, unlike Postponement,
+    // which genuinely needs its own lead-in to explain *why* postponing
+    // is worth it at all (not something the header alone conveys).
 
-    // Manually-drawn label + hint, same pattern as excludedLabel/
-    // excludedHint below. Direct user feedback: liked that look enough to
-    // want it here too, not just on the field it was originally built for,
-    // even though this field's own helper never had the same "renders too
-    // far below a tall widget" problem excluded_entities did; just for a
-    // consistent look across this card.
-    const announceLabel = document.createElement("p");
-    announceLabel.className = "field-label";
-    announceLabel.textContent = tr.announce_hours_label;
-    body.appendChild(announceLabel);
+    // ha-settings-row for every row here, same real HA settings-row
+    // pattern Postponement's own rows use (see that method's own
+    // comment) -- no more expandables, no more hand-rolled flex CSS.
+    // Same subsection-label treatment as Postponement's own size-rows
+    // group -- see that card's own comment.
+    const autoInstallRowsLabel = document.createElement("p");
+    autoInstallRowsLabel.className = "subsection-label subsection-gap";
+    autoInstallRowsLabel.textContent = tr.auto_install_sizes_label;
+    body.appendChild(autoInstallRowsLabel);
+    const autoInstallRows = document.createElement("div");
+    for (const size of SIZES) {
+      autoInstallRows.appendChild(
+        this._buildSettingsRow(tr, {
+          headingText: tr[`size_${size}_short`],
+          selector: { boolean: {} },
+          key: `${size}_auto_install`,
+          coerce: (v) => !!v,
+        })
+      );
+    }
+    body.appendChild(autoInstallRows);
 
-    const announceHint = document.createElement("p");
-    announceHint.className = "hint";
-    announceHint.textContent = tr.announce_hours_helper;
-    body.appendChild(announceHint);
+    // Same divider treatment as every other subsection boundary on this
+    // page now (direct user feedback, 2026-08-11) -- announce_hours is its
+    // own concern (when to warn before an auto-install), not another
+    // per-size row belonging to the group above it.
+    body.appendChild(document.createElement("hr")).className = "divider";
 
-    const announceForm = document.createElement("ha-form");
-    announceForm.hass = this._hass;
-    announceForm.schema = [{ name: "announce_hours", selector: { number: { min: 1, max: 336, mode: "box" } } }];
-    announceForm.data = this._formData;
-    announceForm.computeLabel = () => "";
-    announceForm.computeHelper = () => "";
-    announceForm.addEventListener("value-changed", (e) => {
-      this._formData = { ...this._formData, ...e.detail.value };
-      announceForm.data = this._formData;
-      this._scheduleAutosave();
-    });
-    body.appendChild(announceForm);
+    // Same ha-settings-row shape as every other row on this page now
+    // (2026-08-11, direct user feedback, "wees consistent" -- this field
+    // was still on the older manually-drawn label+hint+ha-form pattern
+    // from before today's redesign). unit_of_measurement gives the field
+    // its own "hours" suffix directly, same fix wait_days already got,
+    // so the label itself no longer needs "(hours)" spelled out too. Its
+    // own description genuinely wraps here (confirmed against
+    // ha-settings-row's own real source), no title-attribute fallback
+    // needed.
+    body.appendChild(
+      this._buildSettingsRow(tr, {
+        headingText: tr.announce_hours_label,
+        descriptionText: tr.announce_hours_helper,
+        selector: { number: { min: 1, max: 336, mode: "box", unit_of_measurement: tr.announce_hours_unit } },
+        key: "announce_hours",
+      })
+    );
+
+    // Same divider treatment as Postponement's own wait-days/schedule
+    // boundary -- see that card's own comment. The auto-install/announce
+    // rows above and the entity lists below are a genuinely separate
+    // concern (who's involved and what's excluded, vs. what installs
+    // automatically and when).
+    body.appendChild(document.createElement("hr")).className = "divider";
 
     // A manually-drawn label, not ha-form's own computeLabel for this
     // field (see entitiesForm below, which suppresses it): direct user
@@ -4220,46 +5807,48 @@ class UpdateManagerPanel extends HTMLElement {
     excludedHint.textContent = tr.field_excluded_entities_helper;
     body.appendChild(excludedHint);
 
-    // Home Assistant Core/Supervisor/OS's own update entities are always
-    // excluded from auto-install, regardless of this list (see
-    // coordinator.py's hard_excluded_entity_ids). Shown here as if
-    // already part of it, not as a separate "these are also always
-    // excluded" note underneath that direct user feedback said nobody
-    // actually read in practice. this._mergedExcludedEntities() adds them
-    // to the *displayed* value only; the value-changed handler below
-    // filters them back out before they ever reach this._formData or a
-    // save, so removing one of these chips is a harmless no-op (still
-    // excluded either way, just via the hard rule instead of this list)
-    // rather than a real, persisted choice.
+    // Home Assistant Core/Supervisor/OS's own update entities start out as
+    // ordinary, pre-populated members of this same list (see __init__.py's
+    // own _migrate_default_excluded_entities), not a separate hard-coded
+    // exclusion -- removing one of these chips is a real, persisted
+    // choice, same as removing anything else from it.
     const entitiesForm = document.createElement("ha-form");
     entitiesForm.hass = this._hass;
     entitiesForm.schema = [
       { name: "excluded_entities", selector: { entity: { multiple: true, filter: { domain: "update" } } } },
     ];
-    entitiesForm.data = { ...this._formData, excluded_entities: this._mergedExcludedEntities() };
+    entitiesForm.data = this._formData;
     // Label drawn manually above (excludedLabel), not here: see this
     // section's own comment.
     entitiesForm.computeLabel = () => "";
     entitiesForm.computeHelper = () => "";
     entitiesForm.addEventListener("value-changed", (e) => {
-      // `|| []`, not a bare e.detail.value.excluded_entities -- .filter
-      // below would throw immediately on the null ha-form's own
-      // multiple:true selector emits once the last chip is removed (found
-      // live, 2026-07-27). pickKnownSettings has its own LIST_SETTINGS_FIELDS
-      // coercion too (for save_settings' own schema, which also rejects a
-      // null list outright), but that runs later, at save time -- doesn't
-      // help here, where the crash would already have happened.
-      const chosen = (e.detail.value.excluded_entities || []).filter((id) => !this._hardExcludedEntities.includes(id));
+      // `|| []`, not a bare e.detail.value.excluded_entities -- ha-form's
+      // own multiple:true selector emits null once the last chip is
+      // removed (found live, 2026-07-27), and this would otherwise save
+      // that literal null. pickKnownSettings has its own
+      // LIST_SETTINGS_FIELDS coercion too (for save_settings' own schema,
+      // which also rejects a null list outright), but that runs later, at
+      // save time -- doesn't help here, where the crash would already
+      // have happened.
+      const chosen = e.detail.value.excluded_entities || [];
       this._formData = { ...this._formData, excluded_entities: chosen };
-      entitiesForm.data = { ...this._formData, excluded_entities: this._mergedExcludedEntities() };
+      entitiesForm.data = this._formData;
       this._scheduleAutosave();
     });
     body.appendChild(entitiesForm);
 
+    // Same divider treatment as every other subsection boundary now
+    // (direct user feedback, 2026-08-11) -- trusted voters is its own
+    // concern (overriding your own rules for one person's vote), separate
+    // from the plain exclusion list above it.
+    body.appendChild(document.createElement("hr")).className = "divider";
+
     // Same manually-drawn label + hint pattern as excludedLabel/excludedHint
-    // above -- direct user feedback: "installeer altijd automatisch als
-    // [klaptafel] een update als healthy heeft beoordeeld, ongeacht mijn
-    // eigen rules", then "kan je meerdere mensen vertrouwen?" (yes, a list,
+    // above -- direct user feedback, wanting a specific person's healthy
+    // verdict to always trigger auto-install regardless of your own rules,
+    // then asking whether more than one person could be trusted at once
+    // (yes, a list,
     // see community_verdict.py's own aggregation: any trusted problematic
     // vote wins outright, else any trusted healthy vote does).
     const trustedLabel = document.createElement("p");
@@ -4277,7 +5866,7 @@ class UpdateManagerPanel extends HTMLElement {
     // frontend's real StringSelector type, stable tag 20260624.6, not
     // guessed), the same widget shape excluded_entities above uses for
     // entities. No validation against community-votes itself: purely a
-    // local, unverified username string, see FUTURE.md's own note on this.
+    // local, unverified username string (see const.py's own CONF_TRUSTED_VOTERS note).
     const trustedForm = document.createElement("ha-form");
     trustedForm.hass = this._hass;
     trustedForm.schema = [{ name: "trusted_voters", selector: { text: { multiple: true } } }];
@@ -4285,10 +5874,15 @@ class UpdateManagerPanel extends HTMLElement {
     trustedForm.computeLabel = () => "";
     trustedForm.computeHelper = () => "";
     trustedForm.addEventListener("value-changed", (e) => {
-      // `|| []`, not the bare selector value -- keeps this._formData itself
-      // clean (a real array, matching every other field's own always-a-
-      // value shape), on top of pickKnownSettings' own LIST_SETTINGS_FIELDS
-      // coercion at save time.
+      // `|| []`, not filtered here -- ha-input-multi's own "add" button adds
+      // a blank row and fires this same value-changed immediately (before
+      // the user has typed anything); filtering blanks out at this point
+      // (tried, reverted the same day) deleted that row on arrival, making
+      // the add button look broken. Blank entries are dropped at save time
+      // instead (see pickKnownSettings' own LIST_SETTINGS_FIELDS handling),
+      // which still means clearing a row's text has the same end effect as
+      // its own trash icon once autosave actually runs, without breaking
+      // the add flow itself.
       this._formData = { ...this._formData, trusted_voters: e.detail.value.trusted_voters || [] };
       trustedForm.data = this._formData;
       this._scheduleAutosave();
@@ -4297,16 +5891,6 @@ class UpdateManagerPanel extends HTMLElement {
 
     card.appendChild(body);
     return card;
-  }
-
-  // The picker's displayed value: the user's own saved excluded_entities
-  // plus the hard-excluded entities (deduplicated), so the latter show up
-  // as ordinary chips instead of a separate explanatory note (see
-  // _buildAutoInstallCard). Never what actually gets saved: that stays
-  // this._formData.excluded_entities on its own, with the hard-excluded
-  // ones filtered back out on every change.
-  _mergedExcludedEntities() {
-    return Array.from(new Set([...(this._formData.excluded_entities || []), ...this._hardExcludedEntities]));
   }
 
   _styles() {
@@ -4332,12 +5916,37 @@ class UpdateManagerPanel extends HTMLElement {
          sitting directly in this panel's own shadow tree. */
       a { color: var(--primary-color); }
 
+      /* The single element actually slotted into hass-tabs-subpage's own
+         "toolbar-icon" slot (see _ensureShell's own comment on why: its
+         own #toolbar-icon wrapper has no display:flex of its own for
+         multiple slotted siblings, only a single slotted element's own
+         *individual* display:flex, which says nothing about how several
+         such elements stack relative to each other). Lays out its own
+         children (the refresh button, the overflow menu) in a row itself. */
+      .toolbar-icons { display: flex; align-items: center; }
+      /* color: inherit is deliberate, not a default left alone -- it picks
+         up --sidebar-icon-color from hass-tabs-subpage's own
+         ::slotted([slot="toolbar-icon"]) rule (confirmed against its real
+         source), the exact same color HA's own real toolbar icon buttons
+         (ha-icon-button, e.g. its own refresh/overflow icons on
+         /config/system/updates) end up with too, since ha-icon-button
+         itself colors its icon via currentColor rather than a color of
+         its own. */
       .icon-btn {
         border: none; background: none; color: inherit; cursor: pointer;
         display: flex; align-items: center; justify-content: center;
         width: 40px; height: 40px; border-radius: 50%;
       }
-      .icon-btn:hover { background: rgba(0, 0, 0, 0.05); }
+      /* Matches ha-icon-button's own real hover overlay exactly (confirmed
+         against its actual source, home-assistant/frontend's
+         ha-icon-button.ts): a currentColor-tinted background at 10%
+         opacity, not a fixed black -- the old rgba(0,0,0,0.05) barely
+         showed at all in dark theme, since these icons already inherit
+         --sidebar-icon-color (light-ish in dark theme) from
+         hass-tabs-subpage's own ::slotted rule, and a black overlay reads
+         as near-invisible against a light icon color. currentColor
+         adapts automatically to both themes the same way HA's own does. */
+      .icon-btn:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
       .icon-btn:disabled { cursor: default; opacity: 0.6; }
       .icon-btn ha-icon.spinning { animation: um-spin 1s linear infinite; }
       @keyframes um-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -4349,20 +5958,31 @@ class UpdateManagerPanel extends HTMLElement {
       }
       /* Every tab shares one padded/centered container (.content--groups/
          --form/--list below all resolve to the same rule). Without this,
-         a loading/error message shown there stacked its own vertical
-         padding on top of the container's, landing at a different (larger)
-         amount than the rest of the page. */
-      .content--groups .loading, .content--groups .error,
-      .content--form .loading, .content--form .error,
-      .content--list .loading, .content--list .error { padding: 0; }
-      .error { color: var(--error-color); padding: 16px 0; font-size: var(--ha-font-size-m, 14px); }
+         a loading message shown there stacked its own vertical padding on
+         top of the container's, landing at a different (larger) amount
+         than the rest of the page. The load-error state used to need this
+         too, back when it was a bare, unstyled <div class="error"> -- now
+         a real ha-alert (see _renderContent's own comment), it needs no
+         special-casing here at all. */
+      .content--groups .loading, .content--form .loading, .content--list .loading { padding: 0; }
       ha-list-base { display: block; }
       /* Confirmed against ha-config-updates.ts's real static styles: without
          this, the "start" slot's own layout box doesn't actually match
          state-badge's real, hardcoded 40x40px size (see state-badge.ts),
          so the icon rendered inside it wasn't vertically centered. */
       ha-list-item-button { --md-list-item-leading-icon-size: 40px; }
-      div[slot="start"] { position: relative; }
+      /* Found live, 2026-08-11, direct user feedback: even with the fix
+         above, this slot's own box (md-list-item's internal layout stretches
+         it to the row's full height, 46px, not just the 40px icon-size
+         variable) still didn't match state-badge's fixed 40x40 -- e.g. a
+         genuine entity picture/logo, not just an mdi icon, sat pinned to
+         the top of that taller box instead of centered in it. HA's own
+         reference CSS (ha-config-updates.ts) has this exact same gap, just
+         apparently unnoticed there. Pinning the height to match
+         state-badge's own real size directly, rather than centering within
+         the extra 6px, removes the mismatch outright instead of working
+         around it. */
+      div[slot="start"] { position: relative; height: 40px; }
       .row-end { display: flex; align-items: center; gap: var(--ha-space-2, 8px); }
       .timer-pill {
         display: inline-flex; align-items: center; gap: var(--ha-space-1, 4px);
@@ -4372,6 +5992,20 @@ class UpdateManagerPanel extends HTMLElement {
         font-size: var(--ha-font-size-xs, 11px); white-space: nowrap;
       }
       .timer-pill ha-svg-icon { --mdc-icon-size: 14px; }
+      /* _buildListRow's own statusIcon/statusText trailing state (see that
+         method's own comment) -- a full replacement for the pill+chevron,
+         not a variant of .timer-pill: that pill is sized for a short
+         countdown, not a full sentence like "Waiting for other updates to
+         finish first". */
+      .status-icon { color: var(--secondary-text-color); --mdc-icon-size: 20px; }
+      .status-icon.attn { color: var(--warning-color); }
+      /* supporting-text is single-line/ellipsized by default (md3 list
+         item's own styling) -- only overridden for a row that actually has
+         a second, wrapping status line, so every other row keeps its
+         normal one-line truncation untouched. */
+      span[slot="supporting-text"].wraps { white-space: normal; overflow: visible; text-overflow: initial; }
+      .status-line { display: block; color: var(--secondary-text-color); }
+      .status-line.attn { color: var(--warning-color); }
 
       ha-form { display: block; }
       /* margin-bottom, not padding-bottom on .content--form: every content--*
@@ -4415,7 +6049,24 @@ class UpdateManagerPanel extends HTMLElement {
       ha-card { margin: 0; }
       .card-content { padding: 0 16px 16px; display: flex; flex-direction: column; }
       .card-content > *:not(:first-child) { margin-top: 16px; }
-      .card-actions { display: flex; justify-content: flex-end; padding: 8px 16px 16px; }
+      /* No padding override of our own -- ha-card's own native
+         ::slotted(.card-actions) styling already gives this a divider and
+         var(--ha-space-2) padding, confirmed against its real source, the
+         exact same values cloud-account-overview.ts's own "Manage
+         account"/"Sign out" row uses. Our own previous 8px/16px/16px
+         override (found live, 2026-08-11, direct user feedback: didn't
+         match the Nabu Casa account page) was left over from a different
+         context and just needs the flex/alignment part, not its own
+         padding fighting the native one. */
+      .card-actions { display: flex; justify-content: flex-end; }
+      /* Sizes card's own label+description pairs (_buildSizesCard) --
+         reverted from a plain <ul> the same day (direct user feedback:
+         "ziet er niet uit", read as inconsistent with every other card's
+         own settings-row rows). A generous 16px gap: these read as three
+         separate informational blocks, not closely related action rows. */
+      .sizes-group { display: flex; flex-direction: column; gap: var(--ha-space-4, 16px); }
+      .field-label + .section-intro,
+      .subsection-label + .section-intro { margin-top: var(--ha-space-1, 4px); }
       .hint {
         color: var(--secondary-text-color); font-size: var(--ha-font-size-s, 13px);
         line-height: 1.4; margin: 0;
@@ -4433,6 +6084,91 @@ class UpdateManagerPanel extends HTMLElement {
          unit, not two separate blocks. */
       .field-label { font-size: var(--ha-font-size-m, 14px); color: var(--primary-text-color); margin: 0; }
       .field-label + .hint { margin-top: var(--ha-space-1, 4px); }
+      /* Heads a *group* of rows (Postponement/Auto-update's own size rows),
+         not one row's own label+description pair -- medium weight, unlike
+         .field-label's deliberately normal weight above, so a group heading
+         reads as a level above the rows it introduces instead of blending
+         in as just another row label. .subsection-gap (below) gives it (and
+         every other subsection start on this page) more room than
+         .card-content's own generic 16px between any two adjacent
+         children -- direct user feedback, 2026-08-11: within-card hierarchy
+         needed the same treatment the page's own card-level structure
+         already had ("de hierarchie is iets wat op de pagina goed is maar
+         in de secties/cards zelf nog niet"). */
+      .subsection-label {
+        font-size: var(--ha-font-size-m, 14px); font-weight: var(--ha-font-weight-medium, 500);
+        color: var(--primary-text-color); margin: 0;
+      }
+      /* More specific than .card-content > *:not(:first-child)'s own 16px
+         (a real class beats a bare universal selector), so this wins
+         without needing !important. :not(:first-child) repeated here too --
+         _buildAutoInstallCard's own first row (no intro paragraph above it,
+         see that method's own comment) would otherwise get an unwanted 24px
+         gap from the card's own top edge instead of sitting flush like
+         every other card's first child does. */
+      .card-content > .subsection-gap:not(:first-child) { margin-top: var(--ha-space-6, 24px); }
+      /* A real divider between a card's own genuinely separate concern
+         sections (Postponement's wait-days vs. schedule; Auto-update's
+         install rows vs. entity lists) -- styled from ha-form-divider.ts's
+         own real, verified source (a plain <hr>, no dedicated standalone HA
+         component for this outside ha-form itself), not guessed. 16px on
+         both sides, as asked -- margin: 0 on the divider itself so it comes
+         from .card-content's own generic *:not(:first-child) 16px above
+         (same as any other child) and the *next* element's own matching
+         16px margin-top below; .card-content's flex column layout doesn't
+         collapse adjacent margins the way normal block flow would, so
+         adding a margin-bottom here too would have doubled the gap below
+         instead of matching the one above. */
+      .divider { border: none; border-top: 1px solid var(--ha-color-border-neutral-quiet); margin: 0; }
+      /* Real body text for a card's own main explanation, not .hint's
+         smaller secondary style (2026-08-11, direct user feedback
+         researching real HA patterns against cloud-remote-pref.ts/
+         ha-config-backup-app-update-backups.ts's own real source: both use
+         a plain <p>, secondary *color* only, no smaller font-size --
+         everything on this page used to go through .hint regardless of
+         whether it was the main point or a minor aside). */
+      .section-intro { color: var(--secondary-text-color); font-size: var(--ha-font-size-m, 14px); margin: 0; line-height: 1.4; }
+      /* Postponement's own weekday schedule rows (issue #4) group a time
+         selector and remove button together into one unit, appended into
+         ha-settings-row's own default (content) slot -- keeps the two
+         close to each other, rather than the row spacing them apart the
+         way two separate top-level children would be. */
+      .schedule-time-row-controls { display: flex; align-items: center; gap: var(--ha-space-1, 4px); }
+      .schedule-time-row-controls > ha-selector { flex: 0 0 auto; width: 130px; }
+      /* Every ha-settings-row in a settings card (switched from
+         ha-list-item-base entirely, 2026-08-11 -- see _buildGeneralCard's
+         own comment for the full reasoning). Its own :host has no
+         vertical padding of its own at all (confirmed against its real
+         source -- spacing between stacked rows comes entirely from
+         .body's/.content's own internal padding, generous enough on its
+         own not to need a wrapper gap on top), but does have a flat
+         "padding: 0 var(--ha-space-4)" (16px) horizontally that isn't
+         exposed as an overridable custom property the way ha-row-item's
+         own padding was -- combined with .card-content's own 16px, a
+         row's own text started a full 32px from the card edge instead of
+         lining up with every plain paragraph's own 16px. Overridden here
+         directly (a plain property, not a custom-property hook) so
+         .card-content's own padding is the only one that counts. */
+      /* Left (heading/description) vs right (control) split 50/50 by
+         default -- confirmed against ha-settings-row.ts's own real source:
+         .prefix-wrap (left) has flex: var(--settings-row-prefix-flex, 1),
+         .content (right) has a flat, unexposed flex: 1 with no part=""
+         to target it directly, so the only real lever is raising the
+         left side's own share. 3 (75/25 once both sides' own flex-grow is
+         weighed) leaves our controls (a switch, a narrow number field)
+         their own natural width instead of stretching them, and gives the
+         actual longer text on the left the room it can use -- direct user
+         feedback, "vaak staat er links veel meer wat wel wat breedte kan
+         gebruiken". */
+      /* --settings-row-content-padding-block (default 16px top+bottom,
+         also confirmed against the real source, unlike .content's own
+         unexposed flex-grow above) zeroed too -- direct user feedback:
+         combined with a real ha-input's own genuine 64px height (56px
+         base + 8px own bottom padding, confirmed earlier), the row ended
+         up 96px tall, reading as "far apart" again for closely related
+         settings. Zeroed, the row is exactly as tall as its control
+         actually needs (64px), no padding of its own on top. */
+      .card-content ha-settings-row { padding-inline: 0; --settings-row-prefix-flex: 3; --settings-row-content-padding-block: 0; }
 
       /* One shared page grid for all three tabs (2026-07-21, direct user
          feedback: Updates, History and Settings each had their own
@@ -4459,7 +6195,7 @@ class UpdateManagerPanel extends HTMLElement {
          not a separate copy per DOM depth -- found by review: the rollout-
          queue-card fix (below) originally added its own third literal copy
          of this exact declaration next to two that already existed. The
-         rollout-queue cards (_buildRolloutGroupCard) and the empty-state
+         Installing card (_buildInstallingCard) and the empty-state
          card are appended directly to .update-groups-outer, not
          .update-groups -- found live, 2026-07-27, direct user feedback
          ("hij staat meer naar rechts"): a selector scoped to only
@@ -4474,22 +6210,45 @@ class UpdateManagerPanel extends HTMLElement {
          early return) is appended directly to .content--list, a sibling
          level this list didn't cover either, so it rendered at the full
          page width instead of matching every other card on that same tab
-         (.history-section-items > ha-card, further below). */
+         (.history-section-items > ha-card, further below). Missed again
+         (found live, 2026-08-11, direct user feedback "houdt geen rekening
+         met het grid"): the load-error alert (_renderContent's own
+         this._loadError branch) is appended directly to .content--groups/
+         .content--form/.content--list itself -- whichever tab happened to
+         be active when the load failed -- a level shallower still, since
+         it's shown before any of those tabs' own inner containers exist
+         yet. */
       .update-groups-outer > ha-alert,
       .update-groups-outer > ha-card,
       .content--list > ha-card,
+      .content--groups > ha-alert,
+      .content--form > ha-alert,
+      .content--list > ha-alert,
       .update-groups ha-card {
         display: block; max-width: 600px; margin: 0 auto var(--ha-space-6, 24px);
       }
       .update-groups { display: block; }
-      .update-groups .card-content { padding: 0; display: block; }
-      .update-groups .card-header {
+      /* .update-groups-outer, not .update-groups -- same reasoning as the
+         width-cap/centering rule above (found live, 2026-07-27, then again
+         2026-08-03 for History's own empty state): the Installing card
+         (_buildInstallingCard) is also appended directly to
+         .update-groups-outer, not nested inside .update-groups, so a
+         selector scoped to only .update-groups fell through for it too --
+         found live, 2026-08-09: the Installing section's own title/
+         padding looked visibly different from every other card. Both card
+         types share _buildCardShell, so they need to share this styling
+         too; .update-groups-outer (a descendant selector, not just a
+         direct-child one) still matches everything nested under
+         .update-groups exactly as before, this only adds coverage for a
+         card sitting one level shallower. */
+      .update-groups-outer .card-content { padding: 0; display: block; }
+      .update-groups-outer .card-header {
         display: flex; align-items: center; justify-content: space-between;
         gap: var(--ha-space-2, 8px);
         padding: var(--ha-space-4, 16px) var(--ha-space-2, 8px) 0 var(--ha-space-4, 16px);
       }
-      .update-groups .title { font-size: var(--ha-font-size-l, 18px); }
-      .update-groups ha-list-base { margin-bottom: var(--ha-space-2, 8px); }
+      .update-groups-outer .title { font-size: var(--ha-font-size-l, 18px); }
+      .update-groups-outer ha-list-base { margin-bottom: var(--ha-space-2, 8px); }
       /* Not scoped to .update-groups: the History tab's own empty state
          (see _buildHistoryList) reuses this same class/markup shape, not
          just the Updates tab's. */
@@ -4667,8 +6426,7 @@ class UpdateManagerPanel extends HTMLElement {
          heading, and the notes uniformly (2026-08-01, direct user
          feedback: hand-placed margin-top on each of these one at a time,
          every time a gap was found missing somewhere, kept producing a new
-         inconsistency each time -- "de witruimte rondom dividers en
-         kopjes is nog steeds inconsistent. fix dat. grondig." -- a single
+         inconsistency each time, wanted fixed properly this time -- a single
          gap on their shared, already-non-flex parent replaces all of that
          with one rule that can't drift out of sync with itself). */
       /* The chevron every history entry now has, expanding its own facts
@@ -4684,8 +6442,8 @@ class UpdateManagerPanel extends HTMLElement {
       /* Matches ha-list-item-button's own horizontal inset above it, so the
          expanded changelog's left/right edges line up with the row's own
          text instead of sitting flush against the card's true edges.
-         display: flex + gap (2026-08-01, direct user feedback, grondige
-         fix): every one of the facts block, the Community section, the
+         display: flex + gap (2026-08-01, direct user feedback, fixed
+         properly rather than patched again): every one of the facts block, the Community section, the
          release-notes divider, its heading, and its markdown content is a
          direct child of this element. It used to have no display/gap of
          its own at all, so each of those needed its own hand-placed

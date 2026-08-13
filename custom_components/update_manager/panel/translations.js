@@ -55,17 +55,33 @@ export const TRANSLATIONS = {
     refresh: "Refresh",
     checking_updates_toast: "Checking for updates…",
     refreshed_toast: "Update Manager refreshed",
+    // "Update all" button's own click confirmation (see _updateAllInGroup)
+    // -- fired immediately, before the actual dispatch/reload work, direct
+    // user feedback: clicking it didn't show anything happening right away.
+    update_all_started_toast: (count) => (count === 1 ? "Installing 1 update…" : `Installing ${count} updates…`),
+    // Updates tab's own overflow (⋮) menu, next to the refresh button --
+    // same interaction/component as Home Assistant's own native
+    // /config/system/updates page (ha-config-section-updates.ts), deliberately
+    // following its pattern. menu_show_skipped_updates matches HA's own real
+    // string verbatim (confirmed against home-assistant/frontend's own
+    // src/translations/en.json, ui.panel.config.updates.show_skipped: "Show
+    // skipped updates") -- menu_show_not_installable_updates has no HA
+    // equivalent to match (HA's own page shares one toggle for both groups,
+    // ours are independent), written to match that same string's own
+    // "Show ... updates" shape and HA's own title_not_installable
+    // vocabulary ("not installable").
+    menu_show_skipped_updates: "Show skipped updates",
+    menu_show_not_installable_updates: "Show not installable updates",
     dash: "–",
     // Deliberately generic, not semver's own vocabulary (renamed
-    // 2026-07-16, see FUTURE.md): "Small/Medium/Large" is a scale any version
+    // 2026-07-16): "Small/Medium/Large" is a scale any version
     // scheme maps onto -- semver, calendar versioning, and git commit
     // hashes each have their own notion of "small" (see semver.py). The
-    // _desc text is the settings screen's expandable-section *description*
-    // (ha-form's own computeHelper for that schema entry, confirmed against
-    // ha-form-expandable.ts -- renders as its own line below the header,
-    // not squeezed into the header itself, direct user feedback) -- the
-    // detail dialog's "Jump" fact row shows the _short word only, no room/
-    // need for the explanation there.
+    // _desc text is a small (?) tooltip's own content next to the size's
+    // own name in the Postponement/Auto-update settings rows
+    // (buildSizeHelpTooltip, 2026-08-11), not a standalone paragraph --
+    // the detail dialog's "Jump" fact row shows the _short word only, no
+    // room/need for the explanation there either.
     size_small_short: "Small",
     // Functions, not plain strings, for the two with a calendar-version
     // example (currentCalendarVersion): always today's real year/month,
@@ -94,9 +110,9 @@ export const TRANSLATIONS = {
     // auto-installing (status_pending_install below covers that case
     // specifically, with a matching download icon instead of the alert's
     // default one, see timerBadge). Orange is still waiting it out. Red is
-    // reserved for a future signal (e.g. a community verdict, see
-    // FUTURE.md's Fase 1/3) that actively discourages an update; nothing
-    // in today's local rules produces it (see the settings legend's note).
+    // for status_blocked ("Discouraged", e.g. a problematic community
+    // verdict) that actively discourages an update; nothing
+    // in today's local rules produces it on their own (see the settings legend's note).
     status_ready: "Ready to update",
     status_waiting_manual: (when) => `Ready to update ${when}`,
     status_waiting_soon: "Postponed (almost ready)",
@@ -128,20 +144,30 @@ export const TRANSLATIONS = {
     field_excluded_entities: "Always manual",
     field_excluded_entities_helper:
       "Still shown normally in Updates and History. Update Manager just never auto-installs these, regardless of what's configured above.",
-    field_wait_days: "Postponement period (days)",
+    field_wait_days_unit: "days",
     field_auto_install: "Update automatically",
     auto_install_section_title: "Auto-update",
+    // Same reasoning as postponement_sizes_label -- a heading over its own
+    // group of size rows, not left to the card header alone.
+    auto_install_sizes_label: "Which sizes install automatically?",
     field_hide_postponed: "Hide postponed updates",
-    field_hide_postponed_helper:
-      "Marks a postponed update as skipped in Home Assistant itself until it's actually ready. Postponing is worth it: it gives a release with a bug time to be noticed and fixed before you commit to it.",
-    auto_install_section_desc:
-      "The postponement/auto-install rules above apply per size. Everything below (announcement notice, always-manual entities, trusted voters) applies regardless of size.",
+    field_hide_postponed_helper: "Hides it from Home Assistant's own update count until it's ready.",
+    field_ready_days_add: "Add a day",
+    field_ready_remove: (day) => `Remove ${day}`,
+    settings_schedule_hint: "Optional: only let an update become ready on specific days.",
+    weekday_monday_short: "Monday",
+    weekday_tuesday_short: "Tuesday",
+    weekday_wednesday_short: "Wednesday",
+    weekday_thursday_short: "Thursday",
+    weekday_friday_short: "Friday",
+    weekday_saturday_short: "Saturday",
+    weekday_sunday_short: "Sunday",
     field_trusted_voters: "Trusted voters",
     field_trusted_voters_helper:
       "A GitHub username you trust more than your own rules. Their healthy vote overrides your rules above and auto-installs that jump immediately, even over someone else's problematic report.",
-    announce_hours_label: "Announcement notice (hours)",
-    announce_hours_helper:
-      "How long you have to cancel a scheduled automatic install (Updates tab) before it actually happens, once the postponement period is over.",
+    announce_hours_label: "Announcement notice",
+    announce_hours_unit: "hours",
+    announce_hours_helper: "How long you still have to cancel a scheduled automatic install.",
     // "Jump" (not "Impact", renamed 2026-08-07, direct user feedback while
     // reviewing the big->large rename): this fact row shows the size of the
     // version *jump* itself (small/medium/large, see semver.py), not a
@@ -150,9 +176,8 @@ export const TRANSLATIONS = {
     col_jump: "Jump",
     // Noun, not "Announced" -- deliberately different label for the
     // projected-but-not-yet-real case (see projectedAnnouncementTime's own
-    // comment), direct user feedback, 2026-08-01: "dan is het niet
-    // Announced maar Announcement, toch?" -- "Announced" asserts it already
-    // happened, which isn't true yet for a still-"waiting" update.
+    // comment), direct user feedback, 2026-08-01: "Announced" asserts it
+    // already happened, which isn't true yet for a still-"waiting" update.
     dialog_announcement_label: "Announcement",
     dialog_current_version: "Installed version",
     dialog_new_version: "Latest version",
@@ -185,8 +210,8 @@ export const TRANSLATIONS = {
     community_vote_submit: "Submit",
     // `updated` (see websocket_api.py's own is_vote_update): a repeat vote
     // on the same version now replaces your earlier one instead of being
-    // rejected, 2026-07-23, direct user feedback ("kan ik wel mijn stem
-    // wijzigen?") -- said plainly here instead of leaving the previous
+    // rejected, 2026-07-23, direct user feedback asking whether a vote
+    // could be changed -- said plainly here instead of leaving the previous
     // vote's confirmation text up as if this were the first time.
     // ownRepoHealthyVote (see websocket_api.py's own is_own_repo_healthy_vote):
     // mirrors community-votes' own "asymmetric weight for the repo owner"
@@ -254,7 +279,6 @@ export const TRANSLATIONS = {
     // specific to any one size, as opposed to "Update rules" (per size)
     // and "Auto-update" (the auto-install mechanism's own details) below
     // it.
-    enabled_section_title: "General",
     community_section_title: "Help others",
     community_section_desc:
       "Become part of the community: link your GitHub account to vote on whether an update turned out healthy or problematic.",
@@ -265,17 +289,36 @@ export const TRANSLATIONS = {
     community_link_waiting: "Waiting for you to approve on GitHub...",
     community_link_timed_out: "The linking code expired before it was approved, try again.",
     community_link_failed: "Linking failed or was declined, try again.",
-    field_enabled: "Enabled",
+    enabled_section_title: "General",
+    field_enabled: "Update Manager",
     field_enabled_helper:
       "Pauses every automatic action below: no announcements, no automatic installs, and postponed updates stop being hidden from Home Assistant's own update count. Everything you've configured stays saved, it just isn't applied until you turn this back on.",
-    settings_header: "Update rules",
+    sizes_section_title: "Update sizes",
+    // Lead-in only -- the bullet list itself (what Small/Medium/Large
+    // actually mean) is composed in JS from size_*_short/size_*_desc
+    // directly, not duplicated here as static text: those already carry
+    // live calendar-version examples (currentCalendarVersion), and this
+    // used to be a per-row (?) tooltip reusing the exact same two
+    // functions before it became its own card instead (2026-08-11, direct
+    // user feedback: "die tooltips vind ik niks").
+    sizes_intro_lead: "Every update is grouped into one of these three sizes, based on how big the version jump is.",
+    settings_header: "Postponement",
     settings_hint:
-      "Every update is grouped into one of these three sizes, based on how big the version jump " +
-      "is. For each, choose how many days to postpone it, and whether Update Manager should then " +
-      "install it for you.",
+      "Postponing is worth it: it gives a release with a bug time to be noticed and fixed before you commit to it.",
+    // A real heading over the size rows, not just the intro paragraph above
+    // them -- direct user feedback, 2026-08-11 ("de hierarchie is iets wat
+    // op de pagina goed is maar in de secties/cards zelf nog niet"): a group
+    // of related rows needs its own label to read as one group, the same
+    // way excludedLabel/trustedLabel already head their own groups below in
+    // Auto-update.
+    postponement_sizes_label: "How long do you want to postpone?",
     save: "Save",
     settings_saved_toast: "Settings saved",
     cancel_auto_install: "Cancel",
+    // The pending-update dialog's own "Ready now" button, next to Cancel --
+    // forces this one jump to evaluate as ready immediately, skipping the
+    // rest of its postponement period.
+    dialog_force_ready: "Ready",
     dialog_open_update: "Open update",
     dialog_skip: "Skip",
     dialog_unskip: "Clear skipped",
@@ -283,19 +326,53 @@ export const TRANSLATIONS = {
     group_waiting: "Postponed",
     group_blocked: "Discouraged",
     update_all: "Update all",
-    // Rollout-pacing queue cards (see rollout_manager.py): one Zigbee
-    // firmware install at a time per network, not several at once (real
-    // radio traffic that can destabilize the mesh). Only ever shown once a
-    // second device from the same network/model/version is asked to
-    // install while one is already in flight.
-    rollout_queue_title_zha: "ZHA update queue",
-    rollout_queue_title_z2m: "Zigbee2MQTT update queue",
-    rollout_queue_subtitle: "Installs one at a time to avoid overloading the Zigbee network.",
+    // The "Installing" section's own title (see _buildInstallingCard) --
+    // everything currently installing or held back (the tier gate or the
+    // Zigbee model gate, both server-side in rollout_manager.py), pulled
+    // out of "Ready to update" entirely rather than reordered there.
+    // Generalizes what used to be a per-Zigbee-group-only card.
+    installing_section_title: "Installing",
+    // Shown instead of the normal timer badge for an entity held back by
+    // install_tiers.py's own tier gate -- deliberately generic, not naming
+    // which specific update it's waiting for, unlike the Zigbee rollout
+    // queue's own single-file "waiting for X" below (always exactly one
+    // thing directly in front): the tier ahead here can be several
+    // entities at once (every "safe" update in the same batch), so
+    // there's no one name to point at.
+    tier_waiting_text: "Waiting for other updates to finish first",
+    // Shown once an entity crosses rollout_manager.py's own
+    // _STUCK_THRESHOLD (a Repair issue is raised at the same time, see
+    // that module's own _async_maybe_raise_stuck_issue) -- deliberately
+    // different text than tier_waiting_text above: this entity isn't
+    // waiting on anything, it IS the obstacle everything else is waiting
+    // behind.
+    stuck_waiting_text: (duration) => `Installing for ${duration}, longer than usual`,
+    duration_hours_minutes: (hours, minutes) => `${hours}h ${minutes}m`,
+    duration_minutes: (minutes) => `${minutes}m`,
+    // The detail dialog's own stuck alert (see the pending-update dialog's
+    // own stuckInfo block) -- states the plain fact, never a guessed
+    // cause; dialog_stuck_body_zigbee/_neutral below is where the real,
+    // per-entity explanation (or the honest absence of one) lives.
+    dialog_stuck_title: (duration) => `Taking longer than usual (${duration})`,
+    dialog_stuck_body_zigbee:
+      "Is this a battery-powered device? It may need to be woken up first (for example by pressing a button on the device) before the update can actually start.",
+    dialog_stuck_body_neutral: "This can still finish on its own. If you'd rather not wait, the rest of the queue can continue.",
+    // Deliberately not called "Skip" -- that already exists and means
+    // something else (stop suggesting this version). Doesn't cancel the
+    // install, which may still finish on its own, it only stops this
+    // entity from holding anything else back.
+    dialog_stop_waiting: "Stop waiting",
+    // Rollout-pacing (see rollout_manager.py): one Zigbee firmware install
+    // at a time per network, not several at once (real radio traffic that
+    // can destabilize the mesh). Only ever relevant once a second device
+    // on the same Zigbee network is asked to install while one is already
+    // in flight -- see _buildInstallingCard's own rolloutStatus handling.
     // Reused verbatim for the dialog's own Install button while an entity
     // is queued (not yet its turn): no override, direct user feedback,
     // the queue must stay authoritative, not something a hurried click can
-    // jump.
-    rollout_queue_waiting: (name) => `Waiting for ${name}`,
+    // jump. "...to finish" (not just the bare name) -- direct user
+    // feedback, 2026-08-09: read ambiguously on its own.
+    rollout_queue_waiting: (name) => `Waiting for ${name} to finish`,
     // Community-verdict fact rows (see _buildCommunitySection, and
     // aggregateVerdictText for how these four get picked), read-only slice
     // added 2026-07-22: https://github.com/HA-Update-Manager/community-votes.
@@ -337,6 +414,12 @@ export const TRANSLATIONS = {
     group_skipped: (count) => `${count} ${count === 1 ? "skipped update" : "skipped updates"}`,
     group_not_installable: (count) => `${count} ${count === 1 ? "not installable update" : "not installable updates"}`,
     updates_empty: "No updates need attention, everything is up to date.",
+    // Shown instead of updates_empty whenever there genuinely are updates
+    // but every one of them is currently hidden by the overflow (⋮) menu's
+    // own Show skipped/Show not installable toggles -- direct user
+    // feedback: with both switched off, the tab used to render nothing at
+    // all, no message, indistinguishable from an actual empty state.
+    updates_hidden_by_filter: "Every update is currently hidden. Open the ⋮ menu to show skipped or not installable updates.",
     history_empty: "No updates logged yet.",
     // History's own date sections (see historySections), relative rather
     // than a fixed calendar date range in the heading itself, same spirit
@@ -349,7 +432,12 @@ export const TRANSLATIONS = {
     history_section_this_month: "This month",
     history_section_earlier: "Earlier",
     loading: "Loading…",
-    load_error_prefix: "Couldn't load Update Manager: ",
+    load_error_title: "Couldn't load Update Manager",
+    // home-assistant-js-websocket's own ERR_CONNECTION_LOST case (see
+    // WS_ERR_CONNECTION_LOST's own comment) -- a dropped connection, not a
+    // genuine backend error, so this says so plainly and suggests the
+    // actual fix instead of showing the raw, meaningless numeric code.
+    load_error_connection_lost: "Connection to Home Assistant was lost. Reload the page once it's back.",
     units: [
       ["year", "years"],
       ["month", "months"],
@@ -362,10 +450,13 @@ export const TRANSLATIONS = {
     relative_future: (n, unit) => `in ${n} ${unit}`,
     relative_just_now: "just now",
     relative_soon: "very soon",
-    when_today: (time) => `Today ${time}`,
-    when_tomorrow: (time) => `Tomorrow ${time}`,
-    when_weekday: (weekday, time) => `${weekday} ${time}`,
-    when_date: (date, time) => `${date}, ${time}`,
+    // `time` is null whenever the target is exactly midnight (see
+    // absoluteWhen's own comment) -- dropped instead of shown as "00:00",
+    // which read as genuinely ambiguous (start or end of that day?).
+    when_today: (time) => (time ? `Today ${time}` : "Today"),
+    when_tomorrow: (time) => (time ? `Tomorrow ${time}` : "Tomorrow"),
+    when_weekday: (weekday, time) => (time ? `${weekday} ${time}` : weekday),
+    when_date: (date, time) => (time ? `${date}, ${time}` : date),
   },
   nl: {
     locale: "nl",
@@ -375,13 +466,16 @@ export const TRANSLATIONS = {
     refresh: "Vernieuwen",
     checking_updates_toast: "Bezig met controleren op updates…",
     refreshed_toast: "Update Manager ververst",
+    update_all_started_toast: (count) => (count === 1 ? "1 update wordt geïnstalleerd…" : `${count} updates worden geïnstalleerd…`),
+    menu_show_skipped_updates: "Overgeslagen updates tonen",
+    menu_show_not_installable_updates: "Niet-installeerbare updates tonen",
     dash: "–",
     size_small_short: "Klein",
     size_small_desc: () => {
       const { year, month } = currentCalendarVersion();
       return `Een patch-release (bijv. 1.0.0 → 1.0.1), of dezelfde kalendermaand (bijv. ${year}.${month}.0 → ${year}.${month}.1).`;
     },
-    size_medium_short: "Gemiddeld",
+    size_medium_short: "Middel",
     size_medium_desc: () => {
       const { year, month, nextYear, nextMonth } = currentCalendarVersion();
       return (
@@ -404,20 +498,28 @@ export const TRANSLATIONS = {
     field_excluded_entities: "Altijd handmatig",
     field_excluded_entities_helper:
       "Blijven gewoon zichtbaar bij Updates en Historie. Update Manager installeert ze alleen nooit automatisch, ongeacht wat je hierboven instelt.",
-    field_wait_days: "Uitsteltermijn (dagen)",
+    field_wait_days_unit: "dagen",
     field_auto_install: "Automatisch updaten",
     auto_install_section_title: "Auto-update",
-    auto_install_section_desc:
-      "De uitstel-/auto-installatieregels hierboven gelden per grootte. Alles hieronder (aankondigingstermijn, altijd-handmatige entiteiten, vertrouwde stemmers) geldt sowieso, ongeacht grootte.",
+    auto_install_sizes_label: "Welke groottes installeer je automatisch?",
     field_trusted_voters: "Vertrouwde stemmers",
     field_trusted_voters_helper:
-      "Een GitHub-gebruikersnaam die je meer vertrouwt dan je eigen regels. Hun gezonde stem overrult je eigen regels hierboven en installeert die sprong meteen automatisch, ook als iemand anders 'm als problematisch meldde.",
+      "Een GitHub-gebruikersnaam die je meer vertrouwt dan je eigen regels. Hun probleemloze stem overrult je eigen regels hierboven en installeert die sprong meteen automatisch, ook als iemand anders 'm als problematisch meldde.",
     field_hide_postponed: "Uitgestelde updates verbergen",
-    field_hide_postponed_helper:
-      "Markeert een uitgestelde update zelf als overgeslagen in Home Assistant, tot 'ie echt klaar is. Uitstellen loont: het geeft een release met een fout de tijd om opgemerkt en gerepareerd te worden voordat jij 'm installeert.",
-    announce_hours_label: "Aankondigingstermijn (uren)",
-    announce_hours_helper:
-      "Hoelang je hebt om een geplande automatische installatie (Updates-tab) te annuleren voordat die echt gebeurt, zodra de uitsteltermijn voorbij is.",
+    field_hide_postponed_helper: "Verbergt 'm uit Home Assistants eigen update-telling tot 'ie klaar is.",
+    field_ready_days_add: "Dag toevoegen",
+    field_ready_remove: (day) => `${day} verwijderen`,
+    settings_schedule_hint: "Optioneel: laat een update alleen op specifieke dagen ready worden.",
+    weekday_monday_short: "Maandag",
+    weekday_tuesday_short: "Dinsdag",
+    weekday_wednesday_short: "Woensdag",
+    weekday_thursday_short: "Donderdag",
+    weekday_friday_short: "Vrijdag",
+    weekday_saturday_short: "Zaterdag",
+    weekday_sunday_short: "Zondag",
+    announce_hours_label: "Aankondigingstermijn",
+    announce_hours_unit: "uur",
+    announce_hours_helper: "Hoelang je nog hebt om een geplande automatische installatie te annuleren.",
     col_jump: "Sprong",
     dialog_announcement_label: "Aankondiging",
     dialog_current_version: "Geïnstalleerde versie",
@@ -470,7 +572,7 @@ export const TRANSLATIONS = {
     dialog_history_method_trusted: (names) => `Automatisch, vertrouwde stem van ${names}`,
     dialog_history_backup_label: "Back-up",
     dialog_history_backup_yes: "Gemaakt voor het installeren",
-    dialog_history_backup_no: "Niet ondersteund door deze entity",
+    dialog_history_backup_no: "Niet ondersteund door deze entiteit",
     dialog_release_notes_heading: "Release notes",
     dialog_upstream_release_notes: (repo) => `Eigen release notes van ${repo}:`,
     dialog_community_heading: "Community",
@@ -486,7 +588,6 @@ export const TRANSLATIONS = {
         : `Auto-installatie tegengehouden: ${count} mensen hebben deze sprong als problematisch gerapporteerd.`,
     dialog_more_info: "Meer info",
     paused_banner: "Update Manager staat gepauzeerd. Niets hieronder wordt automatisch geüpdatet, aangekondigd of verborgen.",
-    enabled_section_title: "Algemeen",
     community_section_title: "Help anderen",
     community_section_desc:
       "Word onderdeel van de community: koppel je GitHub-account om te stemmen of een update probleemloos of problematisch bleek.",
@@ -497,17 +598,21 @@ export const TRANSLATIONS = {
     community_link_waiting: "Wachten tot je akkoord geeft op GitHub...",
     community_link_timed_out: "De koppelcode is verlopen voordat 'm werd goedgekeurd, probeer het opnieuw.",
     community_link_failed: "Koppelen is mislukt of geweigerd, probeer het opnieuw.",
-    field_enabled: "Ingeschakeld",
+    enabled_section_title: "Algemeen",
+    field_enabled: "Update Manager",
     field_enabled_helper:
       "Pauzeert alle automatische acties hieronder: geen aankondigingen, geen automatische installaties, en uitgestelde updates worden niet langer verborgen voor Home Assistants eigen update-telling. Alles wat je hebt ingesteld blijft opgeslagen, het wordt alleen niet toegepast totdat je dit weer aanzet.",
-    settings_header: "Update-regels",
+    sizes_section_title: "Update-groottes",
+    sizes_intro_lead: "Elke update valt in een van deze drie groottes, op basis van hoe groot de versiesprong is.",
+    settings_header: "Uitstel",
     settings_hint:
-      "Elke update valt in een van deze drie groottes, op basis van hoe groot de versiesprong is. " +
-      "Per grootte kies je hoeveel dagen je 'm uitstelt, en of Update Manager 'm daarna zelf " +
-      "installeert.",
+      "Uitstellen loont: het geeft een release met een fout de tijd om opgemerkt en gerepareerd te " +
+      "worden voordat jij 'm installeert.",
+    postponement_sizes_label: "Hoelang wil je uitstellen?",
     save: "Opslaan",
     settings_saved_toast: "Instellingen opgeslagen",
     cancel_auto_install: "Annuleren",
+    dialog_force_ready: "Klaar",
     dialog_open_update: "Update openen",
     dialog_skip: "Overslaan",
     dialog_unskip: "Overslaan ongedaan maken",
@@ -515,10 +620,17 @@ export const TRANSLATIONS = {
     group_waiting: "Uitgesteld",
     group_blocked: "Afgeraden",
     update_all: "Alles updaten",
-    rollout_queue_title_zha: "ZHA-wachtrij",
-    rollout_queue_title_z2m: "Zigbee2MQTT-wachtrij",
-    rollout_queue_subtitle: "Installeert één voor één om het Zigbee-netwerk niet te overbelasten.",
-    rollout_queue_waiting: (name) => `Wacht op ${name}`,
+    installing_section_title: "Bezig met installeren",
+    tier_waiting_text: "Wacht tot andere updates eerst klaar zijn",
+    stuck_waiting_text: (duration) => `Installeert al ${duration}, langer dan gebruikelijk`,
+    duration_hours_minutes: (hours, minutes) => `${hours}u ${minutes}m`,
+    duration_minutes: (minutes) => `${minutes}m`,
+    dialog_stuck_title: (duration) => `Duurt langer dan gebruikelijk (${duration})`,
+    dialog_stuck_body_zigbee:
+      "Is dit een batterij-gevoed apparaat? Dan moet het misschien eerst wakker gemaakt worden (bijvoorbeeld door op een knopje op het apparaat te drukken) voordat de update daadwerkelijk kan starten.",
+    dialog_stuck_body_neutral: "Dit kan nog gewoon goedkomen. Wil je niet langer wachten, dan gaat de rest van de wachtrij verder.",
+    dialog_stop_waiting: "Stop met wachten",
+    rollout_queue_waiting: (name) => `Wacht tot ${name} klaar is`,
     community_verdict_healthy: (count) =>
       `${count} ${count === 1 ? "persoon meldt" : "mensen melden"} deze sprong als probleemloos.`,
     community_verdict_problematic: (count) =>
@@ -537,6 +649,7 @@ export const TRANSLATIONS = {
     group_not_installable: (count) =>
       `${count} ${count === 1 ? "niet installeerbare update" : "niet installeerbare updates"}`,
     updates_empty: "Geen updates die aandacht nodig hebben, alles is up-to-date.",
+    updates_hidden_by_filter: "Alle updates zijn nu verborgen. Open het ⋮-menu om overgeslagen of niet-installeerbare updates te tonen.",
     history_empty: "Nog geen updates gelogd.",
     history_section_today: "Vandaag",
     history_section_yesterday: "Gisteren",
@@ -544,7 +657,8 @@ export const TRANSLATIONS = {
     history_section_this_month: "Deze maand",
     history_section_earlier: "Eerder",
     loading: "Laden…",
-    load_error_prefix: "Kon Update Manager niet laden: ",
+    load_error_title: "Kon Update Manager niet laden",
+    load_error_connection_lost: "Verbinding met Home Assistant is verbroken. Herlaad de pagina zodra die terug is.",
     units: [
       ["jaar", "jaar"],
       ["maand", "maanden"],
@@ -557,9 +671,9 @@ export const TRANSLATIONS = {
     relative_future: (n, unit) => `over ${n} ${unit}`,
     relative_just_now: "zojuist",
     relative_soon: "zo dadelijk",
-    when_today: (time) => `vandaag ${time}`,
-    when_tomorrow: (time) => `morgen ${time}`,
-    when_weekday: (weekday, time) => `${weekday} ${time}`,
-    when_date: (date, time) => `${date}, ${time}`,
+    when_today: (time) => (time ? `vandaag ${time}` : "vandaag"),
+    when_tomorrow: (time) => (time ? `morgen ${time}` : "morgen"),
+    when_weekday: (weekday, time) => (time ? `${weekday} ${time}` : weekday),
+    when_date: (date, time) => (time ? `${date}, ${time}` : date),
   },
 };

@@ -2,9 +2,8 @@
 auto-install announcements (Store, survives restarts), runs a periodic
 check, actually calls `update.install` (with `backup=True` when the entity
 supports it) once an announcement's wait elapses uncancelled, and shows/
-clears a `persistent_notification` -- deliberately not a Repair issue, see
-FUTURE.md's "Auto-install (niveau 3)" note: this isn't a problem to fix,
-just an announcement.
+clears a `persistent_notification` -- deliberately not a Repair issue: this
+isn't a problem to fix, just an announcement.
 """
 from __future__ import annotations
 
@@ -39,6 +38,7 @@ from .const import (
     DOMAIN,
     EVENT_ANNOUNCED,
     EVENT_INSTALL_FAILED,
+    localized_strings,
 )
 from .coordinator import UpdateManagerCoordinator
 from .rollout_manager import RolloutManager
@@ -71,6 +71,34 @@ _NOTIFICATION_STRINGS = {
             "Update Manager wil **{name}** bijwerken naar versie {to_version} op {when}. "
             "Wil je dat niet, annuleer dan op de [Update Manager-pagina]({url})."
         ),
+    },
+}
+
+# Same-size entities that first become announce-eligible in the very same
+# tick share this same `now` and the single, not-per-size, announce_wait --
+# so also the same execute_at (see _async_notify_announced's own comment).
+# One combined notification for the whole group instead of one each, direct
+# user feedback, 2026-08-12: the postponement schedule (issue #4) makes many
+# entities reaching "ready" at literally the same instant far more likely
+# than it used to be, and each got its own separate notification regardless.
+# A group of exactly one still uses _NOTIFICATION_STRINGS above unchanged --
+# this is only ever reached for a genuine 2+ group.
+_NOTIFICATION_STRINGS_MULTI = {
+    "en": {
+        "title": "Scheduled updates",
+        "body": (
+            "Update Manager wants to install {count} updates on {when}:\n\n{items}\n\n"
+            "If you don't want that, cancel any of them on the [Update Manager page]({url})."
+        ),
+        "item": "* **{name}** to version {to_version}",
+    },
+    "nl": {
+        "title": "Geplande updates",
+        "body": (
+            "Update Manager wil {count} updates installeren op {when}:\n\n{items}\n\n"
+            "Wil je dat niet, annuleer ze dan op de [Update Manager-pagina]({url})."
+        ),
+        "item": "* **{name}** naar versie {to_version}",
     },
 }
 
@@ -112,13 +140,6 @@ def auto_install_rules_from_options(options: dict) -> AutoInstallRules:
 def _friendly_name(hass: HomeAssistant, entity_id: str) -> str:
     state = hass.states.get(entity_id)
     return state.name if state else entity_id
-
-
-def _localized_strings(hass: HomeAssistant, strings_by_language: dict[str, dict[str, str]]) -> dict[str, str]:
-    """hass.config.language, falling back to English, shared by both
-    notification-string lookups above instead of repeating the same
-    fallback at each call site."""
-    return strings_by_language.get(hass.config.language, strings_by_language["en"])
 
 
 class InstallManager:
@@ -200,6 +221,21 @@ class InstallManager:
 
     def pending_for(self, entity_id: str) -> PendingAnnouncement | None:
         return self._pending.get(entity_id)
+
+    def is_cancelled(self, entity_id: str, to_version: str) -> bool:
+        """Whether async_cancel was already called for this exact entity/
+        version pair -- read by websocket_api.py's own _handle_updates so
+        the panel can tell a genuinely cancelled "waiting" update apart
+        from an untouched one. async_cancel itself already prevents the
+        real announcement from ever starting (decide_action's own
+        cancelled_to_version check), but before this the panel had no way
+        to know that: projectedAutoInstallTime (the "will auto-install"
+        badge/Cancel button/sort order) only ever looked at status/
+        remaining_seconds/settings, never at this -- closing and reopening
+        the dialog right after clicking Cancel showed the exact same
+        projection and Cancel button back again, reading as if cancelling
+        had done nothing even though it silently already had."""
+        return self._cancelled.get(entity_id) == to_version
 
     @property
     def all_pending(self) -> list[PendingAnnouncement]:
@@ -309,11 +345,36 @@ class InstallManager:
         async with self._lock:
             entity_ids = set(self._coordinator.cache) | set(self._pending)
             self._dirty = False
-            await asyncio.gather(*(self._async_evaluate_one(entity_id, now) for entity_id in entity_ids))
+            results = await asyncio.gather(*(self._async_evaluate_one(entity_id, now) for entity_id in entity_ids))
             if self._dirty:
                 await self._async_save()
 
-    async def _async_evaluate_one(self, entity_id: str, now: datetime) -> None:
+        # Grouped and notified once the whole tick's own results are in, not
+        # inside _async_evaluate_one itself -- see _async_notify_announced's
+        # own comment for why. Outside the lock above: this only reads
+        # `results` (this tick's own local return values) and creates
+        # notifications, it doesn't touch self._pending/storage.
+        announced = [r for r in results if r is not None]
+        if announced:
+            self._async_notify_announced(announced)
+
+    async def _async_evaluate_one(self, entity_id: str, now: datetime) -> tuple[str, str, str, datetime] | None:
+        # A previous "Update failed" notification has no business lingering
+        # once the entity is genuinely installing again, however that retry
+        # was triggered -- direct user feedback, 2026-08-11: it wasn't going
+        # away on its own for a retry that didn't go through _async_execute
+        # below (the only other place this used to get cleared), e.g. a
+        # manual retry via Home Assistant's own native dialog, which this
+        # integration can't see or pace at all (see README's own Known
+        # limitations). Checked on every tick for every entity, ahead of the
+        # early-return guards below, so it isn't skipped for an entity this
+        # class itself currently has no opinion on (in_progress already
+        # confirms a real install is underway; the dismiss itself is a
+        # harmless no-op if there was nothing to clear).
+        state = self.hass.states.get(entity_id)
+        if state is not None and state.attributes.get("in_progress"):
+            persistent_notification.async_dismiss(self.hass, f"{_FAILURE_NOTIFICATION_ID_PREFIX}{entity_id}")
+
         if entity_id in self._recently_executed:
             # An install is still in flight for this entity (dispatched by
             # _async_execute, not yet resolved either way: cleared by
@@ -356,13 +417,14 @@ class InstallManager:
             cancelled_to_version = None
             self._dirty = True
 
-        # Core/Supervisor/HAOS: hard, non-configurable exception -- never
-        # auto-install these regardless of the size/setting, see
-        # coordinator.py's _is_hard_excluded_from_auto_install. The master
-        # pause switch is passed to decide_action as its own, separate
-        # master_enabled argument, not folded in here -- see that
-        # function's own docstring for why (pausing freezes an existing
-        # countdown in place instead of removing it).
+        # cached["auto_install_excluded"] (coordinator.py's own
+        # _is_excluded_from_auto_install) covers Core/Supervisor/HAOS too --
+        # pre-populated default members of the same excluded_entities list
+        # every other "always manual" entity lives in, not a separate
+        # exception. The master pause switch is passed to decide_action as
+        # its own, separate master_enabled argument, not folded in here --
+        # see that function's own docstring for why (pausing freezes an
+        # existing countdown in place instead of removing it).
         #
         # A trusted voter's own already-aggregated verdict for this exact
         # version (coordinator.py's own trusted_vote/trusted_voters_matched,
@@ -400,7 +462,8 @@ class InstallManager:
         )
 
         if action == "announce":
-            await self._async_announce(entity_id, current_to_version, now)
+            execute_at = await self._async_announce(entity_id, current_to_version, now)
+            return (entity_id, current_to_version, cached["version_size"], execute_at)
         elif action == "execute":
             # reason is guaranteed non-None here: decide_action only ever
             # returns "execute" when auto_install_enabled was True, and
@@ -410,26 +473,32 @@ class InstallManager:
             await self._async_execute(entity_id, current_to_version, reason or "rules", trusted_voter_usernames)
         elif action == "remove":
             await self._async_remove(entity_id)
+        return None
 
-    async def _async_announce(self, entity_id: str, to_version: str, now: datetime) -> None:
+    async def _async_announce(self, entity_id: str, to_version: str, now: datetime) -> datetime:
+        """Records the announcement (state + event) only -- the
+        persistent_notification itself is created separately, by
+        _async_notify_announced, once this whole tick's own gather has
+        finished and every entity that just became announce-eligible is
+        known, so entities sharing a size can be grouped into one
+        notification (see that method's own comment). `cached["version_size"]`
+        is read by the caller, not here -- decide_action only ever returns
+        "announce" when is_ready was True, which (see _async_evaluate_one's
+        own is_ready branch) only happens when `cached` is truthy, so it's
+        always available there without a None guard."""
         announcement = start_announcement(entity_id, to_version, now, self._rules.announce_wait)
         self._pending[entity_id] = announcement
         self._dirty = True
 
-        name = _friendly_name(self.hass, entity_id)
-        when = dt_util.as_local(announcement.execute_at).strftime("%d-%m-%Y %H:%M")
-        strings = _localized_strings(self.hass, _NOTIFICATION_STRINGS)
-        persistent_notification.async_create(
-            self.hass,
-            strings["body"].format(name=name, to_version=to_version, when=when, url=_PANEL_UPDATES_URL),
-            title=strings["title"],
-            notification_id=f"{_NOTIFICATION_ID_PREFIX}{entity_id}",
-        )
         # See const.py's own EVENT_ANNOUNCED docstring for the events
         # design overall. from_version comes from the coordinator's cache,
         # not the (possibly stale-by-now) update entity's own state
         # directly, same source install_log.py's own entries already use
-        # for the same fact.
+        # for the same fact. Fired here, per entity, unaffected by the
+        # notification grouping below -- automations still get one event per
+        # entity, same shape as always (direct user feedback, 2026-08-12,
+        # confirming this explicitly before building the grouped
+        # notification: the two are deliberately decoupled).
         cached = self._coordinator.cache.get(entity_id)
         self.hass.bus.async_fire(
             EVENT_ANNOUNCED,
@@ -440,6 +509,58 @@ class InstallManager:
                 "execute_at": announcement.execute_at.isoformat(),
             },
         )
+        return announcement.execute_at
+
+    def _async_notify_announced(self, announced: list[tuple[str, str, str, datetime]]) -> None:
+        """One persistent_notification per version_size group within this
+        tick, not one per entity -- see _NOTIFICATION_STRINGS_MULTI's own
+        comment for why. A group of exactly one (the common case, unaffected
+        either by the schedule feature or just by coincidence) keeps the
+        exact same notification shape/id this always had.
+
+        Not tracked afterward: cancelling one entity out of a multi-entity
+        group later doesn't update or shrink this notification's text --
+        direct user feedback, 2026-08-12, deliberately choosing the simpler
+        of two options. The notification's own job is "heads up, these are
+        about to happen, cancel via the panel if you don't want that" --
+        cancelling already works independently per entity regardless of
+        which notification (if any) mentioned it, and reconciling the text
+        afterward would need this class to remember which notification_id a
+        given entity's announcement belongs to, surviving restarts, for a
+        purely cosmetic improvement to a notification that's moot anyway
+        once its own execute_at passes."""
+        by_size: dict[str, list[tuple[str, str, datetime]]] = {}
+        for entity_id, to_version, version_size, execute_at in announced:
+            by_size.setdefault(version_size, []).append((entity_id, to_version, execute_at))
+
+        for version_size, entries in by_size.items():
+            # entries[0]'s own execute_at stands in for the whole group --
+            # every entry here shares it by construction (same tick, same
+            # `now`, and announce_wait isn't a per-size setting).
+            when = dt_util.as_local(entries[0][2]).strftime("%d-%m-%Y %H:%M")
+            if len(entries) == 1:
+                entity_id, to_version, _ = entries[0]
+                name = _friendly_name(self.hass, entity_id)
+                strings = localized_strings(self.hass, _NOTIFICATION_STRINGS)
+                persistent_notification.async_create(
+                    self.hass,
+                    strings["body"].format(name=name, to_version=to_version, when=when, url=_PANEL_UPDATES_URL),
+                    title=strings["title"],
+                    notification_id=f"{_NOTIFICATION_ID_PREFIX}{entity_id}",
+                )
+                continue
+
+            strings = localized_strings(self.hass, _NOTIFICATION_STRINGS_MULTI)
+            items = "\n".join(
+                strings["item"].format(name=_friendly_name(self.hass, entity_id), to_version=to_version)
+                for entity_id, to_version, _ in entries
+            )
+            persistent_notification.async_create(
+                self.hass,
+                strings["body"].format(count=len(entries), when=when, items=items, url=_PANEL_UPDATES_URL),
+                title=strings["title"],
+                notification_id=f"{_NOTIFICATION_ID_PREFIX}batch_{version_size}_{entries[0][2].isoformat()}",
+            )
 
     async def _async_execute(
         self, entity_id: str, to_version: str, reason: AutoInstallReason, trusted_voter_usernames: list[str]
@@ -584,7 +705,7 @@ class InstallManager:
             del self._recently_executed[entity_id]
 
         name = _friendly_name(self.hass, entity_id)
-        strings = _localized_strings(self.hass, _FAILURE_NOTIFICATION_STRINGS)
+        strings = localized_strings(self.hass, _FAILURE_NOTIFICATION_STRINGS)
         persistent_notification.async_create(
             self.hass,
             strings["body"].format(name=name, to_version=to_version, url=_PANEL_UPDATES_URL),
