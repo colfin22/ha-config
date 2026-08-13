@@ -2084,6 +2084,24 @@
                   }
                 },
                 {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_fuel_cost_per_100_km",
+                  "name": "Fuel per 100 km",
+                  "icon": "mdi:currency-eur",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_fuel_spend",
+                  "name": "Fuel this year",
+                  "icon": "mdi:cash-multiple",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
                   "type": "heading",
                   "heading": "Due",
                   "heading_style": "subtitle",
@@ -2211,6 +2229,24 @@
                   "entity": "sensor.colms_car_cost_per_km",
                   "name": "Cost per km",
                   "icon": "mdi:currency-eur",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_fuel_cost_per_100_km",
+                  "name": "Fuel per 100 km",
+                  "icon": "mdi:currency-eur",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_fuel_spend",
+                  "name": "Fuel this year",
+                  "icon": "mdi:cash-multiple",
                   "grid_options": {
                     "columns": 6
                   }
