@@ -82,6 +82,16 @@ rest:
           {% set c = value_json.cars | selectattr('id','eq',1) | first | default(none) %}
           {{ c is not none and c.ev_enabled == 1 }}
 
+      # Diesel spend for the selected year. The cost per 100 km sensor is the rate;
+      # this is the bill. No ev_enabled guard, unlike charge cost above.
+      - name: Olivias car fuel spend
+        unique_id: car_costs_car1_fuel_total
+        value_template: "{{ (value_json.cars | selectattr('id','eq',1) | first).by_category.fuel | default(0) }}"
+        unit_of_measurement: "€"
+        availability: >-
+          {% set c = value_json.cars | selectattr('id','eq',1) | first | default(none) %}
+          {{ c is not none }}
+
       - name: Olivias car km driven
         unique_id: car_costs_car1_km_driven
         value_template: "{{ (value_json.cars | selectattr('id','eq',1) | first).km_driven | round(0) }}"
@@ -155,6 +165,16 @@ rest:
         availability: >-
           {% set c = value_json.cars | selectattr('id','eq',2) | first | default(none) %}
           {{ c is not none and c.ev_enabled == 1 }}
+
+      # Diesel spend for the selected year. The cost per 100 km sensor is the rate;
+      # this is the bill. No ev_enabled guard, unlike charge cost above.
+      - name: Colms car fuel spend
+        unique_id: car_costs_car2_fuel_total
+        value_template: "{{ (value_json.cars | selectattr('id','eq',2) | first).by_category.fuel | default(0) }}"
+        unit_of_measurement: "€"
+        availability: >-
+          {% set c = value_json.cars | selectattr('id','eq',2) | first | default(none) %}
+          {{ c is not none }}
 
       - name: Colms car km driven
         unique_id: car_costs_car2_km_driven
