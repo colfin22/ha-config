@@ -42,11 +42,6 @@ lovelace:
       icon: mdi:view-dashboard
       show_in_sidebar: true
 
-http:
-  use_x_forwarded_for: true
-  trusted_proxies:
-    - 10.0.0.249
-
 homeassistant:
   packages: !include_dir_named packages 
   media_dirs:
