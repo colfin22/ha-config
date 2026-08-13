@@ -133,6 +133,11 @@
         "id": "8f305ea9ac1f4cfdbbd70fbcf4899fbc",
         "url": "/local/alarm-activity-card.js?v=2",
         "type": "module"
+      },
+      {
+        "id": "4237ba80f5e34a53a3897c57d6efb4a4",
+        "url": "/hacsfiles/HA-Firemote/HA-Firemote.js?hacstag=536329656419",
+        "type": "module"
       }
     ]
   }

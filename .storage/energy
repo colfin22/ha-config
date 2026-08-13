@@ -8,9 +8,7 @@
         "type": "solar",
         "stat_energy_from": "sensor.solis_power_generation_today",
         "config_entry_solar_forecast": [
-          "01JXPJMG6BC05FZFQB0TV873RK",
-          "01K40SHTJ10NC784ZR0EEM2HTG",
-          "01K40SPFD7K6MKP6MQ6KJSRFWS"
+          "01KZHHZPQ4QYHPR1WWCW1YHNYX"
         ],
         "stat_rate": "sensor.solis_pv_total_power"
       },
