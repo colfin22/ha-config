@@ -1998,6 +1998,279 @@
           "max_columns": 3
         },
         {
+          "title": "Cars",
+          "path": "cars",
+          "icon": "mdi:car",
+          "type": "sections",
+          "max_columns": 2,
+          "sections": [
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Olivias Car",
+                  "icon": "mdi:car",
+                  "badges": [
+                    {
+                      "entity": "sensor.olivias_car_next_due",
+                      "show_state": true,
+                      "show_icon": true,
+                      "icon": "mdi:calendar-clock"
+                    }
+                  ]
+                },
+                {
+                  "type": "picture",
+                  "image": "/local/car_costs/car1.jpg",
+                  "aspect_ratio": "4:3",
+                  "tap_action": {
+                    "action": "navigate",
+                    "navigation_path": "/car-costs"
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_year_cost",
+                  "name": "Cost this year",
+                  "icon": "mdi:cash",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_mileage",
+                  "name": "Mileage",
+                  "icon": "mdi:counter",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_km_driven",
+                  "name": "Driven this year",
+                  "icon": "mdi:map-marker-distance",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_fuel_price",
+                  "name": "Last fuel price",
+                  "icon": "mdi:fuel",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_fuel_efficiency",
+                  "name": "Efficiency",
+                  "icon": "mdi:gas-station",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_cost_per_km",
+                  "name": "Cost per km",
+                  "icon": "mdi:currency-eur",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "heading",
+                  "heading": "Due",
+                  "heading_style": "subtitle",
+                  "icon": "mdi:calendar-clock"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_service_due",
+                  "name": "Service",
+                  "icon": "mdi:wrench",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_tax_due",
+                  "name": "Tax",
+                  "icon": "mdi:file-document-outline",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_insurance_due",
+                  "name": "Insurance",
+                  "icon": "mdi:shield-car",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_nct_due",
+                  "name": "NCT",
+                  "icon": "mdi:clipboard-check-outline",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.olivias_car_timing_belt_due",
+                  "name": "Timing belt",
+                  "icon": "mdi:cog-transfer",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Colms Car",
+                  "icon": "mdi:car",
+                  "badges": [
+                    {
+                      "entity": "sensor.colms_car_next_due",
+                      "show_state": true,
+                      "show_icon": true,
+                      "icon": "mdi:calendar-clock"
+                    }
+                  ]
+                },
+                {
+                  "type": "picture",
+                  "image": "/local/car_costs/car2.jpg",
+                  "aspect_ratio": "4:3",
+                  "tap_action": {
+                    "action": "navigate",
+                    "navigation_path": "/car-costs"
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_year_cost",
+                  "name": "Cost this year",
+                  "icon": "mdi:cash",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_mileage",
+                  "name": "Mileage",
+                  "icon": "mdi:counter",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_km_driven",
+                  "name": "Driven this year",
+                  "icon": "mdi:map-marker-distance",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_fuel_price",
+                  "name": "Last fuel price",
+                  "icon": "mdi:fuel",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_fuel_efficiency",
+                  "name": "Efficiency",
+                  "icon": "mdi:gas-station",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_cost_per_km",
+                  "name": "Cost per km",
+                  "icon": "mdi:currency-eur",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "heading",
+                  "heading": "Due",
+                  "heading_style": "subtitle",
+                  "icon": "mdi:calendar-clock"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_service_due",
+                  "name": "Service",
+                  "icon": "mdi:wrench",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_tax_due",
+                  "name": "Tax",
+                  "icon": "mdi:file-document-outline",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_insurance_due",
+                  "name": "Insurance",
+                  "icon": "mdi:shield-car",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_nct_due",
+                  "name": "NCT",
+                  "icon": "mdi:clipboard-check-outline",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.colms_car_timing_belt_due",
+                  "name": "Timing belt",
+                  "icon": "mdi:cog-transfer",
+                  "grid_options": {
+                    "columns": 6
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
           "title": "Map",
           "path": "map",
           "icon": "mdi:map",
@@ -2515,8 +2788,113 @@
                   "type": "tile",
                   "entity": "light.sitting_room_tv_lightstrip",
                   "name": "TV Lightstrip"
+                },
+                {
+                  "type": "heading",
+                  "heading": "Devices"
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "binary_sensor.samsung_tv_online",
+                      "state": "on"
+                    }
+                  ],
+                  "card": {
+                    "type": "tile",
+                    "entity": "binary_sensor.samsung_tv_online",
+                    "name": "Samsung TV",
+                    "icon": "mdi:television",
+                    "state_color": true
+                  },
+                  "grid_options": {
+                    "columns": 6,
+                    "rows": "auto"
+                  }
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "binary_sensor.samsung_tv_online",
+                      "state": "off"
+                    }
+                  ],
+                  "card": {
+                    "type": "tile",
+                    "entity": "binary_sensor.samsung_tv_online",
+                    "name": "Samsung TV",
+                    "icon": "mdi:television-off",
+                    "state_color": true
+                  },
+                  "grid_options": {
+                    "columns": 6,
+                    "rows": "auto"
+                  }
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "binary_sensor.shield_tv_online",
+                      "state": "on"
+                    }
+                  ],
+                  "card": {
+                    "type": "tile",
+                    "entity": "binary_sensor.shield_tv_online",
+                    "name": "Shield",
+                    "icon": "mdi:television",
+                    "state_color": true
+                  },
+                  "grid_options": {
+                    "columns": 6,
+                    "rows": "auto"
+                  }
+                },
+                {
+                  "type": "conditional",
+                  "conditions": [
+                    {
+                      "condition": "state",
+                      "entity": "binary_sensor.shield_tv_online",
+                      "state": "off"
+                    }
+                  ],
+                  "card": {
+                    "type": "tile",
+                    "entity": "binary_sensor.shield_tv_online",
+                    "name": "Shield",
+                    "icon": "mdi:television-off",
+                    "state_color": true
+                  },
+                  "grid_options": {
+                    "columns": 6,
+                    "rows": "auto"
+                  }
+                },
+                {
+                  "type": "heading",
+                  "heading": "Security"
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.sitting_room_window_contact",
+                  "name": "Window"
+                },
+                {
+                  "type": "tile",
+                  "entity": "binary_sensor.sitting_room_presence_occupancy",
+                  "name": "Presence"
                 }
-              ]
+              ],
+              "grid_options": {
+                "columns": 12
+              }
             },
             {
               "type": "grid",
@@ -2657,124 +3035,21 @@
               "cards": [
                 {
                   "type": "heading",
-                  "heading": "Remote"
+                  "heading": "Remote",
+                  "heading_style": "title"
                 },
                 {
-                  "type": "media-control",
-                  "entity": "media_player.shield_android_tv_remote",
-                  "name": "Shield Android TV"
+                  "type": "custom:firemote-card",
+                  "entity": "media_player.android_tv_10_0_20_218",
+                  "device_family": "nvidia-shield",
+                  "device_type": "shield-tv-2019",
+                  "compatibility_mode": "default",
+                  "android_tv_remote_entity": "remote.shield_android_tv",
+                  "app_launch_1": "tivimate",
+                  "app_launch_2": "stremio",
+                  "app_launch_3": ""
                 }
               ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Devices"
-                },
-                {
-                  "type": "conditional",
-                  "conditions": [
-                    {
-                      "condition": "state",
-                      "entity": "binary_sensor.samsung_tv_online",
-                      "state": "on"
-                    }
-                  ],
-                  "card": {
-                    "type": "tile",
-                    "entity": "binary_sensor.samsung_tv_online",
-                    "name": "Samsung TV",
-                    "icon": "mdi:television",
-                    "state_color": true
-                  },
-                  "grid_options": {
-                    "columns": 6,
-                    "rows": "auto"
-                  }
-                },
-                {
-                  "type": "conditional",
-                  "conditions": [
-                    {
-                      "condition": "state",
-                      "entity": "binary_sensor.samsung_tv_online",
-                      "state": "off"
-                    }
-                  ],
-                  "card": {
-                    "type": "tile",
-                    "entity": "binary_sensor.samsung_tv_online",
-                    "name": "Samsung TV",
-                    "icon": "mdi:television-off",
-                    "state_color": true
-                  },
-                  "grid_options": {
-                    "columns": 6,
-                    "rows": "auto"
-                  }
-                },
-                {
-                  "type": "conditional",
-                  "conditions": [
-                    {
-                      "condition": "state",
-                      "entity": "binary_sensor.shield_tv_online",
-                      "state": "on"
-                    }
-                  ],
-                  "card": {
-                    "type": "tile",
-                    "entity": "binary_sensor.shield_tv_online",
-                    "name": "Shield",
-                    "icon": "mdi:television",
-                    "state_color": true
-                  },
-                  "grid_options": {
-                    "columns": 6,
-                    "rows": "auto"
-                  }
-                },
-                {
-                  "type": "conditional",
-                  "conditions": [
-                    {
-                      "condition": "state",
-                      "entity": "binary_sensor.shield_tv_online",
-                      "state": "off"
-                    }
-                  ],
-                  "card": {
-                    "type": "tile",
-                    "entity": "binary_sensor.shield_tv_online",
-                    "name": "Shield",
-                    "icon": "mdi:television-off",
-                    "state_color": true
-                  },
-                  "grid_options": {
-                    "columns": 6,
-                    "rows": "auto"
-                  }
-                },
-                {
-                  "type": "heading",
-                  "heading": "Security"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.sitting_room_window_contact",
-                  "name": "Window"
-                },
-                {
-                  "type": "tile",
-                  "entity": "binary_sensor.sitting_room_presence_occupancy",
-                  "name": "Presence"
-                }
-              ],
-              "grid_options": {
-                "columns": 12
-              }
             }
           ],
           "max_columns": 3,
@@ -3115,6 +3390,27 @@
               "grid_options": {
                 "columns": 12
               }
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Remote",
+                  "heading_style": "title"
+                },
+                {
+                  "type": "custom:firemote-card",
+                  "entity": "media_player.android_tv_10_0_20_214",
+                  "device_family": "xiaomi",
+                  "device_type": "xiaomi-tv-stick-4k",
+                  "compatibility_mode": "default",
+                  "android_tv_remote_entity": "remote.cian_mitv",
+                  "app_launch_1": "youtube",
+                  "app_launch_2": "tivimate",
+                  "visible_name_text": "Cian MiTV"
+                }
+              ]
             }
           ],
           "max_columns": 3,
@@ -3190,55 +3486,7 @@
                   "type": "tile",
                   "entity": "light.aoife_ceiling",
                   "name": "Ceiling"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Cast"
                 },
-                {
-                  "type": "media-control",
-                  "entity": "media_player.aoife_mibox_s_ma",
-                  "name": "Aoife MiBox S"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Media Players"
-                },
-                {
-                  "type": "custom:mini-media-player",
-                  "entity": "media_player.aoife_mibox_s_ma",
-                  "name": "Aoife MiBox S",
-                  "artwork": "cover"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Remote"
-                },
-                {
-                  "type": "media-control",
-                  "entity": "media_player.aoife_mibox_s_remote",
-                  "name": "Aoife MiBox S"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
                 {
                   "type": "heading",
                   "heading": "Devices"
@@ -3298,6 +3546,56 @@
               "grid_options": {
                 "columns": 12
               }
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Cast"
+                },
+                {
+                  "type": "media-control",
+                  "entity": "media_player.aoife_mibox_s_ma",
+                  "name": "Aoife MiBox S"
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Media Players"
+                },
+                {
+                  "type": "custom:mini-media-player",
+                  "entity": "media_player.aoife_mibox_s_ma",
+                  "name": "Aoife MiBox S",
+                  "artwork": "cover"
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Remote Control",
+                  "heading_style": "title"
+                },
+                {
+                  "type": "custom:firemote-card",
+                  "entity": "media_player.android_tv_10_0_20_213",
+                  "device_family": "xiaomi",
+                  "device_type": "mi-box-s",
+                  "compatibility_mode": "default",
+                  "app_launch_1": "tivimate",
+                  "app_launch_2": "stremio",
+                  "visible_name_text": "Aoife MiBox S",
+                  "android_tv_remote_entity": "remote.aoife_mibox_s"
+                }
+              ]
             }
           ],
           "max_columns": 3,
@@ -3471,7 +3769,7 @@
           "cards": [
             {
               "type": "iframe",
-              "url": "/local/infra.html?v=20260801a",
+              "url": "/local/infra.html?v=20260807a",
               "disable_sandbox": true
             }
           ]

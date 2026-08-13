@@ -72,6 +72,21 @@ rest:
           {% set c = value_json.cars | selectattr('id','eq',1) | first | default(none) %}
           {{ c is not none and c.ev_enabled == 1 }}
 
+      - name: Olivias car km driven
+        unique_id: car_costs_car1_km_driven
+        value_template: "{{ (value_json.cars | selectattr('id','eq',1) | first).km_driven | round(0) }}"
+        unit_of_measurement: km
+        availability: >-
+          {% set c = value_json.cars | selectattr('id','eq',1) | first | default(none) %}
+          {{ c is not none and c.km_driven is not none }}
+      - name: Olivias car fuel price
+        unique_id: car_costs_car1_fuel_price
+        value_template: "{{ (value_json.cars | selectattr('id','eq',1) | first).last_price_per_litre }}"
+        unit_of_measurement: "€/L"
+        availability: >-
+          {% set c = value_json.cars | selectattr('id','eq',1) | first | default(none) %}
+          {{ c is not none and c.last_price_per_litre is not none }}
+
       # ---- Colm's car (id 2 = cars[1]) ----
       - name: Colms car year cost
         unique_id: car_costs_car2_year_total
@@ -120,6 +135,267 @@ rest:
         availability: >-
           {% set c = value_json.cars | selectattr('id','eq',2) | first | default(none) %}
           {{ c is not none and c.ev_enabled == 1 }}
+
+      - name: Colms car km driven
+        unique_id: car_costs_car2_km_driven
+        value_template: "{{ (value_json.cars | selectattr('id','eq',2) | first).km_driven | round(0) }}"
+        unit_of_measurement: km
+        availability: >-
+          {% set c = value_json.cars | selectattr('id','eq',2) | first | default(none) %}
+          {{ c is not none and c.km_driven is not none }}
+      - name: Colms car fuel price
+        unique_id: car_costs_car2_fuel_price
+        value_template: "{{ (value_json.cars | selectattr('id','eq',2) | first).last_price_per_litre }}"
+        unit_of_measurement: "€/L"
+        availability: >-
+          {% set c = value_json.cars | selectattr('id','eq',2) | first | default(none) %}
+          {{ c is not none and c.last_price_per_litre is not none }}
+
+# Per-item due sensors. One entity per car per due item, so tax, NCT, insurance,
+# service and the timing belt can each go on a card or trigger an automation
+# without digging into the summary attribute.
+#
+# These read the 'dues' attribute of the REST sensor above, so they cost no
+# extra poll. A car with that item unset simply has no row in 'dues' and its
+# sensor sits unavailable.
+#
+# NOTE: rows in 'dues' identify the car by NAME, not by id, so the car name
+# below is a join key. Renaming a car in the app breaks these sensors until the
+# names here are changed to match.
+template:
+  - sensor:
+      # ---- Olivias Car ----
+      - name: Olivias car service due
+        unique_id: car_costs_car1_due_service
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','Service') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','Service') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','Service') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','Service') | first | default(none) %}
+            {{ d.date if d else none }}
+      - name: Olivias car tax due
+        unique_id: car_costs_car1_due_tax
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','Tax') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','Tax') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','Tax') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','Tax') | first | default(none) %}
+            {{ d.date if d else none }}
+      - name: Olivias car insurance due
+        unique_id: car_costs_car1_due_insurance
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','Insurance') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','Insurance') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','Insurance') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','Insurance') | first | default(none) %}
+            {{ d.date if d else none }}
+      - name: Olivias car NCT due
+        unique_id: car_costs_car1_due_nct
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','NCT') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','NCT') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','NCT') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','NCT') | first | default(none) %}
+            {{ d.date if d else none }}
+      - name: Olivias car timing belt due
+        unique_id: car_costs_car1_due_belt
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','Timing belt') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Olivias Car')
+             | selectattr('item','eq','Timing belt') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','Timing belt') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Olivias Car')
+               | selectattr('item','eq','Timing belt') | first | default(none) %}
+            {{ d.date if d else none }}
+      # ---- Colms Car ----
+      - name: Colms car service due
+        unique_id: car_costs_car2_due_service
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','Service') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','Service') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','Service') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','Service') | first | default(none) %}
+            {{ d.date if d else none }}
+      - name: Colms car tax due
+        unique_id: car_costs_car2_due_tax
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','Tax') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','Tax') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','Tax') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','Tax') | first | default(none) %}
+            {{ d.date if d else none }}
+      - name: Colms car insurance due
+        unique_id: car_costs_car2_due_insurance
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','Insurance') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','Insurance') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','Insurance') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','Insurance') | first | default(none) %}
+            {{ d.date if d else none }}
+      - name: Colms car NCT due
+        unique_id: car_costs_car2_due_nct
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','NCT') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','NCT') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','NCT') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','NCT') | first | default(none) %}
+            {{ d.date if d else none }}
+      - name: Colms car timing belt due
+        unique_id: car_costs_car2_due_belt
+        unit_of_measurement: d
+        availability: >-
+          {{ (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','Timing belt') | list | count > 0 }}
+        state: >-
+          {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+             | selectattr('car','eq','Colms Car')
+             | selectattr('item','eq','Timing belt') | first %}
+          {{ d.days }}
+        attributes:
+          item: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','Timing belt') | first | default(none) %}
+            {{ d.item if d else none }}
+          date: >-
+            {% set d = (state_attr('sensor.car_costs_next_due','dues') or [])
+               | selectattr('car','eq','Colms Car')
+               | selectattr('item','eq','Timing belt') | first | default(none) %}
+            {{ d.date if d else none }}
 
 automation:
   - id: car_costs_due_reminders
