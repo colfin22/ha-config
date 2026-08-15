@@ -2238,13 +2238,13 @@
       appliance: '{{ {''input_select.washing_machine_run_status'':''washing machine'',''input_select.tumble_dryer_run_status'':''tumble
         dryer'',''input_select.dishwasher_run_status'':''dishwasher''}[trigger.entity_id]
         }}'
-      solar_tomorrow: '{{ states(''sensor.energy_production_tomorrow'') | float(0)
+      solar_tomorrow: '{{ states(''sensor.solcast_pv_forecast_forecast_tomorrow'') | float(0)
         | round(1) }}'
       band: '{{ ''the 5-7pm peak (39c/kWh)'' if now().hour < 19 else ''the evening
         rate (37c/kWh)'' }}'
   - variables:
       nudge_message: The {{ appliance }} started during {{ band }}. {% if solar_tomorrow
-        | float(0) >= 10 %}Better left until the morning, when solar usually covers
+        | float(0) >= 14 %}Better left until the morning, when solar usually covers
         it for nothing ({{ solar_tomorrow }} kWh forecast tomorrow).{% else %}Better
         left until after 11pm, when the night rate drops to 20c - only {{ solar_tomorrow
         }} kWh of solar forecast tomorrow.{% endif %}
@@ -2277,9 +2277,25 @@
     - POST
     local_only: false
   actions:
-  - action: input_boolean.toggle
-    target:
-      entity_id: input_boolean.maintenance_mode
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: "{{ (trigger.json | default({})).get(\"desired\", \"\") == \"on\" }}"
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.maintenance_mode
+    - conditions:
+      - condition: template
+        value_template: "{{ (trigger.json | default({})).get(\"desired\", \"\") == \"off\" }}"
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.maintenance_mode
+    default:
+    - action: input_boolean.toggle
+      target:
+        entity_id: input_boolean.maintenance_mode
   mode: single
 - id: '1784292024444'
   alias: Infra Dashboard - Update Tuesday Mark Done
@@ -2432,7 +2448,7 @@
   mode: single
 - id: '1785581001062'
   alias: Solis Inverter Health - Uptime Kuma Heartbeat
-  description: 'Every minute (and on any state change) posts the Solis inverter''s
+  description: 'Every minute posts the Solis inverter''s
     PV power state to the Uptime Kuma push monitor (Network / id 59). A valid number
     -> up; unavailable/unknown -> down with the actual state as the reason. Zero watts
     at night is healthy and reports up. This catches the inverter going silent over
@@ -2441,8 +2457,6 @@
   triggers:
   - platform: time_pattern
     minutes: /1
-  - platform: state
-    entity_id: sensor.solis_pv_total_power
   actions:
   - variables:
       st: '{{ states(''sensor.solis_pv_total_power'') }}'
@@ -3049,8 +3063,8 @@
     entity_id: sensor.grid_export_power
     above: 1500
   - condition: template
-    value_template: '{{ states(''sensor.energy_production_today_remaining'') | float(0)
-      >= 3 }}'
+    value_template: '{{ states(''sensor.solcast_pv_forecast_forecast_remaining_today'') | float(0)
+      >= 4 }}'
   - condition: template
     value_template: '{{ (is_state(''person.colm_finn'',''home'') and is_state(''input_boolean.appliance_nudge_sent_colm'',''off''))
       or (is_state(''person.olivia_finn'',''home'') and is_state(''input_boolean.appliance_nudge_sent_olivia'',''off''))
@@ -3095,7 +3109,7 @@
     nudge_title: Solar surplus - good time to run an appliance
     nudge_message: Exporting {{ (states('sensor.grid_export_power') | float(0) / 1000)
       | round(1) }} kW, battery {{ states('sensor.solis_battery_soc') | round(0) }}%,
-      water hot. One at a time, not all together.
+      water hot. One at a time, not all together. Good time for a shower too.
 - id: '1786285267844'
   alias: Update Manager - Notify NP3
   description: Push to NP3 when Update Manager announces a pending auto-install, completes
