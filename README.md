@@ -2,7 +2,7 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.7.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8.2-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
 [![Automations](https://img.shields.io/badge/Automations-71-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
@@ -84,6 +84,8 @@ This repository is the live, version-controlled configuration that runs the hous
 | [Calibre-Web](https://github.com/janeczku/calibre-web) | Self-hosted ebook library — Proxmox LXC, data in TrueNAS dataset |
 | [Paperless-ngx](https://docs.paperless-ngx.com/) | Document management — Ubuntu Docker, data in TrueNAS dataset |
 | [Wallabag](https://wallabag.org/) | Read-it-later — Ubuntu Docker, data in TrueNAS dataset |
+| [AirTrail](https://airtrail.johan.ohly.dk) | Flight and travel history tracking — Ubuntu Docker |
+| [Linkwarden](https://linkwarden.app/) | Bookmark manager — Ubuntu Docker |
 | [Stremio](https://www.stremio.com/) | Streaming media |
 | [Dawarich](https://dawarich.app/) | Location & travel tracking — TrueNAS app, fed from HA Companion App on Android |
 | [Waste Collection Schedule](https://github.com/mampfes/hacs_waste_collection_schedule) | Panda Waste bin collection — calendar alerts for upcoming collections |
@@ -226,7 +228,7 @@ HA's recorder purges after 7 days. InfluxDB (TrueNAS app) stores everything long
 | `autarco_daily` | Local inverter (measurement name is historic) | 11-06-2025 → present | Solar production, export, import, consumption |
 | `esbn_daily` | ESB Networks HDF (official meter) | 28-05-2024 → present | Import, export (about two days in arrears) |
 | `esbn_halfhourly` | ESB Networks HDF | 28-05-2024 → ~2 days ago | Half-hourly import/export profile |
-| All HA entities | HA InfluxDB integration | 28-05-2026 → present | Every entity state written continuously — preserves history beyond recorder purge |
+| All HA entities | HA InfluxDB integration | 28-05-2026 → present | Most kept 90 days; solar, power, weather and climate data kept forever |
 
 ### Home Assistant statistics
 
