@@ -60,3 +60,20 @@
       state: >-
         {{ ((states('sensor.solis_battery_input_energy') | float(0))
             - (states('sensor.solis_battery_output_energy') | float(0))) | round(0) }}
+
+# Display-only mirror of sensor.battery_flow_now with the sign flipped, so the Energy
+# view's header badge reads consistently with the helios-card (positive while discharging).
+# NOT a source of truth - battery_flow_now stays positive=charging for its 14mo history.
+    - name: Battery Flow Display
+      unique_id: battery_flow_display
+      unit_of_measurement: W
+      device_class: power
+      state_class: measurement
+      icon: >-
+        {{ 'mdi:battery-arrow-up' if states('sensor.battery_flow_now')|float(0) < 0
+           else 'mdi:battery-arrow-down' if states('sensor.battery_flow_now')|float(0) > 0
+           else 'mdi:battery' }}
+      availability: >-
+        {{ states('sensor.battery_flow_now') not in ['unknown', 'unavailable', 'none', ''] }}
+      state: >-
+        {{ (states('sensor.battery_flow_now') | float(0)) * -1 | round(0) }}
