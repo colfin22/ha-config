@@ -166,12 +166,18 @@ class HeatingActivityCard extends HTMLElement {
       }
       return best;
     };
+    // Day boundaries + all rendered timestamps are pinned to Europe/Dublin so the
+    // card stays in Irish time even when Colm's phone is on a different timezone
+    // while away (was previously using the browser's local zone via Date methods
+    // with no timeZone option — ha-config to-do item, fixed 07-09-2026).
+    const dublinYMD = (d) => d.toLocaleDateString("en-CA", { timeZone: "Europe/Dublin" });
+    const todayYMD = dublinYMD(new Date());
+    const yestYMD = dublinYMD(new Date(Date.now() - 86400000));
     const dayLabel = (t) => {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const yest = new Date(today.getTime() - 86400000);
-      const date = t.toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric" });
-      if (t >= today) return "Today · " + date;
-      if (t >= yest) return "Yesterday · " + date;
+      const ymd = dublinYMD(t);
+      const date = t.toLocaleDateString("en-IE", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Dublin" });
+      if (ymd === todayYMD) return "Today · " + date;
+      if (ymd === yestYMD) return "Yesterday · " + date;
       return date;
     };
     const out = [];
@@ -193,7 +199,7 @@ class HeatingActivityCard extends HTMLElement {
       txt.className = "txt"; txt.textContent = h.state[0].toUpperCase() + h.state.slice(1);
       const time = document.createElement("span");
       time.className = "time";
-      time.textContent = t.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+      time.textContent = t.toLocaleTimeString("en-IE", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Europe/Dublin" });
       row.append(dot, txt, this._badge(byFor(t.getTime())), time);
       out.push(row);
     }
