@@ -2,10 +2,13 @@
   alias: Bins Out Notification
   description: 'Evening-before bin reminders (Panda waste). 19:00 the night before
     a collection: pushes Colm + Olivia which bins are due (icon per type, from calendar.panda_waste).
-    22:00: checks Frigate''s waste_bin count on the Front Van camera (sensor.front_van_waste_bin_count)
-    — alerts only when the count is 0 (includes stationary bins at the kerb — if no
-    bin is seen out front it announces a TTS reminder on the home speakers + sends
-    a second phone alert with a camera snapshot. Two calendar triggers on calendar.panda_waste
+    22:00: runs BOTH checks independently now that compost can land on the same day
+    as the other bins — if compost is due (its own small bin, not visible to Frigate)
+    always sends a TTS reminder + plain push, no camera check; separately, if any
+    non-compost bin (recycling/waste/etc) is due, checks Frigate''s waste_bin count
+    on the Front Van camera (sensor.front_van_waste_bin_count) — alerts only when
+    the count is 0 — announces a TTS reminder on the home speakers + sends a second
+    phone alert with a camera snapshot. Two calendar triggers on calendar.panda_waste
     (offset -5h = 19:00, -2h = 22:00), branched by trigger id.'
   triggers:
   - event: start
@@ -29,11 +32,17 @@
     response_variable: collections
   - variables:
       bin_lines: "{% set events = collections['calendar.panda_waste']['events'] |
-        map(attribute='summary') | list %}{% set m = {'recycl':'♻️','waste':'\U0001F5D1️','organic':'\U0001F7E4','brown':'\U0001F7E4','food':'\U0001F342','glass':'\U0001F96B','garden':'\U0001F33F'}
+        map(attribute='summary') | list %}{% set m = {'recycl':'♻️','waste':'\U0001F5D1️','compost':'\U0001F7E4','organic':'\U0001F7E4','brown':'\U0001F7E4','food':'\U0001F342','glass':'\U0001F96B','garden':'\U0001F33F'}
         %}{%- set ns = namespace(lines=[]) -%}{%- for b in events -%}{%- set key =
         b | lower -%}{%- set icon = namespace(v='\U0001F5D1️') -%}{%- for k,v in m.items()
         if k in key -%}{%- set icon.v = v -%}{%- endfor -%}{%- set ns.lines = ns.lines
         + [icon.v ~ ' ' ~ b] -%}{%- endfor -%}{{ ns.lines | join(' • ') }}"
+  - variables:
+      has_compost: '{{ collections[''calendar.panda_waste''][''events''] | map(attribute=''summary'')
+        | map(''lower'') | select(''search'', ''compost'') | list | count > 0 }}'
+  - variables:
+      has_wheely: '{{ collections[''calendar.panda_waste''][''events''] | map(attribute=''summary'')
+        | map(''lower'') | reject(''search'', ''compost'') | list | count > 0 }}'
   - choose:
     - conditions:
       - condition: trigger
@@ -69,8 +78,39 @@
       sequence:
       - if:
         - condition: template
-          value_template: '{{ states(''sensor.front_van_waste_bin_count'') | int(-1)
-            == 0 }}'
+          value_template: '{{ has_compost }}'
+        then:
+        - action: script.tts_announce
+          data:
+            message: Reminder. The compost bin is due for collection tomorrow. Please
+              put it out.
+            target_player: media_player.home_audio_group_cast
+        - action: notify.mobile_app_np3
+          data:
+            title: "\U0001F7E4 Compost Bin Reminder"
+            message: 'Collection tomorrow: {{ bin_lines }}'
+            data:
+              notification_icon: mdi:trash-can
+              color: '#6D4C41'
+              tag: bins-compost
+              group: bins
+              channel: Bins
+              importance: high
+        - action: notify.mobile_app_pixel_6a
+          data:
+            title: "\U0001F7E4 Compost Bin Reminder"
+            message: 'Collection tomorrow: {{ bin_lines }}'
+            data:
+              notification_icon: mdi:trash-can
+              color: '#6D4C41'
+              tag: bins-compost
+              group: bins
+              channel: Bins
+              importance: high
+      - if:
+        - condition: template
+          value_template: '{{ has_wheely and (states(''sensor.front_van_waste_bin_count'')
+            | int(-1) == 0) }}'
         then:
         - action: script.tts_announce
           data:
@@ -204,6 +244,7 @@
     path: Blackshome/appliance-notifications.yaml
     input:
       power_sensor: sensor.washing_machine_socket_power
+      end_appliance_power: 3
       include_start_notify: enable_start_notify_options
       start_notify_device:
       - 002753768c371c4f05a272c7e1e0f93c
@@ -302,7 +343,7 @@
   description: Sets night rate at 11 PM
   triggers:
   - at: '23:00:00'
-    platform: time
+    trigger: time
   actions:
   - target:
       entity_id: input_number.import_kwh_at_11pm
@@ -312,7 +353,7 @@
   - target:
       entity_id: input_number.electricity_rate
     data:
-      value: 0.2
+      value: 0.1625
     action: input_number.set_value
   mode: single
 - id: '1769624024597'
@@ -320,7 +361,7 @@
   description: Sets day rate at 8 AM
   triggers:
   - at: 08:00:00
-    platform: time
+    trigger: time
   actions:
   - target:
       entity_id: input_number.import_kwh_at_8am
@@ -330,7 +371,7 @@
   - target:
       entity_id: input_number.electricity_rate
     data:
-      value: 0.37
+      value: 0.3299
     action: input_number.set_value
   mode: single
 - id: '1769624072939'
@@ -338,7 +379,7 @@
   description: Sets peak rate at 5 PM
   triggers:
   - at: '17:00:00'
-    platform: time
+    trigger: time
   actions:
   - target:
       entity_id: input_number.import_kwh_at_5pm
@@ -348,7 +389,7 @@
   - target:
       entity_id: input_number.electricity_rate
     data:
-      value: 0.39
+      value: 0.3299
     action: input_number.set_value
   mode: single
 - id: '1769624436568'
@@ -356,7 +397,7 @@
   description: Sets day rate at 7 PM after peak
   triggers:
   - at: '19:00:00'
-    platform: time
+    trigger: time
   actions:
   - target:
       entity_id: input_number.import_kwh_at_7pm
@@ -366,7 +407,7 @@
   - target:
       entity_id: input_number.electricity_rate
     data:
-      value: 0.37
+      value: 0.3299
     action: input_number.set_value
   mode: single
 - id: '1771748445702'
@@ -673,8 +714,10 @@
   mode: single
 - id: '1778228718912'
   alias: Energy - Snapshot Daily Totals
-  description: At 23:58 each night, saves today's energy sensor values to helpers
-    so they can be read the next morning.
+  description: 'At 23:58 each night, saves today''s energy sensor values to helpers
+    so they can be read the next morning. Cost calc updated 24-08-2026 for new provider:
+    flat day rate 32.99c (8am-11pm), night rate 16.25c (11pm-8am) - no separate peak
+    band any more.'
   triggers:
   - platform: time
     at: '23:58:00'
@@ -698,13 +741,10 @@
       entity_id: input_number.yesterday_import_cost
     data:
       value: '{% set n = states(''input_number.import_kwh_at_8am'') | float(0) %}{%
-        set d = (states(''input_number.import_kwh_at_5pm'') | float(0)) - n %}{% set
-        p = (states(''input_number.import_kwh_at_7pm'') | float(0)) - (states(''input_number.import_kwh_at_5pm'')
-        | float(0)) %}{% set e = (states(''input_number.import_kwh_at_11pm'') | float(0))
-        - (states(''input_number.import_kwh_at_7pm'') | float(0)) %}{% set ln = [states(''sensor.solis_grid_import_today'')
-        | float(0) - states(''input_number.import_kwh_at_11pm'') | float(0), 0] |
-        max %}{{ [n * 0.20 + d * 0.37 + p * 0.39 + e * 0.37 + ln * 0.20, 0] | max
-        | round(4) }}'
+        set day = (states(''input_number.import_kwh_at_11pm'') | float(0)) - n %}{%
+        set ln = [states(''sensor.solis_grid_import_today'') | float(0) - states(''input_number.import_kwh_at_11pm'')
+        | float(0), 0] | max %}{{ [day * 0.3299 + (n + ln) * 0.1625, 0] | max | round(4)
+        }}'
     action: input_number.set_value
   - target:
       entity_id: input_number.yesterday_export_compensation
@@ -2213,12 +2253,13 @@
 - id: '1783159541803'
   alias: Peak/Evening Rate - Appliance Started Nudge
   description: 'If the washing machine, tumble dryer or dishwasher starts a cycle
-    during the expensive evening (5-11pm), push to Colm + Olivia. The message names
-    the band actually in force: 39c/kWh during the 5-7pm peak, 37c from 7-11pm. Points
-    at the biggest saving available: tomorrow''s morning solar if the combined forecast
-    is >= 10 kWh, otherwise the 23:00-08:00 night rate at 20c. Window widened from
-    5-7pm to 5-11pm on 05-08-2026 (Colm) - the whole evening is dear, not just the
-    peak two hours. Notification-only (no TTS).'
+    during the expensive evening (5-11pm), push to Colm + Olivia. Rates updated 24-08-2026
+    for new provider: day rate is now flat 32.99c/kWh (8am-11pm), no separate peak
+    band - kept as its own automation in case a future plan reintroduces a differing
+    peak rate. Points at the biggest saving available: tomorrow''s morning solar if
+    the combined forecast is >= 14 kWh, otherwise the 23:00-08:00 night rate at 16.25c.
+    Window widened from 5-7pm to 5-11pm on 05-08-2026 (Colm) - the whole evening is
+    dear, not just the peak two hours. Notification-only (no TTS).'
   triggers:
   - platform: state
     entity_id: input_select.washing_machine_run_status
@@ -2238,15 +2279,14 @@
       appliance: '{{ {''input_select.washing_machine_run_status'':''washing machine'',''input_select.tumble_dryer_run_status'':''tumble
         dryer'',''input_select.dishwasher_run_status'':''dishwasher''}[trigger.entity_id]
         }}'
-      solar_tomorrow: '{{ states(''sensor.solcast_pv_forecast_forecast_tomorrow'') | float(0)
-        | round(1) }}'
-      band: '{{ ''the 5-7pm peak (39c/kWh)'' if now().hour < 19 else ''the evening
-        rate (37c/kWh)'' }}'
+      solar_tomorrow: '{{ states(''sensor.solcast_pv_forecast_forecast_tomorrow'')
+        | float(0) | round(1) }}'
+      band: the evening rate (32.99c/kWh)
   - variables:
       nudge_message: The {{ appliance }} started during {{ band }}. {% if solar_tomorrow
         | float(0) >= 14 %}Better left until the morning, when solar usually covers
         it for nothing ({{ solar_tomorrow }} kWh forecast tomorrow).{% else %}Better
-        left until after 11pm, when the night rate drops to 20c - only {{ solar_tomorrow
+        left until after 11pm, when the night rate drops to 16.25c - only {{ solar_tomorrow
         }} kWh of solar forecast tomorrow.{% endif %}
   - data:
       title: 'Expensive time: {{ appliance }} running'
@@ -2280,14 +2320,16 @@
   - choose:
     - conditions:
       - condition: template
-        value_template: "{{ (trigger.json | default({})).get(\"desired\", \"\") == \"on\" }}"
+        value_template: '{{ (trigger.json | default({})).get("desired", "") == "on"
+          }}'
       sequence:
       - action: input_boolean.turn_on
         target:
           entity_id: input_boolean.maintenance_mode
     - conditions:
       - condition: template
-        value_template: "{{ (trigger.json | default({})).get(\"desired\", \"\") == \"off\" }}"
+        value_template: '{{ (trigger.json | default({})).get("desired", "") == "off"
+          }}'
       sequence:
       - action: input_boolean.turn_off
         target:
@@ -2448,12 +2490,12 @@
   mode: single
 - id: '1785581001062'
   alias: Solis Inverter Health - Uptime Kuma Heartbeat
-  description: 'Every minute posts the Solis inverter''s
-    PV power state to the Uptime Kuma push monitor (Network / id 59). A valid number
-    -> up; unavailable/unknown -> down with the actual state as the reason. Zero watts
-    at night is healthy and reports up. This catches the inverter going silent over
-    Modbus, which a port check on the RS485 gateway cannot see: the gateway keeps
-    accepting TCP connections even when the inverter has stopped replying.'
+  description: 'Every minute posts the Solis inverter''s PV power state to the Uptime
+    Kuma push monitor (Network / id 59). A valid number -> up; unavailable/unknown
+    -> down with the actual state as the reason. Zero watts at night is healthy and
+    reports up. This catches the inverter going silent over Modbus, which a port check
+    on the RS485 gateway cannot see: the gateway keeps accepting TCP connections even
+    when the inverter has stopped replying.'
   triggers:
   - platform: time_pattern
     minutes: /1
@@ -2926,28 +2968,31 @@
   max: 10
 - id: '1785945600001'
   alias: Solis - Sync Inverter Clock at Clock Change
-  description: 'Colm only (infra alert). Presses button.solis_sync_rtc at 10:00 on
-    the last Sunday of March and October - the EU daylight-saving changeovers. WHY:
-    the timed night charge window (02:00-08:00) is defined in INVERTER time, and the
-    inverter has NO DST or timezone setting (Colm checked the unit itself 05-08-2026),
-    so it holds whatever wall clock it was last given. After the MARCH change the
-    inverter runs an hour behind local, its window fires 03:00-09:00, and the final
-    hour lands in the 0.37 day band instead of the 0.20 night band. October is harmless
-    for the tariff (the window moves earlier, still inside the 23:00-08:00 night band)
+  description: 'Colm only (infra alert). Presses button.solis_sync_rtc at 03:00 on
+    the last Sunday of March and October - the EU daylight-saving changeovers. Moved
+    from 10:00 to 03:00 (08-09-2026) to catch the changeover as early as possible
+    after it actually happens (~01:00 UTC / ~02:00 local), instead of leaving the
+    inverter''s charge-window tariff-band misaligned for another 7 hours. WHY: the
+    timed night charge window (02:00-08:00) is defined in INVERTER time, and the inverter
+    has NO DST or timezone setting (Colm checked the unit itself 05-08-2026), so it
+    holds whatever wall clock it was last given. After the MARCH change the inverter
+    runs an hour behind local, its window fires 03:00-09:00, and the final hour lands
+    in the 0.3299 day band instead of the 0.1625 night band. October is harmless for
+    the tariff (the window moves earlier, still inside the 23:00-08:00 night band)
     but is synced anyway because the RTC also gains about 14 minutes of drift on its
     own - it was found 14 min ahead of UTC on 05-08-2026 - so twice a year clears
-    that too. Runs at 10:00 so the clock is never rewritten mid-charge, since after
-    a change the window can run as late as 09:00 local. The condition tracks the EU
-    rule (last Sunday) rather than hardcoded dates, so it needs no yearly maintenance.
-    VERIFICATION (added 06-08-2026): sensor.solis_rtc reads the inverter clock back
-    (input register 33022 - it is disabled by default in the integration and was enabled
-    on 06-08-2026), so this automation now measures drift before and after the press
-    and reports whether the sync actually took. The 120 s threshold is deliberately
-    wide: the sensor lags up to one 15 s scan interval, while the real failure modes
-    are a missed DST change (3600 s) or accumulated drift (~840 s).'
+    that too. The condition tracks the EU rule (last Sunday) rather than hardcoded
+    dates, so it needs no yearly maintenance. VERIFICATION (added 06-08-2026): sensor.solis_rtc
+    reads the inverter clock back (input register 33022 - it is disabled by default
+    in the integration and was enabled on 06-08-2026), so this automation now measures
+    drift before and after the press and reports whether the sync actually took. The
+    120 s threshold is deliberately wide: the sensor lags up to one 15 s scan interval,
+    while the real failure modes are a missed DST change (3600 s) or accumulated drift
+    (~840 s). Rates updated 24-08-2026 for new provider (day 32.99c 8am-11pm, night
+    16.25c). See also the separate monthly drift-only sync automation added 08-09-2026.'
   triggers:
   - platform: time
-    at: '10:00:00'
+    at: 03:00:00
   conditions:
   - condition: template
     value_template: '{{ now().month in [3, 10] and now().weekday() == 6 and now().day
@@ -2973,7 +3018,7 @@
 
 
         The inverter has no DST setting, so its clock was an hour out until this ran.
-        The 02:00-08:00 night charge window should now line up with the 0.20 night
+        The 02:00-08:00 night charge window should now line up with the 0.1625 night
         rate again.
 
 
@@ -3063,8 +3108,8 @@
     entity_id: sensor.grid_export_power
     above: 1500
   - condition: template
-    value_template: '{{ states(''sensor.solcast_pv_forecast_forecast_remaining_today'') | float(0)
-      >= 4 }}'
+    value_template: '{{ states(''sensor.solcast_pv_forecast_forecast_remaining_today'')
+      | float(0) >= 4 }}'
   - condition: template
     value_template: '{{ (is_state(''person.colm_finn'',''home'') and is_state(''input_boolean.appliance_nudge_sent_colm'',''off''))
       or (is_state(''person.olivia_finn'',''home'') and is_state(''input_boolean.appliance_nudge_sent_olivia'',''off''))
@@ -3176,3 +3221,55 @@
       regex_replace("\\s*Update$", "") }}'
   mode: queued
   max: 10
+- id: '1788856017389'
+  alias: Solis - Monthly Clock Sync
+  description: Colm only (infra alert, silent on success). Presses button.solis_sync_rtc
+    at 03:00 on the 1st of every month to correct ongoing small RTC drift, unrelated
+    to DST (see the separate twice-yearly Solis - Sync Inverter Clock at Clock Change
+    automation for the DST changeover fix). Added 08-09-2026 after the inverter's
+    clock was found running ~2m18s fast a month after the previous manual sync (~4s/day
+    drift rate, one data point). Uses the same drift-before/press/delay/drift-after
+    pattern as the DST automation. Only sends a push if the sync appears NOT to have
+    worked (sensor unreadable, or still >=120s out after the press) - a routine monthly
+    sync is not worth a notification every time.
+  triggers:
+  - platform: time
+    at: 03:00:00
+  conditions:
+  - condition: template
+    value_template: '{{ now().day == 1 }}'
+  actions:
+  - variables:
+      drift_before: '{% set r = states(''sensor.solis_rtc'') %}{% if r not in [''unknown'',''unavailable'',''none'','''']
+        %}{{ ((as_timestamp(now()) - as_timestamp(strptime(r,''%Y-%m-%d %H:%M:%S'')))
+        | abs) | round(0) | int }}{% else %}unknown{% endif %}'
+  - action: button.press
+    target:
+      entity_id: button.solis_sync_rtc
+  - delay:
+      seconds: 30
+  - variables:
+      drift_after: '{% set r = states(''sensor.solis_rtc'') %}{% if r not in [''unknown'',''unavailable'',''none'','''']
+        %}{{ ((as_timestamp(now()) - as_timestamp(strptime(r,''%Y-%m-%d %H:%M:%S'')))
+        | abs) | round(0) | int }}{% else %}unknown{% endif %}'
+  - if:
+    - condition: template
+      value_template: '{{ drift_after == ''unknown'' or drift_after | int >= 120 }}'
+    then:
+    - data:
+        title: ⚠️ Solis monthly clock sync did not take
+        message: 'Monthly sync ran at {{ now().strftime(''%H:%M on %d-%m-%Y'') }}.
+
+
+          Before: {% if drift_before == ''unknown'' %}not readable{% else %}{{ drift_before
+          }}s out{% endif %}. After: {% if drift_after == ''unknown'' %}not readable{%
+          else %}{{ drift_after }}s out{% endif %}.
+
+
+          {% if drift_after == ''unknown'' %}sensor.solis_rtc was unavailable - check
+          registers 43000-43005 manually.{% else %}SYNC DID NOT TAKE - check manually.{%
+          endif %}'
+        data:
+          notification_icon: mdi:clock-alert
+      action: notify.mobile_app_np3
+  mode: single
