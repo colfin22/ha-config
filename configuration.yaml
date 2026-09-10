@@ -12,6 +12,56 @@ recorder:
   exclude:
     entities:
       - sensor.solis_rtc
+      - sensor.sitting_room_dimmer_switch_battery
+      - sensor.google_pixel_watch_2_battery_level
+      - sensor.colm_bedroom_switch_battery
+      - sensor.office_switch_battery
+      - sensor.cian_bedroom_switch_battery
+      - sensor.kitchen_dimmer_switch_battery
+      - sensor.aoife_bedroom_switch_battery
+      - sensor.home_battery
+      - sensor.dcp_j525w_page_counter
+      - sensor.pixel_6a_battery_level
+      - sensor.watchman_missing_entities
+      - sensor.watchman_missing_actions
+      - sensor.a25_battery_level
+      - sensor.pixel_4a_5g_battery_level
+      - sensor.hue_motion_sensor_1_battery
+      - sensor.hue_motion_sensor_2_battery
+      - sensor.pixel_7a_battery_level
+      - sensor.office_window_battery
+      - sensor.cian_window_battery
+      - sensor.colm_window_battery
+      - sensor.sitting_room_window_battery
+      - sensor.back_door_battery
+      - sensor.back_window_battery
+      - sensor.patio_door_battery
+      - sensor.aoife_window_battery
+      - sensor.front_door_battery
+      - sensor.attic_temperature_battery
+      - sensor.kitchen_temperature_battery
+      - sensor.np3_battery_level
+      - sensor.watchman_parse_duration
+      - sensor.watchman_processed_files
+      - sensor.watchman_ignored_files
+      - sensor.office_dimmer_switch_battery
+      - sensor.parcel_delivery_box_battery
+      - sensor.landing_motion_sensor_battery
+      - sensor.hallway_motion_sensor_battery
+      - sensor.aoife_bedroom_dimmer_switch_battery
+      - sensor.colm_bedroom_dimmer_switch_battery
+      - sensor.cian_bedroom_dimmer_switch_battery
+      - sensor.shed_door_battery
+      - sensor.pixel_9a_battery_level
+      - sensor.cian_a25_battery_level
+      - sensor.aion_ems_zeus_event_bus
+      - sensor.aion_ems_zeus_data_bus
+      - sensor.aion_ems_zeus_performance_diagnostics
+      - sensor.aion_ems_zeus_observation_knowledge
+      - sensor.aion_ems_zeus_runtime_resilience
+      - sensor.aion_ems_zeus_update_engine
+      - sensor.aion_ems_zeus_recorder_guard
+      - sensor.aion_ems_zeus_known_major_loads_power
     entity_globs:
       - image.*
       - binary_sensor.*_occupancy
@@ -45,6 +95,8 @@ lovelace:
       show_in_sidebar: true
 
 homeassistant:
+  external_url: "https://ha.colfin22.net"
+  internal_url: "http://10.0.0.252:8123"
   packages: !include_dir_named packages 
   media_dirs:
     llmvision: /config/media/llmvision
