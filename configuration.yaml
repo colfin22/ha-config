@@ -62,6 +62,12 @@ recorder:
       - sensor.aion_ems_zeus_update_engine
       - sensor.aion_ems_zeus_recorder_guard
       - sensor.aion_ems_zeus_known_major_loads_power
+      - sensor.frigate_uptime
+      - sensor.frigate_detection_fps
+      - sensor.frigate_coral_inference_speed
+      - sensor.attic_network_stack_socket_current
+      - sensor.attic_nas_socket_current
+      - sensor.colm_pc_socket_current
     entity_globs:
       - image.*
       - binary_sensor.*_occupancy
