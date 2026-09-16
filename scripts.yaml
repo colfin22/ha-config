@@ -1,9 +1,10 @@
 tts_announce:
   alias: TTS Announce
   description: Plays a TTS announcement at full volume. For the home audio group it
-    boosts each MEMBER speaker after playback starts (a Google cast group's master
-    volume does NOT cascade to members), then restores them to 50%. For a single speaker
-    it saves/boosts/restores that player. Queued so concurrent calls don't overlap.
+    fans out tts.cloud_say to each of the 4 individual member speakers directly (bypasses
+    the Google Cast group entity, which drops audio to non-leader members intermittently),
+    boosting and restoring their volume around it. For a single speaker it saves/boosts/restores
+    that player. Queued so concurrent calls don't overlap.
   icon: mdi:bullhorn
   mode: queued
   max: 5
@@ -35,36 +36,27 @@ tts_announce:
       - condition: template
         value_template: '{{ is_group }}'
       sequence:
+      - action: media_player.volume_set
+        target:
+          entity_id:
+          - media_player.kitchen_display_cast
+          - media_player.sitting_room_speaker_cast
+          - media_player.office_speaker_cast
+          - media_player.colm_bedroom_speaker_cast
+        data:
+          volume_level: 1
       - action: tts.cloud_say
         target:
-          entity_id: media_player.home_audio_group_cast
+          entity_id:
+          - media_player.kitchen_display_cast
+          - media_player.sitting_room_speaker_cast
+          - media_player.office_speaker_cast
+          - media_player.colm_bedroom_speaker_cast
         data:
           message: '{{ message }}'
           cache: false
       - delay:
-          seconds: 1
-      - action: media_player.volume_set
-        target:
-          entity_id:
-          - media_player.kitchen_display_cast
-          - media_player.sitting_room_speaker_cast
-          - media_player.office_speaker_cast
-          - media_player.colm_bedroom_speaker_cast
-        data:
-          volume_level: 1
-      - delay:
-          seconds: 1
-      - action: media_player.volume_set
-        target:
-          entity_id:
-          - media_player.kitchen_display_cast
-          - media_player.sitting_room_speaker_cast
-          - media_player.office_speaker_cast
-          - media_player.colm_bedroom_speaker_cast
-        data:
-          volume_level: 1
-      - delay:
-          seconds: 6
+          seconds: 8
       - action: media_player.volume_set
         target:
           entity_id:
