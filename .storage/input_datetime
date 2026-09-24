@@ -17,6 +17,27 @@
         "has_date": true,
         "name": "Parcel Box Last Collection",
         "icon": "mdi:package-check"
+      },
+      {
+        "id": "washing_machine_last_cycle_start",
+        "name": "Washing Machine Last Cycle Start",
+        "has_date": true,
+        "has_time": true,
+        "icon": "mdi:clock-start"
+      },
+      {
+        "id": "dishwasher_last_cycle_start",
+        "name": "Dishwasher Last Cycle Start",
+        "has_date": true,
+        "has_time": true,
+        "icon": "mdi:clock-start"
+      },
+      {
+        "id": "tumble_dryer_last_cycle_start",
+        "name": "Tumble Dryer Last Cycle Start",
+        "has_date": true,
+        "has_time": true,
+        "icon": "mdi:clock-start"
       }
     ]
   }

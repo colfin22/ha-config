@@ -1695,6 +1695,178 @@
           "sections": [
             {
               "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Washing Machine"
+                },
+                {
+                  "type": "custom:washing-machine-card",
+                  "appliance_type": "washer",
+                  "name": "Washing Machine",
+                  "status_entity": "input_select.washing_machine_run_status",
+                  "running_states": [
+                    "washing"
+                  ],
+                  "power_entity": "sensor.washing_machine_socket_power",
+                  "power_max": 3000,
+                  "plug_entity": "switch.washing_machine_socket",
+                  "notify_entity": "automation.washing_machine_notifications_actions",
+                  "theme": "auto",
+                  "power_threshold": 3,
+                  "last_wash_entity": "input_datetime.washing_machine_last_cycle_start",
+                  "duration_entity": "input_number.washing_machine_last_cycle_duration",
+                  "energy_entity": "input_number.washing_machine_last_cycle_energy",
+                  "cost_entity": "input_number.washing_machine_last_cycle_cost"
+                },
+                {
+                  "type": "tile",
+                  "entity": "input_select.washing_machine_run_status",
+                  "name": "Status"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.washing_machine_socket_power",
+                  "name": "Power"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.washing_machine_socket_energy_today",
+                  "name": "Energy Today"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.washing_machine_socket_energy_month",
+                  "name": "Energy This Month"
+                },
+                {
+                  "type": "tile",
+                  "entity": "counter.washing_machine_cycle_counter",
+                  "name": "Total Cycles"
+                },
+                {
+                  "type": "tile",
+                  "entity": "counter.washing_machine_weekly_cycles",
+                  "name": "Cycles This Week"
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Dishwasher"
+                },
+                {
+                  "type": "custom:washing-machine-card",
+                  "appliance_type": "dishwasher",
+                  "name": "Dishwasher",
+                  "status_entity": "input_select.dishwasher_run_status",
+                  "running_states": [
+                    "scrubbing away!"
+                  ],
+                  "power_entity": "sensor.dishwasher_socket_power",
+                  "power_max": 3000,
+                  "plug_entity": "switch.dishwasher_socket",
+                  "notify_entity": "automation.dishwasher_notifications_actions",
+                  "theme": "auto",
+                  "last_wash_entity": "input_datetime.dishwasher_last_cycle_start",
+                  "duration_entity": "input_number.dishwasher_last_cycle_duration",
+                  "energy_entity": "input_number.dishwasher_last_cycle_energy",
+                  "cost_entity": "input_number.dishwasher_last_cycle_cost"
+                },
+                {
+                  "type": "tile",
+                  "entity": "input_select.dishwasher_run_status",
+                  "name": "Status"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.dishwasher_socket_power",
+                  "name": "Power"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.dishwasher_socket_energy_today",
+                  "name": "Energy Today"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.dishwasher_socket_energy_month",
+                  "name": "Energy This Month"
+                },
+                {
+                  "type": "tile",
+                  "entity": "counter.dishwasher_run_cycle_counter",
+                  "name": "Total Cycles"
+                },
+                {
+                  "type": "tile",
+                  "entity": "counter.dishwasher_weekly_cycles",
+                  "name": "Cycles This Week"
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "Tumble Dryer"
+                },
+                {
+                  "type": "custom:washing-machine-card",
+                  "appliance_type": "dryer",
+                  "name": "Tumble Dryer",
+                  "status_entity": "input_select.tumble_dryer_run_status",
+                  "running_states": [
+                    "drying"
+                  ],
+                  "power_entity": "sensor.tumble_dryer_socket_power",
+                  "power_max": 3000,
+                  "plug_entity": "switch.tumble_dryer_socket",
+                  "notify_entity": "automation.tumble_dryer_notifications_actions",
+                  "theme": "auto",
+                  "last_wash_entity": "input_datetime.tumble_dryer_last_cycle_start",
+                  "duration_entity": "input_number.tumble_dryer_last_cycle_duration",
+                  "energy_entity": "input_number.tumble_dryer_last_cycle_energy",
+                  "cost_entity": "input_number.tumble_dryer_last_cycle_cost"
+                },
+                {
+                  "type": "tile",
+                  "entity": "input_select.tumble_dryer_run_status",
+                  "name": "Status"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.tumble_dryer_socket_power",
+                  "name": "Power"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.tumble_dryer_socket_energy_today",
+                  "name": "Energy Today"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.tumble_dryer_socket_energy_month",
+                  "name": "Energy This Month"
+                },
+                {
+                  "type": "tile",
+                  "entity": "counter.tumble_dryer_cycle_counter",
+                  "name": "Total Cycles"
+                },
+                {
+                  "type": "tile",
+                  "entity": "counter.tumble_dryer_weekly_cycles",
+                  "name": "Cycles This Week"
+                }
+              ]
+            },
+            {
+              "type": "grid",
               "column_span": 2,
               "cards": [
                 {
@@ -1779,216 +1951,6 @@
                       "color": "#FF5722",
                       "type": "column",
                       "data_generator": "const s=await hass.callWS({type:'recorder/statistics_during_period',start_time:new Date(Date.now()-7*864e5).toISOString(),statistic_ids:[entity.entity_id],period:'day'});const d=(s[entity.entity_id]||[]);return d.map(x=>[x.start>1e10?x.start:x.start*1000,Math.max(0,x.change||0)]);"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Overview"
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_select.washing_machine_run_status",
-                  "name": "Washing Machine",
-                  "card_mod": {
-                    "style": ":host { --tile-color: {{ 'orange' if not is_state('input_select.washing_machine_run_status', 'All Done!') else 'var(--state-inactive-color)' }}; }"
-                  },
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_select.dishwasher_run_status",
-                  "name": "Dishwasher",
-                  "card_mod": {
-                    "style": ":host { --tile-color: {{ 'orange' if not is_state('input_select.dishwasher_run_status', 'All Done!') else 'var(--state-inactive-color)' }}; }"
-                  },
-                  "state_color": true
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_select.tumble_dryer_run_status",
-                  "name": "Tumble Dryer",
-                  "card_mod": {
-                    "style": ":host { --tile-color: {{ 'orange' if not is_state('input_select.tumble_dryer_run_status', 'All Done!') else 'var(--state-inactive-color)' }}; }"
-                  },
-                  "state_color": true
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Washing Machine"
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_select.washing_machine_run_status",
-                  "name": "Status"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.washing_machine_socket_power",
-                  "name": "Power"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.washing_machine_socket_energy_today",
-                  "name": "Energy Today"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.washing_machine_socket_energy_month",
-                  "name": "Energy This Month"
-                },
-                {
-                  "type": "tile",
-                  "entity": "counter.washing_machine_cycle_counter",
-                  "name": "Total Cycles"
-                },
-                {
-                  "type": "tile",
-                  "entity": "counter.washing_machine_weekly_cycles",
-                  "name": "Cycles This Week"
-                },
-                {
-                  "type": "custom:apexcharts-card",
-                  "graph_span": "24h",
-                  "header": {
-                    "show": true,
-                    "title": "Power - Last 24h",
-                    "show_states": true,
-                    "colorize_states": true
-                  },
-                  "series": [
-                    {
-                      "entity": "sensor.washing_machine_socket_power",
-                      "name": "Power",
-                      "color": "#2196F3",
-                      "stroke_width": 2,
-                      "fill_raw": "last"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Dishwasher"
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_select.dishwasher_run_status",
-                  "name": "Status"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.dishwasher_socket_power",
-                  "name": "Power"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.dishwasher_socket_energy_today",
-                  "name": "Energy Today"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.dishwasher_socket_energy_month",
-                  "name": "Energy This Month"
-                },
-                {
-                  "type": "tile",
-                  "entity": "counter.dishwasher_run_cycle_counter",
-                  "name": "Total Cycles"
-                },
-                {
-                  "type": "tile",
-                  "entity": "counter.dishwasher_weekly_cycles",
-                  "name": "Cycles This Week"
-                },
-                {
-                  "type": "custom:apexcharts-card",
-                  "graph_span": "24h",
-                  "header": {
-                    "show": true,
-                    "title": "Power - Last 24h",
-                    "show_states": true,
-                    "colorize_states": true
-                  },
-                  "series": [
-                    {
-                      "entity": "sensor.dishwasher_socket_power",
-                      "name": "Power",
-                      "color": "#4CAF50",
-                      "stroke_width": 2,
-                      "fill_raw": "last"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
-                  "type": "heading",
-                  "heading": "Tumble Dryer"
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_select.tumble_dryer_run_status",
-                  "name": "Status"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.tumble_dryer_socket_power",
-                  "name": "Power"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.tumble_dryer_socket_energy_today",
-                  "name": "Energy Today"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.tumble_dryer_socket_energy_month",
-                  "name": "Energy This Month"
-                },
-                {
-                  "type": "tile",
-                  "entity": "counter.tumble_dryer_cycle_counter",
-                  "name": "Total Cycles"
-                },
-                {
-                  "type": "tile",
-                  "entity": "counter.tumble_dryer_weekly_cycles",
-                  "name": "Cycles This Week"
-                },
-                {
-                  "type": "custom:apexcharts-card",
-                  "graph_span": "24h",
-                  "header": {
-                    "show": true,
-                    "title": "Power - Last 24h",
-                    "show_states": true,
-                    "colorize_states": true
-                  },
-                  "series": [
-                    {
-                      "entity": "sensor.tumble_dryer_socket_power",
-                      "name": "Power",
-                      "color": "#FF5722",
-                      "stroke_width": 2,
-                      "fill_raw": "last"
                     }
                   ]
                 }

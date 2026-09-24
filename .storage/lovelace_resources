@@ -138,6 +138,11 @@
         "id": "4237ba80f5e34a53a3897c57d6efb4a4",
         "url": "/hacsfiles/HA-Firemote/HA-Firemote.js?hacstag=536329656419",
         "type": "module"
+      },
+      {
+        "id": "bcc715988bde4cd4a2564dc9a01249d1",
+        "url": "/hacsfiles/wm_animated_ha_card/washing-machine-card.js?hacstag=1342630269130",
+        "type": "module"
       }
     ]
   }

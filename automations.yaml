@@ -3273,3 +3273,89 @@
           notification_icon: mdi:clock-alert
       action: notify.mobile_app_np3
   mode: single
+- id: '1790253677334'
+  alias: Appliances - Record Last Cycle
+  description: Records start time, duration, energy and cost of each washing machine
+    / dishwasher / tumble dryer cycle for the Appliances dashboard 'Last cycle' panel.
+    Keys off the run status set by the Notifications & Actions blueprints; energy
+    = end minus start tracking helper, cost = energy x input_number.electricity_rate
+    at cycle end (same formula as the finish notification).
+  triggers:
+  - trigger: state
+    entity_id: input_select.washing_machine_run_status
+    from: All Done!
+    to: Washing
+    id: start
+  - trigger: state
+    entity_id: input_select.dishwasher_run_status
+    from: All Done!
+    to: Scrubbing Away!
+    id: start
+  - trigger: state
+    entity_id: input_select.tumble_dryer_run_status
+    from: All Done!
+    to: Drying
+    id: start
+  - trigger: state
+    entity_id: input_select.washing_machine_run_status
+    from: Washing
+    to: All Done!
+    id: end
+  - trigger: state
+    entity_id: input_select.dishwasher_run_status
+    from: Scrubbing Away!
+    to: All Done!
+    id: end
+  - trigger: state
+    entity_id: input_select.tumble_dryer_run_status
+    from: Drying
+    to: All Done!
+    id: end
+  conditions: []
+  actions:
+  - variables:
+      app: '{{ trigger.entity_id.split(''.'')[1] | replace(''_run_status'', '''')
+        }}'
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: start
+      sequence:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.{{ app }}_last_cycle_start
+        data:
+          timestamp: '{{ now().timestamp() }}'
+    - conditions:
+      - condition: trigger
+        id: end
+      sequence:
+      - variables:
+          started: '{{ as_timestamp(states(''input_datetime.'' ~ app ~ ''_last_cycle_start''),
+            0) }}'
+          kwh: '{{ [ (states(''input_number.'' ~ app ~ ''_energy_tracking_end_number_helper'')
+            | float(0)) - (states(''input_number.'' ~ app ~ ''_energy_tracking_start_number_helper'')
+            | float(0)), 0 ] | max }}'
+      - if:
+        - condition: template
+          value_template: '{{ started > 0 and now().timestamp() > started }}'
+        then:
+        - action: input_number.set_value
+          target:
+            entity_id: input_number.{{ app }}_last_cycle_duration
+          data:
+            value: '{{ [((now().timestamp() - started) / 60) | round(0), 1440] | min
+              }}'
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.{{ app }}_last_cycle_energy
+        data:
+          value: '{{ [kwh | round(3), 20] | min }}'
+      - action: input_number.set_value
+        target:
+          entity_id: input_number.{{ app }}_last_cycle_cost
+        data:
+          value: '{{ [(kwh * (states(''input_number.electricity_rate'') | float(0)))
+            | round(2), 20] | min }}'
+  mode: queued
+  max: 10
