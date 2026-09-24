@@ -400,13 +400,11 @@
                   }
                 },
                 {
-                  "type": "custom:clock-weather-card",
+                  "type": "custom:sun-weather-card",
                   "entity": "weather.forecast_home",
-                  "weather_icon_type": "line",
-                  "animated_icon": true,
-                  "forecast_rows": 5,
-                  "locale": "en-GB",
-                  "time_format": 24
+                  "sun_entity": "sun.sun",
+                  "forecast_days": 5,
+                  "forecast_layout": "graph"
                 }
               ]
             },
@@ -802,15 +800,6 @@
               "type": "grid",
               "cards": [
                 {
-                  "type": "custom:heating-activity-card",
-                  "title": "Recent activity"
-                }
-              ]
-            },
-            {
-              "type": "grid",
-              "cards": [
-                {
                   "type": "custom:apexcharts-card",
                   "graph_span": "24h",
                   "header": {
@@ -823,7 +812,7 @@
                     {
                       "entity": "sensor.home_temperature",
                       "name": "Current",
-                      "color": "#FF5722",
+                      "color": "#E53935",
                       "stroke_width": 2,
                       "fill_raw": "last",
                       "yaxis_id": "temp",
@@ -848,11 +837,11 @@
                       "entity": "climate.netatmo_smart_thermostat",
                       "attribute": "hvac_action",
                       "name": "Heating",
-                      "color": "#FF9800",
+                      "color": "#FFB300",
                       "type": "area",
                       "curve": "stepline",
-                      "stroke_width": 0,
-                      "opacity": 0.12,
+                      "stroke_width": 2,
+                      "opacity": 0.55,
                       "yaxis_id": "heat",
                       "transform": "return x === 'heating' ? 1 : 0;",
                       "show": {
@@ -873,6 +862,15 @@
                       "max": 1
                     }
                   ]
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "custom:heating-activity-card",
+                  "title": "Recent activity"
                 }
               ]
             },
@@ -969,9 +967,11 @@
                   }
                 },
                 {
-                  "type": "weather-forecast",
+                  "type": "custom:sun-weather-card",
                   "entity": "weather.forecast_home",
-                  "forecast_type": "daily"
+                  "sun_entity": "sun.sun",
+                  "forecast_days": 5,
+                  "forecast_layout": "graph"
                 }
               ]
             },
@@ -1284,6 +1284,21 @@
               "type": "grid",
               "cards": [
                 {
+                  "type": "custom:helios-card",
+                  "cache-id": "cmt18g0de31o9hg",
+                  "battery-chip-mode": "soc",
+                  "sun-chip-mode": "irradiance",
+                  "irradiance-unit": "kW/m²",
+                  "battery-sign": "default",
+                  "auto-rotate-enabled": false,
+                  "power-unit": "W"
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
                   "type": "custom:mod-card",
                   "card": {
                     "type": "energy-distribution"
@@ -1316,6 +1331,17 @@
                     "yellow": 20,
                     "red": 0
                   }
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.myenergi_eddi_23323250_status",
+                  "name": "Eddi Status",
+                  "icon": "mdi:shower"
+                },
+                {
+                  "type": "tile",
+                  "entity": "sensor.myenergi_eddi_23323250_power_ct_internal_load",
+                  "name": "Eddi Power"
                 }
               ]
             },
@@ -1393,6 +1419,66 @@
                 },
                 {
                   "type": "energy-usage-graph"
+                },
+                {
+                  "type": "heading",
+                  "heading": "House Load vs Solar vs Grid",
+                  "heading_style": "title"
+                },
+                {
+                  "type": "custom:energy-custom-graph-card",
+                  "series": [
+                    {
+                      "statistic_id": "sensor.aion_ems_zeus_house_power",
+                      "name": "House Load",
+                      "stat_type": "mean",
+                      "chart_type": "line",
+                      "color": "#ff9800",
+                      "fill": true
+                    },
+                    {
+                      "statistic_id": "sensor.solis_pv_total_power",
+                      "name": "Solar",
+                      "stat_type": "mean",
+                      "chart_type": "line",
+                      "color": "#ffd600"
+                    },
+                    {
+                      "statistic_id": "sensor.grid_import_power",
+                      "name": "Grid Import",
+                      "stat_type": "mean",
+                      "chart_type": "line",
+                      "color": "#f44336"
+                    },
+                    {
+                      "statistic_id": "sensor.solis_battery_soc",
+                      "name": "Battery SOC",
+                      "stat_type": "mean",
+                      "chart_type": "line",
+                      "color": "#4caf50",
+                      "y_axis": "right"
+                    }
+                  ],
+                  "timespan": {
+                    "mode": "relative",
+                    "period": "hour",
+                    "count": 24
+                  }
+                }
+              ]
+            },
+            {
+              "type": "grid",
+              "cards": [
+                {
+                  "type": "heading",
+                  "heading": "SolarCost",
+                  "heading_style": "title"
+                },
+                {
+                  "type": "custom:solarcost-card",
+                  "entity": "sensor.solarcost_this_month_estimated_bill",
+                  "title": "Estimated Bill (This Month)"
                 }
               ]
             }
@@ -1418,7 +1504,7 @@
             },
             {
               "type": "entity",
-              "entity": "sensor.battery_flow_now",
+              "entity": "sensor.battery_flow_display",
               "name": "Battery",
               "show_name": true
             },
@@ -1721,16 +1807,6 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "input_select.washing_machine_run_status",
-                  "name": "Status"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.washing_machine_socket_power",
-                  "name": "Power"
-                },
-                {
-                  "type": "tile",
                   "entity": "sensor.washing_machine_socket_energy_today",
                   "name": "Energy Today"
                 },
@@ -1775,16 +1851,6 @@
                   "duration_entity": "input_number.dishwasher_last_cycle_duration",
                   "energy_entity": "input_number.dishwasher_last_cycle_energy",
                   "cost_entity": "input_number.dishwasher_last_cycle_cost"
-                },
-                {
-                  "type": "tile",
-                  "entity": "input_select.dishwasher_run_status",
-                  "name": "Status"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.dishwasher_socket_power",
-                  "name": "Power"
                 },
                 {
                   "type": "tile",
@@ -1835,16 +1901,6 @@
                 },
                 {
                   "type": "tile",
-                  "entity": "input_select.tumble_dryer_run_status",
-                  "name": "Status"
-                },
-                {
-                  "type": "tile",
-                  "entity": "sensor.tumble_dryer_socket_power",
-                  "name": "Power"
-                },
-                {
-                  "type": "tile",
                   "entity": "sensor.tumble_dryer_socket_energy_today",
                   "name": "Energy Today"
                 },
@@ -1867,7 +1923,7 @@
             },
             {
               "type": "grid",
-              "column_span": 2,
+              "column_span": 3,
               "cards": [
                 {
                   "type": "heading",
@@ -1919,14 +1975,17 @@
                       "name": "Tumble Dryer",
                       "color": "#FF5722"
                     }
-                  ]
+                  ],
+                  "grid_options": {
+                    "columns": 12
+                  }
                 },
                 {
                   "type": "custom:apexcharts-card",
-                  "graph_span": "7d",
+                  "graph_span": "14d",
                   "header": {
                     "show": true,
-                    "title": "Energy — Last 7 Days (kWh)",
+                    "title": "Energy — Last 14 Days (kWh)",
                     "show_states": false,
                     "colorize_states": false
                   },
@@ -1936,23 +1995,26 @@
                       "name": "Washing Machine",
                       "color": "#2196F3",
                       "type": "column",
-                      "data_generator": "const s=await hass.callWS({type:'recorder/statistics_during_period',start_time:new Date(Date.now()-7*864e5).toISOString(),statistic_ids:[entity.entity_id],period:'day'});const d=(s[entity.entity_id]||[]);return d.map(x=>[x.start>1e10?x.start:x.start*1000,Math.max(0,x.change||0)]);"
+                      "data_generator": "const s=await hass.callWS({type:'recorder/statistics_during_period',start_time:new Date(Date.now()-14*864e5).toISOString(),statistic_ids:[entity.entity_id],period:'day'});const d=(s[entity.entity_id]||[]);return d.map(x=>[x.start>1e10?x.start:x.start*1000,Math.max(0,x.change||0)]);"
                     },
                     {
                       "entity": "sensor.dishwasher_socket_energy",
                       "name": "Dishwasher",
                       "color": "#4CAF50",
                       "type": "column",
-                      "data_generator": "const s=await hass.callWS({type:'recorder/statistics_during_period',start_time:new Date(Date.now()-7*864e5).toISOString(),statistic_ids:[entity.entity_id],period:'day'});const d=(s[entity.entity_id]||[]);return d.map(x=>[x.start>1e10?x.start:x.start*1000,Math.max(0,x.change||0)]);"
+                      "data_generator": "const s=await hass.callWS({type:'recorder/statistics_during_period',start_time:new Date(Date.now()-14*864e5).toISOString(),statistic_ids:[entity.entity_id],period:'day'});const d=(s[entity.entity_id]||[]);return d.map(x=>[x.start>1e10?x.start:x.start*1000,Math.max(0,x.change||0)]);"
                     },
                     {
                       "entity": "sensor.tumble_dryer_socket_energy",
                       "name": "Tumble Dryer",
                       "color": "#FF5722",
                       "type": "column",
-                      "data_generator": "const s=await hass.callWS({type:'recorder/statistics_during_period',start_time:new Date(Date.now()-7*864e5).toISOString(),statistic_ids:[entity.entity_id],period:'day'});const d=(s[entity.entity_id]||[]);return d.map(x=>[x.start>1e10?x.start:x.start*1000,Math.max(0,x.change||0)]);"
+                      "data_generator": "const s=await hass.callWS({type:'recorder/statistics_during_period',start_time:new Date(Date.now()-14*864e5).toISOString(),statistic_ids:[entity.entity_id],period:'day'});const d=(s[entity.entity_id]||[]);return d.map(x=>[x.start>1e10?x.start:x.start*1000,Math.max(0,x.change||0)]);"
                     }
-                  ]
+                  ],
+                  "grid_options": {
+                    "columns": 24
+                  }
                 }
               ]
             }
@@ -3772,10 +3834,7 @@
             }
           ]
         }
-      ],
-      "kiosk_mode": {
-        "hide_sidebar": false
-      }
+      ]
     }
   }
 }
