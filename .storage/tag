@@ -5,7 +5,9 @@
   "data": {
     "items": [
       {
-        "id": "fbee8eb4-c45a-44f1-aad4-9f5655f43f1a"
+        "id": "fbee8eb4-c45a-44f1-aad4-9f5655f43f1a",
+        "last_scanned": "2026-08-15T15:01:28.119810+00:00",
+        "device_id": "002753768c371c4f05a272c7e1e0f93c"
       },
       {
         "id": "f195ee10-14a9-4b65-bd10-c53c9866bcdf",
@@ -19,8 +21,8 @@
       },
       {
         "id": "da5e7dc7-7c28-4b7b-b79a-ec5a8f6959c6",
-        "last_scanned": "2026-08-13T09:13:55.358709+00:00",
-        "device_id": "002753768c371c4f05a272c7e1e0f93c"
+        "last_scanned": "2026-09-06T15:23:14.743610+00:00",
+        "device_id": "608a38b4b22a758514a74999ee616eb9"
       },
       {
         "id": "f958aada-03e8-4db5-9ccf-7c8f539ccf76",
@@ -29,7 +31,7 @@
       },
       {
         "id": "b9ac1256-89ad-4514-b7d4-3e65ebd1c948",
-        "last_scanned": "2026-08-11T19:09:28.288267+00:00",
+        "last_scanned": "2026-09-20T10:20:58.964476+00:00",
         "device_id": "002753768c371c4f05a272c7e1e0f93c"
       },
       {

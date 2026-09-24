@@ -10,6 +10,7 @@
                     "address": "Address",
                     "port": "Port",
                     "rtsp_port": "RTSP Port",
+                    "use_https": "Use HTTPS (otherwise HTTPS is used only on port 443)",
                     "streams": "RTSP Streams",
                     "events": "Events",
                     "channel": "Channel (single cameras are 0, NVRs are the 0 based index)"
@@ -28,6 +29,17 @@
                     "username": "Username",
                     "password": "Password"
                 }
+            },
+            "reconfigure": {
+                "title": "Dahua Camera Connection",
+                "description": "Update how Home Assistant reaches this device. Credentials are unchanged; use re-authentication for those.",
+                "data": {
+                    "address": "Address",
+                    "port": "Port",
+                    "rtsp_port": "RTSP Port",
+                    "channel": "Channel (single cameras are 0, NVRs are the 0 based index)",
+                    "use_https": "Use HTTPS (otherwise HTTPS is used only on port 443)"
+                }
             }
         },
         "error": {
@@ -36,7 +48,8 @@
         "abort": {
             "single_instance_allowed": "Only a single instance is allowed.",
             "already_configured": "Only a single instance of a device is allowed.",
-            "reauth_successful": "Re-authentication was successful."
+            "reauth_successful": "Re-authentication was successful.",
+            "reconfigure_successful": "Connection settings updated"
         }
     },
     "options": {
@@ -48,7 +61,35 @@
                     "switch": "Switch enabled",
                     "light": "Light enabled",
                     "select": "Select enabled",
-                    "camera": "Camera enabled"
+                    "camera": "Camera enabled",
+                    "button": "Button enabled",
+                    "auto_detect_channel": "Auto-detect channel index (disable if HTTP snapshot at channel=0 works but RTSP only streams on channel=1)",
+                    "use_rpc2": "Read configuration over one RPC2 session per device (fewer logins in the device's log; leave off if unsure)",
+                    "events": "Events to subscribe to",
+                    "scan_interval": "Seconds between device polls (events are not affected)",
+                    "nvr_active_deterrence": "Enable NVR active deterrence controls",
+                    "authorized_plates": "Authorized license plates (comma-separated, e.g. ABC1234, XYZ5678)",
+                    "authorized_hold_time": "Authorized vehicle hold time (seconds to remain ON)"
+                }
+            }
+        }
+    },
+    "issues": {
+        "device_unreachable": {
+            "title": "Dahua device at {address} is not responding",
+            "description": "Home Assistant has not been able to reach the Dahua device at {address} for about {minutes} minutes. {entries} configuration entries use this device.\n\nCheck that it is powered on and reachable on your network. The debugging section of the documentation explains how to capture logs.\n\nThis message disappears on its own as soon as the device answers again."
+        },
+        "http_dead_https_available": {
+            "title": "Dahua device at {address} answers on HTTPS but not on port {port}",
+            "fix_flow": {
+                "step": {
+                    "confirm": {
+                        "title": "Switch {address} to HTTPS",
+                        "description": "The Dahua device at {address} has stopped answering on port {port}, but it accepts connections on port 443. Some Dahua firmwares stop serving plain HTTP while HTTPS keeps working.\n\nThis changes the {entries} Dahua configuration entries for {address} to port 443 with HTTPS, reloading them one at a time.\n\nYour username and password are not changed."
+                    }
+                },
+                "abort": {
+                    "not_configured": "No Dahua configuration entries use {address} any more."
                 }
             }
         }

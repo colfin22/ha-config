@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Dawarich",
-        "description": "Please enter your Dawarich credentials",
+        "description": "Please enter your Dawarich connection details.",
         "data": {
           "host": "Host",
           "port": "Port",
@@ -14,16 +14,42 @@
         }
       },
       "api_key": {
-        "title": "Dawarich",
-        "description": "Please enter your Dawarich credentials",
+        "title": "Dawarich API Key",
+        "description": "Please enter your Dawarich API key.",
         "data": {
           "api_key": "API Key"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Dawarich",
+        "description": "Your Dawarich API key for {host} is invalid. Please enter a new API key.",
+        "data": {
+          "api_key": "API Key"
+        }
+      },
+      "reconfigure_confirm": {
+        "title": "Reconfigure Dawarich",
+        "description": "Update your Dawarich connection settings. Leave API key empty to keep the current key.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "name": "Name",
+          "mobile_app": "Device Tracker",
+          "ssl": "Use SSL (i.e. https)",
+          "verify_ssl": "Verify SSL",
+          "api_key": "API Key (leave empty to keep current)"
         }
       }
     },
     "error": {
       "connection_error": "Connection error, could not reach the Dawarich API.",
       "invalid_api_key": "Invalid API key."
+    },
+    "abort": {
+      "already_configured": "This Dawarich instance is already configured.",
+      "reconfigure_failed": "Failed to reconfigure the integration.",
+      "reconfigure_successful": "Dawarich configuration updated successfully.",
+      "reauth_successful": "Re-authentication successful. The API key has been updated."
     }
   },
   "entity": {
@@ -58,6 +84,16 @@
       "version": {
         "name": "Version"
       }
+    }
+  },
+  "issues": {
+    "device_tracker_unavailable": {
+      "title": "Device tracker unavailable",
+      "description": "The device tracker `{device_tracker}` configured for {device_name} is not available. This may be because the entity has been removed or the integration providing it is not loaded. Please check the entity or reconfigure the Dawarich integration to use a different device tracker."
+    },
+    "api_unavailable": {
+      "title": "Dawarich API unavailable",
+      "description": "The Dawarich API at `{url}` is not reachable. The server returned status code {status_code} with error: {error}. Please make sure that your Dawarich server is running and is accessible."
     }
   }
 }

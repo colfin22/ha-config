@@ -1,0 +1,475 @@
+"""Sensor entities, the integration's first-class automation surface.
+
+Thin readers over the coordinator's summary: power now / next hour, per-day peak
+power + peak time and daily energy over the 7-day horizon, plus today-remaining
+and this/next hour. The forecast values come from summary.py; the weather, reliability,
+trend and battery sensors read their own ForecastData fields.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional, Union
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import (
+    PERCENTAGE,
+    UnitOfEnergy,
+    UnitOfIrradiance,
+    UnitOfLength,
+    UnitOfPower,
+    UnitOfSpeed,
+    UnitOfTemperature,
+)
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from .config import battery_from_config
+from .const import DOMAIN
+from .coordinator import ForecastData, HeliosForecastCoordinator
+from .forecast import forecast_point_dict
+from .statistics import WEATHER_FIELDS
+from .summary import ForecastSummary
+
+_LOGGER = logging.getLogger(__name__)
+
+_HORIZON_DAYS = 7
+_ValueType = Optional[Union[float, datetime]]
+
+
+@dataclass(frozen=True, kw_only=True)
+class HeliosSensorDescription(SensorEntityDescription):
+    """A sensor description that knows how to read its value from the summary."""
+
+    value_fn: Callable[[ForecastSummary], _ValueType]
+    # Optional extra attributes derived from the full forecast (e.g. the dense
+    # curve for charting), kept off the recorder via _unrecorded_attributes.
+    attrs_fn: Optional[Callable[[ForecastData], dict]] = None
+
+
+def _forecast_attrs(data: ForecastData) -> dict:
+    """The dense forecast curve as a chart-friendly attribute: watts per bucket, plus the
+    P10/P90 analog band (null on a bucket until the analog support is solid enough for one)."""
+    return {"forecast": [forecast_point_dict(p) for p in data.points]}
+
+
+def _power(
+    key: str,
+    name: str,
+    value_fn: Callable[[ForecastSummary], _ValueType],
+    attrs_fn: Optional[Callable[[ForecastData], dict]] = None,
+    enabled_default: bool = True,
+) -> HeliosSensorDescription:
+    return HeliosSensorDescription(
+        key=key,
+        name=name,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfPower.WATT,
+        suggested_display_precision=0,
+        entity_registry_enabled_default=enabled_default,
+        value_fn=value_fn,
+        attrs_fn=attrs_fn,
+    )
+
+
+def _energy(
+    key: str,
+    name: str,
+    value_fn: Callable[[ForecastSummary], _ValueType],
+    enabled_default: bool = True,
+) -> HeliosSensorDescription:
+    # No state_class: these are forecast values, not a metered total. The ENERGY device
+    # class forbids `measurement` (HA rejects energy + measurement), and `total` /
+    # `total_increasing` would wrongly imply an accumulating meter. The long-term
+    # statistics the card reads are written directly by the coordinator, not derived
+    # from these sensors' state_class.
+    return HeliosSensorDescription(
+        key=key,
+        name=name,
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=2,
+        entity_registry_enabled_default=enabled_default,
+        value_fn=value_fn,
+    )
+
+
+def _timestamp(
+    key: str,
+    name: str,
+    value_fn: Callable[[ForecastSummary], _ValueType],
+    enabled_default: bool = True,
+) -> HeliosSensorDescription:
+    return HeliosSensorDescription(
+        key=key,
+        name=name,
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_registry_enabled_default=enabled_default,
+        value_fn=value_fn,
+    )
+
+
+def _build_descriptions() -> list[HeliosSensorDescription]:
+    # Keep the recorder lean by default: only the everyday headline values are enabled, the rest
+    # are registered but disabled so the user opts into the ones they actually automate on.
+    # Enabling a disabled entity later never loses history.
+    descriptions: list[HeliosSensorDescription] = [
+        _power("power_now", "Power now", lambda s: s.power_now_w, attrs_fn=_forecast_attrs),
+        # Analog uncertainty band on the current power: P10 (low) and P90 (high). None until the
+        # analog support is solid enough to surface a band. Off by default.
+        _power("power_now_low", "Power now (low)", lambda s: s.power_now_low_w, enabled_default=False),
+        _power("power_now_high", "Power now (high)", lambda s: s.power_now_high_w, enabled_default=False),
+        _power("power_next_hour", "Power next hour", lambda s: s.power_next_hour_w, enabled_default=False),
+        _energy("energy_today_remaining", "Energy today remaining", lambda s: s.energy_today_remaining_kwh),
+        _energy("energy_this_hour", "Energy this hour", lambda s: s.energy_this_hour_kwh, enabled_default=False),
+        _energy("energy_next_hour", "Energy next hour", lambda s: s.energy_next_hour_kwh, enabled_default=False),
+    ]
+    for n in range(1, _HORIZON_DAYS + 1):
+        i = n - 1
+        # Today (day 1) and tomorrow (day 2) energy stay on by default; the rest of the 7-day horizon
+        # and every peak power / peak time are opt-in. `i=i` binds the loop index into each lambda.
+        day_energy_on = n <= 2
+        descriptions.append(
+            _energy(
+                f"energy_day_{n}",
+                f"Energy day {n}",
+                lambda s, i=i: s.days[i].energy_kwh,  # type: ignore[misc]
+                enabled_default=day_energy_on,
+            )
+        )
+        descriptions.append(
+            _power(
+                f"peak_power_day_{n}",
+                f"Peak power day {n}",
+                lambda s, i=i: s.days[i].peak_power_w,  # type: ignore[misc]
+                enabled_default=False,
+            )
+        )
+        descriptions.append(
+            _timestamp(
+                f"peak_time_day_{n}",
+                f"Peak time day {n}",
+                lambda s, i=i: s.days[i].peak_time,  # type: ignore[misc]
+                enabled_default=False,
+            )
+        )
+    return descriptions
+
+
+# Display metadata for the archived weather sensors, keyed by WEATHER_FIELDS key.
+# (device_class, unit, name, suggested_display_precision). The unit must equal
+# the field's WEATHER_FIELDS.unit string so the entity and its statistics agree.
+_WEATHER_META: dict[str, tuple[Optional[SensorDeviceClass], str, str, int]] = {
+    "cloud_cover": (None, PERCENTAGE, "Cloud cover", 0),
+    "ghi": (SensorDeviceClass.IRRADIANCE, UnitOfIrradiance.WATTS_PER_SQUARE_METER, "Global irradiance", 0),
+    "direct": (SensorDeviceClass.IRRADIANCE, UnitOfIrradiance.WATTS_PER_SQUARE_METER, "Direct irradiance", 0),
+    "diffuse": (SensorDeviceClass.IRRADIANCE, UnitOfIrradiance.WATTS_PER_SQUARE_METER, "Diffuse irradiance", 0),
+    "temperature": (SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, "Temperature", 1),
+    "wind_speed": (SensorDeviceClass.WIND_SPEED, UnitOfSpeed.KILOMETERS_PER_HOUR, "Wind speed", 1),
+    "snow_depth": (SensorDeviceClass.DISTANCE, UnitOfLength.METERS, "Snow depth", 2),
+}
+
+
+def _build_weather_descriptions() -> list[SensorEntityDescription]:
+    """One sensor per archived Open-Meteo weather variable, showing the current hour.
+
+    No state class, deliberately: the hourly history of these variables is archived by the
+    coordinator into this integration's own statistics, over a window Open-Meteo alone could not
+    serve, and a series written from here must never be one the recorder also compiles (see
+    statistics.external_statistic_id).
+    """
+    descriptions: list[SensorEntityDescription] = []
+    for field in WEATHER_FIELDS:
+        meta = _WEATHER_META.get(field.key)
+        if meta is None:
+            # A WEATHER_FIELDS entry with no display metadata: skip just this sensor rather than
+            # aborting the whole platform (every other entity, weather or not, still sets up).
+            _LOGGER.error("No display metadata for weather field '%s', skipping its sensor", field.key)
+            continue
+        device_class, unit, name, precision = meta
+        descriptions.append(
+            SensorEntityDescription(
+                key=field.key,
+                name=name,
+                device_class=device_class,
+                native_unit_of_measurement=unit,
+                suggested_display_precision=precision,
+            )
+        )
+    return descriptions
+
+
+def _device_info(entry: ConfigEntry) -> DeviceInfo:
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name=entry.title,
+        manufacturer="Helios",
+        model="Forecast",
+    )
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the sensor entities for a config entry."""
+    coordinator: HeliosForecastCoordinator = hass.data[DOMAIN][entry.entry_id]
+    entities: list[SensorEntity] = [
+        HeliosForecastSensor(coordinator, entry, description) for description in _build_descriptions()
+    ]
+    entities += [HeliosWeatherSensor(coordinator, entry, description) for description in _build_weather_descriptions()]
+    entities.append(HeliosReliabilitySensor(coordinator, entry))
+    entities.append(HeliosTodayTrendSensor(coordinator, entry))
+    # The predicted-SoC sensor only exists when the battery feature is configured, so installs without a
+    # battery don't carry a perpetually-unknown entity. An options change reloads the entry and rebuilds this.
+    if battery_from_config({**entry.data, **entry.options}) is not None:
+        entities.append(HeliosBatterySocSensor(coordinator, entry))
+        entities.extend(HeliosBatteryExtremeSensor(coordinator, entry, kind) for kind in _BATTERY_EXTREMES)
+    async_add_entities(entities)
+
+
+class HeliosForecastSensor(CoordinatorEntity[HeliosForecastCoordinator], SensorEntity):
+    """A single forecast value, read from the coordinator's summary."""
+
+    entity_description: HeliosSensorDescription
+    _attr_has_entity_name = True
+    _unrecorded_attributes = frozenset({"forecast"})
+
+    def __init__(
+        self,
+        coordinator: HeliosForecastCoordinator,
+        entry: ConfigEntry,
+        description: HeliosSensorDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_device_info = _device_info(entry)
+
+    @property
+    def native_value(self) -> _ValueType:
+        if self.coordinator.data is None:
+            return None
+        return self.entity_description.value_fn(self.coordinator.data.summary)
+
+    @property
+    def extra_state_attributes(self) -> Optional[dict]:
+        if self.entity_description.attrs_fn is None or self.coordinator.data is None:
+            return None
+        return self.entity_description.attrs_fn(self.coordinator.data)
+
+
+class HeliosWeatherSensor(CoordinatorEntity[HeliosForecastCoordinator], SensorEntity):
+    """An archived Open-Meteo weather value, read from the current-hour snapshot.
+
+    These entities carry no state class and no long-term history of their own. The past weather is
+    kept as statistics the integration owns, under ids of its own rather than under an entity id
+    (archive.py), which is what keeps it beyond Open-Meteo's rolling 60-day window without the
+    recorder compiling the same series from its side. Each also carries a `forecast` attribute (the
+    forward-looking hourly series) for charting, mirroring the power sensor.
+    """
+
+    _attr_has_entity_name = True
+    _unrecorded_attributes = frozenset({"forecast"})
+
+    def __init__(
+        self,
+        coordinator: HeliosForecastCoordinator,
+        entry: ConfigEntry,
+        description: SensorEntityDescription,
+    ) -> None:
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_device_info = _device_info(entry)
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.observed.get(self.entity_description.key)
+
+    @property
+    def extra_state_attributes(self) -> Optional[dict]:
+        if self.coordinator.data is None:
+            return None
+        series = self.coordinator.data.weather_forecast.get(self.entity_description.key)
+        return {"forecast": series} if series else None
+
+
+class HeliosReliabilitySensor(CoordinatorEntity[HeliosForecastCoordinator], SensorEntity):
+    """Forecast reliability index (0..100), blending learning maturity, recent
+    predicted-vs-actual skill and today's cloud predictability. The components and
+    a per-horizon-day breakdown ride along as attributes."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Forecast reliability"
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
+    _attr_icon = "mdi:shield-check"
+    # The per-day list is a chart-style attribute, kept off the recorder.
+    _unrecorded_attributes = frozenset({"per_day"})
+
+    def __init__(self, coordinator: HeliosForecastCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_reliability"
+        self._attr_device_info = _device_info(entry)
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.reliability.overall
+
+    @property
+    def extra_state_attributes(self) -> Optional[dict]:
+        if self.coordinator.data is None:
+            return None
+        r = self.coordinator.data.reliability
+        return {
+            "data_maturity": r.data_maturity,
+            "recent_skill": r.recent_skill,
+            "today_predictability": r.today_predictability,
+            "days_learned": r.days_learned,
+            "per_day": r.per_day,
+        }
+
+
+class HeliosBatterySocSensor(CoordinatorEntity[HeliosForecastCoordinator], SensorEntity):
+    """Predicted battery state of charge. The state is the near-term projection; the full 48-hour SoC
+    curve rides along as the `forecast` attribute, with the low/high across that whole projection
+    window and the forecast reliability so an automation can weigh how much to trust it. Charge
+    decisions stay with the user."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Predicted battery state of charge"
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
+    _unrecorded_attributes = frozenset({"forecast"})
+
+    def __init__(self, coordinator: HeliosForecastCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_predicted_battery_soc"
+        self._attr_device_info = _device_info(entry)
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data is None or not self.coordinator.data.battery_soc:
+            return None
+        return self.coordinator.data.battery_soc[0].soc
+
+    @property
+    def extra_state_attributes(self) -> Optional[dict]:
+        if self.coordinator.data is None or not self.coordinator.data.battery_soc:
+            return None
+        soc = self.coordinator.data.battery_soc
+        low = min(soc, key=lambda p: p.soc)
+        high = max(soc, key=lambda p: p.soc)
+        return {
+            "forecast": [{"datetime": p.t.isoformat(), "soc": p.soc} for p in soc],
+            "min_soc": low.soc,
+            "min_soc_time": low.t.isoformat(),
+            "max_soc": high.soc,
+            "max_soc_time": high.t.isoformat(),
+            "reliability": self.coordinator.data.reliability.overall,
+            # Share of the learn window each Energy-dashboard source covered (see consumption.py): a source
+            # far below the others is why a projection can run too optimistic.
+            "consumption_coverage": {
+                sid: round(share, 3) for sid, share in sorted(self.coordinator.consumption_coverage.items())
+            },
+        }
+
+
+# The projection's low and high points as entities of their own (a tile can show them, an automation can
+# trigger on them), off by default like the day peaks. Same values the SoC sensor carries as attributes.
+# key -> (name, device_class, unit, which extreme, value or time)
+_BATTERY_EXTREMES: dict[str, tuple[str, SensorDeviceClass, Optional[str], str, str]] = {
+    "battery_min_soc": ("Battery minimum state of charge", SensorDeviceClass.BATTERY, PERCENTAGE, "min", "soc"),
+    "battery_min_soc_time": ("Battery minimum state of charge time", SensorDeviceClass.TIMESTAMP, None, "min", "time"),
+    "battery_max_soc": ("Battery maximum state of charge", SensorDeviceClass.BATTERY, PERCENTAGE, "max", "soc"),
+    "battery_max_soc_time": ("Battery maximum state of charge time", SensorDeviceClass.TIMESTAMP, None, "max", "time"),
+}
+
+
+class HeliosBatteryExtremeSensor(CoordinatorEntity[HeliosForecastCoordinator], SensorEntity):
+    """One of the four extremes of the battery SoC projection: the lowest or highest projected level,
+    or the instant it is reached. Unknown while there is no projection."""
+
+    _attr_has_entity_name = True
+    _attr_suggested_display_precision = 0
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator: HeliosForecastCoordinator, entry: ConfigEntry, kind: str) -> None:
+        super().__init__(coordinator)
+        name, device_class, unit, extreme, field = _BATTERY_EXTREMES[kind]
+        self._extreme = extreme
+        self._field = field
+        self._attr_name = name
+        self._attr_device_class = device_class
+        self._attr_native_unit_of_measurement = unit
+        if field == "soc":
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_unique_id = f"{entry.entry_id}_{kind}"
+        self._attr_device_info = _device_info(entry)
+
+    @property
+    def native_value(self) -> Optional[float | datetime]:
+        if self.coordinator.data is None or not self.coordinator.data.battery_soc:
+            return None
+        soc = self.coordinator.data.battery_soc
+        point = min(soc, key=lambda p: p.soc) if self._extreme == "min" else max(soc, key=lambda p: p.soc)
+        return point.soc if self._field == "soc" else point.t
+
+
+class HeliosTodayTrendSensor(CoordinatorEntity[HeliosForecastCoordinator], SensorEntity):
+    """How much today's predicted total has moved since its frozen daily reference
+    (default the 06:00 snapshot). Signed kWh: positive when the day now looks better
+    than at the reference, negative when worse. Unknown before the reference is set."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Today forecast trend"
+    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 2
+    _attr_icon = "mdi:trending-up"
+    # A nuance most users don't automate on; registered but off by default to keep the recorder lean.
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(self, coordinator: HeliosForecastCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_today_trend"
+        self._attr_device_info = _device_info(entry)
+
+    @property
+    def native_value(self) -> Optional[float]:
+        if self.coordinator.data is None:
+            return None
+        return self.coordinator.data.trend.delta_kwh
+
+    @property
+    def extra_state_attributes(self) -> Optional[dict]:
+        if self.coordinator.data is None:
+            return None
+        t = self.coordinator.data.trend
+        return {
+            "reference_kwh": t.reference_kwh,
+            "reference_time": t.reference_time.isoformat() if t.reference_time else None,
+            "current_kwh": round(t.current_kwh, 2),
+            "direction": t.direction,
+        }

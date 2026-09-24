@@ -114,10 +114,10 @@ async def _read_serialnr(hub: Any, address: int = 10000, count: int = 8, swapbyt
                 res = str(ba, "ascii")  # convert back to string
             hub._seriesnumber = res
     except Exception:
-        _LOGGER.warning(f"{hub.name}: attempt to read serialnumber failed at 0x{address:x}", exc_info=True)
+        _LOGGER.warning("%s: attempt to read serialnumber failed at 0x%x", hub.name, address, exc_info=True)
     if not res:
-        _LOGGER.warning(f"{hub.name}: reading serial number from address 0x{address:x} failed; other address may succeed")
-    _LOGGER.info(f"Read {hub.name} 0x{address:x} serial number: {res}, swapped: {swapbytes}")
+        _LOGGER.warning("%s: reading serial number from address 0x%x failed; other address may succeed", hub.name, address)
+    _LOGGER.info("Read %s 0x%x serial number: %s, swapped: %s", hub.name, address, res, swapbytes)
     return res
 
 
@@ -129,8 +129,8 @@ async def _read_model(hub: Any, address: int = 10008) -> int | None:
             res = convert_from_registers(inverter_data.registers[0:1], DataType.UINT16, "big")  # type: ignore[attr-defined]  # DataType enum dynamic
             hub._invertertype = res
     except Exception:
-        _LOGGER.warning(f"{hub.name}: attempt to read model failed at 0x{address:x}", exc_info=True)
-    _LOGGER.info(f"Read {hub.name} 0x{address:x} model: {res}")
+        _LOGGER.warning("%s: attempt to read model failed at 0x%x", hub.name, address, exc_info=True)
+    _LOGGER.info("Read %s 0x%x model: %s", hub.name, address, res)
     return res
 
 
@@ -580,11 +580,121 @@ NUMBER_TYPES = [
         allowedtypes=HYBRID,
         icon="mdi:import",
     ),
+    # Additional settings available on recent Solinteg firmware versions. These
+    # registers are not included in the current public Modbus register table.
+    SolintegModbusNumberEntityDescription(
+        name="Peak Shaving Max Grid Import Power",
+        key="peak_shaving_max_grid_import_power",
+        register=50016,
+        fmt="i",
+        native_min_value=0,
+        native_max_value=200,
+        native_step=0.1,
+        register_data_type=REGISTER_U16,
+        mode=NumberMode.BOX,
+        scale=0.1,
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=NumberDeviceClass.POWER,
+        entity_category=EntityCategory.CONFIG,
+        allowedtypes=HYBRID,
+        icon="mdi:transmission-tower-import",
+    ),
+    SolintegModbusNumberEntityDescription(
+        name="Peak Shaving Minimum SOC",
+        key="peak_shaving_minimum_soc",
+        register=50017,
+        fmt="i",
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        register_data_type=REGISTER_U16,
+        mode=NumberMode.BOX,
+        scale=0.1,
+        native_unit_of_measurement=PERCENTAGE,
+        entity_category=EntityCategory.CONFIG,
+        allowedtypes=HYBRID,
+        icon="mdi:battery-charging-low",
+    ),
+    SolintegModbusNumberEntityDescription(
+        name="Peak Shaving Battery Max Grid Charge",
+        key="peak_shaving_battery_max_grid_charge",
+        register=50018,
+        fmt="i",
+        native_min_value=0,
+        native_max_value=200,
+        native_step=0.1,
+        register_data_type=REGISTER_U16,
+        mode=NumberMode.BOX,
+        scale=0.1,
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=NumberDeviceClass.POWER,
+        entity_category=EntityCategory.CONFIG,
+        allowedtypes=HYBRID,
+        icon="mdi:battery-arrow-up",
+    ),
+    SolintegModbusNumberEntityDescription(
+        name="Maximum Battery Charge Power",
+        key="maximum_battery_charge_power",
+        register=50020,
+        fmt="i",
+        native_min_value=0,
+        native_max_value=200,
+        native_step=0.1,
+        register_data_type=REGISTER_U16,
+        mode=NumberMode.BOX,
+        scale=0.1,
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=NumberDeviceClass.POWER,
+        entity_category=EntityCategory.CONFIG,
+        allowedtypes=HYBRID,
+        icon="mdi:battery-arrow-up",
+    ),
+    SolintegModbusNumberEntityDescription(
+        name="Maximum Battery Discharge Power",
+        key="maximum_battery_discharge_power",
+        register=50021,
+        fmt="i",
+        native_min_value=0,
+        native_max_value=200,
+        native_step=0.1,
+        register_data_type=REGISTER_U16,
+        mode=NumberMode.BOX,
+        scale=0.1,
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=NumberDeviceClass.POWER,
+        entity_category=EntityCategory.CONFIG,
+        allowedtypes=HYBRID,
+        icon="mdi:battery-arrow-down",
+    ),
+    SolintegModbusNumberEntityDescription(
+        name="Charge Cutoff SOC",
+        key="charge_cutoff_soc",
+        register=52506,
+        fmt="i",
+        native_min_value=10,
+        native_max_value=98,
+        native_step=1,
+        native_unit_of_measurement=PERCENTAGE,
+        read_scale=0.1,
+        scale=1,
+        allowedtypes=HYBRID,
+        entity_category=EntityCategory.CONFIG,
+        icon="mdi:battery-arrow-up",
+    ),
 ]
 
 # ================================= Select Declarations ============================================================
 
 SELECT_TYPES = [
+    SolintegModbusSelectEntityDescription(
+        name="Battery SOC Reset",
+        key="battery_soc_reset",
+        register=21001,
+        option_dict=_simple_switch,
+        entity_category=EntityCategory.CONFIG,
+        allowedtypes=HYBRID,
+        icon="mdi:battery-sync",
+    ),
     SolintegModbusSelectEntityDescription(
         name="Working Mode",
         key="working_mode",
@@ -665,6 +775,15 @@ SELECT_TYPES = [
         entity_category=EntityCategory.CONFIG,
         allowedtypes=HYBRID,
         icon="mdi:scale-unbalanced",
+    ),
+    SolintegModbusSelectEntityDescription(
+        name="Peak Shaving Switch",
+        key="peak_shaving_switch",
+        register=50022,
+        option_dict=_simple_switch,
+        entity_category=EntityCategory.CONFIG,
+        allowedtypes=HYBRID,
+        icon="mdi:dip-switch",
     ),
     SolintegModbusSelectEntityDescription(
         name="Battery SOC Protection On Grid",
@@ -1630,6 +1749,13 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
     # internal sensors are only used for polling values for selects, etc
     # no need for name, etc
     SolintegModbusSensorEntityDescription(
+        key="battery_soc_reset",
+        register=21001,
+        scale=_simple_switch,
+        internal=True,
+        allowedtypes=HYBRID,
+    ),
+    SolintegModbusSensorEntityDescription(
         key="working_mode",
         register=50000,
         scale={
@@ -1688,6 +1814,53 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         register_data_type=REGISTER_U16,
         scale=0.1,
         internal=True,
+    ),
+    SolintegModbusSensorEntityDescription(
+        key="peak_shaving_max_grid_import_power",
+        register=50016,
+        register_data_type=REGISTER_U16,
+        scale=0.1,
+        internal=True,
+        allowedtypes=HYBRID,
+    ),
+    SolintegModbusSensorEntityDescription(
+        key="peak_shaving_minimum_soc",
+        register=50017,
+        register_data_type=REGISTER_U16,
+        scale=0.1,
+        internal=True,
+        allowedtypes=HYBRID,
+    ),
+    SolintegModbusSensorEntityDescription(
+        key="peak_shaving_battery_max_grid_charge",
+        register=50018,
+        register_data_type=REGISTER_U16,
+        scale=0.1,
+        internal=True,
+        allowedtypes=HYBRID,
+    ),
+    SolintegModbusSensorEntityDescription(
+        key="maximum_battery_charge_power",
+        register=50020,
+        register_data_type=REGISTER_U16,
+        scale=0.1,
+        internal=True,
+        allowedtypes=HYBRID,
+    ),
+    SolintegModbusSensorEntityDescription(
+        key="maximum_battery_discharge_power",
+        register=50021,
+        register_data_type=REGISTER_U16,
+        scale=0.1,
+        internal=True,
+        allowedtypes=HYBRID,
+    ),
+    SolintegModbusSensorEntityDescription(
+        key="peak_shaving_switch",
+        register=50022,
+        scale=_simple_switch,
+        internal=True,
+        allowedtypes=HYBRID,
     ),
     SolintegModbusSensorEntityDescription(
         key="ups_function",
@@ -1854,6 +2027,13 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         allowedtypes=X3,
         icon="mdi:current-ac",
     ),
+    SolintegModbusSensorEntityDescription(
+        key="charge_cutoff_soc",
+        register=52506,
+        scale=0.1,
+        internal=True,
+        allowedtypes=HYBRID,
+    ),
 ]
 
 
@@ -1869,14 +2049,14 @@ class solinteg_plugin(plugin_base):
     """
 
     async def async_determineInverterType(self, hub: Any, configdict: dict[str, Any]) -> int:
-        _LOGGER.info(f"{hub.name}: trying to determine inverter type")
+        _LOGGER.info("%s: trying to determine inverter type", hub.name)
         seriesnumber = await _read_serialnr(hub)
         if not seriesnumber:
-            _LOGGER.error(f"{hub.name}: cannot find serial number, even not for other Inverter")
+            _LOGGER.error("%s: cannot find serial number, even not for other Inverter", hub.name)
 
         model = await _read_model(hub)
         if model is None or model == 0:
-            _LOGGER.error(f"{hub.name}: could not read inverter model")
+            _LOGGER.error("%s: could not read inverter model", hub.name)
             return 0
         else:
             self.inverter_model = _model_str(model)  # as string
@@ -1920,7 +2100,7 @@ class solinteg_plugin(plugin_base):
                     self.SENSOR_TYPES[i] = replace(ssensor, scale=lambda v, descr, dd: _fn_mppt_mask_ex(v, _mppt_mask))  # type: ignore
                     break
         except Exception:
-            _LOGGER.error(f"{hub.name}: unexpected error", exc_info=True)
+            _LOGGER.error("%s: unexpected error", hub.name, exc_info=True)
 
         read_eps = configdict.get(CONF_READ_EPS, DEFAULT_READ_EPS)
         read_dcb = configdict.get(CONF_READ_DCB, DEFAULT_READ_DCB)
@@ -1928,7 +2108,7 @@ class solinteg_plugin(plugin_base):
             invertertype = invertertype | EPS
         if read_dcb:
             invertertype = invertertype | DCB
-        _LOGGER.info(f"{hub.name}: inverter type: x{invertertype:x}, mppt count={mppt}")
+        _LOGGER.info("%s: inverter type: x%x, mppt count=%s", hub.name, invertertype, mppt)
 
         return invertertype
 

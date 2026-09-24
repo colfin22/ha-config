@@ -44,8 +44,11 @@ from .const import (
     CONF_MODBUS_ADDR,
     CONF_PLUGIN,
     CONF_READ_BATTERY,
+    CONF_READ_DATAHUB,
     CONF_READ_DCB,
+    CONF_READ_EMS,
     CONF_READ_EPS,
+    CONF_READ_GEN,
     CONF_READ_PM,
     CONF_SCAN_INTERVAL_FAST,
     CONF_SCAN_INTERVAL_MEDIUM,
@@ -62,8 +65,11 @@ from .const import (
     DEFAULT_PLUGIN,
     DEFAULT_PORT,
     DEFAULT_READ_BATTERY,
+    DEFAULT_READ_DATAHUB,
     DEFAULT_READ_DCB,
+    DEFAULT_READ_EMS,
     DEFAULT_READ_EPS,
+    DEFAULT_READ_GEN,
     DEFAULT_READ_PM,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SERIAL_PORT,
@@ -155,7 +161,10 @@ CONFIG_SCHEMA = vol.Schema(
         vol.Optional(CONF_ENERGY_DASHBOARD_DEVICE, default=DEFAULT_ENERGY_DASHBOARD_DEVICE): bool,
         vol.Optional(CONF_READ_EPS, default=DEFAULT_READ_EPS): bool,
         vol.Optional(CONF_READ_DCB, default=DEFAULT_READ_DCB): bool,
+        vol.Optional(CONF_READ_GEN, default=DEFAULT_READ_GEN): bool,
         vol.Optional(CONF_READ_PM, default=DEFAULT_READ_PM): bool,
+        vol.Optional(CONF_READ_EMS, default=DEFAULT_READ_EMS): bool,
+        vol.Optional(CONF_READ_DATAHUB, default=DEFAULT_READ_DATAHUB): bool,
         vol.Optional(CONF_TIME_OUT, default=DEFAULT_TIME_OUT): int,
     }
 )
@@ -177,7 +186,10 @@ OPTION_SCHEMA = vol.Schema(
         vol.Optional(CONF_ENERGY_DASHBOARD_DEVICE, default=DEFAULT_ENERGY_DASHBOARD_DEVICE): bool,
         vol.Optional(CONF_READ_EPS, default=DEFAULT_READ_EPS): bool,
         vol.Optional(CONF_READ_DCB, default=DEFAULT_READ_DCB): bool,
+        vol.Optional(CONF_READ_GEN, default=DEFAULT_READ_GEN): bool,
         vol.Optional(CONF_READ_PM, default=DEFAULT_READ_PM): bool,
+        vol.Optional(CONF_READ_EMS, default=DEFAULT_READ_EMS): bool,
+        vol.Optional(CONF_READ_DATAHUB, default=DEFAULT_READ_DATAHUB): bool,
         vol.Optional(CONF_TIME_OUT, default=DEFAULT_TIME_OUT): int,
     }
 )
@@ -219,7 +231,7 @@ BATTERY_SCHEMA = vol.Schema(
 
 
 async def _validate_base(handler: SchemaCommonFlowHandler, user_input: dict[str, Any]) -> dict[str, Any]:
-    _LOGGER.info(f"validating base: {user_input}")
+    _LOGGER.info("validating base: %s", user_input)
     """Validate config."""
     user_input[CONF_INTERFACE]
     user_input[CONF_MODBUS_ADDR]
@@ -229,15 +241,15 @@ async def _validate_base(handler: SchemaCommonFlowHandler, user_input: dict[str,
     # convert old style to new style plugin name here - Remove later after a breaking upgrade
     if pluginconf_name.startswith("custom_components") or pluginconf_name.startswith("/config") or pluginconf_name.startswith("plugin_"):
         newpluginname = pluginconf_name.split("plugin_", 1)[1][:-3]  # getPluginName(pluginconf_name)
-        _LOGGER.warning(f"converting old style plugin name {pluginconf_name} to new style: {newpluginname} ")
+        _LOGGER.warning("converting old style plugin name %s to new style: %s ", pluginconf_name, newpluginname)
         user_input[CONF_PLUGIN] = newpluginname
         pluginconf_name = newpluginname
     # end of conversion
 
-    _LOGGER.info(f"validating base config for {name}: pre: {user_input}")
+    _LOGGER.info("validating base config for %s: pre: %s", name, user_input)
     # if getPlugin(name) or ((name == DEFAULT_NAME) and (pluginconf_name != DEFAULT_PLUGIN)):
     if (name == DEFAULT_NAME) and (pluginconf_name != DEFAULT_PLUGIN):
-        _LOGGER.warning(f"instance name {name} already defined or default name for non-default inverter")
+        _LOGGER.warning("instance name %s already defined or default name for non-default inverter", name)
         user_input[CONF_NAME] = user_input[CONF_PLUGIN]  # getPluginName(user_input[CONF_PLUGIN])
         raise SchemaFlowError("name_already_used")
 
@@ -261,7 +273,7 @@ async def _validate_host(handler: SchemaCommonFlowHandler, user_input: Any) -> A
         res = all(x and not disallowed.search(x) for x in host.split("."))
         if not res:
             raise SchemaFlowError("invalid_host") from e
-    _LOGGER.info(f"validating host: returning data: {user_input}")
+    _LOGGER.info("validating host: returning data: %s", user_input)
 
     pluginconf_name = handler.options[CONF_PLUGIN]
     plugin = await handler.parent_handler.hass.async_add_executor_job(_load_plugin, pluginconf_name)
@@ -287,7 +299,7 @@ async def _next_step_modbus(user_input: Any) -> str:
 
 
 async def _next_step_battery(user_input: Any) -> str | None:
-    _LOGGER.debug(f"_next_step_battery: returning data: {user_input}")
+    _LOGGER.debug("_next_step_battery: returning data: %s", user_input)
     if user_input.get("support-battery", False):
         return "battery"
     return "duplicate_inverter"
@@ -320,6 +332,78 @@ async def _duplicate_inverter_schema(handler: SchemaCommonFlowHandler) -> vol.Sc
     return vol.Schema({})
 
 
+ENTITY_TYPE_ATTRIBUTES = ("SENSOR_TYPES", "NUMBER_TYPES", "SELECT_TYPES", "SWITCH_TYPES", "TIME_TYPES", "BUTTON_TYPES")
+
+
+def _plugin_uses_feature_flag(plugin_name: str | None, flag_name: str) -> bool:
+    """Return whether a plugin declares any entity gated by the named allowedtypes flag."""
+    if not plugin_name:
+        return True
+    try:
+        plugin = _load_plugin(plugin_name)
+    except Exception:
+        return True
+    flag = getattr(plugin, flag_name, None)
+    if not isinstance(flag, int) or not flag:
+        return False
+    instance = getattr(plugin, "plugin_instance", plugin)
+    for attribute in ENTITY_TYPE_ATTRIBUTES:
+        for source in (instance, plugin):
+            for description in getattr(source, attribute, None) or []:
+                if getattr(description, "allowedtypes", 0) & flag:
+                    return True
+    return False
+
+
+def _plugin_supports_energy_dashboard(plugin_name: str | None) -> bool:
+    """Return whether a plugin provides Energy Dashboard mappings."""
+    if not plugin_name:
+        return True
+    try:
+        plugin = _load_plugin(plugin_name)
+    except Exception:
+        return True
+    instance = getattr(plugin, "plugin_instance", plugin)
+    return getattr(instance, "ENERGY_DASHBOARD_MAPPING", None) is not None or getattr(plugin, "ENERGY_DASHBOARD_MAPPING", None) is not None
+
+
+def _plugin_supports_device_group(plugin_name: str | None, group: str) -> bool:
+    """Return whether a plugin declares any entity belonging to a named device group."""
+    if not plugin_name:
+        return True
+    try:
+        plugin = _load_plugin(plugin_name)
+    except Exception:
+        return True
+    instance = getattr(plugin, "plugin_instance", plugin)
+    for attribute in ("NUMBER_TYPES", "SELECT_TYPES", "SWITCH_TYPES", "TIME_TYPES", "BUTTON_TYPES", "SENSOR_TYPES"):
+        for source in (instance, plugin):
+            for description in getattr(source, attribute, None) or []:
+                if getattr(description, "device_group", None) == group:
+                    return True
+    return False
+
+
+async def _option_schema(handler: SchemaCommonFlowHandler) -> vol.Schema:
+    """Options schema without the feature switches the selected plugin does not implement."""
+    plugin_name = handler.options.get(CONF_PLUGIN)
+    hidden: set[str] = set()
+    if not _plugin_supports_device_group(plugin_name, "external_generator"):
+        hidden.add(CONF_READ_GEN)
+    if not _plugin_supports_energy_dashboard(plugin_name):
+        hidden.add(CONF_ENERGY_DASHBOARD_DEVICE)
+    for option, flag_name in ((CONF_READ_EPS, "EPS"), (CONF_READ_PM, "PM")):
+        if not _plugin_uses_feature_flag(plugin_name, flag_name):
+            hidden.add(option)
+    if not _plugin_supports_device_group(plugin_name, "ems"):
+        hidden.add(CONF_READ_EMS)
+    if not _plugin_supports_device_group(plugin_name, "datahub"):
+        hidden.add(CONF_READ_DATAHUB)
+    if not hidden:
+        return OPTION_SCHEMA
+    return vol.Schema({marker: value for marker, value in OPTION_SCHEMA.schema.items() if getattr(marker, "schema", None) not in hidden})
+
+
 def _load_plugin(plugin_name: str) -> ModuleType:
     _LOGGER.info("trying to load plugin - plugin_name: %s", plugin_name)
     plugin = importlib.import_module(f".plugin_{plugin_name}", "custom_components.solax_modbus")
@@ -329,7 +413,7 @@ def _load_plugin(plugin_name: str) -> ModuleType:
 
 
 if (MAJOR_VERSION >= 2023) or ((MAJOR_VERSION == 2022) and (MINOR_VERSION >= 12)):  # type: ignore[comparison-overlap]  # backward compat
-    _LOGGER.info(f"detected HA core version {MAJOR_VERSION} {MINOR_VERSION}")
+    _LOGGER.info("detected HA core version %s %s", MAJOR_VERSION, MINOR_VERSION)
     CONFIG_FLOW: dict[str, SchemaFlowFormStep | SchemaFlowMenuStep] = {
         "user": SchemaFlowFormStep(CONFIG_SCHEMA, validate_user_input=_validate_base, next_step=_next_step_modbus),
         "serial": SchemaFlowFormStep(SERIAL_SCHEMA, next_step=_next_step_battery),
@@ -339,7 +423,7 @@ if (MAJOR_VERSION >= 2023) or ((MAJOR_VERSION == 2022) and (MINOR_VERSION >= 12)
         "duplicate_inverter": SchemaFlowFormStep(_duplicate_inverter_schema),
     }
     OPTIONS_FLOW: dict[str, SchemaFlowFormStep | SchemaFlowMenuStep] = {
-        "init": SchemaFlowFormStep(OPTION_SCHEMA, next_step=_next_step_modbus),
+        "init": SchemaFlowFormStep(_option_schema, next_step=_next_step_modbus),
         "serial": SchemaFlowFormStep(SERIAL_SCHEMA, next_step=_next_step_battery),
         "tcp": SchemaFlowFormStep(TCP_SCHEMA, validate_user_input=_validate_host, next_step=_next_step_battery),
         "core": SchemaFlowFormStep(CORE_SCHEMA, validate_user_input=_validate_core_modbus_hub, next_step=_next_step_battery),
@@ -348,7 +432,7 @@ if (MAJOR_VERSION >= 2023) or ((MAJOR_VERSION == 2022) and (MINOR_VERSION >= 12)
     }
 
 else:  # for older versions - REMOVE SOON
-    _LOGGER.error(f"detected old HA core version {MAJOR_VERSION} {MINOR_VERSION}")
+    _LOGGER.error("detected old HA core version %s %s", MAJOR_VERSION, MINOR_VERSION)
 
 
 class ConfigFlowHandler(SchemaConfigFlowHandler, domain=DOMAIN):
@@ -358,11 +442,11 @@ class ConfigFlowHandler(SchemaConfigFlowHandler, domain=DOMAIN):
         """Handle a flow initialized by the user."""
         return await super().async_step_user(user_input)
 
-    _LOGGER.info(f"starting configflow - domain = {DOMAIN}")
+    _LOGGER.info("starting configflow - domain = %s", DOMAIN)
     config_flow = CONFIG_FLOW
     options_flow = OPTIONS_FLOW
 
     def async_config_entry_title(self, options: Mapping[str, Any]) -> str:
-        _LOGGER.info(f"title configflow {DOMAIN} {CONF_NAME}: {options}")
+        _LOGGER.info("title configflow %s %s: %s", DOMAIN, CONF_NAME, options)
         # Return config entry title
         return cast(str, options[CONF_NAME]) if CONF_NAME in options else ""

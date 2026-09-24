@@ -271,7 +271,14 @@ ALLOWED_READ_FILES = [
     "scenes.yaml",
     "secrets.yaml",
     "home-assistant.log",
+    # faulthandler's crash dump (HA Core's ``__main__`` enables it on this file).
+    # Written only on a native fatal signal, so it is the one place that
+    # traceback exists: journald / error_log never see it (issue #2373).
+    "home-assistant.log.fault",
 ]
+
+# Root-level log files that the read service tails by default.
+TAILED_LOG_FILES = frozenset({"home-assistant.log", "home-assistant.log.fault"})
 
 # Default tail lines for log files
 DEFAULT_LOG_TAIL_LINES = 1000
@@ -1343,6 +1350,53 @@ def _read_file_sync(target_file: Path) -> dict[str, Any]:
     stat = target_file.stat()
     content = target_file.read_text()
     return {"content": content, "size": stat.st_size, "mtime": stat.st_mtime}
+
+
+def _read_log_tail_sync(
+    target_file: Path, tail_lines: int, *, chunk_size: int = 1 << 16
+) -> dict[str, Any]:
+    """Tail a log for one executor offload without materialising the whole file.
+
+    HA Core appends to ``home-assistant.log.fault`` for the life of the
+    install, so reading the file whole just to keep its last ``tail_lines``
+    lines scales with the crash history rather than the request. Line count
+    streams the file in chunks; the tail seeks back from the end until it holds
+    ``tail_lines`` newlines. The result carries the same ``content`` /
+    ``total_lines`` / ``truncated`` the whole-file split produced (``split("\n")``
+    semantics, so a trailing newline yields one empty last line), plus
+    ``size``/``mtime`` like ``_read_file_sync``.
+    """
+    if not target_file.exists():
+        return {"_error": "not_found"}
+    if not target_file.is_file():
+        return {"_error": "not_a_file"}
+    stat = target_file.stat()
+    newlines = 0
+    with target_file.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(chunk_size), b""):
+            newlines += chunk.count(b"\n")
+        total_lines = newlines + 1
+        pos = fh.tell()
+        buf = b""
+        while pos > 0 and buf.count(b"\n") < tail_lines:
+            step = min(chunk_size, pos)
+            pos -= step
+            fh.seek(pos)
+            buf = fh.read(step) + buf
+    parts = buf.split(b"\n")
+    truncated = total_lines > tail_lines
+    if truncated:
+        # The leading part may start mid-character at a chunk boundary; it is
+        # never part of the tail, so decode only what is returned.
+        parts = parts[-tail_lines:]
+    content = b"\n".join(parts).decode("utf-8")
+    return {
+        "content": content,
+        "size": stat.st_size,
+        "mtime": stat.st_mtime,
+        "total_lines": total_lines,
+        "truncated": truncated,
+    }
 
 
 def _write_file_sync(
@@ -2772,25 +2826,19 @@ async def _shape_read_file_response(
     if normalized == "secrets.yaml":
         content = await hass.async_add_executor_job(_mask_secrets_content, content)
 
-    # Apply tail for log files
-    if normalized == "home-assistant.log":
-        lines = content.split("\n")
+    # Log files arrive already tailed by ``_read_log_tail_sync``.
+    if normalized in TAILED_LOG_FILES:
         limit = tail_lines if tail_lines else DEFAULT_LOG_TAIL_LINES
-        if len(lines) > limit:
-            content = "\n".join(lines[-limit:])
-            truncated = True
-        else:
-            truncated = False
-
+        total_lines = result["total_lines"]
         return {
             "success": True,
             "path": rel_path,
             "content": content,
             "size": stat_size,
             "modified": modified_dt.isoformat(),
-            "lines_returned": min(len(lines), limit),
-            "total_lines": len(lines),
-            "truncated": truncated,
+            "lines_returned": min(total_lines, limit),
+            "total_lines": total_lines,
+            "truncated": result["truncated"],
         }
 
     # Apply tail for other files if requested
@@ -2853,13 +2901,22 @@ def _build_read_file_handler(
             )
             return {
                 "success": False,
-                "error": f"Path not allowed. Allowed patterns: {', '.join(allowed_patterns)}",
+                "error": f"Path not allowed. Allowed paths: {', '.join(allowed_patterns)}",
             }
 
         target_file = config_dir / rel_path
 
         try:
-            result = await hass.async_add_executor_job(_read_file_sync, target_file)
+            if os.path.normpath(rel_path) in TAILED_LOG_FILES:  # noqa: ASYNC240
+                # Bounded read: the fault log is append-only for the life of
+                # the install, so never materialise the whole file for a tail.
+                result = await hass.async_add_executor_job(
+                    _read_log_tail_sync,
+                    target_file,
+                    tail_lines if tail_lines else DEFAULT_LOG_TAIL_LINES,
+                )
+            else:
+                result = await hass.async_add_executor_job(_read_file_sync, target_file)
         except PermissionError:
             _LOGGER.error("Permission denied reading: %s", rel_path)
             return {
@@ -3557,7 +3614,10 @@ async def _async_setup_tools_entry(hass: HomeAssistant, entry: ConfigEntry) -> b
     # Register the in-process ha_mcp_tools/* WebSocket commands (info + search)
     # the server calls behind a capability gate. Idempotent, and independent of
     # the caller-token gate above — HA core authenticates the WS connection and
-    # @require_admin gates each command (see websocket_api.py).
+    # @require_admin gates each command (see websocket_api.py). The server
+    # (embedded) entry registers the same surface (#2289), so a server-only
+    # install has it as well; on a dual-entry install both entries register it
+    # and the second registration simply overwrites the first.
     async_register_commands(hass)
 
     # Entry-level finalization: pick up the #1853 rename on existing installs and
@@ -3617,13 +3677,19 @@ async def _async_unload_tools_entry(hass: HomeAssistant, entry: ConfigEntry) -> 
     hass.services.async_remove(DOMAIN, SERVICE_GET_CALLER_TOKEN)
     hass.services.async_remove(DOMAIN, SERVICE_GET_ALLOWED_PATHS)
     hass.services.async_remove(DOMAIN, SERVICE_SET_ALLOWED_PATHS)
+    hass.services.async_remove(DOMAIN, SERVICE_GET_EXTRA_YAML_KEYS)
+    hass.services.async_remove(DOMAIN, SERVICE_SET_EXTRA_YAML_KEYS)
     hass.services.async_remove(DOMAIN, SERVICE_LIST_LEGACY_BACKUPS)
     hass.services.async_remove(DOMAIN, SERVICE_READ_LEGACY_BACKUP)
 
-    # Drop the cached token + allowlist from hass.data so a subsequent
-    # setup_entry re-reads from storage (covers the reload-after-rotate path).
+    # Drop the cached token + allowlist + extra YAML keys from hass.data so a
+    # subsequent setup_entry re-reads from storage (covers the
+    # reload-after-rotate path). The WS command surface is deliberately NOT
+    # unregistered here — it is shared with the server entry and HA offers no
+    # unregister (#2292); see ``websocket_api.async_register_commands``.
     domain_data = hass.data.get(DOMAIN)
     if isinstance(domain_data, dict):
         domain_data.pop(_HASS_DATA_TOKEN_KEY, None)
         domain_data.pop(_HASS_DATA_ALLOWED_PATHS_KEY, None)
+        domain_data.pop(_HASS_DATA_EXTRA_YAML_KEYS_KEY, None)
     return True

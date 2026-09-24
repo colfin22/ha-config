@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 from homeassistant.components.number import NumberDeviceClass
@@ -94,6 +94,12 @@ MPPT8 = 0x200000
 MPPT10 = 0x400000
 ALL_MPPT_GROUP = MPPT3 | MPPT4 | MPPT6 | MPPT8 | MPPT10
 
+# DLP MID 30KTL3-XH units expose BMS1 module 1 through the APX input-register block.
+APX_BMS_INPUT = 0x800000
+ALL_APX_BMS_REGISTER_GROUP = APX_BMS_INPUT
+
+APX_BMS_INPUT_SERIAL_PREFIXES = ["DLP"]
+
 ALLDEFAULT = 0  # should be equivalent to HYBRID | AC | GEN | GEN2 | GEN3 | GEN4 | X1 | X3
 
 # SPF models known to expose only one PV input / MPPT even if the generic SPF block defines PV2 sensors.
@@ -116,10 +122,10 @@ async def async_read_serialnr(hub: Any, address: int) -> str | None:
                 raw_bytes.extend(int(register).to_bytes(2, byteorder="big", signed=False))
             res = raw_bytes.decode("ascii", errors="ignore").rstrip("\x00").strip() or None
     except Exception:
-        _LOGGER.warning(f"{hub.name}: attempt to read inverter identifier failed at 0x{address:x}", exc_info=True)
+        _LOGGER.warning("%s: attempt to read inverter identifier failed at 0x%x", hub.name, address, exc_info=True)
     if not res:
-        _LOGGER.debug(f"{hub.name}: no inverter identifier at 0x{address:x}; other address may succeed")
-    _LOGGER.info(f"Read {hub.name} 0x{address:x} inverter identifier before potential swap: {res}")
+        _LOGGER.debug("%s: no inverter identifier at 0x%x; other address may succeed", hub.name, address)
+    _LOGGER.info("Read %s 0x%x inverter identifier before potential swap: %s", hub.name, address, res)
     return res
 
 
@@ -180,7 +186,7 @@ def value_function_time_1_update(initval: Any, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_1_enabled", "Disabled")
     mode = datadict.get("time_1_mode", "Load First")
 
-    _LOGGER.debug(f"time_1: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_1: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 1 End cannot be smaller than Time 1 Begin")
@@ -195,7 +201,7 @@ def value_function_time_2_update(initval: int, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_2_enabled", "Disabled")
     mode = datadict.get("time_2_mode", "Load First")
 
-    _LOGGER.debug(f"time_2: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_2: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 2 End cannot be smaller than Time 2 Begin")
@@ -210,7 +216,7 @@ def value_function_time_3_update(initval: int, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_3_enabled", "Disabled")
     mode = datadict.get("time_3_mode", "Load First")
 
-    _LOGGER.debug(f"time_3: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_3: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 3 End cannot be smaller than Time 3 Begin")
@@ -225,7 +231,7 @@ def value_function_time_4_update(initval: int, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_4_enabled", "Disabled")
     mode = datadict.get("time_4_mode", "Load First")
 
-    _LOGGER.debug(f"time_4: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_4: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 4 End cannot be smaller than Time 4 Begin")
@@ -240,7 +246,7 @@ def value_function_time_5_update(initval: int, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_5_enabled", "Disabled")
     mode = datadict.get("time_5_mode", "Load First")
 
-    _LOGGER.debug(f"time_5: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_5: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 5 End cannot be smaller than Time 5 Begin")
@@ -255,7 +261,7 @@ def value_function_time_6_update(initval: int, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_6_enabled", "Disabled")
     mode = datadict.get("time_6_mode", "Load First")
 
-    _LOGGER.debug(f"time_6: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_6: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 6 End cannot be smaller than Time 6 Begin")
@@ -270,7 +276,7 @@ def value_function_time_7_update(initval: int, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_7_enabled", "Disabled")
     mode = datadict.get("time_7_mode", "Load First")
 
-    _LOGGER.debug(f"time_7: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_7: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 7 End cannot be smaller than Time 7 Begin")
@@ -285,7 +291,7 @@ def value_function_time_8_update(initval: int, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_8_enabled", "Disabled")
     mode = datadict.get("time_8_mode", "Load First")
 
-    _LOGGER.debug(f"time_8: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_8: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 8 End cannot be smaller than Time 8 Begin")
@@ -300,7 +306,7 @@ def value_function_time_9_update(initval: int, descr: Any, datadict: dict[str, A
     enabled = datadict.get("time_9_enabled", "Disabled")
     mode = datadict.get("time_9_mode", "Load First")
 
-    _LOGGER.debug(f"time_9: begin={time_begin}, end={time_end}, enabled={enabled}, mode={mode}")
+    _LOGGER.debug("time_9: begin=%s, end=%s, enabled=%s, mode=%s", time_begin, time_end, enabled, mode)
 
     if time_to_int(time_end) < time_to_int(time_begin):
         _LOGGER.error("Growatt: Time 9 End cannot be smaller than Time 9 Begin")
@@ -568,6 +574,7 @@ def value_function_inverter_fault_text(initval: int, descr: Any, datadict: dict[
         (408, 0): "Over-temperature",
         (409, 0): "Bus voltage abnormal",
         (411, 0): "Internal communication failure",
+        (411, 1): "Communication fault",  # from event mail from growatt for a MOD 10000 TL3-HU Hybrid
         (412, 0): "Temperature sensor disconnected",
         (416, 0): "DC/AC overcurrent protection",
         (420, 0): "GFCI module abnormal",
@@ -876,6 +883,20 @@ NUMBER_TYPES = [
         allowedtypes=ALL_GEN_GROUP,
     ),
     GrowattModbusNumberEntityDescription(
+        name="Max AC Charge Current",
+        key="max_ac_charge_current",
+        register=38,
+        fmt="i",
+        native_min_value=0,
+        native_max_value=100,
+        native_step=1,
+        native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,
+        device_class=NumberDeviceClass.CURRENT,
+        allowedtypes=SPF,
+        entity_category=EntityCategory.CONFIG,
+        icon="mdi:current-ac",
+    ),
+    GrowattModbusNumberEntityDescription(
         name="PV Start-up Voltage",
         key="pv_startup_voltage",
         register=17,
@@ -1181,7 +1202,7 @@ SELECT_TYPES = [
         name="VPP Allow AC charging",
         key="vpp_allow_ac_charging",
         register=30410,
-        register_data_type=REGISTER_U8L,
+        register_data_type=REGISTER_U16,
         option_dict={
             0: "Disabled",
             1: "Enabled",
@@ -6695,6 +6716,7 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         scale=value_function_module_status,
         allowedtypes=HYBRID | GEN4,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6716,10 +6738,11 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
         register=5882,
-        register_type=REG_HOLDING,  ### HOLDING!!!
+        register_type=REG_HOLDING,
         register_data_type=REGISTER_U16,
         allowedtypes=HYBRID | GEN4,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery-heart",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6729,11 +6752,12 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         register=5883,
-        register_type=REG_HOLDING,  ### HOLDING!!!
+        register_type=REG_HOLDING,
         register_data_type=REGISTER_U16,
         scale=0.1,
         allowedtypes=GEN4 | HYBRID,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6743,11 +6767,12 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         device_class=SensorDeviceClass.CURRENT,
         state_class=SensorStateClass.MEASUREMENT,
         register=5884,
-        register_type=REG_HOLDING,  ### HOLDING!!!
+        register_type=REG_HOLDING,
         register_data_type=REGISTER_U16,
         scale=value_function_bms_module_combined_current,
         allowedtypes=GEN4 | HYBRID,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6762,6 +6787,7 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         register_data_type=REGISTER_U16,
         entity_registry_enabled_default=True,
         allowedtypes=GEN4 | HYBRID,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6771,11 +6797,12 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
         register=5887,  # maybe 5886 and U32
-        register_type=REG_HOLDING,  ### HOLDING!!!
+        register_type=REG_HOLDING,
         register_data_type=REGISTER_U16,  # maybe U32 but then change register to 5886
         scale=0.1,
         allowedtypes=GEN4 | HYBRID,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6790,6 +6817,7 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         scale=0.1,
         allowedtypes=GEN4 | HYBRID,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6804,6 +6832,7 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         scale=0.1,
         allowedtypes=GEN4 | HYBRID,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6815,6 +6844,7 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         scale=value_function_module_warning_text,
         allowedtypes=HYBRID | GEN4,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -6825,6 +6855,7 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
         register_data_type=REGISTER_U16,
         allowedtypes=GEN4 | HYBRID,
         entity_registry_enabled_default=False,
+        blacklist=APX_BMS_INPUT_SERIAL_PREFIXES,
         icon="mdi:battery",
     ),
     GrowattModbusSensorEntityDescription(
@@ -9174,6 +9205,33 @@ SENSOR_TYPES: list[GrowattModbusSensorEntityDescription] = [
     ),
 ]
 
+APX_BMS1_MODULE1_INPUT_REGISTERS = {
+    "bms_1_module_1_status": 5080,
+    "bms_1_module_1_soh": 5082,
+    "bms_1_module_1_volt": 5083,
+    "bms_1_module_1_combined_current": 5084,
+    "bms_1_module_1_combined_power": 5085,
+    "bms_1_module_1_toe": 5087,
+    "bms_1_module_1_max_cell_temp": 5090,
+    "bms_1_module_1_min_cell_temp": 5091,
+    "bms_1_module_1_warning_text": 5098,
+    "bms_1_module_1_charge_cycles": 5108,
+}
+
+# Keep the established 588x holding-register descriptions for other Growatt models,
+# and create a DLP-only 508x input-register variant from the same metadata.
+SENSOR_TYPES.extend(
+    replace(
+        description,
+        register=APX_BMS1_MODULE1_INPUT_REGISTERS[description.key],
+        register_type=REG_INPUT,
+        allowedtypes=description.allowedtypes | APX_BMS_INPUT,
+        blacklist=None,
+    )
+    for description in tuple(SENSOR_TYPES)
+    if description.key in APX_BMS1_MODULE1_INPUT_REGISTERS
+)
+
 
 TIME_TYPES = [
     GrowattModbusTimeEntityDescription(
@@ -9662,8 +9720,9 @@ SERIAL_PREFIX_TYPES = {
     "SKL": HYBRID | GEN4 | X1,  # MIN 3600 TL-XH Hybrid, 2 MPPT
     "XVM": HYBRID | GEN4 | X1,  # MIN 5000 TL-XH Hybrid, 2 MPPT
     "SMN": HYBRID | GEN4 | X1 | MPPT4,  # MIN TL-XH-US Hybrid, 4 MPPT
-    "JGQ": HYBRID | GEN4 | X1 | MPPT3,  # MIN 7600 TL-XH-US Hybrid, 3 MPPT
+    "JGQ": HYBRID | GEN4 | X1 | MPPT3,  # MIN 7600 TL-XH-US Hybrid (Split Phase), 3 MPPT
     "HJU": HYBRID | GEN4 | X1,  # MIN 4200TL-XH2 Hybrid, 2 MPPT
+    "VFJ": HYBRID | GEN4 | X1 | MPPT4,  # MIN 10000 TL-XH-US Hybrid (Split Phase), 4 MPPT
     # MOD hybrid
     "XHL": HYBRID | GEN4 | X1,  # MOD 4000 TL3-XH Hybrid, 2 MPPT
     "DPS": HYBRID | GEN4 | X3,  # MOD 5000 TL3-HU Hybrid, 2 MPPT
@@ -9683,6 +9742,7 @@ SERIAL_PREFIX_TYPES = {
     "KMN": HYBRID | GEN4 | X3,  # MID 17000 TL3-XH Hybrid, 2 MPPT
     "KNN": HYBRID | GEN4 | X3 | MPPT3,  # MID 25000 TL3-XH Hybrid, 3 MPPT
     "RKM": HYBRID | GEN4 | X3 | MPPT3,  # MID 30000 TL3-XH Hybrid, 3 MPPT
+    "DLP": HYBRID | GEN4 | X3 | MPPT3 | APX_BMS_INPUT,  # MID 30000 TL3-XH Hybrid, 3 MPPT
     # MOD BP hybrid
     "FMP": HYBRID | GEN4 | X3,  # MOD 5000 TL3-XH (BP) Hybrid, 2 MPPT
     "FPP": HYBRID | GEN4 | X3,  # MOD 7000 TL3-XH (BP) Hybrid, 2 MPPT
@@ -9709,11 +9769,13 @@ SERIAL_PREFIX_TYPES = {
     "QYL": PV | GEN4 | X1,  # MIN 2500 TL-X, 2 MPPT
     "XTD": PV | GEN4 | X1,  # MIN 5000 TL-X, 2 MPPT
     "BDK": PV | GEN4 | X1,  # MIN 4200 TL-XE, 2 MPPT
+    "DCF": PV | GEN4 | X1,  # MIN 3000 TL-XE, 2 MPPT
     "WVN": PV | GEN4 | X1 | MPPT3,  # MIN 8000 TL-X2, 3 MPPT
     # MOD, MID and MAX PV
     "RDH": PV | GEN2 | X3,  # MOD 4000 TL3-X, 2 MPPT
     "QEH": PV | GEN2 | X3,  # MOD 8000 TL3-X, 2 MPPT
     "RPH": PV | GEN2 | X3,  # MOD 15000 TL3-X, 2 MPPT
+    "SZG": PV | GEN2 | X3,  # MID 15KTL3-X, 2 MPPT
     "GXF": PV | GEN4 | X3,  # MID 12000 TL3-XL, 2 MPPT
     "NAH": PV | GEN4 | X3 | MPPT6,  # MAX 60000 TL3 LV, 6 MPPT
     # SPH PV
@@ -9746,12 +9808,16 @@ FIRMWARE_PREFIX_TYPES = {
     "SPH": HYBRID | GEN3 | X3,  # Hybrid SPH 4kW - 10kW
     "YA1": HYBRID | GEN3 | X3,  # Hybrid SPH 4kW - 10kW 3P TL UP
     "RH1": AC | GEN3 | X1,  # SPA 3000TL BL AC, no PV MPPT
+    # The PV MIN TL-XE reports this firmware prefix too, despite having no
+    # battery; it is caught by its serial prefix above. An unlisted TL-XE
+    # serial falls through to here and is mislabelled HYBRID.
     "AL1": HYBRID | GEN4 | X1,  # Hybrid TL-XH 2.5kW - 6kW (MIN)
     "DN1": HYBRID | GEN4 | X3,  # Hybrid TL3-XH (BP) 3kW - 10kW (MOD), 11kW - 30kW (MID)
     "V": HYBRID | GEN4 | X3,  # Hybrid TL3-XH 3kW - 10kW (MOD)
     "067": HYBRID | SPF | X1,  # Hybrid SPF 5kW / SPF5000ES branch, treated as 1 MPPT
     "113": HYBRID | SPF | X1,  # Hybrid SPF 5kW / SPF5000ES branch, treated as 1 MPPT
     "500": HYBRID | SPF | X1,  # Hybrid SPF 5kW / SPF5000ES branch, treated as 1 MPPT
+    "040": HYBRID | SPF | X1,  # Hybrid SPF 5kW / SPF5000ES branch, treated as 1 MPPT
 }
 
 
@@ -9767,7 +9833,7 @@ def _inverter_type_from_prefix(identifier: str | None, prefix_types: dict[str, i
 @dataclass(kw_only=True)
 class growatt_plugin(plugin_base):
     async def async_determineInverterType(self, hub: Any, configdict: dict[str, Any]) -> int:
-        _LOGGER.info(f"{hub.name}: trying to determine inverter type")
+        _LOGGER.info("%s: trying to determine inverter type", hub.name)
         invertertype = 0
         identifier: str | None = None
 
@@ -9779,8 +9845,8 @@ class growatt_plugin(plugin_base):
                 invertertype = candidate_type
                 break
             if candidate:
-                _LOGGER.info(f"{hub.name}: unrecognized serial number at 0x{address:x}: {candidate}")
-            _LOGGER.info(f"{hub.name}: trying alternative serial number location")
+                _LOGGER.info("%s: unrecognized serial number at 0x%x: %s", hub.name, address, candidate)
+            _LOGGER.info("%s: trying alternative serial number location", hub.name)
 
         if not invertertype:
             firmware = await async_read_serialnr(hub, 9)
@@ -9792,7 +9858,7 @@ class growatt_plugin(plugin_base):
                 identifier = firmware
             else:
                 displayed_firmware = firmware or "unknown"
-                _LOGGER.error(f"unrecognized {hub.name} inverter type - firmware version : {displayed_firmware}")
+                _LOGGER.error("unrecognized %s inverter type - firmware version : %s", hub.name, displayed_firmware)
                 identifier = firmware
 
         if identifier:
@@ -9822,12 +9888,13 @@ class growatt_plugin(plugin_base):
         epsmatch = ((inverterspec & entitymask & ALL_EPS_GROUP) != 0) or (entitymask & ALL_EPS_GROUP == 0)
         dcbmatch = ((inverterspec & entitymask & ALL_DCB_GROUP) != 0) or (entitymask & ALL_DCB_GROUP == 0)
         mpptmatch = ((inverterspec & entitymask & ALL_MPPT_GROUP) != 0) or (entitymask & ALL_MPPT_GROUP == 0)
+        apx_bms_register_match = ((inverterspec & entitymask & ALL_APX_BMS_REGISTER_GROUP) != 0) or (entitymask & ALL_APX_BMS_REGISTER_GROUP == 0)
         blacklisted = False
         if blacklist:
             for start in blacklist:
                 if serialnumber.startswith(start):
                     blacklisted = True
-        return (genmatch and xmatch and hybmatch and epsmatch and dcbmatch and mpptmatch) and not blacklisted
+        return (genmatch and xmatch and hybmatch and epsmatch and dcbmatch and mpptmatch and apx_bms_register_match) and not blacklisted
 
 
 ENERGY_DASHBOARD_MAPPING = EnergyDashboardMapping(

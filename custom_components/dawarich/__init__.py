@@ -1,7 +1,9 @@
 """The Dawarich integration."""
 
+import json
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 
 from dawarich_api import DawarichAPI
 from homeassistant import config_entries
@@ -21,7 +23,7 @@ from .const import CONF_DEVICE, DOMAIN
 from .coordinator import DawarichStatsCoordinator, DawarichVersionCoordinator
 from .helpers import get_api
 
-VERSION = "0.7.0"
+VERSION = json.loads((Path(__file__).parent / "manifest.json").read_text())["version"]
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
@@ -57,9 +59,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: DawarichConfigEntry) -> 
             " dawarich-home-assistantyou will need at least Home Assistant Core version 2025.1"
         )
 
-    coordinator = DawarichStatsCoordinator(hass, api)
+    coordinator = DawarichStatsCoordinator(hass, api, entry.entry_id)
     await coordinator.async_config_entry_first_refresh()
-    version_coordinator = DawarichVersionCoordinator(hass, api)
+    version_coordinator = DawarichVersionCoordinator(hass, api, entry.entry_id)
     await version_coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = DawarichConfigEntryData(

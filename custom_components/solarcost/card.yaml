@@ -1,0 +1,5 @@
+# Dashboard → Edit → Add card → Manual: paste this entire file.
+# Choose any SolarCost estimated-bill sensor. Related periods are found automatically,
+# including renamed entities and your configured month/year windows.
+type: custom:solarcost-card
+entity: sensor.solarcost_this_month_estimated_bill

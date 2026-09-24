@@ -36,7 +36,7 @@
         "url_path": "car-costs",
         "title": "Car Costs",
         "icon": "mdi:car",
-        "show_in_sidebar": true,
+        "show_in_sidebar": false,
         "require_admin": false,
         "mode": "storage"
       }

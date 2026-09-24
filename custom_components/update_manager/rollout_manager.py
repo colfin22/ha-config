@@ -41,7 +41,7 @@ from datetime import datetime, timedelta
 from typing import Any, Literal
 
 from homeassistant.components import persistent_notification
-from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.core import Context, HomeAssistant, State, callback
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
@@ -50,7 +50,8 @@ from homeassistant.util import dt as dt_util
 from .announcer import AutoInstallContext
 from .const import DOMAIN, localized_strings
 from .coordinator import UpdateManagerCoordinator
-from .install_tiers import TIER_RANK, tier_for_entity
+from .entity_rename import relabel_key
+from .install_tiers import FIRST_GATED_RANK, TIER_RANK, tier_for_entity
 from .zigbee import device_for_entity, is_zigbee_entity, zigbee_network_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -217,6 +218,18 @@ def _deserialize_context(data: dict[str, Any] | None) -> AutoInstallContext | No
     )
 
 
+def _serialize_ha_context(context: Context | None) -> str | None:
+    # Just user_id: id/parent_id are only meaningful for the original,
+    # in-flight call this Context was created for, not something worth
+    # reconstructing across a restart. A fresh Context with only user_id set
+    # still attributes correctly (see _QueuedEntry.ha_context's own comment).
+    return context.user_id if context is not None else None
+
+
+def _deserialize_ha_context(user_id: str | None) -> Context | None:
+    return Context(user_id=user_id) if user_id else None
+
+
 def _serialize_entry(entry: "_QueuedEntry") -> dict[str, Any]:
     return {
         "entity_id": entry.entity_id,
@@ -224,12 +237,18 @@ def _serialize_entry(entry: "_QueuedEntry") -> dict[str, Any]:
         "service_data": entry.service_data,
         "is_auto": entry.is_auto,
         "context": _serialize_context(entry.context),
+        "ha_context": _serialize_ha_context(entry.ha_context),
     }
 
 
 def _deserialize_entry(data: dict[str, Any]) -> "_QueuedEntry":
     return _QueuedEntry(
-        data["entity_id"], data["to_version"], data["service_data"], data["is_auto"], _deserialize_context(data.get("context"))
+        data["entity_id"],
+        data["to_version"],
+        data["service_data"],
+        data["is_auto"],
+        _deserialize_context(data.get("context")),
+        _deserialize_ha_context(data.get("ha_context")),
     )
 
 
@@ -268,7 +287,7 @@ class _InFlightInstall:
 
 
 class _QueuedEntry:
-    __slots__ = ("entity_id", "to_version", "service_data", "is_auto", "context")
+    __slots__ = ("entity_id", "to_version", "service_data", "is_auto", "context", "ha_context")
 
     def __init__(
         self,
@@ -277,6 +296,7 @@ class _QueuedEntry:
         service_data: dict[str, Any],
         is_auto: bool,
         context: AutoInstallContext | None = None,
+        ha_context: Context | None = None,
     ) -> None:
         self.entity_id = entity_id
         self.to_version = to_version
@@ -295,6 +315,22 @@ class _QueuedEntry:
         # _async_dispatch can attribute it correctly whenever this entry's
         # own turn in the queue actually comes, possibly much later.
         self.context = context
+        # The real websocket caller's own Context (user_id set), captured at
+        # request time by websocket_api.py's own _handle_install. Found
+        # live, 2026-08-23: History showed a genuinely user-clicked Update
+        # All as "External" install method, because the actual update.install
+        # service call this module (or websocket_api.py's own immediate-
+        # dispatch fallback) makes on the caller's behalf never carried the
+        # caller's own Context, only ever a fresh, contextless one HA
+        # creates by default, indistinguishable from a real external
+        # update's own empty user_id (see __init__.py's own "manual" vs
+        # "external" comment). Threaded all the way to _async_dispatch's own
+        # service call below so a manual install still reads as manual
+        # however long it ends up waiting behind the tier/network gate
+        # before its own turn actually comes. None for an is_auto=True
+        # entry (nothing to attribute to a user, since the earlier "auto"
+        # check already wins), or when nothing better is known.
+        self.ha_context = ha_context
 
 
 class RolloutManager:
@@ -340,6 +376,48 @@ class RolloutManager:
         self._handle_install_failure: Callable[[str, str], None] | None = None
         self._unsub_install_listener: Callable[[], None] | None = None
         self._unsub_periodic_recheck: Callable[[], None] | None = None
+        # Fired by _async_save below, the one place every real mutation of
+        # self._queues/self._tier_blocked already funnels through to persist
+        # -- see async_add_change_listener's own docstring for why this
+        # exists (staging_skip.py's own re-evaluation trigger).
+        self._change_listeners: list[Callable[[], None]] = []
+        # A private copy, not a read of self._coordinator.master_enabled
+        # directly -- see async_set_master_enabled's own docstring for why:
+        # install_manager.py's and staging_skip.py's own versions of this
+        # same guard both compare against that one shared coordinator
+        # value, which is fine when only one of them writes it per save,
+        # but a third reader/writer racing the same shared flag through
+        # websocket_api.py's own asyncio.gather (see async_apply_options)
+        # risks one of them seeing it already updated by another before
+        # its own guard runs, silently skipping its own reaction. Its own
+        # copy sidesteps that instead of adding a third party to the race.
+        self._master_enabled = True
+        # entity_id -> (to_version, user_id): recorded the instant a manual
+        # request is made (async_request_install, whether it dispatches
+        # immediately or waits behind a gate), consumed once by
+        # was_manually_requested below. Mirrors install_manager.py's own
+        # _recently_executed/was_auto_installed pattern for auto installs,
+        # for the same underlying reason: Home Assistant only attributes a
+        # service call's own Context to an entity's state for up to 5
+        # seconds after that call started (homeassistant/helpers/entity.py's
+        # own CONTEXT_RECENT_TIME_SECONDS), and a real install (a HACS
+        # download, a firmware flash) almost always outlives that, so
+        # new_state.context.user_id alone reads empty for genuinely manual
+        # installs that just took a while. This dict is this module's own,
+        # not time-limited, record of who actually asked, read at whatever
+        # instant the real completion happens, however long that took.
+        #
+        # to_version is None for a record from note_external_install_request
+        # below rather than from a real async_request_install call: an
+        # install started from Home Assistant's own native more-info dialog
+        # (not this project's own panel) calls update.install directly, with
+        # no rollout_manager.py involvement to record a to_version at all. A
+        # None to_version matches whatever version was_manually_requested is
+        # actually asked about below, since __init__.py's own global
+        # EVENT_CALL_SERVICE listener that populates it has no way to know
+        # which version was being installed at request time, only who
+        # requested it.
+        self._recently_manual: dict[str, tuple[str | None, str | None]] = {}
 
     def _in_flight_entry(self, entity_id: str) -> _InFlightInstall:
         entry = self._in_flight.get(entity_id)
@@ -403,6 +481,41 @@ class RolloutManager:
                 "tier_blocked": {entity_id: _serialize_entry(e) for entity_id, e in self._tier_blocked.items()},
             }
         )
+        # Every real change to self._queues/self._tier_blocked calls this
+        # method to persist it -- the one shared place to notify from,
+        # rather than a separate call at each of the several methods that
+        # mutate either dict (async_cancel_queued, async_stop_waiting_for,
+        # _async_advance, _async_advance_past_stalled_front,
+        # _async_retry_tier_blocked, async_request_install itself), where
+        # missing just one would silently reintroduce the same gap this
+        # exists to close.
+        for listener in list(self._change_listeners):
+            listener()
+
+    def async_add_change_listener(self, listener: Callable[[], None]) -> Callable[[], None]:
+        """Registers a callback fired whenever a queue or tier-blocked entry
+        is added, advanced, or removed -- direct user feedback, 2026-08-12:
+        leaving a Zigbee queue (Cancel in the dialog) could leave that
+        entity showing skipped in Home Assistant's own native update count
+        well after Update Manager's own panel already showed it back as
+        Ready, for however long it took some *unrelated* coordinator
+        recompute to happen to fire next. staging_skip.py's own
+        _async_evaluate_one already checks this module's live is_queued()
+        state (see that method's own comment), so its logic was always
+        correct -- it just had no trigger of its own for this module's
+        changes, only for the coordinator's, and this entity's own staging
+        status never actually changes by leaving a queue (see
+        rollout_manager.py's own docstring: the tier/network gate is a
+        second, independent gate layered on an already-"ready" status), so
+        no coordinator recompute reliably followed a plain queue exit
+        either. staging_skip.py subscribes here the same way it already
+        subscribes to the coordinator's own listener."""
+        self._change_listeners.append(listener)
+
+        def _remove() -> None:
+            self._change_listeners.remove(listener)
+
+        return _remove
 
     def async_start(self) -> None:
         self._unsub_install_listener = self._coordinator.async_add_install_listener(self._on_install_completed)
@@ -449,6 +562,7 @@ class RolloutManager:
         *,
         is_auto: bool,
         context: AutoInstallContext | None = None,
+        ha_context: Context | None = None,
     ) -> RequestResult:
         """The one shared gate every dispatch path (install_manager.py's own
         auto-install, websocket_api.py's single-entity Install, and the
@@ -466,14 +580,70 @@ class RolloutManager:
         invisible until there's actually something to pace against.
         `context` only ever comes from install_manager.py's own auto-install
         path (is_auto=True); a manual dispatch has no reason/timing to
-        attribute at all."""
-        entry = _QueuedEntry(entity_id, to_version, service_data, is_auto, context)
+        attribute at all. `ha_context` is the opposite: only ever set for a
+        manual dispatch (websocket_api.py's own connection.context(msg)), so
+        that a "dispatch" verdict's own caller, and any later _async_dispatch
+        for a "queued" one, can both pass the real calling user through to
+        the actual update.install call, see _QueuedEntry.ha_context's own
+        comment for why this matters."""
+        if not is_auto and ha_context is not None:
+            # Recorded regardless of whether this dispatches immediately or
+            # ends up queued/tier-blocked for a while -- see
+            # self._recently_manual's own comment in __init__ for why this
+            # exists at all. entity_id, not group_key: was_manually_
+            # requested below is looked up by the entity whose own state
+            # actually changed, the same way was_auto_installed already is.
+            self._recently_manual[entity_id] = (to_version, ha_context.user_id)
+        entry = _QueuedEntry(entity_id, to_version, service_data, is_auto, context, ha_context)
         blocking = self._tier_blocking_entity(entity_id)
         if blocking is not None:
             self._tier_blocked[entity_id] = entry
             await self._async_save()
             return "queued"
         return await self._async_request_past_tier_gate(entry)
+
+    def _matching_manual_record(self, entity_id: str, to_version: str) -> tuple[str | None, str | None] | None:
+        """The shared lookup was_manually_requested and
+        note_external_install_request's own reader both rely on: a record
+        for entity_id whose own to_version either matches the one asked
+        about, or is None (see self._recently_manual's own comment for why
+        one can look like that) -- a call this module didn't itself
+        dispatch never told it which version was actually being installed,
+        so that kind of record matches any version asked about."""
+        record = self._recently_manual.get(entity_id)
+        if record is None or (record[0] is not None and record[0] != to_version):
+            return None
+        return record
+
+    def was_manually_requested(self, entity_id: str, to_version: str) -> str | None:
+        """Consumed once by __init__.py's install-listener callback, the
+        manual-attribution counterpart to install_manager.py's own
+        was_auto_installed. Returns the user_id that requested this exact
+        (entity_id, to_version) install, or None if this wasn't a manual
+        request this module knows about, or it was for a different
+        version. Only pops the record on an actual match, same reasoning
+        as was_auto_installed's own docstring: a still-pending record for a
+        different, later request must survive an unrelated version change
+        on the same entity landing first."""
+        record = self._matching_manual_record(entity_id, to_version)
+        if record is None:
+            return None
+        del self._recently_manual[entity_id]
+        return record[1]
+
+    def note_external_install_request(self, entity_id: str, user_id: str | None) -> None:
+        """Called by __init__.py's own global EVENT_CALL_SERVICE listener
+        for an update.install call this module had no part in dispatching
+        (Home Assistant's own native more-info dialog, a script, an
+        automation) -- see self._recently_manual's own comment for why this
+        exists alongside async_request_install's more specific recording.
+        setdefault, not a plain assignment: async_request_install's own
+        record (when this module *did* dispatch it) already carries the
+        real to_version and is set first, since it runs before the
+        resulting update.install call this same event is announcing, so it
+        must win, not be overwritten by this less specific one for the
+        exact same request."""
+        self._recently_manual.setdefault(entity_id, (None, user_id))
 
     async def _async_request_past_tier_gate(self, entry: _QueuedEntry) -> RequestResult:
         """The Zigbee-network gate on its own, unchanged in substance from
@@ -506,7 +676,12 @@ class RolloutManager:
                     # it with the fresh request instead of keeping the
                     # stale one.
                     existing[index] = _QueuedEntry(
-                        entry.entity_id, entry.to_version, entry.service_data, entry.is_auto, entry.context
+                        entry.entity_id,
+                        entry.to_version,
+                        entry.service_data,
+                        entry.is_auto,
+                        entry.context,
+                        entry.ha_context,
                     )
                     await self._async_save()
                 # Already recorded for this exact version, whatever its
@@ -578,15 +753,16 @@ class RolloutManager:
         as blocking (see _counts_as_blocking), at a strictly lower
         disruption tier than entity_id's own (see install_tiers.py's own
         module docstring for the full tier list and the real, confirmed
-        reasoning behind each one) -- None if entity_id is itself "safe"
-        (nothing is ever below that, so nothing can ever block it) or if
-        nothing currently qualifies. A live check, deliberately never
-        cached: re-run on every request and every periodic recheck (see
-        _async_periodic_recheck), since "what's installing right now"
-        changes continuously and this must always reflect the current
-        instant, not a stale snapshot."""
+        reasoning behind each one), or None if entity_id's own tier is
+        below FIRST_GATED_RANK ("safe" or "firmware", neither of which
+        restarts anything and so is never worth holding back, direct user
+        feedback 2026-08-24) or if nothing currently qualifies. A live check,
+        deliberately never cached: re-run on every request and every
+        periodic recheck (see _async_periodic_recheck), since "what's
+        installing right now" changes continuously and this must always
+        reflect the current instant, not a stale snapshot."""
         my_rank = TIER_RANK[tier_for_entity(self.hass, entity_id)]
-        if my_rank == 0:
+        if my_rank < FIRST_GATED_RANK:
             return None
         for other_id in self.hass.states.async_entity_ids("update"):
             if other_id == entity_id:
@@ -599,43 +775,80 @@ class RolloutManager:
         return None
 
     async def _async_retry_tier_blocked(self) -> None:
-        """Re-attempts every still-pending tier-blocked request -- called
+        """Re-attempts every still-pending tier-blocked request, called
         after anything that could plausibly have changed the picture: a
         real install completion, an unavailable entity crossing
         _UNAVAILABLE_GRACE, or a manual "stop waiting" override. Whatever
         clears the tier gate goes through the exact same Zigbee-network check
         every other request does (_async_request_past_tier_gate), and gets
-        actually dispatched here if that also says go -- there's no
+        actually dispatched here if that also says go, since there's no
         external caller left to do that part for a request that's already
         been sitting queued, unlike the normal synchronous
         async_request_install flow.
 
-        "What's currently blocking" is computed once for the whole batch
-        (_min_blocking_tier_rank), not once per still-blocked entry the way
-        a fresh async_request_install call does via _tier_blocking_entity --
-        every entry re-checked here in the same pass is asking the exact
-        same question, previously a full, separate entity-registry scan
-        each time (found by review: O(blocked x update entities) on every
-        30-second recheck)."""
+        "What's currently blocking" starts as one snapshot for the whole
+        batch (_min_blocking_tier_rank) but is then updated as this loop
+        itself clears entries, lowest tier first. Found live, 2026-08-22:
+        a Core update and several ESPHome (firmware-tier) updates, all
+        requested in the same "Update all" click, correctly sat side by
+        side in self._tier_blocked together while an earlier, lower
+        ("safe") tier batch was still installing. The instant that safe
+        batch finished, nothing was left actually in_progress yet, since the
+        firmware-tier entries hadn't been dispatched either, they were still
+        sitting in self._tier_blocked too, so a single snapshot taken at
+        the top of this method saw the tier gate as fully clear and
+        released Core and the firmware entries in the very same pass,
+        exactly the simultaneous-restart-during-firmware-flash scenario
+        the tier gate exists to prevent. A later change the same day
+        (install_tiers.py's own FIRST_GATED_RANK) exempted "safe" and
+        "firmware" from this gate entirely, so this exact example can no
+        longer reproduce (neither tier can ever enter self._tier_blocked
+        any more), but the same race is still possible among the tiers
+        still gated (host firmware, Supervisor, Core, OS): two of those
+        could just as easily sit side by side in self._tier_blocked while a
+        lower tier finishes. Re-deriving the effective blocking rank after
+        each entry this loop itself clears, rather than only after
+        something external changes, closes that gap for them too: an entry
+        cleared earlier in this same pass keeps blocking a higher one later
+        in it, whether or not its own in_progress attribute has actually
+        flipped true yet."""
         if not self._tier_blocked:
             return
-        min_blocking_rank = self._min_blocking_tier_rank()
-        # Saved once for the whole batch below, not once per cleared entry
-        # -- found by code review, 2026-08-10: several requests clearing in
+        blocking_rank = self._min_blocking_tier_rank()
+        # Resolved once per entity, not once for the sort key and again
+        # inside the loop below (found by code review, 2026-08-24: this
+        # method already runs on every 30-second periodic recheck while
+        # anything is tier-blocked, tier_for_entity itself doing real
+        # entity-registry/state lookups). Rank can't change mid-iteration,
+        # so this dict stays valid for the whole pass.
+        ranks = {entity_id: TIER_RANK[tier_for_entity(self.hass, entity_id)] for entity_id in self._tier_blocked}
+        # Lowest tier first, so a lower-tier entry cleared in this pass is
+        # already accounted for (see blocking_rank's update below) by the
+        # time a higher-tier entry in the same pass is considered.
+        ordered = sorted(ranks, key=lambda e: ranks[e])
+        # Saved once for the whole batch below, not once per cleared entry.
+        # Found by code review, 2026-08-10: several requests clearing in
         # the same tick (e.g. right after a blocking Core install finishes)
         # used to each trigger their own full Store write.
         cleared_any = False
-        for entity_id in list(self._tier_blocked):
+        for entity_id in ordered:
             entry = self._tier_blocked.get(entity_id)
             if entry is None:
                 continue
-            my_rank = TIER_RANK[tier_for_entity(self.hass, entity_id)]
-            if min_blocking_rank is not None and min_blocking_rank < my_rank:
+            my_rank = ranks[entity_id]
+            if blocking_rank is not None and blocking_rank < my_rank:
                 continue
             del self._tier_blocked[entity_id]
             cleared_any = True
             if await self._async_request_past_tier_gate(entry) == "dispatch":
                 await self._async_dispatch(entry)
+            # This entry is now itself either dispatched or freshly queued
+            # behind a same-network front entry, either way it hasn't
+            # finished, so it must keep blocking anything at a higher tier
+            # still waiting in this same pass, exactly as if it had already
+            # shown up as in_progress in the snapshot above.
+            if blocking_rank is None or my_rank < blocking_rank:
+                blocking_rank = my_rank
         if cleared_any:
             await self._async_save()
 
@@ -670,6 +883,39 @@ class RolloutManager:
         self._in_flight_entry(entity_id).force_cleared = True
         self._async_clear_stuck_issue(entity_id)
         await self._async_retry_tier_blocked()
+
+    async def async_rename_entity(self, old_entity_id: str, new_entity_id: str) -> None:
+        """Relabels every entity_id reference this module holds after a
+        live HA entity registry rename -- see __init__.py's own
+        EVENT_ENTITY_REGISTRY_UPDATED listener. self._queues is keyed by
+        group_key, not entity_id, so its entries are scanned and rewritten
+        in place (_QueuedEntry uses __slots__, directly settable) rather
+        than moved via a dict-key pop. The old entity's stuck-repair issue
+        (if any) is deleted outright, not relabeled -- _async_clear_stuck_issue
+        is the existing helper for that, and the next stall-check simply
+        recreates a fresh one under the new entity_id if still warranted."""
+        # self._queues is keyed by group_key, not entity_id, so its own
+        # entries need a scan-and-rewrite rather than relabel_key's plain
+        # dict-key move -- an inherent difference in shape, not one this
+        # helper can absorb.
+        changed = False
+        for entries in self._queues.values():
+            for entry in entries:
+                if entry.entity_id == old_entity_id:
+                    entry.entity_id = new_entity_id
+                    changed = True
+
+        blocked = relabel_key(self._tier_blocked, old_entity_id, new_entity_id)
+        if blocked is not None:
+            blocked.entity_id = new_entity_id
+            changed = True
+
+        if changed:
+            await self._async_save()
+
+        relabel_key(self._in_flight, old_entity_id, new_entity_id)
+        relabel_key(self._recently_manual, old_entity_id, new_entity_id)
+        self._async_clear_stuck_issue(old_entity_id)
 
     async def async_cancel_queued(self, entity_id: str) -> bool:
         """The panel's own Cancel button for a request that's genuinely
@@ -711,8 +957,60 @@ class RolloutManager:
                     return True
         return False
 
+    async def async_set_master_enabled(self, enabled: bool) -> None:
+        """Direct user feedback, 2026-08-12: while the master pause switch
+        is off, anything still shown "waiting for" its own turn in a queue
+        read as a real automatic action still quietly in progress, despite
+        "no automatic installs" being exactly what pausing is supposed to
+        mean. Turning off now empties every queue/tier-blocked wait
+        immediately, the same "gewoon wachtrij legen" a plain Cancel would
+        already do one at a time (see async_cancel_queued's own docstring
+        for why that's safe: each entity's own staging status was already
+        "ready" the whole time it sat waiting, nothing else needs to change
+        for it to show as a normal ready update again) -- not narrowed to
+        auto-install's own requests specifically, a manually-queued one
+        gets cleared too, direct user feedback confirming that's wanted
+        here rather than the finer-grained split first proposed. Whatever
+        is already the genuinely in-flight front of a Zigbee queue is left
+        running regardless: aborting a real, already-dispatched install
+        because a UI toggle flipped would be unsafe, not a pause. Turning
+        back on doesn't requeue anything either -- same as a plain Cancel,
+        this is a one-way "never mind waiting", not a suspend/resume.
+
+        No-ops when the value hasn't actually changed, same reasoning
+        install_manager.py's/staging_skip.py's own async_set_master_enabled
+        both already give -- except compared against this module's own
+        self._master_enabled, not self._coordinator.master_enabled (see
+        that field's own comment for why: a third reader/writer racing the
+        same shared coordinator flag through websocket_api.py's own
+        asyncio.gather risks seeing it already updated by one of the other
+        two before this method's own guard runs)."""
+        if enabled == self._master_enabled:
+            return
+        self._master_enabled = enabled
+        if not enabled:
+            await self._async_clear_all_waiting()
+
+    async def _async_clear_all_waiting(self) -> None:
+        changed = bool(self._tier_blocked)
+        self._tier_blocked = {}
+        for group_key, entries in self._queues.items():
+            if len(entries) > 1:
+                self._queues[group_key] = entries[:1]
+                changed = True
+        if changed:
+            await self._async_save()
+
     @callback
-    def _on_install_completed(self, entity_id: str, old_version: str, new_version: str, new_state: State) -> None:
+    def _on_install_completed(
+        self, entity_id: str, old_version: str, new_version: str, new_state: State, retroactive: bool
+    ) -> None:
+        # retroactive unused here -- this module only cares that an install
+        # completed at all (to advance/clean up queue state), not whether
+        # it was detected live or caught up after the fact (see
+        # coordinator.py's own InstallListener/_fire_install_listeners for
+        # why that distinction exists at all, __init__.py's own _on_install
+        # is the one listener that actually needs it).
         self._in_flight.pop(entity_id, None)
         self._async_clear_stuck_issue(entity_id)
         # A later retry (a manual click, or another auto-install cycle
@@ -743,7 +1041,12 @@ class RolloutManager:
             del self._queues[group_key]
             await self._async_save()
             return
-        _LOGGER.warning(
+        # info, not warning -- direct user feedback, 2026-08-12: this is the
+        # queue working exactly as designed (one finished, the next one's
+        # own turn came), not something that needs attention. Warning made
+        # Home Assistant's own Logs page flag routine, successful pacing as
+        # if it were a problem.
+        _LOGGER.info(
             "Update Manager: [rollout] %s advanced, dispatching next in %s: %s",
             finished.entity_id,
             group_key,
@@ -869,7 +1172,9 @@ class RolloutManager:
             )
             self._mark_recently_executed(entry.entity_id, context)
         try:
-            await self.hass.services.async_call("update", "install", entry.service_data, blocking=True)
+            await self.hass.services.async_call(
+                "update", "install", entry.service_data, blocking=True, context=entry.ha_context
+            )
         except Exception:
             # Found by review: previously unguarded, a real install failure
             # here left the entry stuck at the front of its queue forever

@@ -2,9 +2,11 @@
 
 This module registers versioned ``ha_mcp_tools/*`` WebSocket commands that the
 ha-mcp server calls in-process (same HA core, no REST/WS round-trips) behind a
-capability gate. It registers twenty-two commands (twenty-two capabilities — the
-``search_visibility`` capability is a flag on the existing ``search`` command,
-and ``info`` itself carries no capability entry):
+capability gate. It registers twenty-three commands. It advertises twenty-seven
+capabilities: twenty-two command capabilities plus five additive flags
+(dashboards_doc_search, device_registry_child_semantics, search_visibility,
+search_entity_membership, and search_visibility_allowlist_authorization);
+the info handshake carries no capability entry:
 
 * ``ha_mcp_tools/info`` — the handshake: ``schema_version`` + ``capabilities[]``
   + ``component_version`` + advisory ``limits`` + the instance ``timezone``
@@ -13,6 +15,7 @@ and ``info`` itself carries no capability entry):
   negotiation, NOT a version floor).
 * ``ha_mcp_tools/search`` — a unified in-process search over live registries and
   states, joined and scored, mirroring today's ``ha_search`` response envelope.
+  The search_entity_membership flag gates opt-in generic group metadata.
 * ``ha_mcp_tools/overview`` — the raw in-process reads the server's
   ``get_system_overview`` + ``ha_get_overview`` wrapper consume (states,
   services, entity/device/area registries, ``hass.config``, persistent
@@ -34,7 +37,7 @@ and ``info`` itself carries no capability entry):
   is byte-identical to the REST ``/api/states/<id>`` serialization by
   construction; the server maps found/missing onto its per-id error contract.
 * ``ha_mcp_tools/blueprint_get`` — the full body of one installed blueprint
-  (``{metadata, config}``), which core's ``blueprint/list`` never returns (it
+  (``{metadata, config, yaml}``), which core's ``blueprint/list`` never returns (it
   serves only ``{metadata}``). The path is jailed under
   ``<config>/blueprints/<domain>/`` (symlink-safe containment, mirroring the
   file-tool jail) and the file read + parse run off the event loop in the async
@@ -109,10 +112,17 @@ and ``info`` itself carries no capability entry):
   :func:`_visibility_hidden_set` mirrors the server's ``hidden_entity_ids``, with
   the Assist dimension delegated to core's ``async_should_expose``), so
   ``ha_search`` can route through the component even with an active filter. A
-  degraded dimension (unknown ``exclude_category`` / empty-registry allowlist /
-  unavailable Assist) fails open, and :func:`_visibility_warnings` returns the
-  resolver-parity ``visibility_warnings`` the response carries so the filtering is
-  not silently incomplete.
+  second ``search_visibility_allowlist_authorization`` capability declares that
+  this component understands the ``allowlist_authorization`` wire key, which the
+  server sends only to a component advertising it and which selects the revised
+  precedence (an allowlist match authorizes past category, HA-hidden, and Assist
+  filters). Without the key the component keeps the legacy conjunctive
+  precedence, so it stays correct against an older released server that still
+  resolves the old way in its own outbound scan. A degraded dimension (unknown
+  ``exclude_category`` / empty-registry allowlist / unavailable Assist) fails
+  open, and :func:`_visibility_warnings` returns the resolver-parity
+  ``visibility_warnings`` carried by the response so filtering is not silently
+  incomplete.
 * ``ha_mcp_tools/server_entry`` — the component locates its OWN server config
   entry (``entry.data[CONF_ENTRY_TYPE] == server``, the one marker key it reads
   from ``entry.data``) and returns ``{entry_id, channel, pip_spec}`` (channel /
@@ -262,11 +272,12 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from difflib import SequenceMatcher
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import voluptuous as vol
 import yaml  # type: ignore[import-untyped]
@@ -324,6 +335,7 @@ WS_ENTITY_LOOKUP = f"{WS_API_PREFIX}/entity_lookup"
 WS_BACKUP_PREP = f"{WS_API_PREFIX}/backup_prep"
 WS_REGISTRIES = f"{WS_API_PREFIX}/registries"
 WS_DASHBOARDS = f"{WS_API_PREFIX}/dashboards"
+WS_DASHBOARD_EDIT = f"{WS_API_PREFIX}/dashboard_edit"
 WS_SERVICES_LIST = f"{WS_API_PREFIX}/services_list"
 WS_REFERENCE_DATA = f"{WS_API_PREFIX}/reference_data"
 WS_SERVER_ENTRY = f"{WS_API_PREFIX}/server_entry"
@@ -336,18 +348,32 @@ WS_BULK_CALL_SERVICE = f"{WS_API_PREFIX}/bulk_call_service"
 # bump it (the server checks ``schema_version >= N`` before using a new shape).
 SCHEMA_VERSION = 1
 
-# Which commands exist. Grows one entry per shipped command; the server gates
+# Advertised command support and additive feature flags; the server gates
 # each consumer on ``capability in caps.capabilities``. Never remove an entry
 # without a major bump. (``info`` is always present in 1.1.0+, so it carries no
 # capability key of its own.)
 CAPABILITIES: list[str] = [
     "search",
+    # A flag on search: gates its additive result_fields request and generic
+    # is_group/member_entity_ids response fields.
+    "search_entity_membership",
     "overview",
     "helpers_list",
     "states",
     "blueprint_get",
+    # A flag on blueprint_get: gates its additive ``yaml`` result field (the raw
+    # on-disk blueprint text). The server only asks for the text when this is
+    # advertised, so an older build simply serves the parsed body and the server
+    # looks for the text elsewhere.
+    "blueprint_text",
     "device_get",
     "device_list",
+    # A semantic flag shared by every device-registry-backed read. Components
+    # predating this flag enumerate only Core's main ``devices`` collection and
+    # cannot provide authoritative Core 2026.9 child-device/effective-area data.
+    # A newer server therefore falls back to Core's native registry endpoints
+    # unless this flag accompanies the individual command capability.
+    "device_registry_child_semantics",
     "entity_enrich",
     "exposure",
     "config_entries",
@@ -357,6 +383,7 @@ CAPABILITIES: list[str] = [
     "backup_prep",
     "registries",
     "dashboards",
+    "dashboard_edit",
     # A flag, not a standalone command: gates the additive whole-document
     # search-result keys on ``ha_mcp_tools/dashboards`` mode=search
     # (``document_matches`` + ``yaml_skipped`` + ``load_failed``, issue #2008).
@@ -371,6 +398,11 @@ CAPABILITIES: list[str] = [
     # would ignore the param is never sent it (param-sniffing is banned for
     # routing; the CAPABILITIES flag is what the server gates on).
     "search_visibility",
+    # A semantic flag on search_visibility: this component understands the
+    # ``allowlist_authorization`` wire key (revised allowlist precedence). The
+    # server sends that key only to a component advertising this flag, and with
+    # an active allowlist requires the flag or falls back to its legacy resolver.
+    "search_visibility_allowlist_authorization",
     "server_entry",
     # The WRITE counterpart of ``server_entry`` (Phase 3). The server gates its
     # ``ha_dev_manage_server(update_source)`` embedded-mode direct-write on this; an
@@ -526,9 +558,34 @@ _SPLIT_RE = re.compile(r"[._\-\s]+")
 def async_register_commands(hass: HomeAssistant) -> None:
     """Register the ``ha_mcp_tools/*`` WebSocket commands.
 
+    Called from BOTH config-entry setups since component 2.1.0: the tools entry
+    (alongside its service registrations) and the server entry (#2289/#2291).
+    The surface is entry-agnostic — every handler reads HA-core state, none of
+    it the tools entry's ``hass.data`` — so a server-entry-only install gets it
+    too; only the filesystem/YAML HA *services* remain tools-entry-only.
+
     Idempotent: HA's ``async_register_command`` overwrites an existing handler,
-    so re-running on a config-entry reload is harmless. Called from the tools
-    config-entry setup alongside the service registrations.
+    so re-running on a config-entry reload, or from both entries on a dual-entry
+    install, is harmless.
+
+    There is NO unregister. HA's ``websocket_api`` exposes no counterpart to
+    ``async_register_command``, so the commands outlive an entry unload and stay
+    on the connection surface until Home Assistant restarts. That is deliberate
+    and accepted (#2292). Unloading one entry must not strip the surface the
+    other entry still serves from, and a surface left behind by a FULLY unloaded
+    component holds no privilege of its own: every handler works off live
+    HA-core state rather than anything the unloaded entry cached, HA core
+    authenticates the connection, and ``@require_admin`` gates each command — so
+    a caller reaching it can already do the same through HA's own WS API. The
+    service-dispatching writes enforce D1: they refuse
+    ``domain == "ha_mcp_tools"`` unconditionally. Dashboard edits do not dispatch
+    services: they use Core's Lovelace storage API under the same admin gate as
+    ``lovelace/config/save``. Server-entry updates retain their own live-entry
+    and option validation. These commands do not grant access to the privileged
+    filesystem/YAML services, which
+    :func:`~custom_components.ha_mcp_tools._async_unload_tools_entry` does remove
+    on unload. Admin-gated commands answering from live core state until the
+    next restart is the trade this makes.
     """
     for schema, do_fn, prep in _command_specs():
         websocket_api.async_register_command(hass, _build_handler(schema, do_fn, prep))
@@ -566,6 +623,7 @@ def _command_specs() -> list[tuple[dict[Any, Any], Any, Any]]:
         (_backup_prep_schema(), _do_backup_prep, None),
         (_registries_schema(), _do_registries, None),
         (_dashboards_schema(), _do_dashboards, _dashboards_prep),
+        (_dashboard_edit_schema(), _do_dashboard_edit, _dashboard_edit_prep),
         (_services_list_schema(), _do_services_list, _services_list_prep),
         (_reference_data_schema(), _do_reference_data, None),
         (_server_entry_schema(), _do_server_entry, None),
@@ -578,7 +636,7 @@ def _command_specs() -> list[tuple[dict[Any, Any], Any, Any]]:
             _do_server_entry_update,
             _server_entry_update_prep,
         ),
-        # The first WRITE command: the dispatch + the bounded confirmation wait are
+        # The service WRITE command: dispatch + the bounded confirmation wait are
         # inherently async, so ALL of the work lives in the ``_call_service_prep``
         # async pre-step and ``_do_call_service`` is a pure response formatter.
         (_call_service_schema(), _do_call_service, _call_service_prep),
@@ -617,10 +675,13 @@ def _info_schema() -> dict[Any, Any]:
 
 
 # The nine hide dimensions ``VisibilityConfig.to_wire`` emits, split by wire type
-# (seven id/name lists, two bool flags). Kept in lockstep with the server's
-# ``to_wire`` and :func:`_visibility_hidden_set`; a new dimension is a new component
-# capability, added on BOTH sides (see :func:`_visibility_param_schema`). The union
-# is pinned equal to the server resolver's key set by the cross-seam contract test.
+# (seven id/name lists, two bool flags), plus the optional
+# ``allowlist_authorization`` precedence flag the server adds for a component that
+# advertises ``search_visibility_allowlist_authorization``. Kept in lockstep with
+# the server's ``to_wire`` / ``VisibilityWire`` and :func:`_visibility_hidden_set`;
+# a new dimension is a new component capability, added on BOTH sides (see
+# :func:`_visibility_param_schema`). The union is pinned equal to the server
+# resolver's key set by the cross-seam contract test.
 _VISIBILITY_LIST_KEYS = (
     "exclude_categories",
     "deny_entity_ids",
@@ -630,18 +691,25 @@ _VISIBILITY_LIST_KEYS = (
     "allow_areas",
     "allow_labels",
 )
-_VISIBILITY_BOOL_KEYS = ("exclude_hidden", "respect_assist_exposure")
+_VISIBILITY_BOOL_KEYS = (
+    "exclude_hidden",
+    "respect_assist_exposure",
+    "allowlist_authorization",
+)
 
 
 def _visibility_param_schema() -> Any:
-    """Voluptuous schema for the ``search`` ``visibility`` dict — exactly the nine keys.
+    """Voluptuous schema for the ``search`` ``visibility`` dict — exactly the ten keys.
 
-    Enumerating the known dimensions (PREVENT_EXTRA is voluptuous' default for a
-    nested ``Schema``) makes an unknown key a loud ``invalid_format`` command error
-    rather than a silent drop. If a newer server emits a tenth dimension to this
-    1.2.0 component, the server's error taxonomy converts that into a legacy fallback
-    with the filter STILL correctly applied — structural fail-closed for free —
-    instead of partial, unwarned filtering. Built at call time so it honors the
+    The nine hide dimensions plus the ``allowlist_authorization`` precedence flag
+    (sent only when this component advertises
+    ``search_visibility_allowlist_authorization``; absent means legacy
+    precedence). Enumerating the known keys (PREVENT_EXTRA is voluptuous' default
+    for a nested ``Schema``) makes an unknown key a loud ``invalid_format`` command
+    error rather than a silent drop. If a newer server emits an eleventh key to
+    this component, the server's error taxonomy converts that into a legacy
+    fallback with the filter STILL correctly applied — structural fail-closed for
+    free — instead of partial, unwarned filtering. Built at call time so it honors the
     monkeypatched ``vol`` in the unit suite.
     """
     schema: dict[Any, Any] = {vol.Optional(key): [str] for key in _VISIBILITY_LIST_KEYS}
@@ -650,6 +718,7 @@ def _visibility_param_schema() -> Any:
 
 
 def _search_schema() -> dict[Any, Any]:
+    """Build the schema for search WebSocket requests."""
     return {
         vol.Required("type"): WS_SEARCH,
         vol.Optional("query"): vol.Any(str, None),
@@ -657,6 +726,7 @@ def _search_schema() -> dict[Any, Any]:
         vol.Optional("domain_filter"): str,
         vol.Optional("area_filter"): str,
         vol.Optional("state_filter"): str,
+        vol.Optional("result_fields"): [vol.In(("is_group", "member_entity_ids"))],
         vol.Optional("exact", default=True): bool,
         vol.Optional("include_hidden", default=True): bool,
         vol.Optional("include_config", default=False): bool,
@@ -664,15 +734,13 @@ def _search_schema() -> dict[Any, Any]:
             int, vol.Range(min=1, max=MAX_RESULTS)
         ),
         vol.Optional("offset", default=0): vol.All(int, vol.Range(min=0)),
-        # Opt-in entity-visibility filter (``search_visibility`` capability): the
-        # server's raw VisibilityConfig hide dimensions. When present and
-        # non-empty, hidden entities are excluded from the entity results before
-        # counts/pagination, mirroring the legacy ``load_hidden_set`` hard-exclude
-        # so ``ha_search`` can drop its "filter active -> legacy only" gate. Gated
-        # by the CAPABILITIES flag, so an old component never receives it. The nine
-        # known keys are enumerated so an unknown dimension fails loudly (the server
-        # then falls back to legacy with the filter applied) — see
-        # :func:`_visibility_param_schema`.
+        # Opt-in entity visibility for component search. The component advertises
+        # ``search_visibility`` and ``search_visibility_allowlist_authorization``;
+        # the server reads those flags before sending these raw VisibilityConfig
+        # dimensions, and adds ``allowlist_authorization`` only for the second flag.
+        # The ten known keys are enumerated so an unknown one fails loudly and the
+        # server falls back to its own filtered legacy path.
+        # See ``_visibility_param_schema``.
         vol.Optional("visibility"): _visibility_param_schema(),
     }
 
@@ -905,11 +973,18 @@ def _bulk_call_service_schema() -> dict[Any, Any]:
 def _do_info(hass: HomeAssistant | None = None) -> dict[str, Any]:
     """Return the handshake payload.
 
-    ``timezone`` is an additive field (``hass.config.time_zone``) consumers detect
-    by presence — it carries NO capability entry and does NOT bump
+    ``timezone`` (``hass.config.time_zone``) and ``tools_services`` (whether
+    the tools entry's HA services are registered) are additive fields consumers
+    detect by presence — they carry NO capability entry and do NOT bump
     ``schema_version``. ``hass`` is optional (defaulting to ``None`` so a direct
     ``_do_info()`` still works for callers that only need the static handshake);
-    when absent, ``timezone`` degrades to ``None``.
+    when absent, both degrade to ``None``.
+
+    ``tools_services`` exists because 2.1.0 registers this command surface from
+    BOTH entry types (#2289): ``info`` answering no longer implies the tools
+    entry — and its filesystem/YAML services — are present (#2292). The server's
+    filesystem/YAML gate reads this field to keep raising its actionable
+    "tools entry not set up" error on server-entry-only installs.
     """
     return {
         "schema_version": SCHEMA_VERSION,
@@ -917,6 +992,7 @@ def _do_info(hass: HomeAssistant | None = None) -> dict[str, Any]:
         "capabilities": list(CAPABILITIES),
         "limits": dict(LIMITS),
         "timezone": _config_time_zone(hass),
+        "tools_services": _tools_services_loaded(hass),
     }
 
 
@@ -925,6 +1001,23 @@ def _config_time_zone(hass: HomeAssistant | None) -> str | None:
     config = getattr(hass, "config", None)
     tz = getattr(config, "time_zone", None)
     return tz if isinstance(tz, str) and tz else None
+
+
+def _tools_services_loaded(hass: HomeAssistant | None) -> bool | None:
+    """True when the tools entry's filesystem/YAML HA services are registered.
+
+    Probes the service registry itself (``read_file`` — one of the services
+    ``_async_setup_tools_entry`` registers and its unload removes) rather than
+    the config-entry list, so the answer tracks what a caller can actually
+    invoke. ``None`` when ``hass`` is absent (the direct ``_do_info()`` call);
+    the WS handler always passes ``hass``, so the wire value is a bool.
+    """
+    services = getattr(hass, "services", None)
+    if services is None:
+        return None
+    # Literal matches SERVICE_READ_FILE in __init__.py (importing it here would
+    # be circular).
+    return bool(services.has_service(DOMAIN, "read_file"))
 
 
 # =============================================================================
@@ -939,6 +1032,19 @@ class _RegistryView:
     floor: Any = None
     label: Any = None
     device: Any = None
+
+    # One request-local, conflict-filtered semantic snapshot plus the identities
+    # removed from it. Visibility filtering consumes the former and its warning
+    # projection consumes the latter, so both paths observe the same evidence.
+    _device_entries_by_id_cache: dict[str, Any] | None = dataclass_field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _device_conflicting_ids_cache: frozenset[str] | None = dataclass_field(
+        default=None, init=False, repr=False, compare=False
+    )
+    _device_invalid_area_ids_cache: frozenset[str] | None = dataclass_field(
+        default=None, init=False, repr=False, compare=False
+    )
 
 
 def _resolve_registries(hass: HomeAssistant) -> _RegistryView:
@@ -1011,6 +1117,7 @@ def _do_search(
     domain_filter = params.get("domain_filter")
     area_filter = params.get("area_filter")
     state_filter = params.get("state_filter")
+    membership_requested = bool(params.get("result_fields"))
     # Opt-in visibility filter (search_visibility capability). A non-empty dict of
     # the server's raw VisibilityConfig fields; applied as a hard entity exclude.
     visibility = params.get("visibility")
@@ -1018,11 +1125,13 @@ def _do_search(
     view = _resolve_registries(hass)
     diagnostics: dict[str, int] = {}
     partial_reasons: list[str] = []
-    # Visibility degradation warnings (unknown category / empty-registry allowlist /
-    # Assist unavailable), collected in the entity block below when a visibility
-    # filter is applied. Surfaced additively so the fast path isn't silent about
-    # incomplete filtering (parity with the server's load_hidden_set warnings).
+    # Visibility degradation warnings (unknown category / conflicting device /
+    # empty-registry allowlist / Assist unavailable), collected in the entity block
+    # below when a visibility filter is applied. Surfaced additively so the fast
+    # path isn't silent about incomplete filtering (parity with the server's
+    # load_hidden_set warnings).
     visibility_warnings: list[str] = []
+    hidden: set[str] = set()
 
     # ``secret_values`` (loaded off-loop by _search_prep) scrubs resolved-!secret
     # plaintext from the config-body match corpus: a YAML-loaded automation/script/
@@ -1045,6 +1154,7 @@ def _do_search(
             domain_filter=domain_filter,
             area_filter=area_filter,
             state_filter=state_filter,
+            include_membership=membership_requested,
         )
         # Opt-in visibility filter: a hard exclude applied BEFORE counts/pagination,
         # exactly where the legacy path drops ``visibility_hidden`` entities at the
@@ -1053,23 +1163,30 @@ def _do_search(
         # :func:`_visibility_hidden_set`.
         if isinstance(visibility, Mapping) and visibility:
             states_list = _iter_states(hass)
-            # Probe Assist availability once (only when the config asks for it) so a
-            # requested-but-unavailable Assist dimension both skips its hiding and
-            # surfaces the resolver-parity degradation warning.
-            assist_available = (
-                _assist_exposure_available(hass)
-                if visibility.get("respect_assist_exposure")
-                else True
+            inventory = _visibility_inventory(view, states_list, visibility)
+            assist_applies = (
+                bool(visibility.get("respect_assist_exposure"))
+                and not inventory.allowlist.authorized
             )
+            # Short-circuit the probe unless Assist applies. True on the skipped
+            # path means there is no Assist degradation to report; the hidden-set
+            # helper does not consult Assist while an authorizing allowlist is
+            # active (a legacy wire keeps Assist in play, so the probe still runs).
+            assist_available = not assist_applies or _assist_exposure_available(hass)
             hidden = _visibility_hidden_set(
                 view,
                 states_list,
                 visibility,
                 lambda eid: _assist_should_expose(hass, eid),
                 assist_available=assist_available,
+                inventory=inventory,
             )
             visibility_warnings = _visibility_warnings(
-                view, states_list, visibility, assist_available=assist_available
+                view,
+                states_list,
+                visibility,
+                assist_available=assist_available,
+                inventory=inventory,
             )
             if hidden:
                 scored_entities = [
@@ -1078,8 +1195,17 @@ def _do_search(
         scored_entities.sort(key=lambda r: (-r["score"], r["entity_id"]))
         entity_total = len(scored_entities)
         page = scored_entities[offset : offset + limit]
+        _redact_hidden_members(
+            page,
+            hidden,
+            view=view,
+            include_hidden=include_hidden,
+            enabled=membership_requested,
+        )
         entity_has_more = offset + len(page) < entity_total
-        entities = [_project_entity(r) for r in page]
+        entities = [
+            _project_entity(r, include_membership=membership_requested) for r in page
+        ]
 
     # --- Config surfaces (automations + scripts + scenes + helpers) ----------
     # One combined pagination window, mirroring the server's config branch.
@@ -1277,6 +1403,7 @@ def _search_entities(
     domain_filter: str | None,
     area_filter: str | None,
     state_filter: str | None,
+    include_membership: bool = False,
 ) -> list[dict[str, Any]]:
     """Score every state against the query over the joined registry view."""
     results: list[dict[str, Any]] = []
@@ -1286,7 +1413,7 @@ def _search_entities(
     # matches state_filter="vacation").
     state_filter_lower = state_filter.lower() if state_filter is not None else None
     for state in _iter_states(hass):
-        rec = _entity_record(state, view)
+        rec = _entity_record(state, view, include_membership=include_membership)
         if domain_filter and rec["domain"] != domain_filter:
             continue
         if rec["_hidden"] and not include_hidden:
@@ -1421,19 +1548,22 @@ def _registry_enrichment(view: _RegistryView, entity_id: str) -> dict[str, Any]:
         if reg
         else []
     )
-    area_id = getattr(reg, "area_id", None) if reg else None
+    area_id = _effective_area_for_entry(view, reg) if reg else None
     device_id = getattr(reg, "device_id", None) if reg else None
     labels = set(getattr(reg, "labels", None) or []) if reg else set()
     hidden = bool(getattr(reg, "hidden_by", None)) if reg else False
 
-    dev = _device(view, device_id) if device_id else None
+    dev = (
+        _unambiguous_device_entries(view).get(device_id)
+        if isinstance(device_id, str) and device_id
+        else None
+    )
     dev_texts: list[str] = []
     if dev is not None:
-        if area_id is None:
-            area_id = getattr(dev, "area_id", None)
-        labels |= set(getattr(dev, "labels", None) or [])
+        dev_row = _device_dict_repr(dev) or {}
+        labels |= set(dev_row.get("labels") or [])
         for attr in ("name_by_user", "name", "manufacturer", "model"):
-            val = getattr(dev, attr, None)
+            val = dev_row.get(attr)
             if val:
                 dev_texts.append(str(val))
 
@@ -1448,12 +1578,15 @@ def _registry_enrichment(view: _RegistryView, entity_id: str) -> dict[str, Any]:
     }
 
 
-def _entity_record(state: Any, view: _RegistryView) -> dict[str, Any]:
+def _entity_record(
+    state: Any, view: _RegistryView, *, include_membership: bool = False
+) -> dict[str, Any]:
     """Join a state with the entity/device/area/floor/label registries."""
     entity_id = getattr(state, "entity_id", "") or ""
     domain = entity_id.split(".")[0] if "." in entity_id else ""
     attrs = getattr(state, "attributes", None) or {}
     friendly = attrs.get("friendly_name", entity_id)
+    members = _normalize_member_entity_ids(attrs) if include_membership else None
 
     join = _registry_enrichment(view, entity_id)
     area_name = join["area"]
@@ -1481,6 +1614,14 @@ def _entity_record(state: Any, view: _RegistryView) -> dict[str, Any]:
         "floor": floor_name,
         "labels": label_names,
         "aliases": aliases,
+        **(
+            {
+                "is_group": members is not None,
+                **({"member_entity_ids": members} if members is not None else {}),
+            }
+            if include_membership
+            else {}
+        ),
         "_hidden": join["_hidden"],
         "_area_id": join["_area_id"],
         "_match_texts": match_texts,
@@ -1495,7 +1636,9 @@ def _entity_matches_area(rec: dict[str, Any], area_filter_lower: str) -> bool:
     return bool(area_name and str(area_name).lower() == area_filter_lower)
 
 
-def _project_entity(rec: dict[str, Any]) -> dict[str, Any]:
+def _project_entity(
+    rec: dict[str, Any], *, include_membership: bool = False
+) -> dict[str, Any]:
     """Strip internal ``_``-prefixed keys for the wire response."""
     return {
         "entity_id": rec["entity_id"],
@@ -1508,7 +1651,78 @@ def _project_entity(rec: dict[str, Any]) -> dict[str, Any]:
         "aliases": rec["aliases"],
         "score": rec["score"],
         "match_type": rec["match_type"],
+        **(
+            {"is_group": rec["is_group"]}
+            if include_membership and "is_group" in rec
+            else {}
+        ),
+        **(
+            {"member_entity_ids": rec["member_entity_ids"]}
+            if include_membership and "member_entity_ids" in rec
+            else {}
+        ),
     }
+
+
+def _redact_hidden_members(
+    records: list[dict[str, Any]],
+    hidden: set[str],
+    *,
+    view: _RegistryView | None = None,
+    include_hidden: bool = True,
+    enabled: bool = True,
+) -> None:
+    """Withhold members excluded by visibility or include_hidden."""
+    if not enabled:
+        return
+    for record in records:
+        members = record.get("member_entity_ids")
+        denied = bool(members and hidden.intersection(members))
+        if members and not include_hidden and view is not None:
+            denied = denied or any(
+                getattr(_reg_entity(view, member), "hidden_by", None) is not None
+                for member in members
+            )
+        if denied:
+            record.pop("member_entity_ids", None)
+
+
+def _normalize_member_entity_ids(attributes: Any) -> list[str] | None:
+    """Normalize HA's modern or historical explicit group membership."""
+    if not isinstance(attributes, Mapping):
+        return None
+    for key in ("group_entities", "entity_id"):
+        raw = attributes.get(key)
+        if isinstance(raw, (str, bytes, bytearray, Mapping)):
+            continue
+        if not isinstance(raw, Collection):
+            continue
+        members: set[str] = set()
+        valid = True
+        for value in raw:
+            if not _is_entity_id(value):
+                valid = False
+                break
+            members.add(value)
+        if valid:
+            return sorted(members)
+    return None
+
+
+def _is_entity_id(value: Any) -> bool:
+    """Return whether a value has the Home Assistant entity ID shape."""
+    if not isinstance(value, str) or value.count(".") != 1:
+        return False
+    domain, object_id = value.split(".", 1)
+    return bool(
+        domain
+        and object_id
+        and value == value.lower()
+        and all(
+            char in "abcdefghijklmnopqrstuvwxyz0123456789_"
+            for char in domain + object_id
+        )
+    )
 
 
 # --- Config surfaces (automation/script/scene) -------------------------------
@@ -2146,6 +2360,170 @@ def _device(view: _RegistryView, device_id: str | None) -> Any:
     return _call_lookup(view.device, "async_get", device_id)
 
 
+def _device_collection_values(collection: Any, *, collection_name: str) -> list[Any]:
+    """Enumerate a Core device collection across old and 2026.9 shapes.
+
+    Before Core 2026.9 ``registry.devices`` was a mapping-like container. Core
+    2026.9 exposes supported iterable collections for both ``devices`` and
+    ``child_devices``. Mapping fakes and older containers still use ``values``;
+    modern collections are consumed by iteration so the deprecated mapping API
+    on ``registry.devices`` is not invoked.
+    """
+    if collection is None:
+        return []
+    if isinstance(collection, Mapping):
+        try:
+            return list(collection.values())
+        except Exception:  # pragma: no cover - defensive
+            _LOGGER.warning(
+                "failed to enumerate device registry collection %s",
+                collection_name,
+                exc_info=True,
+            )
+            return []
+    try:
+        return list(collection)
+    except Exception:  # pragma: no cover - defensive
+        _LOGGER.warning(
+            "failed to enumerate device registry collection %s",
+            collection_name,
+            exc_info=True,
+        )
+        return []
+
+
+def _unambiguous_device_entries(view: _RegistryView) -> dict[str, Any]:
+    """Return one request-local map of unambiguous main and child devices.
+
+    Core 2026.9 stores child devices in a separate collection. Older releases
+    have only the mapping-like ``devices`` container. Duplicate ids cannot occur
+    in a valid Core registry; if a drifted/corrupt view supplies conflicting
+    entries, remove that identity rather than choosing one arbitrarily.
+    """
+    if view._device_entries_by_id_cache is not None:
+        return view._device_entries_by_id_cache
+    reg = view.device
+    if reg is None:
+        view._device_entries_by_id_cache = {}
+        view._device_conflicting_ids_cache = frozenset()
+        view._device_invalid_area_ids_cache = frozenset()
+        return view._device_entries_by_id_cache
+    main_collection = getattr(reg, "devices", None)
+    if hasattr(reg, "child_devices"):
+        candidates = _device_collection_values(
+            main_collection, collection_name="devices"
+        )
+        candidates.extend(
+            _device_collection_values(
+                getattr(reg, "child_devices", None), collection_name="child_devices"
+            )
+        )
+    else:
+        # The pre-2026.9 container is mapping-like and iterates ids, not entries.
+        candidates = _mapping_values(main_collection)
+
+    by_id: dict[str, Any] = {}
+    conflicts: set[str] = set()
+    for entry in candidates:
+        device_id = getattr(entry, "id", None)
+        if not isinstance(device_id, str) or not device_id or device_id in conflicts:
+            continue
+        if device_id not in by_id:
+            by_id[device_id] = entry
+            continue
+        prior = _device_dict_repr(by_id[device_id])
+        current = _device_dict_repr(entry)
+        if prior != current or prior is None:
+            conflicts.add(device_id)
+            del by_id[device_id]
+            _LOGGER.warning(
+                "device registry contained conflicting device identity %r; "
+                "excluding it from this request",
+                device_id,
+            )
+    view._device_entries_by_id_cache = by_id
+    view._device_conflicting_ids_cache = frozenset(conflicts)
+    return view._device_entries_by_id_cache
+
+
+def _all_device_entries(view: _RegistryView) -> list[Any]:
+    """Return every unambiguous main and child device entry once."""
+    return list(_unambiguous_device_entries(view).values())
+
+
+def _conflicting_device_ids(view: _RegistryView) -> frozenset[str]:
+    """Return device identities excluded from this request as conflicting."""
+    _unambiguous_device_entries(view)
+    return view._device_conflicting_ids_cache or frozenset()
+
+
+def _invalid_device_area_ids(view: _RegistryView) -> frozenset[str]:
+    """Return device ids whose area evidence is malformed or has invalid ancestry."""
+    devices_by_id = _unambiguous_device_entries(view)
+    if view._device_invalid_area_ids_cache is not None:
+        return view._device_invalid_area_ids_cache
+    invalid: set[str] = set()
+    for device_id, device in devices_by_id.items():
+        row = _device_dict_repr(device)
+        if row is None:
+            invalid.add(device_id)
+            continue
+        direct_area = row.get("area_id")
+        if direct_area is not None:
+            if not isinstance(direct_area, str) or not direct_area:
+                invalid.add(device_id)
+            continue
+        parent_id = row.get("parent_device_id")
+        if parent_id is None:
+            continue
+        if not isinstance(parent_id, str) or not parent_id:
+            invalid.add(device_id)
+            continue
+        parent = devices_by_id.get(parent_id)
+        parent_row = _device_dict_repr(parent) if parent is not None else None
+        if parent_row is None or parent_row.get("parent_device_id") is not None:
+            invalid.add(device_id)
+            continue
+        parent_area = parent_row.get("area_id")
+        if parent_area is not None and (
+            not isinstance(parent_area, str) or not parent_area
+        ):
+            invalid.add(device_id)
+    view._device_invalid_area_ids_cache = frozenset(invalid)
+    return view._device_invalid_area_ids_cache
+
+
+def _effective_device_area_id(view: _RegistryView, device: Any) -> str | None:
+    """Return Core 2026.9's direct-or-parent effective device area."""
+    devices_by_id = _unambiguous_device_entries(view)
+    device_row = _device_dict_repr(device)
+    if device_row is None:
+        return None
+    device_id = device_row.get("id")
+    if not isinstance(device_id, str) or not device_id:
+        return None
+    device = devices_by_id.get(device_id)
+    if device is None:
+        # Conflicting identities never contribute semantic placement.
+        return None
+    device_row = _device_dict_repr(device)
+    if device_row is None:
+        return None
+    direct_area = device_row.get("area_id")
+    if direct_area is not None:
+        return direct_area if isinstance(direct_area, str) and direct_area else None
+    parent_id = device_row.get("parent_device_id")
+    if not isinstance(parent_id, str) or not parent_id:
+        return None
+    parent = devices_by_id.get(parent_id)
+    parent_row = _device_dict_repr(parent) if parent is not None else None
+    if parent_row is None or parent_row.get("parent_device_id") is not None:
+        # Core requires a main-device parent. This also bounds malformed cycles.
+        return None
+    parent_area = parent_row.get("area_id")
+    return parent_area if isinstance(parent_area, str) and parent_area else None
+
+
 def _area_name(view: _RegistryView, area_id: str | None) -> str | None:
     if not area_id:
         return None
@@ -2463,6 +2841,7 @@ def _all_entity_entries(view: _RegistryView) -> list[Any]:
     try:
         return list(entities.values())
     except Exception:  # pragma: no cover - defensive
+        _LOGGER.warning("entity registry enumeration failed", exc_info=True)
         return []
 
 
@@ -2600,22 +2979,22 @@ def _overview_entity_registry(view: _RegistryView) -> list[dict[str, Any]]:
 def _overview_device_registry(view: _RegistryView) -> list[dict[str, Any]]:
     """Device registry as a bare list (id + area + labels + name/manufacturer/model)."""
     out: list[dict[str, Any]] = []
-    reg = view.device
-    devices = getattr(reg, "devices", None) if reg is not None else None
-    values = _mapping_values(devices)
-    for dev in values:
-        dev_id = getattr(dev, "id", None)
+    for dev in _all_device_entries(view):
+        dev_row = _device_dict_repr(dev)
+        if dev_row is None:
+            continue
+        dev_id = dev_row.get("id")
         if not dev_id:
             continue
         out.append(
             {
                 "id": dev_id,
-                "area_id": getattr(dev, "area_id", None),
-                "labels": sorted(str(x) for x in (getattr(dev, "labels", None) or [])),
-                "name": getattr(dev, "name", None),
-                "name_by_user": getattr(dev, "name_by_user", None),
-                "manufacturer": getattr(dev, "manufacturer", None),
-                "model": getattr(dev, "model", None),
+                "area_id": _effective_device_area_id(view, dev),
+                "labels": sorted(str(x) for x in (dev_row.get("labels") or [])),
+                "name": dev_row.get("name"),
+                "name_by_user": dev_row.get("name_by_user"),
+                "manufacturer": dev_row.get("manufacturer"),
+                "model": dev_row.get("model"),
             }
         )
     return out
@@ -2837,27 +3216,31 @@ def _do_blueprint_get(
     params: dict[str, Any],
     *,
     body: dict[str, Any] | None = None,
+    text: str | None = None,
 ) -> dict[str, Any]:
-    """Return one installed blueprint's full body as ``{metadata, config}``.
+    """Return one installed blueprint as ``{metadata, config, yaml}``.
 
     core's ``blueprint/list`` returns only ``{metadata}`` (no triggers /
-    conditions / actions / sequence), so the server can otherwise serve metadata
-    only. This reads the on-disk blueprint file and returns the parsed body:
-    ``config`` is the full file (the server merges it additively over the
-    ``blueprint/list`` metadata) and ``metadata`` is its ``blueprint:`` section.
-    When the file is missing, unparseable, or the requested path escapes the jail,
-    both come back ``None`` (the server keeps metadata-only) — see
-    :func:`_read_blueprint_file`.
+    conditions / actions / sequence, and never the file text), so the server can
+    otherwise serve metadata only. This reads the on-disk blueprint file once and
+    returns both views of it: ``config`` is the parsed file (the server merges it
+    additively over the ``blueprint/list`` metadata), ``metadata`` is its
+    ``blueprint:`` section, and ``yaml`` is the raw text the server hands back for
+    a round trip through ``blueprint/save``. Each is ``None`` when it could not be
+    produced — a file that reads but does not parse still yields its ``yaml`` —
+    and all three are ``None`` when the file is missing or the requested path
+    escapes the jail (see :func:`_read_blueprint_file`).
 
     Pure: the blocking jail-resolve + file read + YAML parse run in the executor
-    via :func:`_blueprint_get_prep`, which passes the parsed ``body`` in.
+    via :func:`_blueprint_get_prep`, which passes both views in.
     """
     if not isinstance(body, dict):
-        return {"metadata": None, "config": None}
+        return {"metadata": None, "config": None, "yaml": text}
     metadata = body.get("blueprint")
     return {
         "metadata": _plainify(metadata) if isinstance(metadata, dict) else None,
         "config": _plainify(body),
+        "yaml": text,
     }
 
 
@@ -2869,27 +3252,41 @@ async def _blueprint_get_prep(
     The path jail (symlink-safe ``Path.resolve`` containment), the ``open()`` and
     the YAML parse are all blocking filesystem work, so they run in the executor
     via :meth:`hass.async_add_executor_job` — keeping :func:`_do_blueprint_get` a
-    pure assembler over the parsed ``body`` this returns (``None`` on any failure).
+    pure assembler over the raw text and parsed body this returns (both ``None``
+    on a failed read).
     """
     domain = msg["domain"]
     path = msg["path"]
-    body = await hass.async_add_executor_job(_read_blueprint_file, hass, domain, path)
-    return {"body": body}
+    read = await hass.async_add_executor_job(_read_blueprint_file, hass, domain, path)
+    return {"body": read.body, "text": read.text}
 
 
-def _read_blueprint_file(
-    hass: HomeAssistant, domain: str, path: str
-) -> dict[str, Any] | None:
-    """Resolve + jail + read + parse one blueprint YAML file. ``None`` on failure.
+class _BlueprintFile(NamedTuple):
+    """One blueprint file read once: its raw ``text`` and its parsed ``body``.
+
+    ``text`` is ``None`` when the file could not be read at all; ``body`` is
+    additionally ``None`` when it read but did not parse into a mapping.
+    """
+
+    text: str | None
+    body: dict[str, Any] | None
+
+
+_UNREADABLE_BLUEPRINT = _BlueprintFile(None, None)
+
+
+def _read_blueprint_file(hass: HomeAssistant, domain: str, path: str) -> _BlueprintFile:
+    """Resolve + jail + read + parse one blueprint YAML file, reading it once.
 
     Blueprint files live under ``<config>/blueprints/<domain>/``. The requested
     ``path`` is joined under that root and resolved symlink-safe (mirrors the
     file-tool jail's ``_resolves_within`` — resolve the RAW input, following
     symlinks, THEN check containment, so ``<root>/<symlink>/..`` cannot escape). A
     path escaping the root — via ``..``, an absolute path, or a symlink — yields
-    ``None`` (rejected, never opened). A missing file, a non-file target, a read
-    error, or a YAML parse error also yields ``None``. Only a valid, contained,
-    parseable blueprint returns its full parsed body.
+    an empty result (rejected, never opened), as does a missing file, a non-file
+    target, or a read error. A file that reads but does not parse into a mapping
+    keeps its ``text`` and drops its ``body``, so the caller can still round-trip
+    the exact bytes it holds.
 
     Parsed with :class:`_BlueprintLoader`: ``!input`` markers are preserved and
     every other custom tag (``!secret`` / ``!include`` / …) is neutralized to
@@ -2899,29 +3296,32 @@ def _read_blueprint_file(
     config = getattr(hass, "config", None)
     path_fn = getattr(config, "path", None)
     if not callable(path_fn):
-        return None
+        return _UNREADABLE_BLUEPRINT
     try:
         base = Path(path_fn("blueprints", domain))
         candidate = Path(path) if path.startswith("/") else base / path
         real = candidate.resolve()
         base_real = base.resolve()
     except (OSError, ValueError):
-        return None
+        return _UNREADABLE_BLUEPRINT
     if not (real == base_real or real.is_relative_to(base_real)):
-        return None
+        return _UNREADABLE_BLUEPRINT
     try:
-        with open(real, encoding="utf-8") as handle:
-            # Instance form (not yaml.load) mirrors the component's existing
-            # _PackagesDirLoader usage; _BlueprintLoader is a SafeLoader subclass,
-            # so no !!python/object can construct arbitrary types.
-            loader = _BlueprintLoader(handle)
-            try:
-                parsed = loader.get_single_data()
-            finally:
-                loader.dispose()
-    except (OSError, ValueError, yaml.YAMLError):
-        return None
-    return parsed if isinstance(parsed, dict) else None
+        text = real.read_text(encoding="utf-8")
+    except (OSError, ValueError):
+        return _UNREADABLE_BLUEPRINT
+    try:
+        # Instance form (not yaml.load) mirrors the component's existing
+        # _PackagesDirLoader usage; _BlueprintLoader is a SafeLoader subclass,
+        # so no !!python/object can construct arbitrary types.
+        loader = _BlueprintLoader(text)
+        try:
+            parsed = loader.get_single_data()
+        finally:
+            loader.dispose()
+    except (ValueError, yaml.YAMLError):
+        return _BlueprintFile(text, None)
+    return _BlueprintFile(text, parsed if isinstance(parsed, dict) else None)
 
 
 def _construct_blueprint_input(loader: Any, node: Any) -> dict[str, str]:
@@ -2958,9 +3358,10 @@ _BlueprintLoader.add_multi_constructor("!", _drop_blueprint_tag)
 def _do_device_get(hass: HomeAssistant, params: dict[str, Any]) -> dict[str, Any]:
     """Return one device registry entry by id, optionally with its entities.
 
-    ``{device: <DeviceEntry.dict_repr> | None}`` — ``registry.async_get(device_id)``
-    is a pure O(1) in-memory dict read, and the emitted body is core's
-    ``DeviceEntry.dict_repr`` returned UNMODIFIED — exactly the shape
+    ``{device: <DeviceEntry.dict_repr> | None}`` — a request-local snapshot over
+    Core's supported main and child collections rejects conflicting identities,
+    and the emitted body is core's ``DeviceEntry.dict_repr`` returned UNMODIFIED —
+    exactly the shape
     ``config/device_registry/list`` serializes (it sends
     ``json_bytes(entry.dict_repr)``), so a component-served record is byte-identical
     to one legacy list element by construction (the WS transport JSON-encodes the
@@ -2977,15 +3378,25 @@ def _do_device_get(hass: HomeAssistant, params: dict[str, Any]) -> dict[str, Any
     to match what ``config/entity_registry/list`` returns (it lists disabled entities
     too). The DeviceEntry dict itself stays exactly the raw shape — the join is a
     sibling, so consumers keep their own transforms. The ``entities`` key is present
-    only when requested.
+    only when requested. A child-device result may also carry a sibling
+    ``effective_area_id`` computed from its direct-or-parent placement; that
+    transport-only field is absent from the raw ``device`` mapping.
     """
     device_id = params.get("device_id")
     include_entities = params.get("include_entities", False)
     view = _resolve_registries(hass)
-    entry = _device(view, device_id) if device_id else None
-    result: dict[str, Any] = {
-        "device": _device_dict_repr(entry) if entry is not None else None
-    }
+    entry = _unambiguous_device_entries(view).get(device_id) if device_id else None
+    entry_row = _device_dict_repr(entry) if entry is not None else None
+    result: dict[str, Any] = {"device": entry_row}
+    if (
+        entry is not None
+        and isinstance(entry_row, dict)
+        and isinstance(entry_row.get("parent_device_id"), str)
+    ):
+        # Additive internal transport metadata. The raw child ``dict_repr`` stays
+        # byte-identical to Core while the server can expose its existing area_id
+        # field using Core's effective placement without a whole-registry read.
+        result["effective_area_id"] = _effective_device_area_id(view, entry)
     if include_entities:
         result["entities"] = _device_entities(view, device_id) if device_id else []
     return result
@@ -3001,10 +3412,8 @@ def _do_device_list(hass: HomeAssistant, params: dict[str, Any]) -> dict[str, An
     than emitted as a partial record.
     """
     view = _resolve_registries(hass)
-    reg = view.device
-    devices = getattr(reg, "devices", None) if reg is not None else None
     out: list[dict[str, Any]] = []
-    for dev in _mapping_values(devices):
+    for dev in _all_device_entries(view):
         repr_dict = _device_dict_repr(dev)
         if repr_dict is not None:
             out.append(repr_dict)
@@ -3316,7 +3725,7 @@ def _do_config_entries(
 ) -> dict[str, Any]:
     """Return config entries in the ``config_entries/get`` WS shape.
 
-    ``{entries: [{created_at, modified_at, entry_id, domain, title, state, source,
+    ``{entries: [{created_at, modified_at, entry_id, domain, unique_id, title, state, source,
     supports_options, supports_remove_device, supports_unload, supports_reconfigure,
     supported_subentry_types, pref_disable_new_entities, pref_disable_polling,
     disabled_by, reason, error_reason_translation_key,
@@ -3324,7 +3733,9 @@ def _do_config_entries(
     The FULL ``as_json_fragment`` field set (``created_at`` / ``modified_at`` as
     ``.timestamp()`` floats, ``supported_subentry_types`` as core emits it), so the
     component row carries the same fields the legacy REST row does — no field is
-    dropped on the component path. Filtered by ``domain`` when
+    dropped on the component path — PLUS ``unique_id``, the one deliberate
+    superset field (core withholds it everywhere; the reconfigure identity
+    anchors need it). Filtered by ``domain`` when
     given, or the single entry by ``entry_id``
     (``hass.config_entries.async_get_entry`` — an id that matches nothing,
     including an empty string, yields an empty list). Only a WHOLLY ABSENT
@@ -3424,6 +3835,15 @@ def _config_entry_row(entry: Any, secret_values: frozenset[str]) -> dict[str, An
         "modified_at": _timestamp(getattr(entry, "modified_at", None)),
         "entry_id": getattr(entry, "entry_id", None),
         "domain": getattr(entry, "domain", None),
+        # The ONE field this row adds beyond core's as_json_fragment. Core
+        # deliberately withholds unique_id from every config-entry endpoint
+        # (REST list, config_entries/get and get_single all serialize that
+        # fragment), so a server needing it as an identity anchor has no other
+        # source. Additive within schema_version 1: a server reading an older
+        # component sees the KEY ABSENT, which is distinguishable from a
+        # present-but-None value, so this needs no version gate — the same
+        # discipline as device_get's opt-in entities join.
+        "unique_id": getattr(entry, "unique_id", None),
         "title": getattr(entry, "title", None),
         "state": _enum_value(getattr(entry, "state", None)),
         "source": getattr(entry, "source", None),
@@ -4837,6 +5257,77 @@ _ALLOWLIST_REGISTRY_EMPTY_WARNING = (
     "this request (an allow_entity_ids list, if set, still applies) so the filter "
     "does not blank every entity."
 )
+_DEVICE_REGISTRY_CONFLICT_WARNING = (
+    "Entity visibility filter is enabled with an area/label dimension but the "
+    "device registry contained conflicting identities; ambiguous device-derived "
+    "placement and labels were excluded."
+)
+_DEVICE_REGISTRY_INVALID_AREA_WARNING = (
+    "Entity visibility filter is enabled with an area dimension but the device "
+    "registry contained invalid area relationships; affected device-derived "
+    "placement was excluded."
+)
+
+
+class _AllowlistState(NamedTuple):
+    """Effective restrict-mode activity, registry degradation, and precedence.
+
+    ``authorized`` is ``active`` plus the ``allowlist_authorization`` wire flag:
+    an allow match then authorizes the entity past the category, HA-hidden, and
+    Assist filters. Without the flag the legacy conjunctive semantics apply even
+    while ``active`` is True (an older server resolves that way itself).
+    """
+
+    active: bool
+    degraded: bool
+    authorized: bool
+
+
+class _VisibilityInventory(NamedTuple):
+    """Registry/state indexes and allowlist state shared by one search."""
+
+    registry_by_id: dict[str, Any]
+    state_ids: set[str]
+    allowlist: _AllowlistState
+
+
+def _visibility_allowlist_state(
+    registry_by_id: Mapping[str, Any],
+    state_ids: set[str],
+    visibility: Mapping[str, Any],
+) -> _AllowlistState:
+    """Resolve allowlist activity from one precomputed search inventory.
+
+    ``degraded`` deliberately remains true when an explicit ``allow_entity_ids``
+    list keeps restrict mode active: only the registry-derived allow dimensions
+    degraded, so callers still warn while the explicit ID allowlist remains in
+    force. This differs from the resolver's pre-fetch predicate, which asks only
+    whether degradation would make Assist relevant again.
+
+    ``authorized`` additionally requires the ``allowlist_authorization`` wire flag:
+    an active allowlist alone keeps the legacy conjunctive precedence.
+    """
+    entity_ids_active = bool(visibility.get("allow_entity_ids"))
+    registry_dimensions_active = bool(
+        visibility.get("allow_areas") or visibility.get("allow_labels")
+    )
+    degraded = registry_dimensions_active and not registry_by_id and bool(state_ids)
+    active = entity_ids_active or (registry_dimensions_active and not degraded)
+    authorized = active and bool(visibility.get("allowlist_authorization"))
+    return _AllowlistState(active, degraded, authorized)
+
+
+def _visibility_inventory(
+    view: _RegistryView, states: Any, visibility: Mapping[str, Any]
+) -> _VisibilityInventory:
+    """Build the registry/state inventory once for one visibility computation."""
+    registry_by_id = _registry_index_by_id(view)
+    state_ids = _state_entity_ids(states)
+    return _VisibilityInventory(
+        registry_by_id,
+        state_ids,
+        _visibility_allowlist_state(registry_by_id, state_ids, visibility),
+    )
 
 
 def _unknown_categories_warning(unknown_categories: set[str]) -> str:
@@ -4854,14 +5345,17 @@ def _visibility_hidden_set(
     should_expose_fn: Any,
     *,
     assist_available: bool = True,
+    inventory: _VisibilityInventory | None = None,
 ) -> set[str]:
     """Compute the opt-in hidden entity_id set, mirroring the server's resolver.
 
     A pure replication of ``visibility.resolver.hidden_entity_ids`` over the live
     ``_RegistryView`` + ``states`` (rather than the WS ``{success, result}``
-    payloads the server passes): a conjunction of independent hide dimensions —
-    the deny list, the category / hidden / area / label excludes (area/labels are
-    device-inherited), the allow-list restrict mode, and the Assist dimension. The
+    payloads the server passes), including its precedence: concrete deny and
+    area/label excludes win; an allowlist match authorizes past the broad category,
+    Home Assistant hidden-state, and Assist filters when the wire opted into that
+    revised precedence with ``allowlist_authorization`` (without the flag those
+    filters still apply to a matched entity, matching the older server). The
     Assist dimension delegates to the injectable ``should_expose_fn(entity_id) ->
     bool`` (:func:`_assist_should_expose` in production — a READ-ONLY reconstruction
     of core's ``async_should_expose`` from the explicit exposure map + expose_new +
@@ -4871,11 +5365,11 @@ def _visibility_hidden_set(
     computed defaults back, which this fast path must not do (see
     :func:`_assist_should_expose`).
 
-    ``should_expose_fn`` is consulted only when ``respect_assist_exposure`` is set
-    AND ``assist_available`` is True. When the config requests the Assist dimension
-    but the exposure machinery is unavailable (``assist_available=False``), the
-    dimension is SKIPPED — hiding nothing by Assist — mirroring the resolver's
-    "skip the dimension when its data is unavailable" fail-open (the paired
+    ``should_expose_fn`` is consulted only when ``respect_assist_exposure`` is set,
+    no AUTHORIZING allowlist is active, and ``assist_available`` is True. When the config
+    requests the Assist dimension but the exposure machinery is unavailable
+    (``assist_available=False``), the dimension is SKIPPED — hiding nothing by
+    Assist — mirroring the resolver's fail-open behavior (the paired
     degradation warning is surfaced by :func:`_visibility_warnings`). Kept a
     standalone pure function so it is unit-testable without the full search
     pipeline.
@@ -4890,29 +5384,25 @@ def _visibility_hidden_set(
     allow_areas = set(visibility.get("allow_areas") or [])
     allow_labels = set(visibility.get("allow_labels") or [])
     respect_assist = bool(visibility.get("respect_assist_exposure"))
-    # ``assist_active`` gates the per-entity Assist should_expose sub-check (skipped
-    # when the config asks for Assist but its data is unavailable). The allow/assist
-    # loop below is guarded by ``allow_active or respect_assist`` — a structural
-    # mirror of the resolver's guard, not a functional requirement: when Assist is
-    # requested-but-unavailable and no allowlist is set, the loop runs but hides
-    # nothing (both sub-checks are inert). Kept identical so the two paths match.
-    assist_active = respect_assist and assist_available
-    allow_active = bool(allow_areas or allow_labels or allow_entity_ids)
 
-    registry_by_id = _registry_index_by_id(view)
+    if inventory is None:
+        inventory = _visibility_inventory(view, states, visibility)
+    registry_by_id = inventory.registry_by_id
     # states-only entity universe (YAML/template entities absent from the registry
     # that the allow / Assist dimensions must still be able to hide).
-    state_ids = {
-        eid for eid in (getattr(s, "entity_id", None) for s in states or []) if eid
-    }
-
-    # Fail-open guard (mirrors the resolver): an area/label allowlist needs registry
-    # data to match; if the registry is empty but there are states-only candidates,
-    # restrict mode would blank everything, so drop those allow dimensions.
-    if (allow_areas or allow_labels) and not registry_by_id and state_ids:
+    state_ids = inventory.state_ids
+    allow_active = inventory.allowlist.active
+    authorized = inventory.allowlist.authorized
+    # Fail-open guard: registry-derived allow dimensions cannot match when the
+    # registry is empty but states-only candidates exist.
+    if inventory.allowlist.degraded:
         allow_areas = set()
         allow_labels = set()
-        allow_active = bool(allow_entity_ids)
+
+    # An authorizing allowlist skips the broad Assist filter; a legacy wire keeps
+    # it. Only a full degradation (registry-derived dimensions dropped and no
+    # allow_entity_ids left) makes ``active`` False and re-enables Assist.
+    assist_active = respect_assist and assist_available and not authorized
 
     hidden: set[str] = set(denied)
     _apply_visibility_excludes(
@@ -4924,8 +5414,9 @@ def _visibility_hidden_set(
         exclude_areas,
         exclude_labels,
         hidden,
+        automatic_excludes_active=not authorized,
     )
-    if allow_active or respect_assist:
+    if allow_active or assist_active:
         _apply_visibility_allow_assist(
             view,
             registry_by_id,
@@ -4937,6 +5428,7 @@ def _visibility_hidden_set(
             assist_active,
             should_expose_fn,
             hidden,
+            allow_authorizes=authorized,
         )
     return hidden
 
@@ -4947,13 +5439,16 @@ def _visibility_warnings(
     visibility: Mapping[str, Any],
     *,
     assist_available: bool = True,
+    inventory: _VisibilityInventory | None = None,
 ) -> list[str]:
     """Degradation warnings for a visibility computation, mirroring the resolver.
 
     Companion to :func:`_visibility_hidden_set`: the hidden-set function silently
     fails open on a degraded dimension (an unknown ``exclude_category``, an
-    area/label allowlist against an empty registry, or a requested-but-unavailable
-    Assist dimension), so this returns the operator-facing warnings the server's
+    area/label dimension against conflicting device identities, an area dimension
+    against invalid device ancestry, an area/label allowlist against an empty
+    registry, or a requested-but-unavailable Assist dimension), so this returns
+    the operator-facing warnings the server's
     ``load_hidden_set`` would emit for the same config. The ha_search consumer
     merges them into the response so the component fast path is no longer silent
     about incomplete filtering. Byte-identical to ``visibility.resolver``'s warning
@@ -4971,19 +5466,29 @@ def _visibility_warnings(
     if unknown:
         warnings.append(_unknown_categories_warning(unknown))
 
-    allow_areas = set(visibility.get("allow_areas") or [])
-    allow_labels = set(visibility.get("allow_labels") or [])
-    registry_by_id = _registry_index_by_id(view)
-    state_ids = {
-        eid for eid in (getattr(s, "entity_id", None) for s in states or []) if eid
-    }
-    # Empty-registry allowlist fail-open: same guard as _visibility_hidden_set —
-    # only fires when there are states-only candidates the restrict mode would
-    # otherwise blank.
-    if (allow_areas or allow_labels) and not registry_by_id and state_ids:
+    area_or_label_dimension_active = bool(
+        visibility.get("exclude_areas")
+        or visibility.get("exclude_labels")
+        or visibility.get("allow_areas")
+        or visibility.get("allow_labels")
+    )
+    if area_or_label_dimension_active and _conflicting_device_ids(view):
+        warnings.append(_DEVICE_REGISTRY_CONFLICT_WARNING)
+    if (
+        visibility.get("exclude_areas") or visibility.get("allow_areas")
+    ) and _invalid_device_area_ids(view):
+        warnings.append(_DEVICE_REGISTRY_INVALID_AREA_WARNING)
+
+    if inventory is None:
+        inventory = _visibility_inventory(view, states, visibility)
+    if inventory.allowlist.degraded:
         warnings.append(_ALLOWLIST_REGISTRY_EMPTY_WARNING)
 
-    if bool(visibility.get("respect_assist_exposure")) and not assist_available:
+    if (
+        visibility.get("respect_assist_exposure")
+        and not inventory.allowlist.authorized
+        and not assist_available
+    ):
         warnings.append(_ASSIST_UNAVAILABLE_WARNING)
 
     return warnings
@@ -4999,6 +5504,15 @@ def _registry_index_by_id(view: _RegistryView) -> dict[str, Any]:
     return index
 
 
+def _state_entity_ids(states: Any) -> set[str]:
+    """Entity IDs present in the live state-machine snapshot."""
+    return {
+        eid
+        for eid in (getattr(state, "entity_id", None) for state in states or [])
+        if eid
+    }
+
+
 def _apply_visibility_excludes(
     view: _RegistryView,
     registry_by_id: dict[str, Any],
@@ -5008,22 +5522,27 @@ def _apply_visibility_excludes(
     exclude_areas: set[str],
     exclude_labels: set[str],
     hidden: set[str],
+    *,
+    automatic_excludes_active: bool,
 ) -> None:
-    """Add the exclude-dimension hits to ``hidden`` (registry-derived, deny-first).
+    """Add automatic and hard exclude hits to ``hidden``.
 
-    Mirrors the resolver's exclude loop. The empty-set dimensions are inert (``x in
-    set()`` / ``set() & x`` are falsy), so an inactive dimension hides nothing
-    without a guard; only ``exclude_hidden`` is a bool flag and keeps its guard.
+    Category/HA-hidden filters are skipped for an AUTHORIZING allowlist; concrete
+    area/label exclusions remain hard conflicts and always apply. The empty-set
+    dimensions are inert (``x in set()`` / ``set() & x`` are falsy), so an inactive
+    dimension hides nothing without a guard; only ``exclude_hidden`` is a bool flag
+    and keeps its guard.
     """
     for eid, entry in registry_by_id.items():
         if eid in denied:
             continue
-        if _enum_value(getattr(entry, "entity_category", None)) in categories:
-            hidden.add(eid)
-            continue
-        if exclude_hidden and getattr(entry, "hidden_by", None) is not None:
-            hidden.add(eid)
-            continue
+        if automatic_excludes_active:
+            if _enum_value(getattr(entry, "entity_category", None)) in categories:
+                hidden.add(eid)
+                continue
+            if exclude_hidden and getattr(entry, "hidden_by", None) is not None:
+                hidden.add(eid)
+                continue
         if _effective_area_for_entry(view, entry) in exclude_areas:
             hidden.add(eid)
             continue
@@ -5042,24 +5561,28 @@ def _apply_visibility_allow_assist(
     assist_active: bool,
     should_expose_fn: Any,
     hidden: set[str],
+    *,
+    allow_authorizes: bool,
 ) -> None:
     """Add allow-restrict + Assist hits to ``hidden`` over registry + states.
 
-    These conjunctive filters must reach states-only entities, so they iterate the
-    full candidate universe. Mirrors the resolver's allow/assist loop. ``should_expose_fn``
-    is consulted only when ``assist_active`` (Assist requested AND its data
-    available); an unavailable-Assist request degrades to no Assist hiding here,
-    with the warning surfaced separately.
+    Both filters reach states-only entities. A nonmatching entity is always hidden
+    while the allowlist is active. With ``allow_authorizes`` a match skips the
+    Assist check; on a legacy wire a matched entity still faces it, so
+    ``should_expose_fn`` is consulted whenever Assist is requested and available.
     """
     for eid in registry_by_id.keys() | state_ids:
         if eid in hidden:
             continue
         entry = registry_by_id.get(eid)
-        if allow_active and not _entity_allowed(
-            view, eid, entry, allow_entity_ids, allow_areas, allow_labels
-        ):
-            hidden.add(eid)
-            continue
+        if allow_active:
+            if not _entity_allowed(
+                view, eid, entry, allow_entity_ids, allow_areas, allow_labels
+            ):
+                hidden.add(eid)
+                continue
+            if allow_authorizes:
+                continue
         if assist_active and not should_expose_fn(eid):
             hidden.add(eid)
 
@@ -5083,14 +5606,14 @@ def _entity_allowed(
 
 
 def _effective_area_for_entry(view: _RegistryView, entry: Any) -> str | None:
-    """An entity's ``area_id`` falling back to its device's (HA area inheritance)."""
+    """Resolve entity direct area, then its device's direct-or-parent effective area."""
     area_id = getattr(entry, "area_id", None)
-    if isinstance(area_id, str) and area_id:
-        return area_id
+    if area_id is not None:
+        return area_id if isinstance(area_id, str) and area_id else None
     device_id = getattr(entry, "device_id", None)
     if isinstance(device_id, str) and device_id:
-        dev = _device(view, device_id)
-        dev_area = getattr(dev, "area_id", None) if dev is not None else None
+        dev = _unambiguous_device_entries(view).get(device_id)
+        dev_area = _effective_device_area_id(view, dev) if dev is not None else None
         return dev_area if isinstance(dev_area, str) and dev_area else None
     return None
 
@@ -5100,9 +5623,11 @@ def _effective_labels_for_entry(view: _RegistryView, entry: Any) -> set[str]:
     labels = set(getattr(entry, "labels", None) or [])
     device_id = getattr(entry, "device_id", None)
     if isinstance(device_id, str) and device_id:
-        dev = _device(view, device_id)
+        dev = _unambiguous_device_entries(view).get(device_id)
         if dev is not None:
-            labels |= set(getattr(dev, "labels", None) or [])
+            dev_row = _device_dict_repr(dev)
+            if dev_row is not None:
+                labels |= set(dev_row.get("labels") or [])
     return labels
 
 
@@ -5229,6 +5754,7 @@ def _assist_exposure_available(hass: HomeAssistant) -> bool:
             DATA_EXPOSED_ENTITIES,
         )
     except Exception:
+        _LOGGER.warning("Assist exposure support import failed", exc_info=True)
         return False
     data = getattr(hass, "data", None)
     return isinstance(data, Mapping) and DATA_EXPOSED_ENTITIES in data
@@ -5379,8 +5905,14 @@ async def _server_entry_update_prep(
         # auto-updating. Persisting it verbatim would read as an intentional
         # override and disable auto-updates. This keeps the no-op check honest: a
         # frame that normalizes to the stored value is unchanged, not a schedule.
+        # 'clear' (case-insensitive) is the empty string's mangling-proof
+        # alias (see ha_dev_manage_server): recognize it here too so raw WS
+        # callers and older servers cannot persist the literal word as a pip
+        # requirement that fails at install time.
         pip_spec = msg["pip_spec"]
-        if str(pip_spec).strip() in ("", DEFAULT_PIP_SPEC):
+        if str(pip_spec).strip() in ("", DEFAULT_PIP_SPEC) or (
+            str(pip_spec).strip().lower() == "clear"
+        ):
             pip_spec = ""
         delta[OPT_PIP_SPEC] = pip_spec
         applying["pip_spec"] = pip_spec
@@ -5479,11 +6011,23 @@ async def _call_service_prep(
        domain, so it holds no matter which path reaches this function.
     2. **ServiceNotFound** before dispatch, so an unknown service is a clean
        ``SERVICE_NOT_FOUND`` and never a landed-but-unreported write.
-    3. Pre-state capture for each ``entity_id`` (a synchronous in-memory read).
+    3. Pre-state capture for each ``entity_id`` (a synchronous in-memory read). A
+       target whose captured state is ``None`` — absent from the state machine, so
+       it structurally cannot ever emit a ``state_changed`` for this dispatch — is
+       excluded from the wait entirely (:func:`_confirmable_entity_ids`); waiting on
+       it would only burn the full ``timeout`` to learn what the pre-state already
+       proved. An ``"unavailable"`` target stays IN the wait (unlike a nonexistent
+       one, it can legitimately reconnect and transition mid-dispatch — excluding it
+       too would silently miss that), so ``should_confirm`` itself stays keyed off
+       the full ``entity_ids`` (intent to confirm), not the narrower confirmable
+       subset — a ``validate_first=False`` caller that intentionally skips the
+       not-found/unavailable error mapping still needs ``partial=True`` on a
+       genuinely-excluded target, not a bare unconfirmed-but-not-partial result.
     4. Register the expected-aware ``EVENT_STATE_CHANGED`` waiter BEFORE the dispatch
-       (D5) so a fast entity's event can't arrive before the listener exists. The
-       waiter confirms only on reaching the server's ``expected_state`` hint (skipping
-       intermediate/noise events); a ``None`` hint keeps any-first-event confirmation.
+       (D5) so a fast entity's event can't arrive before the listener exists, scoped
+       to only the confirmable targets from step 3. The waiter confirms only on
+       reaching the server's ``expected_state`` hint (skipping intermediate/noise
+       events); a ``None`` hint keeps any-first-event confirmation.
     5. Fire exactly ONE ``async_call`` (``blocking=True``); flip ``dispatched``
        immediately after so a post-dispatch problem is never retried as a failed
        call (D3/D9).
@@ -5527,22 +6071,32 @@ async def _call_service_prep(
     wait = msg.get("wait", True)
     timeout = msg.get("timeout", CALL_SERVICE_DEFAULT_TIMEOUT)
     return_response = msg.get("return_response", False)
-    should_confirm = bool(wait and entity_ids)
     # The server's confirmation HINT (``_SERVICE_TO_STATE.get(service)``), applied to
     # every confirmation target. Absent / None keeps any-first-event confirmation.
     expected_state = msg.get("expected_state")
     expected_by_entity = dict.fromkeys(entity_ids, expected_state)
 
+    # should_confirm stays keyed off the full entity_ids (intent to confirm) — see
+    # the docstring's step 3 for why this must NOT narrow to the confirmable subset.
+    should_confirm = bool(wait and entity_ids)
+
     # 3. Pre-state capture (synchronous in-memory reads, guarded against drift).
     pre = {eid: _state_as_dict(_state_get(hass, eid)) for eid in entity_ids}
+    # Only a target whose pre-dispatch state proves it can possibly report a
+    # confirming event is worth actually waiting on (see
+    # ``_confirmable_entity_ids``) — a target absent from the state machine can
+    # never emit one, so waiting on it is certain to burn the full ``timeout`` for
+    # no new information; the server reads the certain ``None`` old_state straight
+    # off the transition instead.
+    confirmable_entity_ids = _confirmable_entity_ids(entity_ids, pre)
 
-    # 4. Register-before-fire (D5): only when there is something to confirm.
+    # 4. Register-before-fire (D5): only when there is something worth confirming.
     evt: Any = None
     captured: dict[str, Any] = {}
     unsub: Any = None
-    if should_confirm:
+    if should_confirm and confirmable_entity_ids:
         evt, captured, unsub = _register_transition_waiter(
-            hass, set(entity_ids), expected_by_entity
+            hass, set(confirmable_entity_ids), expected_by_entity
         )
 
     # 5. Dispatch exactly once. 6. Immediate-match + bounded wait. 7. Build the diff.
@@ -5561,9 +6115,13 @@ async def _call_service_prep(
             return_response=return_response,
         )
         dispatched = True
-        if should_confirm:
+        # ``evt`` is None when nothing was worth waiting on (should_confirm was
+        # True but every target was excluded as unconfirmable) — there is then
+        # nothing that could ever confirm, so skip the wait outright rather than
+        # awaiting an event that was never registered to fire.
+        if should_confirm and evt is not None:
             await _await_confirmation(
-                hass, entity_ids, expected_by_entity, captured, evt, timeout
+                hass, confirmable_entity_ids, expected_by_entity, captured, evt, timeout
             )
         result = _build_call_service_result(
             hass,
@@ -5594,6 +6152,26 @@ async def _call_service_prep(
         if unsub is not None:
             unsub()
     return {"result": result}
+
+
+def _confirmable_entity_ids(entity_ids: list[str], pre: Mapping[str, Any]) -> list[str]:
+    """Targets whose pre-dispatch state proves they can possibly confirm.
+
+    A target absent from the state machine (``pre[eid] is None``) can never emit a
+    confirming ``state_changed`` for this dispatch — HA no-ops a service call for
+    an entity id that matches nothing, and nothing will register that id mid-call
+    either. Excluding it from the wait lets the server read the certain outcome
+    straight off the transition's ``None`` ``old_state`` instead of burning the
+    full timeout to learn nothing new.
+
+    Deliberately NOT excluded: a target whose captured state is ``"unavailable"``.
+    Unlike a nonexistent id, an unavailable entity can legitimately reconnect and
+    transition during the blocking dispatch (the very case ``ENTITY_UNAVAILABLE``
+    exists to distinguish from a real failure would itself go undetected if the
+    listener were never registered) — so it stays in the wait and is judged by
+    whether it actually confirmed, not excluded upfront.
+    """
+    return [eid for eid in entity_ids if pre.get(eid) is not None]
 
 
 def _guard_call_service_target(hass: HomeAssistant, domain: str, service: str) -> None:
@@ -5785,6 +6363,9 @@ def _build_call_service_result(
         _call_service_transition(eid, pre.get(eid), _post_state(hass, eid, captured))
         for eid in entity_ids
     ]
+    # Against the FULL entity_ids, not just the confirmable subset: an excluded
+    # (nonexistent) target can never land in captured, so this naturally stays
+    # False whenever one is present — exactly right, since it never confirmed.
     confirmed = bool(should_confirm and set(entity_ids) <= set(captured))
     result: dict[str, Any] = {
         "domain": domain,
@@ -5987,19 +6568,36 @@ def _bulk_op_record(
     ``pre`` is the synchronous in-memory pre-state per target; ``expected_by_entity``
     maps every target to this op's confirmation hint (``_SERVICE_TO_STATE``) so the
     waiter + immediate-match key off it; ``dispatched`` / ``error`` / ``response``
-    start empty and are filled during dispatch; ``should_confirm`` is true only when
-    the batch is waiting AND this op names targets to confirm.
+    start empty and are filled during dispatch. ``confirmable_entity_ids`` excludes
+    ONLY a target whose captured pre-state is ``None`` (nonexistent) — it can never
+    emit a confirming event, so it is never worth the shared wait (see
+    ``_confirmable_entity_ids``). Deliberately NOT excluded from it: a target
+    already ``"unavailable"``, which can legitimately reconnect and confirm
+    mid-dispatch. ``should_confirm`` stays intent-level (``bool(wait and
+    entity_ids)`` — the FULL list, not the confirmable subset): a
+    ``validate_first=False`` caller that skips the not-found/unavailable error
+    mapping still needs ``partial=True`` on a genuinely-excluded target, not a
+    bare unconfirmed-but-not-partial result.
     """
     entity_ids = list(op.get("entity_ids") or [])
     expected_state = op.get("expected_state")
+    pre = {eid: _state_as_dict(_state_get(hass, eid)) for eid in entity_ids}
+    confirmable_entity_ids = _confirmable_entity_ids(entity_ids, pre)
     return {
         "domain": op["domain"],
         "service": op["service"],
         "service_data": op.get("service_data") or {},
         "entity_ids": entity_ids,
+        "confirmable_entity_ids": confirmable_entity_ids,
         "expected_by_entity": dict.fromkeys(entity_ids, expected_state),
+        # Intent-level (full entity_ids), NOT the confirmable subset — mirrors
+        # ``_call_service_prep``'s should_confirm: a validate_first=False caller
+        # that intentionally skips the not-found/unavailable error mapping still
+        # needs partial=True on a genuinely-excluded target, not a bare
+        # unconfirmed-but-not-partial result. confirmable_entity_ids scopes ONLY
+        # which targets are actually worth registering a listener / waiting for.
         "should_confirm": bool(wait and entity_ids),
-        "pre": {eid: _state_as_dict(_state_get(hass, eid)) for eid in entity_ids},
+        "pre": pre,
         "evt": None,
         "captured": {},
         "dispatched": False,
@@ -6042,9 +6640,9 @@ def _bulk_register_all(hass: HomeAssistant, ops: list[dict[str, Any]]) -> list[A
     unsubs: list[Any] = []
     try:
         for op in ops:
-            if op["should_confirm"]:
+            if op["should_confirm"] and op["confirmable_entity_ids"]:
                 evt, captured, unsub = _register_transition_waiter(
-                    hass, set(op["entity_ids"]), op["expected_by_entity"]
+                    hass, set(op["confirmable_entity_ids"]), op["expected_by_entity"]
                 )
                 op["evt"] = evt
                 op["captured"] = captured
@@ -6099,7 +6697,10 @@ def _bulk_match_immediate(hass: HomeAssistant, ops: list[dict[str, Any]]) -> Non
     for op in ops:
         if op["should_confirm"] and op["dispatched"]:
             _match_immediate(
-                hass, op["entity_ids"], op["expected_by_entity"], op["captured"]
+                hass,
+                op["confirmable_entity_ids"],
+                op["expected_by_entity"],
+                op["captured"],
             )
 
 
@@ -6121,7 +6722,10 @@ async def _bulk_wait_all(ops: list[dict[str, Any]], timeout: float) -> None:
         for op in ops
         if op["should_confirm"]
         and op["dispatched"]
-        and not (set(op["entity_ids"]) <= set(op["captured"]))
+        # evt is None when nothing was worth waiting on for this op (every
+        # target was excluded as unconfirmable) — nothing could ever set it.
+        and op["evt"] is not None
+        and not (set(op["confirmable_entity_ids"]) <= set(op["captured"]))
     ]
     if not waiters:
         return
@@ -6162,6 +6766,9 @@ def _build_bulk_op_result(hass: HomeAssistant, op: Mapping[str, Any]) -> dict[st
         )
         for eid in entity_ids
     ]
+    # Against the FULL entity_ids, not just the confirmable subset: an excluded
+    # (nonexistent) target can never land in captured, so this naturally stays
+    # False whenever one is present — exactly right, since it never confirmed.
     confirmed = bool(should_confirm and dispatched and set(entity_ids) <= set(captured))
     result: dict[str, Any] = {
         "domain": op["domain"],
@@ -6228,3 +6835,29 @@ def _dispatched_unconfirmed_bulk_result(
         "dispatched": sum(1 for r in op_results if r["dispatched"]),
         "failed": sum(1 for r in op_results if r.get("error") is not None),
     }
+
+
+def _dashboard_edit_schema() -> dict[Any, Any]:
+    """The additive edit command; cross-field validation precedes any save."""
+    return {
+        vol.Required("type"): WS_DASHBOARD_EDIT,
+        vol.Optional("url_path"): vol.Any(str, None),
+        vol.Optional("expected_hash"): vol.Any(str, None),
+        vol.Optional("config"): dict,
+        vol.Optional("patch"): list,
+    }
+
+
+async def _dashboard_edit_prep(
+    hass: HomeAssistant, msg: dict[str, Any]
+) -> dict[str, Any]:
+    from .dashboard_edit import async_edit_dashboard
+
+    return {"result": await async_edit_dashboard(hass, msg)}
+
+
+def _do_dashboard_edit(
+    hass: HomeAssistant, msg: dict[str, Any], *, result: dict[str, Any]
+) -> dict[str, Any]:
+    """Preserve the write outcome assembled by the async edit lifecycle."""
+    return result

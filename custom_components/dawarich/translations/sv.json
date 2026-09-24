@@ -20,11 +20,37 @@
         "data": {
           "api_key": "API-nyckel"
         }
+      },
+      "reauth_confirm": {
+        "title": "Återautentisera Dawarich",
+        "description": "Din Dawarich API-nyckel för {host} är ogiltig. Vänligen ange en ny API-nyckel.",
+        "data": {
+          "api_key": "API-nyckel"
+        }
+      },
+      "reconfigure_confirm": {
+        "title": "Omkonfigurera Dawarich",
+        "description": "Uppdatera dina Dawarich-anslutningsinställningar. Lämna API-nyckeln tom för att behålla den nuvarande nyckeln.",
+        "data": {
+          "host": "Värd",
+          "port": "Port",
+          "name": "Namn",
+          "mobile_app": "Enhetspårare",
+          "ssl": "Använd SSL (d.v.s. https)",
+          "verify_ssl": "Verifiera SSL",
+          "api_key": "API-nyckel (lämna tomt för att behålla nuvarande)"
+        }
       }
     },
     "error": {
       "connection_error": "Anslutningsfel, kunde inte nå Dawarich API.",
       "invalid_api_key": "Ogiltig API-nyckel."
+    },
+    "abort": {
+      "already_configured": "Denna Dawarich-instans är redan konfigurerad.",
+      "reconfigure_failed": "Misslyckades med att omkonfigurera integrationen.",
+      "reconfigure_successful": "Dawarich-konfigurationen uppdaterades.",
+      "reauth_successful": "Återautentisering lyckades. API-nyckeln har uppdaterats."
     }
   },
   "entity": {
@@ -59,6 +85,16 @@
       "version": {
         "name": "Version"
       }
+    }
+  },
+  "issues": {
+    "device_tracker_unavailable": {
+      "title": "Enhetspårare inte tillgänglig",
+      "description": "Enhetspåraren `{device_tracker}` som är konfigurerad för {device_name} är inte tillgänglig. Detta kan bero på att entiteten har tagits bort eller att integrationen som tillhandahåller den inte är laddad. Kontrollera entiteten eller omkonfigurera Dawarich-integrationen för att använda en annan enhetspårare."
+    },
+    "api_unavailable": {
+      "title": "Dawarich API inte tillgängligt",
+      "description": "Dawarich API:n på `{url}` är inte nåbar. Servern svarade med statuskod {status_code} och fel: {error}. Kontrollera att din Dawarich-server är igång och är tillgänglig."
     }
   }
 }

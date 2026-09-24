@@ -77,31 +77,36 @@ export const TRANSLATIONS = {
     // 2026-07-16): "Small/Medium/Large" is a scale any version
     // scheme maps onto -- semver, calendar versioning, and git commit
     // hashes each have their own notion of "small" (see semver.py). The
-    // _desc text is a small (?) tooltip's own content next to the size's
-    // own name in the Postponement/Auto-update settings rows
-    // (buildSizeHelpTooltip, 2026-08-11), not a standalone paragraph --
-    // the detail dialog's "Jump" fact row shows the _short word only, no
-    // room/need for the explanation there either.
+    // _lead/_examples text is the General card's own explanation for each
+    // size (_buildGeneralCard) -- the detail dialog's "Jump" fact row
+    // shows the _short word only, no room/need for the explanation there.
     size_small_short: "Small",
     // Functions, not plain strings, for the two with a calendar-version
     // example (currentCalendarVersion): always today's real year/month,
-    // never a hardcoded date that quietly goes stale. size_large_desc stays
-    // a function too, purely so every size_*_desc can be called the same
+    // never a hardcoded date that quietly goes stale. size_large_examples
+    // stays a function too, purely so every size_*_examples can be called
+    // the same
     // way (see computeHelper below) rather than branching per size.
-    size_small_desc: () => {
+    // Split from one run-on sentence into a short lead clause plus its own
+    // examples array (2026-08-12, direct user feedback): one bullet per
+    // example reads faster than the same facts packed into one sentence's
+    // worth of parentheticals. The real, live-computed examples
+    // (currentCalendarVersion) carry over unchanged, just no longer
+    // prefixed with "e.g." now that each is its own line.
+    size_small_lead: "A patch release, or an update within the same calendar month.",
+    size_small_examples: () => {
       const { year, month } = currentCalendarVersion();
-      return `A patch release (e.g. 1.0.0 → 1.0.1), or the same calendar month (e.g. ${year}.${month}.0 → ${year}.${month}.1).`;
+      return ["1.0.0 → 1.0.1", `${year}.${month}.0 → ${year}.${month}.1`];
     },
     size_medium_short: "Medium",
-    size_medium_desc: () => {
+    size_medium_lead: "A minor release, a new calendar month or year, or a commit-hash update.",
+    size_medium_examples: () => {
       const { year, month, nextYear, nextMonth } = currentCalendarVersion();
-      return (
-        `A minor release (e.g. 1.0.0 → 1.1.0), a new calendar month/year (e.g. ${year}.${month}.0 → ` +
-        `${nextYear}.${nextMonth}.0), or a commit-hash update (e.g. 7sg82tw → 8dhw8wg).`
-      );
+      return ["1.0.0 → 1.1.0", `${year}.${month}.0 → ${nextYear}.${nextMonth}.0`, "7sg82tw → 8dhw8wg"];
     },
     size_large_short: "Large",
-    size_large_desc: () => "A major release (e.g. 1.0.0 → 2.0.0) or a jump too different to classify.",
+    size_large_lead: "A major release, or a jump too different to classify.",
+    size_large_examples: () => ["1.0.0 → 2.0.0"],
     // Used in the detail dialog's status alert (see statusText/
     // _openDetailDialog) -- no emoji prefix here, the alert's own color and
     // icon (a real ha-alert, success/info/warning) already carry that, an
@@ -168,19 +173,16 @@ export const TRANSLATIONS = {
     announce_hours_label: "Announcement notice",
     announce_hours_unit: "hours",
     announce_hours_helper: "How long you still have to cancel a scheduled automatic install.",
-    // "Jump" (not "Impact", renamed 2026-08-07, direct user feedback while
-    // reviewing the big->large rename): this fact row shows the size of the
-    // version *jump* itself (small/medium/large, see semver.py), not a
-    // judgment about how impactful/consequential that jump turned out to
-    // be -- same reasoning as dropping "big" for the neutral "large".
-    col_jump: "Jump",
-    // Noun, not "Announced" -- deliberately different label for the
-    // projected-but-not-yet-real case (see projectedAnnouncementTime's own
-    // comment), direct user feedback, 2026-08-01: "Announced" asserts it
-    // already happened, which isn't true yet for a still-"waiting" update.
-    dialog_announcement_label: "Announcement",
-    dialog_current_version: "Installed version",
-    dialog_new_version: "Latest version",
+    // Timeline steps (_buildTimeline) -- Ready to update/Installing reuse
+    // group_ready/installing_section_title below verbatim (must match the
+    // Updates tab's own card names exactly), these two are the only step
+    // labels with no existing equivalent elsewhere.
+    dialog_timeline_update_available: "Update available",
+    dialog_timeline_auto_install: "Auto-install",
+    // Pointer to the Community section further down this same dialog, not
+    // a restatement of it -- shown on the Auto-install step whenever
+    // heldBackByCommunity is true.
+    dialog_timeline_held_back_pointer: "Held back by the community verdict below.",
     dialog_community_verdict_disclaimer:
       "A collected opinion from other users, not a guarantee. Be extra careful with safety-relevant devices (locks, alarms, smoke detectors).",
     // Also the "nothing at all" row of the Community section's own fact
@@ -189,24 +191,33 @@ export const TRANSLATIONS = {
     // pairing, which read as a non-answer with no clear next step.
     community_not_yet_rated: "No one's reported on this jump yet.",
     community_vote_link_prompt: "Link your GitHub account in Settings to vote.",
-    // Surfaces whether a configured trusted voter is among the people who
-    // voted on this exact jump -- direct user feedback, 2026-07-27: "dat
-    // zie ik niet terug", after a trusted voter's own vote didn't show up
-    // anywhere even though it's exactly what changes auto-install behavior
-    // for this jump (see announcer.py's own effective_auto_install_state).
-    // "Trusted vote:" prefix, not "Trusted voter(s)": names can be one or
-    // several, this avoids needing a separate singular/plural form.
-    community_trusted_vote_healthy: (names) => `Trusted vote: ${names} reported this jump as healthy.`,
-    community_trusted_vote_problematic: (names) => `Trusted vote: ${names} reported this jump as problematic.`,
+    // Marks a reason in the reported-reasons list as coming from a
+    // configured trusted voter (see buildReasonItem) -- direct user
+    // feedback, 2026-07-27: "dat zie ik niet terug", after a trusted
+    // voter's own vote didn't show up anywhere even though it's exactly
+    // what changes auto-install behavior for this jump (see announcer.py's
+    // own effective_auto_install_state). The trusted voter is also named
+    // directly in the merged verdict sentence itself now (see
+    // community_verdict_named_healthy/problematic), not a separate line.
     community_trusted_voter_label: "Trusted voter",
     community_other_jumps_heading: "Other jumps to this version",
     community_other_jump_line: (fromVersion, badgeTitle) => `From ${fromVersion}: ${badgeTitle}`,
     community_problematic_reasons_heading: "Reported reasons",
+    // Shown right after the (server-side-capped) reasons list whenever
+    // more exist than were sent -- see _buildCommunitySection's own
+    // hiddenReasonsCount.
+    community_problematic_reasons_more: (count) => (count === 1 ? "+1 more" : `+${count} more`),
     community_report_toggle: "Report a known issue",
     community_report_intro:
       "Already know this update will cause problems, e.g. from the release notes? Report it before installing, so others are warned before they update too.",
     community_vote_healthy: "Mark as healthy",
     community_vote_problematic: "Report as problematic",
+    // Shown instead of community_vote_problematic once you've already voted
+    // problematic on this jump (GitHub issue #7: the button stays visible on
+    // purpose, so a problematic vote's reason/notes/link stay editable, but
+    // showing the exact same label/appearance as before voting gave no sign
+    // the vote had registered, reading as if it had silently failed).
+    community_vote_problematic_update: "Update your report",
     community_vote_submit: "Submit",
     // `updated` (see websocket_api.py's own is_vote_update): a repeat vote
     // on the same version now replaces your earlier one instead of being
@@ -250,11 +261,14 @@ export const TRANSLATIONS = {
     // (2026-07-23) -- the generic fallback, not "unknown".
     dialog_history_auto: "Automatically updated",
     dialog_history_changelog: "View changelog",
-    dialog_history_available_since: "Available since",
-    dialog_history_announced: "Announced",
     dialog_history_installed_at: "Installed",
     dialog_history_method_label: "Install method",
     dialog_history_method_manual: "Manual",
+    // Distinct from Manual since 2026-08-18: no resolvable person behind
+    // this at all (unlike Manual, where a real Home Assistant user's own
+    // context.user_id was found) -- an entity that updated itself outside
+    // Home Assistant entirely, only noticed here after the fact.
+    dialog_history_method_external: "External",
     dialog_history_method_rules: "Automatic, your own rules",
     dialog_history_method_trusted: (names) => `Automatic, trusted vote from ${names}`,
     dialog_history_backup_label: "Backup",
@@ -264,11 +278,6 @@ export const TRANSLATIONS = {
     dialog_upstream_release_notes: (repo) => `${repo}'s own release notes:`,
     dialog_community_heading: "Community",
     list_and: "and",
-    dialog_auto_install_held_back: (names) => `Auto-install held back: ${names} reported this jump as problematic.`,
-    dialog_auto_install_held_back_community: (count) =>
-      count === 1
-        ? "Auto-install held back: 1 person reported this jump as problematic."
-        : `Auto-install held back: ${count} people reported this jump as problematic.`,
     dialog_more_info: "More info",
     paused_banner: "Update Manager is paused. Nothing below will be updated, announced, or hidden automatically.",
     // Renamed from "Update Manager" (2026-07-21, direct user feedback): now
@@ -285,23 +294,33 @@ export const TRANSLATIONS = {
     community_link: "Link GitHub account",
     community_unlink: "Unlink",
     community_linked_as: (username) => `Linked as @${username}`,
+    community_relink: "Re-link",
+    community_link_expired_as: (username) =>
+      `Your GitHub link (@${username}) is no longer valid. Re-link your account to keep voting.`,
     community_link_instructions: "Go to the page below and enter this code:",
     community_link_waiting: "Waiting for you to approve on GitHub...",
     community_link_timed_out: "The linking code expired before it was approved, try again.",
     community_link_failed: "Linking failed or was declined, try again.",
     enabled_section_title: "General",
     field_enabled: "Update Manager",
-    field_enabled_helper:
-      "Pauses every automatic action below: no announcements, no automatic installs, and postponed updates stop being hidden from Home Assistant's own update count. Everything you've configured stays saved, it just isn't applied until you turn this back on.",
-    sizes_section_title: "Update sizes",
-    // Lead-in only -- the bullet list itself (what Small/Medium/Large
-    // actually mean) is composed in JS from size_*_short/size_*_desc
-    // directly, not duplicated here as static text: those already carry
-    // live calendar-version examples (currentCalendarVersion), and this
-    // used to be a per-row (?) tooltip reusing the exact same two
-    // functions before it became its own card instead (2026-08-11, direct
-    // user feedback: "die tooltips vind ik niks").
-    sizes_intro_lead: "Every update is grouped into one of these three sizes, based on how big the version jump is.",
+    // Shortened 2026-08-12, direct user feedback: the full itemized list
+    // (announcements/installs/hiding) lived in this same one-line helper
+    // slot as the settings-row's own control -- the master switch just
+    // needs "everything pauses, nothing is lost", not the full inventory
+    // of what "everything" means. Split into an on/off pair the same day,
+    // further direct user feedback: one static sentence describing what
+    // the switch *does* read oddly while it was already off, since
+    // nothing about it reflected the actual current state.
+    field_enabled_helper_on: "Turning this off pauses every automatic action. Nothing you've configured is lost, it just won't apply until you turn it back on.",
+    field_enabled_helper_off: "Every automatic action is currently paused. Nothing you've configured was lost, turn this back on to resume.",
+    // Lead-in only -- the per-size explanations themselves (what Small/
+    // Medium/Large actually mean) are composed in JS from
+    // size_*_short/size_*_lead/size_*_examples directly, not duplicated
+    // here as static text: those already carry live calendar-version
+    // examples (currentCalendarVersion). Shown in the General card
+    // (_buildGeneralCard), no longer a card of its own.
+    sizes_intro_lead:
+      "Postponement and Auto-update let you set separate rules per size. Every update is grouped into one of these three sizes, based on how big the version jump is:",
     settings_header: "Postponement",
     settings_hint:
       "Postponing is worth it: it gives a release with a bug time to be noticed and fixed before you commit to it.",
@@ -373,38 +392,42 @@ export const TRANSLATIONS = {
     // jump. "...to finish" (not just the bare name) -- direct user
     // feedback, 2026-08-09: read ambiguously on its own.
     rollout_queue_waiting: (name) => `Waiting for ${name} to finish`,
-    // Community-verdict fact rows (see _buildCommunitySection, and
-    // aggregateVerdictText for how these four get picked), read-only slice
-    // added 2026-07-22: https://github.com/HA-Update-Manager/community-votes.
-    // Redesigned 2026-07-27, direct user feedback: rather than one sentence
-    // that silently drops whichever count loses (problematic used to always
-    // win, even when e.g. 2 people said healthy and only 1 said
-    // problematic), "people"/"others" perspective + a "_mixed" variant show
-    // both numbers whenever both exist.
+    // Community-verdict fact rows (see communityVerdictLines for how these
+    // get picked), read-only slice added 2026-07-22:
+    // https://github.com/HA-Update-Manager/community-votes. Redesigned
+    // 2026-07-27, direct user feedback: rather than one sentence that
+    // silently drops whichever count loses (problematic used to always win,
+    // even when e.g. 2 people said healthy and only 1 said problematic), a
+    // "_mixed" variant shows both numbers whenever both exist. Used
+    // whenever nobody named (you, a trusted voter) is in this direction --
+    // see community_verdict_named_healthy/problematic below for the
+    // attributed version.
     community_verdict_healthy: (count) =>
       `${count} ${count === 1 ? "person" : "people"} reported this jump as healthy.`,
     community_verdict_problematic: (count) =>
       `${count} ${count === 1 ? "person" : "people"} reported this jump as problematic.`,
     community_verdict_mixed: (healthyCount, problematicCount) =>
       `${healthyCount} reported this jump as healthy, ${problematicCount} as problematic.`,
-    // "others" perspective: used instead of the three above whenever a
-    // separate "You reported..." row (below) is already shown, so these
-    // counts exclude your own vote instead of restating it.
-    community_verdict_others_healthy: (count) =>
-      `${count} ${count === 1 ? "other person" : "others"} reported this jump as healthy.`,
-    community_verdict_others_problematic: (count) =>
-      `${count} ${count === 1 ? "other person" : "others"} reported this jump as problematic.`,
-    community_verdict_others_mixed: (healthyCount, problematicCount) =>
-      `${healthyCount} ${healthyCount === 1 ? "other person" : "others"} reported this jump as healthy, ${problematicCount} as problematic.`,
-    // Your own vote, shown as its own fact regardless of whether it agrees
-    // with everyone else (direct user feedback, 2026-07-22: "I can't see
-    // that I voted myself"; redesigned 2026-07-27 to always show, even when
-    // your vote is the dissenting one -- it used to silently disappear from
-    // the sentence entirely whenever it didn't match the leading direction,
-    // see my_votes.py). The wider picture, if any, is the separate
-    // aggregate row above/below this, not merged into this same sentence.
-    community_verdict_you_healthy: "You reported this jump as healthy.",
-    community_verdict_you_problematic: "You reported this jump as problematic.",
+    // The bare word used as the first item in communityDirectionSentence's
+    // own name list ("You, @colfin and 2 others reported...") -- always
+    // capitalized, it's always the first named item when present.
+    community_you_label: "You",
+    // The trailing "N others" item in that same name list, once at least
+    // one named actor (you or a trusted voter) is already in it -- direct
+    // user feedback, 2026-08-19: "others" must never appear on its own,
+    // only ever after someone's actually been named.
+    community_n_others: (count) => (count === 1 ? "1 other" : `${count} others`),
+    // Redesigned 2026-08-19, direct user feedback: one merged sentence per
+    // direction, named actors first (you, then trusted voters by @name),
+    // then a trailing "and N others" -- replaces the old separate "you
+    // row"/"trusted-vote row"/"others" split, and no longer silently omits
+    // a direction just because a trusted voter picked the other one.
+    // `names` arrives already Oxford-joined (oxfordJoin/communityDirectionSentence).
+    // `count` (the direction's total, named + remaining) is unused here --
+    // "reported" doesn't conjugate by number in English -- but is passed
+    // through for languages that do (see the Dutch block below).
+    community_verdict_named_healthy: (names) => `${names} reported this jump as healthy.`,
+    community_verdict_named_problematic: (names) => `${names} reported this jump as problematic.`,
     // Count+pluralized, matching ha-config-section-updates.ts's own real
     // title_skipped/title_not_installable convention (confirmed against its
     // source: both are passed {count} and pluralize the same way
@@ -431,6 +454,11 @@ export const TRANSLATIONS = {
     history_section_this_week: "This week",
     history_section_this_month: "This month",
     history_section_earlier: "Earlier",
+    // The History tab's own click-to-load button, shown until the older
+    // history has been fetched once (see _loadOlderHistory) -- keeps the
+    // default page small so a single websocket response never risks HA's
+    // ~4MB message ceiling as the log grows.
+    history_load_older: "Show older history",
     loading: "Loading…",
     load_error_title: "Couldn't load Update Manager",
     // home-assistant-js-websocket's own ERR_CONNECTION_LOST case (see
@@ -455,6 +483,7 @@ export const TRANSLATIONS = {
     // which read as genuinely ambiguous (start or end of that day?).
     when_today: (time) => (time ? `Today ${time}` : "Today"),
     when_tomorrow: (time) => (time ? `Tomorrow ${time}` : "Tomorrow"),
+    when_yesterday: (time) => (time ? `Yesterday ${time}` : "Yesterday"),
     when_weekday: (weekday, time) => (time ? `${weekday} ${time}` : weekday),
     when_date: (date, time) => (time ? `${date}, ${time}` : date),
   },
@@ -471,20 +500,20 @@ export const TRANSLATIONS = {
     menu_show_not_installable_updates: "Niet-installeerbare updates tonen",
     dash: "–",
     size_small_short: "Klein",
-    size_small_desc: () => {
+    size_small_lead: "Een patch-release, of een update binnen dezelfde kalendermaand.",
+    size_small_examples: () => {
       const { year, month } = currentCalendarVersion();
-      return `Een patch-release (bijv. 1.0.0 → 1.0.1), of dezelfde kalendermaand (bijv. ${year}.${month}.0 → ${year}.${month}.1).`;
+      return ["1.0.0 → 1.0.1", `${year}.${month}.0 → ${year}.${month}.1`];
     },
     size_medium_short: "Middel",
-    size_medium_desc: () => {
+    size_medium_lead: "Een minor-release, een nieuwe kalendermaand of -jaar, of een commit-update.",
+    size_medium_examples: () => {
       const { year, month, nextYear, nextMonth } = currentCalendarVersion();
-      return (
-        `Een minor-release (bijv. 1.0.0 → 1.1.0), een nieuwe kalendermaand/-jaar (bijv. ${year}.${month}.0 → ` +
-        `${nextYear}.${nextMonth}.0), of een commit-update (bijv. 7sg82tw → 8dhw8wg).`
-      );
+      return ["1.0.0 → 1.1.0", `${year}.${month}.0 → ${nextYear}.${nextMonth}.0`, "7sg82tw → 8dhw8wg"];
     },
     size_large_short: "Groot",
-    size_large_desc: () => "Een major-release (bijv. 1.0.0 → 2.0.0), of een sprong die niet te classificeren is.",
+    size_large_lead: "Een major-release, of een sprong die niet te classificeren is.",
+    size_large_examples: () => ["1.0.0 → 2.0.0"],
     status_ready: "Klaar om te updaten",
     status_waiting_manual: (when) => `Klaar om te updaten ${when}`,
     status_waiting_soon: "Uitgesteld (bijna zo ver)",
@@ -520,27 +549,24 @@ export const TRANSLATIONS = {
     announce_hours_label: "Aankondigingstermijn",
     announce_hours_unit: "uur",
     announce_hours_helper: "Hoelang je nog hebt om een geplande automatische installatie te annuleren.",
-    col_jump: "Sprong",
-    dialog_announcement_label: "Aankondiging",
-    dialog_current_version: "Geïnstalleerde versie",
-    dialog_new_version: "Nieuwste versie",
+    dialog_timeline_update_available: "Update beschikbaar",
+    dialog_timeline_auto_install: "Auto-install",
+    dialog_timeline_held_back_pointer: "Tegengehouden door het communityoordeel hieronder.",
     dialog_community_verdict_disclaimer:
       "Een verzamelde mening van andere gebruikers, geen garantie. Wees extra voorzichtig bij veiligheidsgevoelige apparaten (sloten, alarmen, rookmelders).",
     community_not_yet_rated: "Niemand heeft nog iets over deze sprong gemeld.",
     community_vote_link_prompt: "Koppel je GitHub-account in Instellingen om te stemmen.",
-    community_trusted_vote_healthy: (names) =>
-      `Vertrouwde stem: deze sprong is door ${names} als probleemloos beoordeeld.`,
-    community_trusted_vote_problematic: (names) =>
-      `Vertrouwde stem: deze sprong is door ${names} als problematisch beoordeeld.`,
     community_trusted_voter_label: "Vertrouwde stemmer",
     community_other_jumps_heading: "Andere sprongen naar deze versie",
     community_other_jump_line: (fromVersion, badgeTitle) => `Van ${fromVersion}: ${badgeTitle}`,
     community_problematic_reasons_heading: "Gerapporteerde redenen",
+    community_problematic_reasons_more: (count) => (count === 1 ? "+1 meer" : `+${count} meer`),
     community_report_toggle: "Meld een bekend probleem",
     community_report_intro:
       "Weet je al dat deze update problemen gaat geven, bijvoorbeeld via de release notes? Meld dat vast voordat je 'm installeert, zodat anderen gewaarschuwd zijn voordat ze zelf updaten.",
     community_vote_healthy: "Markeer als probleemloos",
     community_vote_problematic: "Meld als problematisch",
+    community_vote_problematic_update: "Werk je melding bij",
     community_vote_submit: "Versturen",
     community_vote_confirmed_healthy: (updated, ownRepoHealthyVote) => {
       if (ownRepoHealthyVote) {
@@ -563,11 +589,10 @@ export const TRANSLATIONS = {
     dialog_history_heading: "Geschiedenis",
     dialog_history_auto: "Automatisch geüpdatet",
     dialog_history_changelog: "Changelog bekijken",
-    dialog_history_available_since: "Beschikbaar sinds",
-    dialog_history_announced: "Aangekondigd",
     dialog_history_installed_at: "Geïnstalleerd",
     dialog_history_method_label: "Installatiemethode",
     dialog_history_method_manual: "Handmatig",
+    dialog_history_method_external: "Extern",
     dialog_history_method_rules: "Automatisch, je eigen regels",
     dialog_history_method_trusted: (names) => `Automatisch, vertrouwde stem van ${names}`,
     dialog_history_backup_label: "Back-up",
@@ -577,15 +602,6 @@ export const TRANSLATIONS = {
     dialog_upstream_release_notes: (repo) => `Eigen release notes van ${repo}:`,
     dialog_community_heading: "Community",
     list_and: "en",
-    // Passive voice ("door X beoordeeld als"), not "X beoordeelde" -- avoids
-    // needing separate singular/plural verb forms for a variable-length,
-    // possibly multi-name subject.
-    dialog_auto_install_held_back: (names) =>
-      `Auto-installatie tegengehouden: deze sprong is door ${names} als problematisch beoordeeld.`,
-    dialog_auto_install_held_back_community: (count) =>
-      count === 1
-        ? "Auto-installatie tegengehouden: 1 persoon heeft deze sprong als problematisch gerapporteerd."
-        : `Auto-installatie tegengehouden: ${count} mensen hebben deze sprong als problematisch gerapporteerd.`,
     dialog_more_info: "Meer info",
     paused_banner: "Update Manager staat gepauzeerd. Niets hieronder wordt automatisch geüpdatet, aangekondigd of verborgen.",
     community_section_title: "Help anderen",
@@ -594,16 +610,19 @@ export const TRANSLATIONS = {
     community_link: "GitHub-account koppelen",
     community_unlink: "Ontkoppelen",
     community_linked_as: (username) => `Gekoppeld als @${username}`,
+    community_relink: "Opnieuw koppelen",
+    community_link_expired_as: (username) =>
+      `Je GitHub-koppeling (@${username}) is niet meer geldig. Koppel je account opnieuw om te kunnen blijven stemmen.`,
     community_link_instructions: "Ga naar onderstaande pagina en voer deze code in:",
     community_link_waiting: "Wachten tot je akkoord geeft op GitHub...",
     community_link_timed_out: "De koppelcode is verlopen voordat 'm werd goedgekeurd, probeer het opnieuw.",
     community_link_failed: "Koppelen is mislukt of geweigerd, probeer het opnieuw.",
     enabled_section_title: "Algemeen",
     field_enabled: "Update Manager",
-    field_enabled_helper:
-      "Pauzeert alle automatische acties hieronder: geen aankondigingen, geen automatische installaties, en uitgestelde updates worden niet langer verborgen voor Home Assistants eigen update-telling. Alles wat je hebt ingesteld blijft opgeslagen, het wordt alleen niet toegepast totdat je dit weer aanzet.",
-    sizes_section_title: "Update-groottes",
-    sizes_intro_lead: "Elke update valt in een van deze drie groottes, op basis van hoe groot de versiesprong is.",
+    field_enabled_helper_on: "Uitzetten pauzeert elke automatische actie. Niets van wat je hebt ingesteld gaat verloren, het wordt alleen niet toegepast totdat je dit weer aanzet.",
+    field_enabled_helper_off: "Elke automatische actie staat nu gepauzeerd. Niets van wat je hebt ingesteld is verloren gegaan, zet dit weer aan om te hervatten.",
+    sizes_intro_lead:
+      "Bij Uitstel en Auto-update stel je per grootte je eigen regels in. Elke update valt in een van deze drie groottes, op basis van hoe groot de versiesprong is:",
     settings_header: "Uitstel",
     settings_hint:
       "Uitstellen loont: het geeft een release met een fout de tijd om opgemerkt en gerepareerd te " +
@@ -637,14 +656,14 @@ export const TRANSLATIONS = {
       `${count} ${count === 1 ? "persoon meldt" : "mensen melden"} deze sprong als problematisch.`,
     community_verdict_mixed: (healthyCount, problematicCount) =>
       `${healthyCount} ${healthyCount === 1 ? "persoon meldt" : "mensen melden"} deze sprong als probleemloos, ${problematicCount} als problematisch.`,
-    community_verdict_others_healthy: (count) =>
-      `${count} ${count === 1 ? "andere persoon meldt" : "anderen melden"} deze sprong als probleemloos.`,
-    community_verdict_others_problematic: (count) =>
-      `${count} ${count === 1 ? "andere persoon meldt" : "anderen melden"} deze sprong als problematisch.`,
-    community_verdict_others_mixed: (healthyCount, problematicCount) =>
-      `${healthyCount} ${healthyCount === 1 ? "andere persoon meldt" : "anderen melden"} deze sprong als probleemloos, ${problematicCount} als problematisch.`,
-    community_verdict_you_healthy: "Jij meldde deze sprong als probleemloos.",
-    community_verdict_you_problematic: "Jij meldde deze sprong als problematisch.",
+    community_you_label: "Jij",
+    community_n_others: (count) => (count === 1 ? "1 ander" : `${count} anderen`),
+    // count (het totaal voor deze richting, genoemd + rest) bepaalt hier wel
+    // de vervoeging -- "meldde" bij precies 1 (alleen "Jij", niemand anders),
+    // "meldden" zodra er meer dan 1 is (Engels vervoegt "reported" niet mee,
+    // zie dat blok voor waarom count daar ongebruikt is).
+    community_verdict_named_healthy: (names, count) => `${names} ${count === 1 ? "meldde" : "meldden"} deze sprong als probleemloos.`,
+    community_verdict_named_problematic: (names, count) => `${names} ${count === 1 ? "meldde" : "meldden"} deze sprong als problematisch.`,
     group_skipped: (count) => `${count} ${count === 1 ? "overgeslagen update" : "overgeslagen updates"}`,
     group_not_installable: (count) =>
       `${count} ${count === 1 ? "niet installeerbare update" : "niet installeerbare updates"}`,
@@ -656,6 +675,7 @@ export const TRANSLATIONS = {
     history_section_this_week: "Deze week",
     history_section_this_month: "Deze maand",
     history_section_earlier: "Eerder",
+    history_load_older: "Toon oudere geschiedenis",
     loading: "Laden…",
     load_error_title: "Kon Update Manager niet laden",
     load_error_connection_lost: "Verbinding met Home Assistant is verbroken. Herlaad de pagina zodra die terug is.",
@@ -673,6 +693,7 @@ export const TRANSLATIONS = {
     relative_soon: "zo dadelijk",
     when_today: (time) => (time ? `vandaag ${time}` : "vandaag"),
     when_tomorrow: (time) => (time ? `morgen ${time}` : "morgen"),
+    when_yesterday: (time) => (time ? `gisteren ${time}` : "gisteren"),
     when_weekday: (weekday, time) => (time ? `${weekday} ${time}` : weekday),
     when_date: (date, time) => (time ? `${date}, ${time}` : date),
   },

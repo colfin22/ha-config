@@ -1,0 +1,182 @@
+"""Pure helpers for archiving the Open-Meteo weather to HA statistics.
+
+The 7 weather variables here are orientation-independent: they describe the sky
+over the home, not the panels, so this archive stays valid across any PV layout
+change. Plane-of-array irradiance is deliberately not archived: it depends on
+orientation and is recomputed from the direct / diffuse / global irradiance kept
+here plus the sun geometry (see solar/irradiance.py).
+
+Open-Meteo only serves a rolling 60-day past window. By copying each refresh's
+past hours into Home Assistant's long-term statistics (which are never purged),
+the history grows without bound and stays consultable well beyond those 60 days.
+
+No Home Assistant imports, so the transforms can be unit-tested on their own.
+"""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from datetime import datetime, timedelta, tzinfo
+from typing import Dict, List, Optional
+
+from .const import DOMAIN
+from .openmeteo import WeatherSeries
+
+
+@dataclass(frozen=True)
+class WeatherField:
+    """One archived series: the entity / statistic key, the WeatherSeries
+    attribute it reads, and the HA unit string (kept here so it stays the single
+    source of truth shared by the sensor entity and the statistics metadata)."""
+
+    key: str
+    attr: str
+    unit: str
+
+
+# Single source of truth for the archived variables, in display order. The unit
+# strings are the standard HA unit symbols so they match the sensor entities'
+# units and the unit HA stores on each statistic.
+WEATHER_FIELDS: tuple[WeatherField, ...] = (
+    WeatherField("cloud_cover", "cloud", "%"),
+    WeatherField("ghi", "shortwave", "W/m²"),
+    WeatherField("direct", "direct", "W/m²"),
+    WeatherField("diffuse", "diffuse", "W/m²"),
+    WeatherField("temperature", "temp", "°C"),
+    WeatherField("wind_speed", "wind", "km/h"),
+    WeatherField("snow_depth", "snow", "m"),
+)
+
+
+def _finite(value: object) -> bool:
+    return isinstance(value, (int, float)) and math.isfinite(value)
+
+
+def observed_value(times: List[datetime], values: List[float], now: datetime) -> Optional[float]:
+    """Value of the hourly bucket containing ``now``: the latest finite sample
+    at or before ``now``. None when none is usable. ``times`` is ascending."""
+    best: Optional[float] = None
+    for t, v in zip(times, values):
+        if t > now:
+            break
+        if _finite(v):
+            best = float(v)
+    return best
+
+
+def observed_snapshot(weather: WeatherSeries, now: datetime) -> Dict[str, Optional[float]]:
+    """Current-hour value for every archived field, keyed by field key."""
+    return {field.key: observed_value(weather.times, getattr(weather, field.attr), now) for field in WEATHER_FIELDS}
+
+
+def weather_forecast_series(weather: WeatherSeries, start: datetime, tz: tzinfo) -> Dict[str, List[dict]]:
+    """Forward-looking hourly series per weather field, for charting.
+
+    Mirrors the power sensor's ``forecast`` attribute: one list per field key, each
+    entry ``{"datetime": <local ISO>, "<field key>": <value>}`` for hours at or after ``start``.
+    Timestamps are localised to ``tz`` so they line up with the power forecast on the same chart.
+    Non-finite samples are dropped. ``start`` is typically local midnight today, giving today +
+    the 7-day horizon.
+    """
+    out: Dict[str, List[dict]] = {}
+    for field in WEATHER_FIELDS:
+        values = getattr(weather, field.attr)
+        series: List[dict] = []
+        for t, v in zip(weather.times, values):
+            if t < start or not _finite(v):
+                continue
+            series.append({"datetime": t.astimezone(tz).isoformat(), field.key: round(float(v), 2)})
+        out[field.key] = series
+    return out
+
+
+# Keys for the predicted-production archive, backfilled by the coordinator from the model run over
+# the past weather window. They are series of their own, not entities: see external_statistic_id.
+FORECAST_POWER_KEY = "predicted_power"
+FORECAST_ENERGY_KEY = "predicted_energy"
+
+
+# Every series this integration archives, as (key, unit, name). Both writers and the migration take
+# the unit and the name from this one list, so a series cannot be written under one and moved under
+# another. The names are what the interface shows for a statistic that has no entity behind it; they
+# mirror the weather sensors' own names on purpose.
+ARCHIVED_SERIES: tuple[tuple[str, str, str], ...] = (
+    ("cloud_cover", "%", "Cloud cover"),
+    ("ghi", "W/m²", "Global irradiance"),
+    ("direct", "W/m²", "Direct irradiance"),
+    ("diffuse", "W/m²", "Diffuse irradiance"),
+    ("temperature", "°C", "Temperature"),
+    ("wind_speed", "km/h", "Wind speed"),
+    ("snow_depth", "m", "Snow depth"),
+    (FORECAST_POWER_KEY, "W", "Predicted power"),
+    (FORECAST_ENERGY_KEY, "kWh", "Predicted energy"),
+)
+
+
+def external_statistic_id(entry_id: str, key: str) -> str:
+    """The integration-owned statistic id for one archived series.
+
+    These statistics are published under this integration's own id rather than under the entity id of
+    a sensor, and the difference is not cosmetic. A statistic named after an entity belongs to the
+    recorder, which compiles it from that entity's state on its own schedule; writing to it from here
+    puts two writers on one unique index. When they collide the recorder's whole hourly compile is
+    rolled back, and every other integration on the machine silently loses that hour of long-term
+    statistics. An integration-owned id has exactly one writer by construction, so the collision
+    cannot happen at all rather than happening rarely.
+
+    The entry id makes it unique across several installations in one Home Assistant; it is opaque, so
+    the metadata carries a readable name for the interface to show.
+    """
+    return f"{DOMAIN}:{entry_id.lower()}_{key}"
+
+
+def forecast_statistics(points: list) -> Dict[str, List[dict]]:
+    """Per-hour statistic rows for the predicted-power and predicted-energy archive series.
+
+    ``points`` is an iterable of hourly forecast points (objects with ``.t`` UTC datetime and
+    ``.pv_w`` watts). Each hour becomes one row. The stored mean is the mean ACROSS the hour, taken
+    between the sample that opens it and the one that opens the next: the samples are instants, and
+    filing the opening instant as the hour's mean understates every morning hour and overstates
+    every afternoon one, most of all around sunrise and sunset where the curve moves fastest. The
+    energy row is that mean over one hour, so watts become watt-hours. An hour with no successor,
+    the last of the window, keeps its own value. Non-finite points are skipped.
+    """
+    power: List[dict] = []
+    energy: List[dict] = []
+    usable = [
+        (p.t, float(max(0.0, w)))
+        for p in points
+        for w in (getattr(p, "pv_w", None),)
+        if isinstance(w, (int, float)) and math.isfinite(w)
+    ]
+    for i, (start, w) in enumerate(usable):
+        nxt = usable[i + 1] if i + 1 < len(usable) else None
+        # Only when the next sample really opens the next hour; a gap leaves the hour on its own value.
+        follows = nxt[1] if nxt is not None and (nxt[0] - start) == timedelta(hours=1) else w
+        mean = (w + follows) / 2.0
+        kwh = mean / 1000.0
+        power.append({"start": start, "mean": mean, "min": min(w, follows), "max": max(w, follows)})
+        energy.append({"start": start, "mean": kwh, "min": kwh, "max": kwh})
+    return {FORECAST_POWER_KEY: power, FORECAST_ENERGY_KEY: energy}
+
+
+def hourly_statistics(
+    times: List[datetime], values: List[float], cutoff: datetime, since: Optional[datetime] = None
+) -> List[dict]:
+    """Per-hour statistic rows for completed hours strictly before ``cutoff``.
+
+    Each Open-Meteo hourly sample is one row with mean = min = max = the sample
+    (a single value per hour). Non-finite samples and the in-progress current
+    hour (``start >= cutoff``) are dropped. ``times`` are already top-of-hour UTC.
+    When ``since`` is given, only hours strictly after it are emitted, so a refresh
+    can import just the new hours instead of the whole 60-day window every time.
+    """
+    rows: List[dict] = []
+    for t, v in zip(times, values):
+        if t >= cutoff or not _finite(v):
+            continue
+        if since is not None and t <= since:
+            continue
+        rows.append({"start": t, "mean": float(v), "min": float(v), "max": float(v)})
+    return rows

@@ -1,10 +1,11 @@
 import logging
 from dataclasses import replace
+from decimal import Decimal
 from time import time
 from typing import Any
 
 # from .const import GEN2, GEN3, GEN4, X1, X3, HYBRID, AC, EPS
-from homeassistant.components.number import NumberEntity, NumberMode
+from homeassistant.components.number import DEFAULT_MAX_VALUE, DEFAULT_MIN_VALUE, NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME
 from homeassistant.core import HomeAssistant, callback
@@ -15,12 +16,14 @@ from .const import (
     CONF_MODBUS_ADDR,
     DEFAULT_MODBUS_ADDR,
     DOMAIN,
+    REGISTER_INT_RANGES,
     TMPDATA_EXPIRY,
     WRITE_DATA_LOCAL,
     WRITE_MULTI_MODBUS,
     WRITE_MULTISINGLE_MODBUS,
     WRITE_SINGLE_MODBUS,
     BaseModbusNumberEntityDescription,
+    matches_active_when,
     matches_modbus_protocol,
 )
 
@@ -30,6 +33,25 @@ _LOGGER = logging.getLogger(__name__)
 def _scale_native_value_to_register(value: float, scale: float, read_scale: float) -> int:
     """Convert a native number value to its integer register representation."""
     return int(round(value / (scale * read_scale)))
+
+
+def _native_value_bounds(number_info: BaseModbusNumberEntityDescription) -> tuple[float, float]:
+    """Return explicit limits or derive them from the register representation."""
+    register_data_type = number_info.register_data_type
+    register_bounds = REGISTER_INT_RANGES.get(register_data_type) if register_data_type is not None else None
+    if register_bounds is None:
+        derived_min, derived_max = DEFAULT_MIN_VALUE, DEFAULT_MAX_VALUE
+    else:
+        native_scale = Decimal(str(number_info.scale)) * Decimal(str(number_info.read_scale))
+        scaled_bounds = (
+            float(Decimal(str(register_bounds[0])) * native_scale),
+            float(Decimal(str(register_bounds[1])) * native_scale),
+        )
+        derived_min, derived_max = min(scaled_bounds), max(scaled_bounds)
+
+    native_min = number_info.native_min_value if number_info.native_min_value is not None else derived_min
+    native_max = number_info.native_max_value if number_info.native_max_value is not None else derived_max
+    return float(native_min), float(native_max)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> bool:
@@ -52,10 +74,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             ) in number_info.read_scale_exceptions:
                 if hub.seriesnumber.startswith(prefix):
                     newdescr = replace(number_info, read_scale=value)
-        if plugin.matchInverterWithMask(hub._invertertype, newdescr.allowedtypes, hub.seriesnumber, newdescr.blacklist) and matches_modbus_protocol(
-            hub, newdescr
+        if (
+            plugin.matchInverterWithMask(hub._invertertype, newdescr.allowedtypes, hub.seriesnumber, newdescr.blacklist)
+            and matches_modbus_protocol(hub, newdescr)
+            and hub.device_group_enabled(newdescr.device_group)
         ):
-            number = SolaXModbusNumber(hub_name, hub, modbus_addr, hub.device_info, newdescr)
+            device_info = hub.group_device_info(newdescr.device_group) if newdescr.device_group else hub.device_info
+
+            def factory(di: Any = device_info, nd: Any = newdescr) -> SolaXModbusNumber:
+                return SolaXModbusNumber(hub_name, hub, modbus_addr, di, nd)
+
+            number = factory()
             if newdescr.write_method == WRITE_DATA_LOCAL:
                 hub.writeLocals[newdescr.key] = newdescr
             # Use the explicit sensor_key if provided, otherwise fall back to the number's own key.
@@ -74,13 +103,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     tuple,
                 ),
             ):
-                _LOGGER.debug(f"{hub.name}: {newdescr.key} depends on entities {deplist}")
+                _LOGGER.debug("%s: %s depends on entities %s", hub.name, newdescr.key, deplist)
                 for dep_on in deplist:  # register inter-sensor dependencies (e.g. for value functions)
                     if dep_on != newdescr.key:
                         hub.entity_dependencies.setdefault(dep_on, []).append(newdescr.key)  # can be more than one
 
-            hub.numberEntities[newdescr.key] = number
-            entities.append(number)
+            active = matches_active_when(hub, newdescr)
+            if newdescr.active_when is not None:
+                hub.register_gated_entity(newdescr, factory, async_add_entities, hub.numberEntities, "number", number if active else None)
+            if active:
+                hub.numberEntities[newdescr.key] = number
+                entities.append(number)
+            else:
+                hub.numberEntities.pop(newdescr.key, None)
     async_add_entities(entities)
     return True
 
@@ -111,8 +146,7 @@ class SolaXModbusNumber(NumberEntity):
         self._register = number_info.register
         self._fmt = number_info.fmt
         self._unit = number_info.register_data_type
-        self._attr_native_min_value: float = number_info.native_min_value  # type: ignore[assignment]
-        self._attr_native_max_value: float = number_info.native_max_value  # type: ignore[assignment]
+        self._attr_native_min_value, self._attr_native_max_value = _native_value_bounds(number_info)
         self._attr_scale = number_info.scale
         self.entity_description = number_info
         if number_info.max_exceptions:
@@ -122,6 +156,13 @@ class SolaXModbusNumber(NumberEntity):
             ) in number_info.max_exceptions:
                 if hub.seriesnumber.startswith(prefix):
                     self._attr_native_max_value = native_value
+        if number_info.min_exceptions:
+            for (
+                prefix,
+                native_value,
+            ) in number_info.min_exceptions:
+                if hub.seriesnumber.startswith(prefix):
+                    self._attr_native_min_value = native_value
         if number_info.min_exceptions_minus:
             for (
                 prefix,
@@ -185,19 +226,28 @@ class SolaXModbusNumber(NumberEntity):
         return f"{self._platform_name}_{self._key}"
 
     @property
+    def native_max_value(self) -> float:
+        max_key = self.entity_description.max_key
+        if max_key:
+            value = self._hub.data.get(max_key)
+            if value:
+                return float(value)
+        return self._attr_native_max_value
+
+    @property
     def native_value(self) -> float | None:
         descr = self.entity_description
         if descr.prevent_update:
             if self._hub.tmpdata_expiry.get(descr.key, 0) > time():
                 val = self._hub.tmpdata.get(descr.key, None)
                 if val is None:
-                    _LOGGER.warning(f"cannot find tmpdata for {descr.key} - setting value to zero")
+                    _LOGGER.warning("cannot find tmpdata for %s - setting value to zero", descr.key)
                     val = 0
                 if descr.read_scale and val:
                     res: float | None = val  # * descr.read_scale
                 else:
                     res = val
-                # _LOGGER.debug(f"prevent_update returning native value {descr.key} : {res}")
+                # _LOGGER.debug("prevent_update returning native value %s : %s", descr.key, res)
                 return res
             else:  # expired
                 if self._hub.tmpdata_expiry.get(descr.key, 0) > 0:
@@ -238,7 +288,14 @@ class SolaXModbusNumber(NumberEntity):
             payload = _scale_native_value_to_register(value, self._attr_scale, self.entity_description.read_scale)
         if self._write_method == WRITE_MULTISINGLE_MODBUS:
             _LOGGER.info(
-                f"writing {self._platform_name} {self._key} number register {self._register} value {payload} after div by readscale {self.entity_description.read_scale} scale {self._attr_scale} with mode {self._write_method}"
+                "writing %s %s number register %s value %s after div by readscale %s scale %s with mode %s",
+                self._platform_name,
+                self._key,
+                self._register,
+                payload,
+                self.entity_description.read_scale,
+                self._attr_scale,
+                self._write_method,
             )
             await self._hub.async_write_registers_single(
                 unit=self._modbus_addr,
@@ -248,7 +305,14 @@ class SolaXModbusNumber(NumberEntity):
             )
         elif self._write_method == WRITE_SINGLE_MODBUS:
             _LOGGER.info(
-                f"writing {self._platform_name} {self._key} number register {self._register} value {payload} after div by readscale {self.entity_description.read_scale} scale {self._attr_scale} with mode {self._write_method}"
+                "writing %s %s number register %s value %s after div by readscale %s scale %s with mode %s",
+                self._platform_name,
+                self._key,
+                self._register,
+                payload,
+                self.entity_description.read_scale,
+                self._attr_scale,
+                self._write_method,
             )
             await self._hub.async_write_register(
                 unit=self._modbus_addr,
@@ -264,11 +328,22 @@ class SolaXModbusNumber(NumberEntity):
                 ),
             ]
             _LOGGER.info(
-                f"writing {self._platform_name} {self._key} number register {self._register} value {pl} after div by readscale {self.entity_description.read_scale} scale {self._attr_scale} with mode {self._write_method}"
+                "writing %s %s number register %s value %s after div by readscale %s scale %s with mode %s",
+                self._platform_name,
+                self._key,
+                self._register,
+                pl,
+                self.entity_description.read_scale,
+                self._attr_scale,
+                self._write_method,
             )
             await self._hub.async_write_registers_multi(unit=self._modbus_addr, address=self._register, payload=pl)
+        if self._write_method in (WRITE_MULTISINGLE_MODBUS, WRITE_SINGLE_MODBUS, WRITE_MULTI_MODBUS):
+            # Publish the written value locally: the readback register only catches up on a
+            # later poll, so the entity would otherwise keep reporting the previous value.
+            self._hub.data[self._key] = value
         elif self._write_method == WRITE_DATA_LOCAL:
-            _LOGGER.info(f"*** local data written {self._key}: {payload}")
+            _LOGGER.info("*** local data written %s: %s", self._key, payload)
             # corresponding_sensor = self._hub.preventSensors.get(self.entity_description.key, None)
             if self.entity_description.prevent_update:  # if corresponding_sensor: # only if corresponding sensor has prevent_update=True
                 self._hub.tmpdata[self.entity_description.key] = payload

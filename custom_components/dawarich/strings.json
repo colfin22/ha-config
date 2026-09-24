@@ -2,20 +2,64 @@
   "config": {
     "step": {
       "user": {
+        "title": "Dawarich",
+        "description": "Please enter your Dawarich connection details.",
         "data": {
           "host": "[%key:common::config_flow::data::host%]",
-          "username": "[%key:common::config_flow::data::username%]",
-          "password": "[%key:common::config_flow::data::password%]"
+          "port": "[%key:common::config_flow::data::port%]",
+          "name": "Name",
+          "mobile_app": "Device Tracker",
+          "ssl": "Use SSL (i.e. https)",
+          "verify_ssl": "Verify SSL"
+        }
+      },
+      "api_key": {
+        "title": "Dawarich API Key",
+        "description": "Please enter your Dawarich API key.",
+        "data": {
+          "api_key": "[%key:common::config_flow::data::api_key%]"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Dawarich",
+        "description": "Your Dawarich API key for {host} is invalid. Please enter a new API key.",
+        "data": {
+          "api_key": "[%key:common::config_flow::data::api_key%]"
+        }
+      },
+      "reconfigure_confirm": {
+        "title": "Reconfigure Dawarich",
+        "description": "Update your Dawarich connection settings. Leave API key empty to keep the current key.",
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]",
+          "port": "[%key:common::config_flow::data::port%]",
+          "name": "Name",
+          "mobile_app": "Device Tracker",
+          "ssl": "Use SSL (i.e. https)",
+          "verify_ssl": "Verify SSL",
+          "api_key": "API Key (leave empty to keep current)"
         }
       }
     },
     "error": {
-      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
-      "invalid_auth": "[%key:common::config_flow::error::invalid_auth%]",
-      "unknown": "[%key:common::config_flow::error::unknown%]"
+      "connection_error": "[%key:common::config_flow::error::cannot_connect%]",
+      "invalid_api_key": "[%key:common::config_flow::error::invalid_auth%]"
     },
     "abort": {
-      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
+      "reconfigure_failed": "Failed to reconfigure the integration.",
+      "reconfigure_successful": "[%key:common::config_flow::abort::reconfigure_successful%]",
+      "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
+    }
+  },
+  "issues": {
+    "device_tracker_unavailable": {
+      "title": "Device tracker unavailable",
+      "description": "The device tracker `{device_tracker}` configured for {device_name} is not available. This may be because the entity has been removed or the integration providing it is not loaded. Please check the entity or reconfigure the Dawarich integration to use a different device tracker."
+    },
+    "api_unavailable": {
+      "title": "Dawarich API unavailable",
+      "description": "The Dawarich API at `{url}` is not reachable. The server returned status code {status_code} with error: {error}. Please make sure that your Dawarich server is running and is accessible."
     }
   }
 }

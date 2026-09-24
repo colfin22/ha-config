@@ -8,7 +8,7 @@
         "type": "solar",
         "stat_energy_from": "sensor.solis_power_generation_today",
         "config_entry_solar_forecast": [
-          "01KZHHZPQ4QYHPR1WWCW1YHNYX"
+          "01KZZMEQWH9QV0D3H17GBXJQ04"
         ],
         "stat_rate": "sensor.solis_pv_total_power"
       },
@@ -36,11 +36,6 @@
           "stat_rate": "sensor.solis_meter_active_power"
         },
         "stat_rate": "sensor.solis_meter_active_power"
-      },
-      {
-        "type": "battery",
-        "stat_energy_from": "autarco:battery_discharged",
-        "stat_energy_to": "autarco:battery_charged"
       },
       {
         "type": "solar",

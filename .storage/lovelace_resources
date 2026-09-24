@@ -15,13 +15,8 @@
         "type": "module"
       },
       {
-        "id": "45c8fbcd59f84428a316b2af21f3bf83",
-        "url": "/hacsfiles/frigate-hass-card/frigate-hass-card.js?hacstag=394082552651",
-        "type": "module"
-      },
-      {
         "id": "bafd971413ea41ceb00ab13b3698c91a",
-        "url": "/hacsfiles/my-cards/my-cards.js?hacstag=399108901106",
+        "url": "/hacsfiles/my-cards/my-cards.js?hacstag=399108901231",
         "type": "module"
       },
       {
@@ -51,7 +46,7 @@
       },
       {
         "id": "4a86e0ee53f44ae78f91455ec1200527",
-        "url": "/hacsfiles/lovelace-mushroom/mushroom.js?hacstag=444350375522",
+        "url": "/hacsfiles/lovelace-mushroom/mushroom.js?hacstag=444350375523",
         "type": "module"
       },
       {
@@ -66,7 +61,7 @@
       },
       {
         "id": "1de5bc6ac6914a6f9fda0ad35bba7d6d",
-        "url": "/hacsfiles/Bubble-Card/bubble-card.js?hacstag=680112919325",
+        "url": "/hacsfiles/Bubble-Card/bubble-card.js?hacstag=680112919340",
         "type": "module"
       },
       {
@@ -81,7 +76,7 @@
       },
       {
         "id": "080924d3819948b3a3acf2e02ab774a4",
-        "url": "/browser_mod.js?automatically-added&3.2.0",
+        "url": "/browser_mod.js?automatically-added&3.2.3",
         "type": "module"
       },
       {
@@ -96,7 +91,7 @@
       },
       {
         "id": "ebdd6f33f9a541ef8164aa029fbaf8ca",
-        "url": "/hacsfiles/hass-swipe-navigation/swipe-navigation.js?hacstag=5017254791160",
+        "url": "/hacsfiles/hass-swipe-navigation/swipe-navigation.js?hacstag=5017254791161",
         "type": "module"
       },
       {
@@ -126,7 +121,7 @@
       },
       {
         "id": "0cfc9773a0f44b0bbc06a5c64fa4a14c",
-        "url": "/local/heating-activity-card.js?v=5",
+        "url": "/local/heating-activity-card.js?v=6",
         "type": "module"
       },
       {
@@ -137,6 +132,26 @@
       {
         "id": "4237ba80f5e34a53a3897c57d6efb4a4",
         "url": "/hacsfiles/HA-Firemote/HA-Firemote.js?hacstag=536329656419",
+        "type": "module"
+      },
+      {
+        "id": "57a0e1cfb68e412a92c75227c453f6b1",
+        "url": "/local/community/helios/helios.js?v=1",
+        "type": "module"
+      },
+      {
+        "id": "0ea13e852b4645518275efaa6f3751d5",
+        "url": "/hacsfiles/advanced-camera-card/advanced-camera-card.js?hacstag=394082552810",
+        "type": "module"
+      },
+      {
+        "id": "fa01b2f6bda848b5a1a5d600d9e1b654",
+        "url": "/hacsfiles/energy-custom-graph/energycustomgraph.js?hacstag=1082381944101",
+        "type": "module"
+      },
+      {
+        "id": "b8f408e3e5854b42b24ef12647ad8fe6",
+        "url": "/hacsfiles/sun-weather-card/sun-weather-card.js?hacstag=1297690428191",
         "type": "module"
       },
       {

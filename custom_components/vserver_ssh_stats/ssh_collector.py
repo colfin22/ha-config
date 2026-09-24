@@ -11,9 +11,14 @@ from typing import Any, Dict, Optional
 
 import paramiko
 
-from .net_cache import EnergyStatsCache, NetStatsCache, ProcessPeakCache
+from .net_cache import (
+    EnergyStatsCache,
+    NetStatsCache,
+    ProcessPeakCache,
+    RollingAverageCache,
+)
 from .remote_script import REMOTE_SCRIPT
-from .ssh_security import configure_pinned_host_keys
+from .ssh_security import SSHHostKeyError, configure_pinned_host_keys
 from .util import (
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
@@ -24,9 +29,12 @@ from .util import (
 _LOGGER = logging.getLogger(__name__)
 
 net_cache = NetStatsCache()
+interface_net_cache = NetStatsCache()
 disk_io_cache = NetStatsCache()
 energy_cache = EnergyStatsCache()
 process_peak_cache = ProcessPeakCache()
+cpu_rolling_average_cache = RollingAverageCache(window_seconds=300.0)
+mem_rolling_average_cache = RollingAverageCache(window_seconds=300.0)
 
 DEFAULT_PORT_CHECK_TIMEOUT = 3
 MAX_CUSTOM_COMMAND_OUTPUT = 16 * 1024
@@ -284,6 +292,11 @@ WINDOWS_REMOTE_SCRIPT = (
     "security_updates=$null;last_boot=$boot.ToUniversalTime().ToString('o');"
     "kernel_version='Windows';primary_ip='';failed_systemd_units=$null;"
     "failed_systemd_units_list=@();journal_errors=$null;root_fs_readonly=$null;"
+    "failed_ssh_logins_15m=$null;firewall_active=$null;firewall_backend='';"
+    "firewall_rules_count=$null;fail2ban_active=$null;fail2ban_banned_count=$null;"
+    "fail2ban_jails=@();cert_soonest_expiry_days=$null;cert_entries=@();"
+    "backup_jobs_detected=$null;backup_job_failed=$null;backup_jobs=@();"
+    "unattended_upgrades_active=$null;network_interfaces=@();"
     "disk_read_bytes=$null;disk_write_bytes=$null}; "
     "$obj | ConvertTo-Json -Compress\""
 )
@@ -755,9 +768,19 @@ async def async_sample(
         _LOGGER.debug("Failed to collect SSH response from %s: %s", host, last_error)
         data = {
             "collection_error": str(last_error) if last_error else "No collector output",
+            "collection_error_is_auth": isinstance(
+                last_error, (paramiko.AuthenticationException, SSHHostKeyError)
+            ),
         }
     port_checks = await port_check_task
     now = time.time()
+
+    cpu_value = _safe_float(data.get("cpu"))
+    mem_value = _safe_float(data.get("mem"))
+    cpu_avg_5m_raw = cpu_rolling_average_cache.compute(host, cpu_value, now)
+    mem_avg_5m_raw = mem_rolling_average_cache.compute(host, mem_value, now)
+    cpu_avg_5m = round(cpu_avg_5m_raw, 1) if cpu_avg_5m_raw is not None else None
+    mem_avg_5m = round(mem_avg_5m_raw, 1) if mem_avg_5m_raw is not None else None
 
     rx = _safe_int(data.get("rx"))
     tx = _safe_int(data.get("tx"))
@@ -779,6 +802,26 @@ async def async_sample(
         )
         disk_io_read = round(read_raw, 2)
         disk_io_write = round(write_raw, 2)
+
+    network_interfaces: list[Dict[str, Any]] = []
+    for iface in _safe_list(data.get("network_interfaces")):
+        if not isinstance(iface, dict):
+            continue
+        iface_name = str(iface.get("name") or "").strip()
+        iface_rx = _safe_int(iface.get("rx"))
+        iface_tx = _safe_int(iface.get("tx"))
+        if not iface_name or iface_rx is None or iface_tx is None:
+            continue
+        iface_in_raw, iface_out_raw = interface_net_cache.compute(
+            f"{host}::{iface_name}", iface_rx, iface_tx, now
+        )
+        network_interfaces.append(
+            {
+                "name": iface_name,
+                "net_in": round(iface_in_raw, 2),
+                "net_out": round(iface_out_raw, 2),
+            }
+        )
 
     disk_stats = _safe_list(data.get("disk_stats"))
     top_processes_raw = _safe_list(data.get("top_processes"))
@@ -858,7 +901,9 @@ async def async_sample(
 
     result: Dict[str, Any] = {
         "cpu": _safe_int(data.get("cpu")),
+        "cpu_avg_5m": cpu_avg_5m,
         "mem": _safe_int(data.get("mem")),
+        "mem_avg_5m": mem_avg_5m,
         "disk": _safe_int(data.get("disk")),
         "disk_capacity_total": disk_total_gib,
         "disk_io_read": disk_io_read,
@@ -927,6 +972,26 @@ async def async_sample(
         "failed_systemd_units_list": ", ".join(failed_units),
         "failed_systemd_units_details": failed_units,
         "journal_errors": _safe_int(data.get("journal_errors")),
+        "failed_ssh_logins_15m": _safe_int(data.get("failed_ssh_logins_15m")),
+        "firewall_active": bool(_safe_int(data.get("firewall_active"))),
+        "firewall_backend": data.get("firewall_backend") or None,
+        "firewall_rules_count": _safe_int(data.get("firewall_rules_count")),
+        "fail2ban_active": bool(_safe_int(data.get("fail2ban_active"))),
+        "fail2ban_banned_count": _safe_int(data.get("fail2ban_banned_count")),
+        "fail2ban_jails": [
+            jail for jail in _safe_list(data.get("fail2ban_jails")) if isinstance(jail, dict)
+        ],
+        "cert_soonest_expiry_days": _safe_int(data.get("cert_soonest_expiry_days")),
+        "cert_entries": [
+            cert for cert in _safe_list(data.get("cert_entries")) if isinstance(cert, dict)
+        ],
+        "backup_jobs_detected": _safe_int(data.get("backup_jobs_detected")),
+        "backup_job_failed": bool(_safe_int(data.get("backup_job_failed"))),
+        "backup_jobs": [
+            job for job in _safe_list(data.get("backup_jobs")) if isinstance(job, dict)
+        ],
+        "unattended_upgrades_active": bool(_safe_int(data.get("unattended_upgrades_active"))),
+        "network_interfaces": network_interfaces,
         "ssh_connect_time_ms": round(timing.get("connect_time_ms", 0), 2),
         "collection_time_ms": round(timing.get("collection_time_ms", 0), 2),
         "collection_error": data.get("collection_error"),

@@ -353,7 +353,7 @@
   - target:
       entity_id: input_number.electricity_rate
     data:
-      value: 0.1625
+      value: 0.1954
     action: input_number.set_value
   mode: single
 - id: '1769624024597'
@@ -371,7 +371,7 @@
   - target:
       entity_id: input_number.electricity_rate
     data:
-      value: 0.3299
+      value: 0.3719
     action: input_number.set_value
   mode: single
 - id: '1769624072939'
@@ -389,7 +389,7 @@
   - target:
       entity_id: input_number.electricity_rate
     data:
-      value: 0.3299
+      value: 0.3968
     action: input_number.set_value
   mode: single
 - id: '1769624436568'
@@ -407,7 +407,7 @@
   - target:
       entity_id: input_number.electricity_rate
     data:
-      value: 0.3299
+      value: 0.3719
     action: input_number.set_value
   mode: single
 - id: '1771748445702'

@@ -50,7 +50,10 @@ CONF_INVERTER_NAME_SUFFIX = "inverter_name_suffix"
 CONF_INVERTER_POWER_KW = "inverter_power_kw"
 CONF_READ_EPS = "read_eps"
 CONF_READ_DCB = "read_dcb"
+CONF_READ_GEN = "read_gen"
 CONF_READ_PM = "read_pm"
+CONF_READ_EMS = "read_ems"
+CONF_READ_DATAHUB = "read_datahub"
 CONF_MODBUS_ADDR = "read_modbus_addr"
 CONF_INTERFACE = "interface"
 CONF_SERIAL_PORT = "read_serial_port"
@@ -66,13 +69,16 @@ DEFAULT_INTERFACE = "tcp"
 DEFAULT_SERIAL_PORT = "/dev/ttyUSB0"
 DEFAULT_READ_EPS = False
 DEFAULT_READ_DCB = False
+DEFAULT_READ_GEN = False
 DEFAULT_READ_PM = False
+DEFAULT_READ_EMS = False
+DEFAULT_READ_DATAHUB = False
 DEFAULT_BAUDRATE = "19200"
 DEFAULT_PLUGIN = "solax"
 DEFAULT_READ_BATTERY = False
 ENERGY_DASHBOARD_DEVICE_ENABLED = True
 ENERGY_DASHBOARD_DEVICE_DISABLED = False
-DEFAULT_ENERGY_DASHBOARD_DEVICE = ENERGY_DASHBOARD_DEVICE_ENABLED
+DEFAULT_ENERGY_DASHBOARD_DEVICE = ENERGY_DASHBOARD_DEVICE_DISABLED
 PLUGIN_PATH = f"{pathlib.Path(__file__).parent.absolute()}/plugin_*.py"
 SLEEPMODE_NONE = None
 SLEEPMODE_ZERO = 0  # when no communication at all
@@ -238,6 +244,8 @@ class BaseModbusSensorEntityDescription(SensorEntityDescription):
     """Base class for modbus sensor declarations."""
 
     allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    device_group: str | None = None  # assign the entity to a named sub-device instead of the main inverter device
+    active_when: dict[str, tuple[Any, ...]] | None = None  # {sensor_key: allowed values}; entity is unavailable unless every polled key matches
     order32: str | None = None  # per-sensor 32-bit word order override ("big"/"little"); None = plugin default
     modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
     modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
@@ -305,6 +313,8 @@ class BaseModbusSelectEntityDescription(SelectEntityDescription):
     """Base class for modbus select declarations."""
 
     allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    device_group: str | None = None  # assign the entity to a named sub-device instead of the main inverter device
+    active_when: dict[str, tuple[Any, ...]] | None = None  # {sensor_key: allowed values}; entity is unavailable unless every polled key matches
     modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
     modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
     register: int | None = None
@@ -325,6 +335,8 @@ class BaseModbusSwitchEntityDescription(SwitchEntityDescription):
     """Base class for modbus switch declarations."""
 
     allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    device_group: str | None = None  # assign the entity to a named sub-device instead of the main inverter device
+    active_when: dict[str, tuple[Any, ...]] | None = None  # {sensor_key: allowed values}; entity is unavailable unless every polled key matches
     modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
     modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
     register: int | None = None
@@ -344,6 +356,8 @@ class BaseModbusTimeEntityDescription(TimeEntityDescription):
     """Base class for modbus time declarations."""
 
     allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    device_group: str | None = None  # assign the entity to a named sub-device instead of the main inverter device
+    active_when: dict[str, tuple[Any, ...]] | None = None  # {sensor_key: allowed values}; entity is unavailable unless every polled key matches
     modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
     modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
     scale: float | dict[Any, Any] | Callable[[Any, Any, dict[str, Any]], Any] = 1
@@ -373,6 +387,8 @@ class BaseModbusNumberEntityDescription(NumberEntityDescription):
     """Base class for modbus number declarations."""
 
     allowedtypes: int = 0  # overload with ALLDEFAULT from plugin
+    device_group: str | None = None  # assign the entity to a named sub-device instead of the main inverter device
+    active_when: dict[str, tuple[Any, ...]] | None = None  # {sensor_key: allowed values}; entity is unavailable unless every polled key matches
     modbus_min: int | None = None  # Minimum protocol version as reported by register 0x82 (e.g. 100 for V001.00); not the document revision.
     modbus_max: int | None = None  # Maximum protocol version as reported by register 0x82.
     register: int | None = None
@@ -383,6 +399,7 @@ class BaseModbusNumberEntityDescription(NumberEntityDescription):
     state: str | None = None
     max_exceptions: list[tuple[str, int | float]] | None = None  #  None or list with structure [ ('U50EC' , 40,) ]
     min_exceptions_minus: list[tuple[str, int | float]] | None = None  # same structure as max_exceptions, values are applied with a minus
+    min_exceptions: list[tuple[str, int | float]] | None = None  # None or list with structure [ ('U50EC' , 10,) ]
     blacklist: list[str] | None = None  # None or list of serial number prefixes like
     write_method: int = WRITE_SINGLE_MODBUS  # WRITE_SINGLE_MOBUS or WRITE_MULTI_MODBUS or WRITE_DATA_LOCAL
     initvalue: int | None = None  # initial default value for WRITE_DATA_LOCAL entities
@@ -390,6 +407,7 @@ class BaseModbusNumberEntityDescription(NumberEntityDescription):
     prevent_update: bool = False  # if set to True, value will not be re-read/updated with each polling cycle;
     # update only when read value changes
     sensor_key: str | None = None  # only specify this if corresponding sensor has a different key name
+    max_key: str | None = None  # key of a sensor whose value dynamically overrides native_max_value
     depends_on: list[str] | None = None  # list of modbus register keys that must be read
     display_as_box: bool = True  # display numbers as an input box (default); set False for a slider.
     suggested_display_precision: int | None = None
@@ -404,6 +422,22 @@ def modbus_protocol_version(hub: Any) -> int:
         return int(version or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def matches_active_when(hub: Any, description: Any) -> bool:
+    """Return whether an entity's active_when conditions are currently met.
+
+    Conditions reference polled hub.data keys; a key that is absent from
+    hub.data (not polled on this model) does not block availability.
+    """
+    conditions = getattr(description, "active_when", None)
+    if not conditions:
+        return True
+    data = getattr(hub, "data", {})
+    for key, allowed in conditions.items():
+        if key in data and data[key] not in allowed:
+            return False
+    return True
 
 
 def matches_modbus_protocol(hub: Any, description: Any) -> bool:

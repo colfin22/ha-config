@@ -1,0 +1,138 @@
+# Describes the format for available services for the Solcast integration
+update_forecasts:
+  name: Update
+  description: Fetches the forecasts from Solcast
+
+force_update_forecasts:
+  name: Force Update Forecasts
+  description: Force fetches the forecasts from Solcast
+
+force_update_estimates:
+  name: Force Update Estimates
+  description: Force fetches estimated actuals from Solcast
+
+clear_all_solcast_data:
+  name: Clear saved Solcast site data
+  description: Deletes cached Solcast forecast and estimated actual data files, then reloads integration data
+
+diagnostic:
+  name: Diagnostic
+  description: Run a diagnostic self-test to validate configuration health
+
+query_forecast_data:
+  name: Query forecasts
+  description: List of forecasts between start date/time and end date/time
+  fields:
+    start_date_time:
+      example: "2024-10-06T00:00:00Z"
+      selector:
+        datetime:
+    end_date_time:
+      example: "2024-10-06T10:00:00Z"
+      selector:
+        datetime:
+    undampened:
+      example: "false"
+    site:
+      example: "1234-5678-9012-3456"
+
+query_estimate_data:
+  name: Query estimates
+  description: List of estimated actuals between optional start and end date/time values; defaults to yesterday when omitted
+  fields:
+    start_date_time:
+      example: "2024-10-06T00:00:00Z"
+      selector:
+        datetime:
+    end_date_time:
+      example: "2024-10-06T10:00:00Z"
+      selector:
+        datetime:
+    dampened:
+      example: "false"
+    site:
+      example: "1234-5678-9012-3456"
+
+set_custom_hours:
+  name: Set custom hours sensor
+  description: Deprecated; use the set_options action with the custom_hours option instead
+  fields:
+    hours:
+      example: "6"
+
+set_dampening:
+  name: Set forecasts dampening
+  description: Set the hourly or half-hourly forecast dampening factors
+  fields:
+    damp_factor:
+      example: "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1"
+    site:
+      example: "1234-5678-9012-3456"
+
+get_dampening:
+  name: Get forecasts dampening
+  description: Get the forecast dampening factors
+  fields:
+    site:
+      example: "1234-5678-9012-3456"
+
+get_options:
+  name: Get options
+  description: Get current integration configuration options
+
+set_hard_limit:
+  name: Set inverter forecast hard limit in kW
+  description: Deprecated; use the set_options action with the hard_limit option instead
+  fields:
+    hard_limit:
+      description: Set the max value in kW that the inverter can produce. Use 0 to disable the hard limit.
+      example: "6.0"
+
+remove_hard_limit:
+  name: Remove inverter forecast hard limit
+  description: Deprecated; use the set_options action with the hard_limit option set to 0 instead
+
+set_options:
+  name: Set options
+  description: Set one or more integration configuration options
+  fields:
+    api_key:
+      example: "your-api-key"
+    api_limit:
+      example: "10"
+    auto_update:
+      example: "1"
+    key_estimate:
+      example: "estimate"
+    custom_hours:
+      example: "6"
+    hard_limit:
+      example: "100"
+    attr_brk_estimate:
+      example: true
+    attr_brk_estimate10:
+      example: true
+    attr_brk_estimate90:
+      example: true
+    attr_brk_site:
+      example: true
+    attr_brk_halfhourly:
+      example: true
+    attr_brk_hourly:
+      example: true
+    attr_brk_detailed:
+      example: false
+    get_actuals:
+      example: false
+    use_actuals:
+      example: "0"
+    auto_dampen:
+      example: false
+    generation_entities:
+      example: "sensor.inverter_power"
+    exclude_sites:
+      example: "1234-5678-9012-3456"
+    site_export_entity:
+      example: "sensor.grid_export"
+    site_export_limit:
+      example: "5.0"

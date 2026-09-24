@@ -31,6 +31,10 @@ BINARY_SENSORS: tuple[tuple[str, str, str], ...] = (
     ),
     ("conntrack_near_capacity", "Conntrack Near Capacity", "mdi:network-strength-1-alert"),
     ("smart_failure_detected", "SMART Failure Detected", "mdi:harddisk-alert"),
+    ("firewall_active", "Firewall Active", "mdi:security"),
+    ("fail2ban_active", "Fail2ban Active", "mdi:shield-lock"),
+    ("backup_job_failed", "Backup Job Failed", "mdi:backup-restore"),
+    ("unattended_upgrades_active", "Unattended Upgrades Active", "mdi:cog-refresh"),
 )
 
 
@@ -38,7 +42,7 @@ class VServerOnlineBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySen
     """Binary sensor representing host availability."""
 
     _unrecorded_attributes = frozenset(
-        {"last_seen", "consecutive_failures", "current_poll_interval"}
+        {"last_seen", "consecutive_failures", "current_poll_interval", "label"}
     )
 
     def __init__(self, coordinator: VServerCoordinator, server_name: str) -> None:
@@ -64,6 +68,7 @@ class VServerOnlineBinarySensor(CoordinatorEntity[VServerCoordinator], BinarySen
             "last_seen": self._last_seen,
             "consecutive_failures": self.coordinator.consecutive_failures,
             "current_poll_interval": self.coordinator.current_interval,
+            "label": self.coordinator.server.get("label") or None,
         }
 
     @property
@@ -239,6 +244,8 @@ class VServerContainerMemoryLimitBinarySensor(
             "memory_usage_bytes": container.get("memory_usage_bytes"),
             "memory_limit_bytes": container.get("memory_limit_bytes"),
             "memory_limit_usage": container.get("memory_limit_usage"),
+            "compose_project": container.get("compose_project") or None,
+            "compose_service": container.get("compose_service") or None,
         }
 
 

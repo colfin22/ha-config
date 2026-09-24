@@ -1,23 +1,35 @@
 """Show statistical data from your Dawarich instance."""
 
 import logging
+from datetime import UTC, datetime
 
 from dawarich_api import DawarichAPI
-from homeassistant.components.device_tracker.const import SourceType
+from homeassistant.components.device_tracker.const import (
+    ATTR_BATTERY,
+    ATTR_SOURCE_TYPE,
+    SourceType,
+)
 from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
 from homeassistant.components.sensor.const import SensorDeviceClass, SensorStateClass
 from homeassistant.const import (
-    CONF_API_KEY,
+    ATTR_GPS_ACCURACY,
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
     CONF_HOST,
     CONF_NAME,
     UnitOfLength,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.issue_registry import (
+    IssueSeverity,
+    async_create_issue,
+    async_delete_issue,
+)
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -90,20 +102,22 @@ async def async_setup_entry(
 ):
     """Set up Dawarich sensor."""
     url = entry.data[CONF_HOST]
-    api_key = entry.data[CONF_API_KEY]
     name = entry.data[CONF_NAME]
     coordinator = entry.runtime_data.coordinator
+    # Use entry_id for stable identifiers (doesn't change when API key changes)
+    entry_id = entry.entry_id
 
     device_info = DeviceInfo(
-        identifiers={(DOMAIN, api_key)},
+        identifiers={(DOMAIN, entry_id)},
         name=name,
         manufacturer="Dawarich",
         configuration_url=entry.runtime_data.api.url,
+        entry_type=DeviceEntryType.SERVICE,
     )
 
     # Add statistics sensor
     sensors: list[DawarichSensors] = [
-        DawarichStatisticsSensor(url, api_key, name, desc, coordinator, device_info)
+        DawarichStatisticsSensor(url, entry_id, name, desc, coordinator, device_info)
         for desc in SENSOR_TYPES
     ]
 
@@ -112,7 +126,7 @@ async def async_setup_entry(
         DawarichVersionSensor(
             coordinator=entry.runtime_data.version_coordinator,
             description=VERSION_SENSOR_TYPES,
-            api_key=api_key,
+            entry_id=entry_id,
             device_info=device_info,
         )
     )
@@ -124,7 +138,7 @@ async def async_setup_entry(
         api = entry.runtime_data.api
         sensors.append(
             DawarichTrackerSensor(
-                api_key=api_key,
+                entry_id=entry_id,
                 device_name=name,
                 mobile_app=mobile_app,
                 api=api,
@@ -144,9 +158,9 @@ class DawarichTrackerSensor(SensorEntity):
 
     def __init__(
         self,
-        api_key: str,
+        entry_id: str,
         device_name: str,
-        mobile_app,
+        mobile_app: str,
         api: DawarichAPI,
         hass: HomeAssistant,
         device_info: DeviceInfo,
@@ -155,12 +169,13 @@ class DawarichTrackerSensor(SensorEntity):
         """Initialize the sensor."""
         self._device_name = device_name
         self._mobile_app = mobile_app
-        self._api_key = api_key
+        self._entry_id = entry_id
         self._hass = hass
         self._api = api
         self._attr_device_info = device_info
         self._attr_device_class = description.device_class
         self.entity_description = description
+        self._repair_issue_created = False
 
         self._async_unsubscribe_state_changed = async_track_state_change_event(
             hass=self._hass,
@@ -170,10 +185,62 @@ class DawarichTrackerSensor(SensorEntity):
         self._state: DawarichTrackerStates = DawarichTrackerStates.UNKNOWN
         self._attr_options = [state.value for state in DawarichTrackerStates]
 
+    async def async_added_to_hass(self) -> None:
+        """Run when entity is added to hass."""
+        # Check initial state of the tracked entity
+        initial_state = self._hass.states.get(self._mobile_app)
+        self._async_check_entity_availability(initial_state)
+
+    @property
+    def _issue_id(self) -> str:
+        """Return the issue id for the repair issue."""
+        return f"device_tracker_unavailable_{self._entry_id}"
+
+    @callback
+    def _async_check_entity_availability(self, state) -> bool:
+        """Check if the tracked entity is available and manage repair issue.
+
+        Returns True if the entity is available, False otherwise.
+        """
+        if state is None or state.state in ("unavailable", "unknown"):
+            if not self._repair_issue_created:
+                _LOGGER.warning(
+                    "Device tracker %s is not available. Please check the entity.",
+                    self._mobile_app,
+                )
+                async_create_issue(
+                    self._hass,
+                    DOMAIN,
+                    self._issue_id,
+                    is_fixable=False,
+                    severity=IssueSeverity.WARNING,
+                    translation_key="device_tracker_unavailable",
+                    translation_placeholders={
+                        "device_tracker": self._mobile_app,
+                        "device_name": self._device_name,
+                    },
+                )
+                self._repair_issue_created = True
+            return False
+        if self._repair_issue_created:
+            _LOGGER.info(
+                "Device tracker %s is available again, clearing repair issue.",
+                self._mobile_app,
+            )
+            async_delete_issue(self._hass, DOMAIN, self._issue_id)
+            self._repair_issue_created = False
+        return True
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up when entity is removed."""
+        self._async_unsubscribe_state_changed()
+        if self._repair_issue_created:
+            async_delete_issue(self._hass, DOMAIN, self._issue_id)
+
     @property
     def unique_id(self) -> str:  # type: ignore[override]
         """Return a unique id for the sensor."""
-        return f"{self._api_key}/tracker"
+        return f"{self._entry_id}/tracker"
 
     @property
     def state(self) -> StateType:
@@ -193,7 +260,12 @@ class DawarichTrackerSensor(SensorEntity):
         _LOGGER.debug(
             "State change detected for %s, updating Dawarich", self._mobile_app
         )
-        if (new_state := event.data.get("new_state")) is None:
+        new_state = event.data.get("new_state")
+
+        if not self._async_check_entity_availability(new_state):
+            return
+
+        if new_state is None:
             _LOGGER.error("No new state found for %s", self._mobile_app)
             return
 
@@ -202,12 +274,12 @@ class DawarichTrackerSensor(SensorEntity):
         _LOGGER.debug("Received data: %s", new_data)
 
         # Get coordinates from new_data
-        latitude = new_data.get("latitude")
-        longitude = new_data.get("longitude")
+        latitude = new_data.get(ATTR_LATITUDE)
+        longitude = new_data.get(ATTR_LONGITUDE)
 
         # Check if the coordinates are present
         if latitude is None or longitude is None:
-            if new_data.get("source") != SourceType.GPS:
+            if new_data.get(ATTR_SOURCE_TYPE) != SourceType.GPS:
                 _LOGGER.warning(
                     (
                         "The choosen device tracker (%s) is emitting a '%s' "
@@ -215,12 +287,22 @@ class DawarichTrackerSensor(SensorEntity):
                         "Please change the device tracker to one that provides GPS coordinates."
                     ),
                     self._mobile_app,
-                    new_data.get("source"),
+                    new_data.get(ATTR_SOURCE_TYPE),
                 )
             _LOGGER.debug("Coordinates are not present, skipping update")
             return
 
         optional_params = await self._async_add_optional_params(new_data)
+
+        # Dawarich API expects timestamp as an ISO-formatted string, but
+        # iCloud3, and possibly other device trackers, provide it as a Unix timestamp.
+        if (
+            "timestamp" in optional_params
+            and str(optional_params["timestamp"]).isnumeric()
+        ):
+            optional_params["timestamp"] = datetime.fromtimestamp(
+                int(optional_params["timestamp"]), tz=UTC
+            ).isoformat()
 
         # Send to Dawarich API
         response = await self._api.add_one_point(
@@ -244,7 +326,7 @@ class DawarichTrackerSensor(SensorEntity):
         # Only include optional parameters if they have valid values
         optional_params = {}
 
-        if (gps_accuracy := new_data.get("gps_accuracy")) is not None:
+        if (gps_accuracy := new_data.get(ATTR_GPS_ACCURACY)) is not None:
             optional_params["horizontal_accuracy"] = gps_accuracy
 
         if (altitude := new_data.get("altitude")) is not None:
@@ -258,8 +340,14 @@ class DawarichTrackerSensor(SensorEntity):
         elif (velocity := new_data.get("velocity")) is not None:
             optional_params["speed"] = velocity
 
-        if (battery := new_data.get("battery")) is not None:
+        if (battery := new_data.get(ATTR_BATTERY)) is not None:
             optional_params["battery"] = battery
+
+        if (raw_timestamp := new_data.get("last_seen")) is not None or (
+            raw_timestamp := new_data.get("last_timestamp")
+        ) is not None:
+            optional_params["timestamp"] = raw_timestamp
+
         return optional_params
 
     async def _async_check_is_disabled(self) -> bool:
@@ -271,7 +359,7 @@ class DawarichTrackerSensor(SensorEntity):
         if self.device_entry is None:
             _LOGGER.debug("No device entry found, instead looking based on identifiers")
             device = device_registry.async_get_device(
-                identifiers={(DOMAIN, self._api_key)}
+                identifiers={(DOMAIN, self._entry_id)}
             )
         else:
             _LOGGER.debug(
@@ -328,12 +416,12 @@ class DawarichTrackerSensor(SensorEntity):
 
 
 class DawarichStatisticsSensor(CoordinatorEntity, SensorEntity):  # type: ignore[incompatible-subclass]
-    """Representation fo a Dawarich sensor."""
+    """Representation of a Dawarich sensor."""
 
     def __init__(
         self,
         url: str,
-        api_key: str,
+        entry_id: str,
         device_name: str,
         description: SensorEntityDescription,
         coordinator: DawarichStatsCoordinator,
@@ -341,11 +429,11 @@ class DawarichStatisticsSensor(CoordinatorEntity, SensorEntity):  # type: ignore
     ):
         """Initialize Dawarich sensor."""
         super().__init__(coordinator)
-        self._api_key = api_key
+        self._entry_id = entry_id
         self._url = url
         self._device_name = device_name
         self.entity_description = description
-        self._attr_unique_id = api_key + "/" + description.key
+        self._attr_unique_id = f"{entry_id}/{description.key}"
         self._attr_device_info = device_info
         self._attr_state_class = SensorStateClass.TOTAL
 
@@ -381,13 +469,13 @@ class DawarichVersionSensor(
         self,
         coordinator: DawarichVersionCoordinator,
         description: SensorEntityDescription,
-        api_key: str,
+        entry_id: str,
         device_info: DeviceInfo,
     ):
         """Initialize Dawarich version sensor."""
         super().__init__(coordinator)
         self.entity_description = description
-        self._attr_unique_id = f"{api_key}/{description.key}"
+        self._attr_unique_id = f"{entry_id}/{description.key}"
         self._attr_device_info = device_info
 
     @property

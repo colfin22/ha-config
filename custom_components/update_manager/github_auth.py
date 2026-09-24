@@ -84,7 +84,10 @@ _USER_URL = "https://api.github.com/user"
 # flight doesn't get a token that expires mid-request.
 _EXPIRY_SAFETY_MARGIN = timedelta(minutes=2)
 
-LinkStatus = Literal["idle", "pending", "linked", "failed"]
+# See async_get_valid_access_token's own "error" branch for why this isn't 1.
+_MIN_CONSECUTIVE_REFRESH_FAILURES = 2
+
+LinkStatus = Literal["idle", "pending", "linked", "failed", "expired"]
 
 
 def _expiry_fields(payload: dict[str, Any], now: datetime) -> dict[str, str]:
@@ -122,17 +125,40 @@ class GitHubAuthManager:
     def link_status(self) -> dict[str, Any]:
         """Read by websocket_api.py's own github_link_status command,
         polled client-side while the panel shows a device-flow code (a
-        rare, short-lived, user-watched flow, no push mechanism needed)."""
+        rare, short-lived, user-watched flow, no push mechanism needed).
+
+        "expired" (found live, 2026-08-15: Settings kept showing "Linked as
+        X" with only an Unlink action, no way to re-link, even after
+        async_get_valid_access_token had already raised the repair issue
+        below): is_linked only ever checked whether an access_token was
+        stored at all, never whether it's actually still usable, so a
+        broken refresh never changed what this reported. self._data["broken"]
+        (set at both failure points in async_get_valid_access_token, cleared
+        on the next successful link or refresh) is the one extra bit needed
+        to tell the two apart here."""
+        if self.is_linked and self._data.get("broken"):
+            status: LinkStatus = "expired"
+        else:
+            status = "linked" if self.is_linked else self._link_status
         return {
-            "status": "linked" if self.is_linked else self._link_status,
+            "status": status,
             "username": self.linked_username,
         }
 
     async def async_start_device_flow(self) -> dict[str, Any]:
         session = async_get_clientsession(self.hass)
+        # No "scope" param here (found live, 2026-08-15, same audit as
+        # community_vote.py's dropped "labels"): verified against GitHub's
+        # own GitHub-App-specific device-flow docs -- a GitHub App's user
+        # access token "does not use scopes... it uses fine-grained
+        # permissions" instead (the app's own configured permissions), and
+        # the token's own returned `scope` field "will always be an empty
+        # string" regardless of what's sent here. Only OAuth Apps (a
+        # different, older GitHub concept this integration doesn't use) act
+        # on this parameter at all.
         async with session.post(
             _DEVICE_CODE_URL,
-            data={"client_id": GITHUB_APP_CLIENT_ID, "scope": ""},
+            data={"client_id": GITHUB_APP_CLIENT_ID},
             headers={"Accept": "application/json"},
         ) as response:
             response.raise_for_status()
@@ -229,8 +255,7 @@ class GitHubAuthManager:
         there's no way to get one right now (never linked, or the refresh
         token itself has expired after 6 months unused: only a fresh
         async_start_device_flow, not this method, can recover from that).
-        Not consumed by anything yet in this slice, this exists so a future
-        voting feature has a single, already-correct place to call.
+        Called by websocket_api.py wherever a vote is actually submitted.
 
         Raises the _ISSUE_LINK_EXPIRED repair issue for the two failure
         modes below that only a fresh re-link can fix -- not for a plain
@@ -246,7 +271,7 @@ class GitHubAuthManager:
 
         refresh_expires_at = dt_util.parse_datetime(self._data.get("refresh_token_expires_at", ""))
         if refresh_expires_at is not None and dt_util.utcnow() >= refresh_expires_at:
-            _async_create_link_expired_issue(self.hass)
+            await self._async_mark_broken()
             return None
 
         session = async_get_clientsession(self.hass)
@@ -268,22 +293,55 @@ class GitHubAuthManager:
 
         if "error" in payload:
             _LOGGER.warning("GitHub token refresh failed: %s", payload["error"])
-            _async_create_link_expired_issue(self.hass)
+            # Only raises the repair issue once this has failed
+            # _MIN_CONSECUTIVE_REFRESH_FAILURES times in a row, not on the
+            # first one -- found live, 2026-08-16: a single
+            # "incorrect_client_credentials" response turned out to be a
+            # one-off GitHub-side hiccup (the very next vote's own refresh
+            # attempt succeeded on its own, no re-link ever needed), yet the
+            # repair issue had already fired immediately. A raw network
+            # exception just above never raises at all for the same
+            # "could easily be transient" reason; this only softens that for
+            # an explicit API error response, still specific enough to be
+            # worth counting rather than ignoring outright.
+            streak = self._data.get("refresh_failure_streak", 0) + 1
+            self._data["refresh_failure_streak"] = streak
+            await self._store.async_save(self._data)
+            if streak >= _MIN_CONSECUTIVE_REFRESH_FAILURES:
+                await self._async_mark_broken()
             return None
 
         now = dt_util.utcnow()
         # Both tokens rotate on every refresh, the old pair stops working
         # the instant this succeeds, so the username is kept as-is (it
         # can't have changed) but both tokens are fully replaced, never
-        # merged with the old record.
+        # merged with the old record. "broken"/"refresh_failure_streak" are
+        # explicitly cleared here too, not just left out of this dict: a
+        # successful refresh recovering from earlier failures (transient
+        # GitHub-side errors, not a real 6-month expiry) must reset both,
+        # and the **self._data spread below would otherwise carry stale
+        # values straight through.
         self._data = {
             **self._data,
             "access_token": payload["access_token"],
             "refresh_token": payload["refresh_token"],
             **_expiry_fields(payload, now),
+            "broken": False,
+            "refresh_failure_streak": 0,
         }
         await self._store.async_save(self._data)
+        _async_clear_link_expired_issue(self.hass)
         return self._data["access_token"]
+
+    async def _async_mark_broken(self) -> None:
+        """Persists that the current link is unusable until a fresh re-link
+        (see link_status's own docstring for why this exists as a separate,
+        stored bit rather than being derived), and raises the user-facing
+        repair issue. Shared by both failure points in
+        async_get_valid_access_token above."""
+        self._data["broken"] = True
+        await self._store.async_save(self._data)
+        _async_create_link_expired_issue(self.hass)
 
     async def async_unlink(self) -> None:
         self._data = {}

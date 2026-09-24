@@ -446,7 +446,7 @@ automation:
     actions:
       - repeat:
           for_each: >-
-            {{ state_attr('sensor.car_costs_next_due', 'dues')
+            {{ (state_attr('sensor.car_costs_next_due', 'dues') or [])
                | selectattr('days', 'in', [30, 7]) | list }}
           sequence:
             - variables:

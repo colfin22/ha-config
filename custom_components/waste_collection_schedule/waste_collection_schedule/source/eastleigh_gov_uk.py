@@ -31,7 +31,7 @@ class Source:
         self._uprn: str | int = uprn
 
     def fetch(self):
-        session = requests.Session(impersonate="chrome124")
+        session = requests.Session(impersonate="chrome")
         args = {"uprn": self._uprn}
 
         # get json file
@@ -52,7 +52,7 @@ class Source:
 
                 try:
                     # Mon, 29 Apr 2024
-                    date = datetime.strptime(dd.text, "%a, %d %b %Y").date()
+                    date = datetime.strptime(dd.text.strip(), "%a, %d %b %Y").date()
                 except ValueError:
                     continue
 

@@ -20,6 +20,7 @@ from .const import (
     WRITE_SINGLE_MODBUS,
     BaseModbusSelectEntityDescription,
     autorepeat_set,
+    matches_active_when,
     matches_modbus_protocol,
 )
 
@@ -38,11 +39,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     plugin = hub.plugin  # getPlugin(hub_name)
     entities = []
     for select_info in plugin.SELECT_TYPES:
-        if plugin.matchInverterWithMask(
-            hub._invertertype, select_info.allowedtypes, hub.seriesnumber, select_info.blacklist
-        ) and matches_modbus_protocol(hub, select_info):
+        if (
+            plugin.matchInverterWithMask(hub._invertertype, select_info.allowedtypes, hub.seriesnumber, select_info.blacklist)
+            and matches_modbus_protocol(hub, select_info)
+            and hub.device_group_enabled(select_info.device_group)
+        ):
             select_info = replace(select_info, reverse_option_dict={v: k for k, v in select_info.option_dict.items()})
-            select = SolaXModbusSelect(hub_name, hub, modbus_addr, hub.device_info, select_info)
+            device_info = hub.group_device_info(select_info.device_group) if select_info.device_group else hub.device_info
+
+            def factory(di: Any = device_info, si: Any = select_info) -> SolaXModbusSelect:
+                return SolaXModbusSelect(hub_name, hub, modbus_addr, di, si)
+
+            select = factory()
             if select_info.write_method == WRITE_DATA_LOCAL:
                 if select_info.initvalue is not None:
                     hub.data[select_info.key] = select_info.initvalue
@@ -63,7 +71,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     tuple,
                 ),
             ):
-                _LOGGER.debug(f"{hub.name}: {select_info.key} depends on entities {deplist}")
+                _LOGGER.debug("%s: %s depends on entities %s", hub.name, select_info.key, deplist)
                 for dep_on in deplist:  # register inter-sensor dependencies (e.g. for value functions)
                     if dep_on != select_info.key:
                         hub.entity_dependencies.setdefault(dep_on, []).append(select_info.key)  # can be more than one
@@ -71,7 +79,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             dependency_key = getattr(select_info, "sensor_key", select_info.key)
             if dependency_key != select_info.key:
                 hub.entity_dependencies.setdefault(dependency_key, []).append(select_info.key)  # can be more than one
-            entities.append(select)
+            active = matches_active_when(hub, select_info)
+            if select_info.active_when is not None:
+                hub.register_gated_entity(select_info, factory, async_add_entities, hub.selectEntities, "select", select if active else None)
+            if active:
+                hub.selectEntities[select_info.key] = select
+                entities.append(select)
+            else:
+                hub.selectEntities.pop(select_info.key, None)
 
     async_add_entities(entities)
     return True
@@ -182,7 +197,7 @@ class SolaXModbusSelect(SelectEntity):
         reverse_dict = self.entity_description.reverse_option_dict
         payload: Any = reverse_dict.get(option, None) if reverse_dict else None
         if self._write_method == WRITE_MULTISINGLE_MODBUS:
-            _LOGGER.info(f"writing {self._platform_name} select register {self._register} value {payload} with method {self._write_method}")
+            _LOGGER.info("writing %s select register %s value %s with method %s", self._platform_name, self._register, payload, self._write_method)
             await self._hub.async_write_registers_single(
                 unit=self._modbus_addr,
                 address=self._register,
@@ -190,7 +205,7 @@ class SolaXModbusSelect(SelectEntity):
                 register_data_type=getattr(self.entity_description, "register_data_type", None),
             )
         elif self._write_method == WRITE_SINGLE_MODBUS:
-            _LOGGER.info(f"writing {self._platform_name} select register {self._register} value {payload} with method {self._write_method}")
+            _LOGGER.info("writing %s select register %s value %s with method %s", self._platform_name, self._register, payload, self._write_method)
             await self._hub.async_write_register(
                 unit=self._modbus_addr,
                 address=self._register,
@@ -198,9 +213,10 @@ class SolaXModbusSelect(SelectEntity):
                 register_data_type=getattr(self.entity_description, "register_data_type", None),
             )
         elif self._write_method == WRITE_DATA_LOCAL:
-            _LOGGER.info(f"*** local data written {self._key}: {payload}")
+            _LOGGER.info("*** local data written %s: %s", self._key, payload)
             self._hub.localsUpdated = True  # mark to save permanently
         self._hub.data[self._key] = option
+        await self._hub.async_refresh_gated_entities()
 
         # Handle autorepeat for selects with value_function (same pattern as buttons)
         if self.entity_description.value_function:

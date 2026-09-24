@@ -1,0 +1,661 @@
+"""AION EMS registry engine."""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+from homeassistant.helpers.storage import Store
+
+from .const import REGISTRY_STORAGE_KEY, REGISTRY_STORAGE_VERSION
+
+
+DEFAULT_ROOMS = [
+    {"id": "unassigned", "name": "Unassigned", "icon": "mdi:help-circle-outline"},
+    {"id": "utility", "name": "Utility", "icon": "mdi:tools"},
+    {"id": "kitchen", "name": "Kitchen", "icon": "mdi:silverware-fork-knife"},
+    {"id": "laundry", "name": "Laundry", "icon": "mdi:washing-machine"},
+    {"id": "garage", "name": "Garage", "icon": "mdi:garage"},
+]
+
+MAX_AUDIT_ENTRIES = 250
+
+
+DEFAULT_GROUPS = [
+    {"id": "solar", "name": "Solar", "category": "generation", "priority": "high", "icon": "mdi:solar-power-variant"},
+    {"id": "battery", "name": "Battery", "category": "storage", "priority": "high", "icon": "mdi:battery"},
+    {"id": "flexible_loads", "name": "Flexible Loads", "category": "load", "priority": "medium", "icon": "mdi:timer-cog-outline"},
+    {"id": "ev_charging", "name": "EV Charging", "category": "vehicle", "priority": "high", "icon": "mdi:ev-station"},
+    {"id": "heating", "name": "Heating", "category": "climate", "priority": "high", "icon": "mdi:heat-pump"},
+]
+
+
+class RegistryEngine:
+    """Storage-backed registry."""
+
+    def __init__(self, hass, event_bus) -> None:
+        self.hass = hass
+        self.event_bus = event_bus
+        self.store = Store(hass, 2, REGISTRY_STORAGE_KEY)
+        # Finance tariff resilience: keep the canonical tariff configuration in
+        # a dedicated HA Store as a recovery copy. Integration upgrades replace
+        # code files, never this HA storage. The registry remains authoritative;
+        # this store is used only when its tariff block is unexpectedly absent.
+        self.tariff_store = Store(hass, 1, f"{REGISTRY_STORAGE_KEY}.tariffs")
+        self.data: dict[str, Any] = {
+            "schema_version": 4,
+            "devices": [],
+            "rooms": DEFAULT_ROOMS,
+            "groups": DEFAULT_GROUPS,
+            "backups": [],
+            "audit": [],
+            "entity_mappings": {},
+            "sites": [{"id": "home", "name": "Home", "enabled": True, "icon": "mdi:home-lightning-bolt"}],
+            "topology_settings": {"default_site_id": "home", "balance_tolerance_percent": 10},
+            "home_settings": {"battery_capacity_kwh": None, "owner_name": "", "home_name": "Home", "use_owner_name": True, "story_style": "friendly", "briefing_length": "normal", "data_epoch": None},
+            "sources": {"weather": {"entity_id": None, "enabled": False}, "local_weather_station": {"enabled": False, "name": "", "entities": {}}, "tariffs": {"enabled": False, "currency": "CHF", "import_tariff": None, "export_tariff": None, "standing_charge": 0.0, "vat_included": True}, "payback": {"enabled": False, "gross_investment": None, "subsidy": 0.0, "annual_maintenance": 0.0, "commissioning_date": None}},
+            "switch_hub": [],
+        }
+
+    async def async_load(self) -> None:
+        stored = await self.store.async_load()
+        if stored:
+            # Preserve older data but ensure required keys exist
+            self.data.update(stored)
+            self.data.setdefault("devices", [])
+            self.data.setdefault("rooms", DEFAULT_ROOMS)
+            self.data.setdefault("groups", DEFAULT_GROUPS)
+            self.data.setdefault("backups", [])
+            self.data.setdefault("audit", [])
+            self.data["audit"] = list(self.data.get("audit", []))[-MAX_AUDIT_ENTRIES:]
+            self.data.setdefault("entity_mappings", {})
+            self.data.setdefault("sites", [{"id": "home", "name": "Home", "enabled": True, "icon": "mdi:home-lightning-bolt"}])
+            self.data.setdefault("topology_settings", {"default_site_id": "home", "balance_tolerance_percent": 10})
+            self.data.setdefault("home_settings", {"battery_capacity_kwh": None, "owner_name": "", "home_name": "Home", "use_owner_name": True, "story_style": "friendly", "briefing_length": "normal", "data_epoch": None})
+            home_settings = self.data["home_settings"]
+            home_settings.setdefault("owner_name", "")
+            home_settings.setdefault("home_name", "Home")
+            home_settings.setdefault("use_owner_name", True)
+            home_settings.setdefault("story_style", "friendly")
+            home_settings.setdefault("briefing_length", "normal")
+            home_settings.setdefault("data_epoch", None)
+            self.data.setdefault("sources", {"weather": {"entity_id": None, "enabled": False}})
+            self.data["sources"].setdefault("local_weather_station", {"enabled": False, "name": "", "entities": {}})
+            self.data["sources"].setdefault("tariffs", {"enabled": False, "currency": "CHF", "import_tariff": None, "export_tariff": None, "standing_charge": 0.0, "vat_included": True})
+            self.data["sources"].setdefault("payback", {"enabled": False, "gross_investment": None, "subsidy": 0.0, "annual_maintenance": 0.0, "commissioning_date": None})
+            self.data.setdefault("switch_hub", [])
+        self.data["schema_version"] = 4
+        # v9 migration: classify every existing energy entity without deleting data.
+        heat_pump_optional_fields = (
+            "cop_entity", "thermal_power_entity", "thermal_energy_entity",
+            "supply_temperature_entity", "return_temperature_entity",
+            "outdoor_temperature_entity", "compressor_state_entity",
+            "compressor_runtime_entity", "compressor_starts_entity",
+            "dhw_temperature_entity", "dhw_energy_entity",
+            "heating_energy_entity", "cooling_energy_entity",
+            "heating_electrical_power_entity", "heating_thermal_power_entity",
+            "heating_electrical_energy_entity", "heating_thermal_energy_entity",
+            "dhw_electrical_power_entity", "dhw_thermal_power_entity",
+            "dhw_electrical_energy_entity", "dhw_thermal_energy_entity",
+            "cooling_electrical_power_entity", "cooling_electrical_energy_entity",
+            "cooling_thermal_power_entity", "cooling_thermal_energy_entity",
+            "separate_heating_dhw_measurements", "cooling_measurements_enabled",
+            "operating_mode_entity", "target_temperature_entity", "jaz_entity",
+            "heat_carrier_forward_entity", "heat_carrier_return_entity",
+            "source_in_temperature_entity", "source_out_temperature_entity",
+            "source_pump_speed_entity", "heat_carrier_pump_speed_entity", "compressor_activity_entity",
+            "compressor_speed_entity", "compressor_target_speed_entity",
+            "dhw_target_temperature_entity",
+        )
+        for device in self.data.get("devices", []):
+            # v14.8.10.5: Zeus Direct Modbus owns the live ELWA power and
+            # element-temperature evidence.  Direct mode therefore wires the
+            # registered device to Zeus-native HA sensors instead of requiring
+            # duplicate Home Assistant Modbus YAML sensors.
+            if (
+                str(device.get("type") or "") == "water_heater"
+                and str(device.get("device_profile") or "") == "my_pv_elwa"
+                and bool(str(device.get("control_elwa_ip") or "").strip())
+            ):
+                device["power_entity"] = "sensor.zeus_elwa_power"
+                device["temperature_entity"] = "sensor.zeus_elwa_temperature"
+                device["energy_entity"] = "sensor.zeus_elwa_energy"
+                device["energy_type"] = "cumulative"
+                # Direct Modbus owns element-temperature evidence too. Keep the
+                # separate boiler/DHW sensor untouched: register 1001 is the
+                # ELWA element temperature, not the tank temperature.
+                device["control_element_temperature_entity"] = "sensor.zeus_elwa_temperature"
+                # alpha.13 cleanup: a legacy UI bug could persist the optional
+                # helper with the domain duplicated. It is not a real entity and
+                # must not remain visible or act as an interlock.
+                if str(device.get("control_lockout_entity") or "").startswith("input_boolean.input_boolean_"):
+                    device["control_lockout_entity"] = None
+            requested = str(device.get("energy_type") or "auto")
+            device["energy_type"] = self.detect_energy_type(device.get("energy_entity"), requested)
+            dtype = str(device.get("type") or "").lower()
+            if dtype in {"solar_inverter", "inverter", "pv_inverter", "microinverter"}:
+                device.setdefault("site_id", "home")
+            if dtype == "heat_pump":
+                # Older 14.4.x registry records predate some Advanced Heat Pump
+                # keys. Preserve existing values and add explicit nulls for
+                # unsupported/unconfigured inputs so exports are schema-stable.
+                for field in heat_pump_optional_fields:
+                    device.setdefault(field, None)
+                # Adaptive Mapping UI migration: existing explicit circuit mappings
+                # automatically keep the matching advanced section enabled. Users
+                # can still disable an empty section later without losing evidence.
+                if device.get("separate_heating_dhw_measurements") is None:
+                    device["separate_heating_dhw_measurements"] = any(device.get(key) for key in (
+                        "heating_electrical_power_entity", "heating_thermal_power_entity",
+                        "heating_electrical_energy_entity", "heating_thermal_energy_entity",
+                        "dhw_electrical_power_entity", "dhw_thermal_power_entity",
+                        "dhw_electrical_energy_entity", "dhw_thermal_energy_entity",
+                    ))
+                if device.get("cooling_measurements_enabled") is None:
+                    device["cooling_measurements_enabled"] = any(device.get(key) for key in (
+                        "cooling_electrical_power_entity", "cooling_electrical_energy_entity",
+                        "cooling_thermal_power_entity", "cooling_thermal_energy_entity",
+                    ))
+                # Heat Pump Circuit Mapping v2 semantic migration: legacy generic
+                # circuit-energy mappings stay unclassified. Never guess electrical
+                # vs thermal; explicit v2 fields are authoritative once mapped.
+
+        # Restore only measured/configured tariff settings that Zeus previously
+        # persisted. Never synthesize tariff values. This protects Finance config
+        # from an incomplete registry payload during an integration upgrade/reload.
+        tariff_backup = await self.tariff_store.async_load()
+        sources = self.data.setdefault("sources", {})
+        current_tariffs = sources.get("tariffs")
+        current_ready = isinstance(current_tariffs, dict) and bool(current_tariffs.get("enabled"))
+        backup_ready = isinstance(tariff_backup, dict) and bool(tariff_backup.get("enabled"))
+        if not current_ready and backup_ready:
+            sources["tariffs"] = dict(tariff_backup)
+            self.data.setdefault("audit", []).append({"action": "restore_tariff_settings"})
+        await self.async_save()
+        self.event_bus.publish("RegistryLoaded", "RegistryEngine", self.summary())
+
+    async def async_save(self) -> None:
+        # Long-run stability: keep the persistent audit useful but bounded.
+        # Several configuration/services append audit records over the life of
+        # the installation; serialising an ever-growing list wastes memory and
+        # storage I/O without improving diagnostics.
+        audit = self.data.get("audit")
+        if isinstance(audit, list) and len(audit) > MAX_AUDIT_ENTRIES:
+            self.data["audit"] = audit[-MAX_AUDIT_ENTRIES:]
+        await self.store.async_save(self.data)
+        # Mirror the canonical tariff block to its recovery store. Clearing
+        # tariffs also writes the disabled block, so an intentional Clear can
+        # never be resurrected on the next restart.
+        tariffs = self.data.get("sources", {}).get("tariffs")
+        if isinstance(tariffs, dict):
+            await self.tariff_store.async_save(dict(tariffs))
+
+    def build_device(
+        self,
+        device_id: str,
+        name: str,
+        power_entity: str | None,
+        energy_entity: str | None,
+        energy_type: str = "auto",
+        enabled: bool = True,
+        device_type: str = "custom",
+        category: str = "other",
+        room_id: str = "unassigned",
+        group_ids: list[str] | None = None,
+        state_entity: str | None = None,
+        availability_entity: str | None = None,
+        priority: str = "medium",
+        icon: str = "mdi:power-plug",
+        notes: str = "",
+        hybrid_inverter: bool = False,
+        solar_power_entity: str | None = None,
+        temperature_entity: str | None = None,
+        cop_entity: str | None = None,
+        thermal_power_entity: str | None = None,
+        thermal_energy_entity: str | None = None,
+        supply_temperature_entity: str | None = None,
+        return_temperature_entity: str | None = None,
+        outdoor_temperature_entity: str | None = None,
+        compressor_state_entity: str | None = None,
+        compressor_runtime_entity: str | None = None,
+        compressor_starts_entity: str | None = None,
+        dhw_temperature_entity: str | None = None,
+        dhw_energy_entity: str | None = None,
+        heating_energy_entity: str | None = None,
+        cooling_energy_entity: str | None = None,
+        heating_electrical_power_entity: str | None = None,
+        heating_thermal_power_entity: str | None = None,
+        heating_electrical_energy_entity: str | None = None,
+        heating_thermal_energy_entity: str | None = None,
+        dhw_electrical_power_entity: str | None = None,
+        dhw_thermal_power_entity: str | None = None,
+        dhw_electrical_energy_entity: str | None = None,
+        dhw_thermal_energy_entity: str | None = None,
+        cooling_electrical_power_entity: str | None = None,
+        cooling_electrical_energy_entity: str | None = None,
+        cooling_thermal_power_entity: str | None = None,
+        cooling_thermal_energy_entity: str | None = None,
+        separate_heating_dhw_measurements: bool = False,
+        cooling_measurements_enabled: bool = False,
+        operating_mode_entity: str | None = None,
+        target_temperature_entity: str | None = None,
+        jaz_entity: str | None = None,
+        heat_carrier_forward_entity: str | None = None,
+        heat_carrier_return_entity: str | None = None,
+        source_in_temperature_entity: str | None = None,
+        source_out_temperature_entity: str | None = None,
+        source_pump_speed_entity: str | None = None,
+        heat_carrier_pump_speed_entity: str | None = None,
+        compressor_activity_entity: str | None = None,
+        compressor_speed_entity: str | None = None,
+        compressor_target_speed_entity: str | None = None,
+        dhw_target_temperature_entity: str | None = None,
+        controllable: bool = False,
+        control_permission: bool = False,
+        control_dual_permission_armed: bool = False,
+        actuator_type: str | None = None,
+        control_entity: str | None = None,
+        control_service: str | None = None,
+        control_min_power_w: float | None = None,
+        control_max_power_w: float | None = None,
+        control_hub: str | None = None,
+        control_elwa_ip: str | None = None,
+        control_unit: int | None = None,
+        control_address: int | None = None,
+        control_boiler_temperature_entity: str | None = None,
+        control_element_temperature_entity: str | None = None,
+        control_surplus_entity: str | None = None,
+        control_lockout_entity: str | None = None,
+        control_stop_temperature_c: float | None = None,
+        control_restart_temperature_c: float | None = None,
+        device_profile: str | None = None,
+        control_solar_start_threshold_w: float | None = None,
+        control_solar_factor: float | None = None,
+        control_solar_export_reserve_w: float | None = None,
+        control_element_taper_start_c: float | None = None,
+        control_element_hard_stop_c: float | None = None,
+        control_grid_backup_start_c: float | None = None,
+        control_grid_backup_stop_c: float | None = None,
+        control_keepalive_interval_s: float | None = None,
+        control_owner: str | None = None,
+        control_previous_controller_entity: str | None = None,
+        control_handover_confirmed: bool = False,
+        control_execution_arm_requested: bool = False,
+        control_execution_arm_confirmed: bool = False,
+        control_execution_master_enabled: bool = False,
+        control_emergency_stop: bool = False,
+        control_goe_id: str | None = None,
+        control_mqtt_topic: str | None = None,
+        control_grid_power_entity: str | None = None,
+        control_battery_power_entity: str | None = None,
+        control_publish_interval_s: float | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "id": device_id,
+            "name": name,
+            "enabled": enabled,
+            "type": device_type,
+            "category": category,
+            "room_id": room_id,
+            "group_ids": group_ids or [],
+            "power_entity": power_entity,
+            "energy_entity": energy_entity,
+            "energy_type": self.detect_energy_type(energy_entity, energy_type),
+            "state_entity": state_entity,
+            "availability_entity": availability_entity,
+            "priority": priority,
+            "icon": icon,
+            "controllable": bool(controllable),
+            "control_permission": bool(control_permission),
+            "control_dual_permission_armed": bool(control_dual_permission_armed),
+            "actuator_type": actuator_type,
+            "control_entity": control_entity,
+            "control_service": control_service,
+            "control_min_power_w": control_min_power_w,
+            "control_max_power_w": control_max_power_w,
+            "control_hub": control_hub,
+            "control_elwa_ip": control_elwa_ip,
+            "control_unit": control_unit,
+            "control_address": control_address,
+            "control_boiler_temperature_entity": control_boiler_temperature_entity,
+            "control_element_temperature_entity": control_element_temperature_entity,
+            "control_surplus_entity": control_surplus_entity,
+            "control_lockout_entity": control_lockout_entity,
+            "control_stop_temperature_c": control_stop_temperature_c,
+            "control_restart_temperature_c": control_restart_temperature_c,
+            "device_profile": device_profile,
+            "control_solar_start_threshold_w": control_solar_start_threshold_w,
+            "control_solar_factor": control_solar_factor,
+            "control_solar_export_reserve_w": control_solar_export_reserve_w,
+            "control_element_taper_start_c": control_element_taper_start_c,
+            "control_element_hard_stop_c": control_element_hard_stop_c,
+            "control_grid_backup_start_c": control_grid_backup_start_c,
+            "control_grid_backup_stop_c": control_grid_backup_stop_c,
+            "control_keepalive_interval_s": control_keepalive_interval_s,
+            "control_owner": control_owner or "home_assistant",
+            "control_previous_controller_entity": control_previous_controller_entity,
+            "control_handover_confirmed": bool(control_handover_confirmed),
+            "control_execution_arm_requested": bool(control_execution_arm_requested),
+            "control_execution_arm_confirmed": bool(control_execution_arm_confirmed),
+            "control_execution_master_enabled": bool(control_execution_master_enabled),
+            "control_emergency_stop": bool(control_emergency_stop),
+            "control_goe_id": control_goe_id,
+            "control_mqtt_topic": control_mqtt_topic,
+            "control_grid_power_entity": control_grid_power_entity,
+            "control_battery_power_entity": control_battery_power_entity,
+            "control_publish_interval_s": control_publish_interval_s,
+            "automation_entity": None,
+            "notes": notes,
+            "hybrid_inverter": bool(hybrid_inverter),
+            "solar_power_entity": solar_power_entity,
+            "temperature_entity": temperature_entity,
+            "cop_entity": cop_entity,
+            "thermal_power_entity": thermal_power_entity,
+            "thermal_energy_entity": thermal_energy_entity,
+            "supply_temperature_entity": supply_temperature_entity,
+            "return_temperature_entity": return_temperature_entity,
+            "outdoor_temperature_entity": outdoor_temperature_entity,
+            "compressor_state_entity": compressor_state_entity,
+            "compressor_runtime_entity": compressor_runtime_entity,
+            "compressor_starts_entity": compressor_starts_entity,
+            "dhw_temperature_entity": dhw_temperature_entity,
+            "dhw_energy_entity": dhw_energy_entity,
+            "heating_energy_entity": heating_energy_entity,
+            "cooling_energy_entity": cooling_energy_entity,
+            "heating_electrical_power_entity": heating_electrical_power_entity,
+            "heating_thermal_power_entity": heating_thermal_power_entity,
+            "heating_electrical_energy_entity": heating_electrical_energy_entity,
+            "heating_thermal_energy_entity": heating_thermal_energy_entity,
+            "dhw_electrical_power_entity": dhw_electrical_power_entity,
+            "dhw_thermal_power_entity": dhw_thermal_power_entity,
+            "dhw_electrical_energy_entity": dhw_electrical_energy_entity,
+            "dhw_thermal_energy_entity": dhw_thermal_energy_entity,
+            "cooling_electrical_power_entity": cooling_electrical_power_entity,
+            "cooling_electrical_energy_entity": cooling_electrical_energy_entity,
+            "cooling_thermal_power_entity": cooling_thermal_power_entity,
+            "cooling_thermal_energy_entity": cooling_thermal_energy_entity,
+            "separate_heating_dhw_measurements": bool(separate_heating_dhw_measurements),
+            "cooling_measurements_enabled": bool(cooling_measurements_enabled),
+            "operating_mode_entity": operating_mode_entity,
+            "target_temperature_entity": target_temperature_entity,
+            "jaz_entity": jaz_entity,
+            "heat_carrier_forward_entity": heat_carrier_forward_entity,
+            "heat_carrier_return_entity": heat_carrier_return_entity,
+            "source_in_temperature_entity": source_in_temperature_entity,
+            "source_out_temperature_entity": source_out_temperature_entity,
+            "source_pump_speed_entity": source_pump_speed_entity,
+            "heat_carrier_pump_speed_entity": heat_carrier_pump_speed_entity,
+            "compressor_activity_entity": compressor_activity_entity,
+            "compressor_speed_entity": compressor_speed_entity,
+            "compressor_target_speed_entity": compressor_target_speed_entity,
+            "dhw_target_temperature_entity": dhw_target_temperature_entity,
+            "created_by": "aion_ems",
+            "site_id": "home",
+        }
+
+    def detect_energy_type(self, entity_id: str | None, requested: str = "auto") -> str:
+        """Classify a device energy sensor as daily or total-increasing."""
+        requested = str(requested or "auto").lower()
+        if requested in {"daily", "total_increasing"}:
+            return requested
+        state = self.hass.states.get(entity_id) if entity_id else None
+        if state is None:
+            return "auto"
+        attrs = state.attributes
+        state_class = str(attrs.get("state_class") or "").lower()
+        friendly = str(attrs.get("friendly_name") or "").lower()
+        identifier = f"{str(entity_id).lower()} {friendly}"
+        if state_class == "total_increasing":
+            return "total_increasing"
+        if any(token in identifier for token in ("daily", "today", "day_energy", "energy_day", "day energy")):
+            return "daily"
+        if attrs.get("last_reset") or state_class == "measurement":
+            return "daily"
+        if state_class == "total":
+            return "total_increasing"
+        return "total_increasing"
+
+    def validate_device(self, device: dict[str, Any]) -> list[dict[str, Any]]:
+        issues = []
+        if not device.get("id"):
+            issues.append({"severity": "error", "code": "DEVICE_ID_REQUIRED", "message": "Device ID is required."})
+        if not device.get("name"):
+            issues.append({"severity": "error", "code": "DEVICE_NAME_REQUIRED", "message": "Device name is required."})
+        device_type = str(device.get("type") or "")
+        hp_classified_electrical = device_type == "heat_pump" and any(device.get(key) for key in (
+            "heating_electrical_power_entity", "heating_electrical_energy_entity",
+            "dhw_electrical_power_entity", "dhw_electrical_energy_entity",
+        ))
+        elwa_direct = (
+            device_type == "water_heater"
+            and str(device.get("device_profile") or "") == "my_pv_elwa"
+            and bool(str(device.get("control_elwa_ip") or "").strip())
+        )
+        if not device.get("power_entity") and not hp_classified_electrical and not elwa_direct:
+            issues.append({"severity": "error", "code": "POWER_ENTITY_REQUIRED", "message": "Power entity is required unless the Heat Pump has classified electrical mappings or my-PV ELWA uses Zeus Direct Modbus."})
+        if not device.get("energy_entity") and not hp_classified_electrical and not elwa_direct:
+            issues.append({"severity": "error", "code": "ENERGY_ENTITY_REQUIRED", "message": "Energy entity is required unless the Heat Pump has classified electrical mappings or my-PV ELWA uses Zeus Direct Modbus."})
+        for key, expected_class, units in (("power_entity", "power", {"W", "kW"}), ("energy_entity", "energy", {"Wh", "kWh", "MWh"})):
+            entity_id = device.get(key)
+            if not entity_id:
+                continue
+            if elwa_direct and key == "power_entity" and entity_id == "sensor.zeus_elwa_power":
+                # The native entity is created by this integration and can be
+                # unknown until the first successful direct Modbus poll.
+                continue
+            if entity_id.startswith(("sensor.aion_ems_zeus_", "binary_sensor.aion_ems_zeus_", "switch.aion_ems_zeus_")):
+                issues.append({"severity": "error", "code": "CIRCULAR_AION_MAPPING", "message": f"{key} cannot use an AION output entity."})
+                continue
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                issues.append({"severity": "error", "code": "ENTITY_NOT_FOUND", "message": f"{key} entity does not exist."})
+                continue
+            if str(state.state).lower() in {"unknown", "unavailable", "none", ""}:
+                if key == "power_entity" and str(device.get("type") or "") == "solar_inverter":
+                    issues.append({"severity": "warning", "code": "INVERTER_POWER_TEMPORARILY_UNAVAILABLE", "message": "Inverter power is currently unavailable; accepted because idle/sleeping inverters may expose no AC power."})
+                else:
+                    issues.append({"severity": "error", "code": "ENTITY_UNAVAILABLE", "message": f"{key} entity is unavailable."})
+            attrs = state.attributes
+            unit = attrs.get("unit_of_measurement")
+            device_class = attrs.get("device_class")
+            if unit not in units:
+                issues.append({"severity": "error", "code": "UNIT_MISMATCH", "message": f"{key} has an incompatible unit."})
+            elif device_class != expected_class:
+                issues.append({"severity": "warning", "code": "DEVICE_CLASS_MISSING_OR_MISMATCH", "message": f"{key} uses a compatible {unit} unit but device class is {device_class or 'missing'}; accepted with warning."})
+        energy_type = str(device.get("energy_type") or "auto")
+        if energy_type not in {"daily", "total_increasing", "auto"}:
+            issues.append({"severity": "error", "code": "ENERGY_TYPE_INVALID", "message": "Energy type must be Auto, Daily, or Total Increasing."})
+        temperature_entity = device.get("temperature_entity")
+        if elwa_direct and temperature_entity == "sensor.zeus_elwa_temperature":
+            temperature_entity = None  # native direct sensor; validated by transport diagnostics
+        if temperature_entity:
+            if str(temperature_entity).startswith(("sensor.aion_ems_zeus_", "binary_sensor.aion_ems_zeus_", "switch.aion_ems_zeus_")):
+                issues.append({"severity": "error", "code": "CIRCULAR_AION_MAPPING", "message": "temperature_entity cannot use an AION output entity."})
+            else:
+                state = self.hass.states.get(temperature_entity)
+                if state is None:
+                    issues.append({"severity": "error", "code": "ENTITY_NOT_FOUND", "message": "temperature_entity entity does not exist."})
+                else:
+                    unit = str(state.attributes.get("unit_of_measurement") or "").strip()
+                    device_class = str(state.attributes.get("device_class") or "").strip().lower()
+                    if device_class != "temperature" and unit not in {"°C", "C", "°F", "F", "K"}:
+                        issues.append({"severity": "error", "code": "TEMPERATURE_ENTITY_INVALID", "message": "temperature_entity must be a Home Assistant temperature sensor (°C, °F, or K)."})
+                    elif str(state.state).strip().lower() in {"unknown", "unavailable", "none", ""}:
+                        issues.append({"severity": "warning", "code": "TEMPERATURE_TEMPORARILY_UNAVAILABLE", "message": "Temperature sensor is configured but currently unavailable."})
+        cop_entity = device.get("cop_entity")
+        if cop_entity:
+            if str(device.get("type") or "") != "heat_pump":
+                issues.append({"severity": "error", "code": "COP_DEVICE_TYPE_INVALID", "message": "cop_entity is only supported for Heat Pump devices."})
+            elif str(cop_entity).startswith(("sensor.aion_ems_zeus_", "binary_sensor.aion_ems_zeus_", "switch.aion_ems_zeus_")):
+                issues.append({"severity": "error", "code": "CIRCULAR_AION_MAPPING", "message": "cop_entity cannot use an AION output entity."})
+            else:
+                state = self.hass.states.get(cop_entity)
+                if state is None:
+                    issues.append({"severity": "error", "code": "ENTITY_NOT_FOUND", "message": "cop_entity entity does not exist."})
+                else:
+                    unit = str(state.attributes.get("unit_of_measurement") or "").strip()
+                    raw = str(state.state).strip().lower()
+                    try:
+                        value = float(state.state)
+                    except (TypeError, ValueError):
+                        value = None
+                    if raw in {"unknown", "unavailable", "none", ""}:
+                        issues.append({"severity": "warning", "code": "COP_TEMPORARILY_UNAVAILABLE", "message": "COP sensor is configured but currently unavailable."})
+                    elif value is None:
+                        issues.append({"severity": "error", "code": "COP_ENTITY_INVALID", "message": "cop_entity must expose a numeric COP value."})
+                    elif unit and unit.lower() not in {"cop", "ratio"}:
+                        issues.append({"severity": "warning", "code": "COP_UNIT_UNUSUAL", "message": f"COP sensor unit is '{unit}'. Expected COP or a dimensionless ratio."})
+        heat_pump_optional = {
+            "thermal_power_entity": ("power", {"W", "kW"}),
+            "thermal_energy_entity": ("energy", {"Wh", "kWh", "MWh"}),
+            "dhw_energy_entity": ("energy", {"Wh", "kWh", "MWh"}),
+            "heating_energy_entity": ("energy", {"Wh", "kWh", "MWh"}),
+            "cooling_energy_entity": ("energy", {"Wh", "kWh", "MWh"}),
+            "supply_temperature_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "return_temperature_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "outdoor_temperature_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "dhw_temperature_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "target_temperature_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "heat_carrier_forward_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "heat_carrier_return_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "source_in_temperature_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "source_out_temperature_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+            "dhw_target_temperature_entity": ("temperature", {"°C", "C", "°F", "F", "K"}),
+        }
+        for key, (expected_class, units) in heat_pump_optional.items():
+            entity_id = device.get(key)
+            if not entity_id:
+                continue
+            if str(device.get("type") or "") != "heat_pump":
+                issues.append({"severity": "error", "code": "HEAT_PUMP_INPUT_DEVICE_TYPE_INVALID", "message": f"{key} is only supported for Heat Pump devices."})
+                continue
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                issues.append({"severity": "error", "code": "ENTITY_NOT_FOUND", "message": f"{key} entity does not exist."})
+                continue
+            unit = str(state.attributes.get("unit_of_measurement") or "").strip()
+            device_class = str(state.attributes.get("device_class") or "").strip().lower()
+            domain = str(entity_id).split(".", 1)[0].lower()
+            numeric_state = False
+            try:
+                float(state.state)
+                numeric_state = True
+            except (TypeError, ValueError):
+                numeric_state = False
+
+            # Target Temperature is a controller setpoint, not necessarily a
+            # measured sensor. Home Assistant integrations commonly expose
+            # writable/requested temperatures as number.* entities and some do
+            # not attach device_class=temperature even when the value is °C.
+            target_setpoint_valid = bool(
+                key == "target_temperature_entity"
+                and domain == "number"
+                and numeric_state
+            )
+            if unit not in units and device_class != expected_class and not target_setpoint_valid:
+                issues.append({"severity": "error", "code": "HEAT_PUMP_INPUT_TYPE_MISMATCH", "message": f"{key} must be a compatible {expected_class} entity."})
+        for key in ("compressor_state_entity", "compressor_runtime_entity", "compressor_starts_entity", "operating_mode_entity", "jaz_entity", "source_pump_speed_entity", "heat_carrier_pump_speed_entity", "compressor_activity_entity", "compressor_speed_entity", "compressor_target_speed_entity"):
+            entity_id = device.get(key)
+            if not entity_id:
+                continue
+            if str(device.get("type") or "") != "heat_pump":
+                issues.append({"severity": "error", "code": "HEAT_PUMP_INPUT_DEVICE_TYPE_INVALID", "message": f"{key} is only supported for Heat Pump devices."})
+            elif self.hass.states.get(entity_id) is None:
+                issues.append({"severity": "error", "code": "ENTITY_NOT_FOUND", "message": f"{key} entity does not exist."})
+
+        for key in ("state_entity", "availability_entity"):
+            entity_id = device.get(key)
+            if not entity_id:
+                continue
+            if self.hass.states.get(entity_id) is None:
+                issues.append({"severity": "error", "code": "ENTITY_NOT_FOUND", "message": f"{key} entity does not exist."})
+        return issues
+
+    async def async_add_device(self, device: dict[str, Any]) -> list[dict[str, Any]]:
+        # Direct ELWA setup is IP-only for normal users. Zeus publishes and
+        # automatically maps its own native power/temperature sensors.
+        elwa_direct = (
+            str(device.get("type") or "") == "water_heater"
+            and str(device.get("device_profile") or "") == "my_pv_elwa"
+            and bool(str(device.get("control_elwa_ip") or "").strip())
+        )
+        if elwa_direct:
+            device["power_entity"] = "sensor.zeus_elwa_power"
+            device["temperature_entity"] = "sensor.zeus_elwa_temperature"
+            device["control_element_temperature_entity"] = "sensor.zeus_elwa_temperature"
+            if str(device.get("control_lockout_entity") or "").startswith("input_boolean.input_boolean_"):
+                device["control_lockout_entity"] = None
+        issues = self.validate_device(device)
+        if any(i["severity"] == "error" for i in issues):
+            return issues
+        devices = [d for d in self.data["devices"] if d.get("id") != device["id"]]
+        devices.append(device)
+        self.data["devices"] = devices
+        self.data["audit"].append({"timestamp": datetime.now(timezone.utc).isoformat(), "action": "add_device", "device_id": device["id"]})
+        await self.async_save()
+        self.event_bus.publish("DeviceSaved", "RegistryEngine", {"device_id": device["id"], "name": device["name"]})
+        return issues
+
+    async def async_update_device(self, device_id: str, device: dict[str, Any]) -> None:
+        device["id"] = device_id
+        await self.async_add_device(device)
+
+    async def async_remove_device(self, device_id: str) -> None:
+        removed = next((d for d in self.data.get("devices", []) if d.get("id") == device_id), None)
+        removed_entities = {str(removed.get(k)) for k in ("power_entity", "energy_entity", "state_entity", "availability_entity", "solar_power_entity", "temperature_entity", "cop_entity") if removed and removed.get(k)}
+        self.data["devices"] = [d for d in self.data["devices"] if d.get("id") != device_id]
+        # Lifecycle cleanup: mappings owned by the removed device must not survive
+        # as permanent stale System Health warnings. Never touch unrelated mappings.
+        mappings = self.data.setdefault("entity_mappings", {})
+        pruned = [field for field, entity_id in list(mappings.items()) if str(entity_id) in removed_entities]
+        for field in pruned:
+            mappings.pop(field, None)
+        self.data["audit"].append({"timestamp": datetime.now(timezone.utc).isoformat(), "action": "remove_device", "device_id": device_id, "pruned_mappings": pruned})
+        await self.async_save()
+        self.event_bus.publish("DeviceRemoved", "RegistryEngine", {"device_id": device_id, "pruned_mappings": pruned})
+
+    async def async_backup(self) -> dict[str, Any]:
+        backup = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "devices": list(self.data.get("devices", [])),
+            "rooms": list(self.data.get("rooms", [])),
+            "groups": list(self.data.get("groups", [])),
+            "entity_mappings": dict(self.data.get("entity_mappings", {})),
+        }
+        self.data.setdefault("backups", []).append(backup)
+        self.data["backups"] = self.data["backups"][-5:]
+        await self.async_save()
+        return backup
+
+    async def async_remove_auto_devices(self, dry_run: bool = True) -> list[dict[str, Any]]:
+        auto_devices = [d for d in self.data["devices"] if str(d.get("id", "")).startswith("auto_")]
+        if not dry_run:
+            self.data["devices"] = [d for d in self.data["devices"] if not str(d.get("id", "")).startswith("auto_")]
+            await self.async_save()
+        return auto_devices
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "status": "Ready",
+            "schema_version": self.data.get("schema_version", 1),
+            "device_count": len(self.data.get("devices", [])),
+            "room_count": len(self.data.get("rooms", [])),
+            "group_count": len(self.data.get("groups", [])),
+            "backup_count": len(self.data.get("backups", [])),
+            "audit_count": len(self.data.get("audit", [])),
+            "entity_mappings": dict(self.data.get("entity_mappings", {})),
+            "devices": self.data.get("devices", [])[:20],
+            "rooms": self.data.get("rooms", [])[:20],
+            "groups": self.data.get("groups", [])[:20],
+            "sites": self.data.get("sites", [])[:10],
+            "topology_settings": dict(self.data.get("topology_settings", {})),
+            "home_settings": {
+                "owner_name": str((self.data.get("home_settings") or {}).get("owner_name") or "")[:80],
+                "home_name": str((self.data.get("home_settings") or {}).get("home_name") or "Home")[:80],
+                "use_owner_name": (self.data.get("home_settings") or {}).get("use_owner_name", True),
+                "story_style": str((self.data.get("home_settings") or {}).get("story_style") or "friendly"),
+                "briefing_length": str((self.data.get("home_settings") or {}).get("briefing_length") or "normal"),
+                "data_epoch": (self.data.get("home_settings") or {}).get("data_epoch"),
+            },
+            "safety": "No device control.",
+        }

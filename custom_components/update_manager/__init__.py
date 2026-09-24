@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
-from homeassistant.core import HomeAssistant, State, callback
+from homeassistant.const import ATTR_DOMAIN, ATTR_ENTITY_ID, ATTR_SERVICE, ATTR_SERVICE_DATA, EVENT_CALL_SERVICE
+from homeassistant.core import Event, HomeAssistant, State, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.loader import async_get_integration
@@ -260,7 +261,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
     )
 
     @callback
-    def _on_install(entity_id: str, old_version: str, new_version: str, new_state: State) -> None:
+    def _on_install(entity_id: str, old_version: str, new_version: str, new_state: State, retroactive: bool) -> None:
         # Evaluated synchronously, right here, not inside the task below:
         # was_auto_installed() consumes (pops) install_manager's own record
         # of what it just dispatched, so it must be read at the moment this
@@ -276,6 +277,64 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
         reason = context.reason if context else None
         trusted_voter_usernames = context.trusted_voter_usernames if context else None
         announced_at = context.announced_at.isoformat() if context and context.announced_at else None
+        # "manual" vs "external" (found live, 2026-08-18, confirmed against
+        # three real cases in Home Assistant's own Logbook before building
+        # this: a genuine human-triggered install always carries a
+        # resolvable context.user_id, propagated synchronously from the
+        # update.install service call all the way to this exact state,
+        # confirmed against core.py's own source too, not guessed. An
+        # entity that updated itself outside Home Assistant entirely (a
+        # UniFi switch's own auto-update, a Home Assistant Voice PE and a
+        # Zigbee device both silently reporting an already-newer version)
+        # never went through that service call at all, so user_id is
+        # always empty there, same "Via Update"/no attribution shown in
+        # the Logbook itself for exactly these three real cases. Only
+        # checked once "auto" (our own dispatch) is already ruled out:
+        # install_manager.py's own service calls have no user_id either
+        # (backend code, not a logged-in session), which would otherwise
+        # misread as "external" too.
+        #
+        # Prefers rollout_manager.py's own was_manually_requested record
+        # (this project's own, not time-limited memory of who actually
+        # clicked, see that method's own docstring) over
+        # new_state.context.user_id: Home Assistant only honors a service
+        # call's Context for a state write made within 5 seconds of that
+        # call (homeassistant/helpers/entity.py's own
+        # CONTEXT_RECENT_TIME_SECONDS), and a real install (a HACS download,
+        # a firmware flash) almost always takes longer than that.
+        # new_state.context.user_id stays the fallback for any install this
+        # project didn't itself dispatch through rollout_manager.py (a
+        # script or automation calling update.install directly, missed by
+        # __init__.py's own global EVENT_CALL_SERVICE listener for some
+        # reason) or one that genuinely finished within that 5-second
+        # window.
+        #
+        # A previous attempt at this exact fix was reverted, 2026-08-25,
+        # direct user feedback, on suspicion it had caused a
+        # real ESPHome install to go missing from History entirely rather
+        # than merely misattributed. That suspicion turned out to be wrong:
+        # the real cause was coordinator.py's own _within_startup_grace
+        # suppressing a live, real transition shortly after a restart,
+        # unrelated to this code, confirmed live with targeted debug
+        # logging and fixed there instead (see that method's own docstring).
+        # Reapplied here once that was confirmed.
+        #
+        # `retroactive` (found by code review, 2026-08-18): a transition
+        # first noticed by coordinator.py's own startup sweep or periodic
+        # recheck reads whatever the *current* state happens to be, at a
+        # moment with no guaranteed relationship to when the install
+        # actually happened (possibly across a restart). Neither
+        # was_manually_requested nor new_state.context.user_id can be
+        # trusted there either, so this falls back to the older, safe
+        # "manual" default instead of guessing "external" from an
+        # untrustworthy signal.
+        if context is not None:
+            install_method = "auto"
+        elif retroactive:
+            install_method = "manual"
+        else:
+            manual_user_id = rollout_manager.was_manually_requested(entity_id, new_version) or new_state.context.user_id
+            install_method = "manual" if manual_user_id else "external"
         cached = coordinator.cache.get(entity_id)
         hass.async_create_task(
             install_log.async_log_install(
@@ -290,7 +349,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
                 # there's no later recompute to fix a wrong value.
                 release_url=corrected_release_url(entity_id, new_state.attributes.get("release_url"), new_version),
                 supported_features=new_state.attributes.get("supported_features", 0),
-                auto_installed=context is not None,
+                install_method=install_method,
                 auto_install_reason=reason,
                 trusted_voter_usernames=trusted_voter_usernames,
                 announced_at=announced_at,
@@ -310,6 +369,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
                 "from_version": old_version,
                 "to_version": new_version,
                 "auto_installed": context is not None,
+                "install_method": install_method,
                 "auto_install_reason": reason,
                 "trusted_voter_usernames": trusted_voter_usernames or [],
             },
@@ -320,13 +380,89 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
     # that call's own bulk scan can now retroactively fire this exact
     # listener, synchronously, inline, for an install that completed
     # entirely while HA was down (see coordinator.py's own
-    # _recover_install_across_restart), not only from a later live
+    # _check_and_advance_installed_baseline), not only from a later live
     # state_changed event like before. install_log.async_load() had to be
     # pulled out of the gather below and awaited on its own first for this
     # reason: if it hadn't finished loading yet, _on_install's own
     # async_log_install would append to (and then save) an empty in-memory
     # list, silently wiping out every previously-logged install.
     coordinator.async_add_install_listener(_on_install)
+
+    async def _async_apply_entity_rename(old_entity_id: str, new_entity_id: str) -> None:
+        """Relabels every persisted/live entity_id reference this
+        integration holds, across all 6 of its stateful managers, after a
+        real HA entity registry rename -- found live, 2026-08-18: every one
+        of this integration's own storage keys is keyed directly by
+        entity_id, and a rename silently orphaned all of it (history, skip/
+        vote/verdict state, in-flight rollout/stall tracking) with no
+        repair mechanism. MyVotesManager needs no call here -- confirmed
+        keyed by jump_key (version/identity derived), never entity_id."""
+        await asyncio.gather(
+            install_log.async_rename_entity(old_entity_id, new_entity_id),
+            community_verdict_manager.async_rename_entity(old_entity_id, new_entity_id),
+            coordinator.async_rename_entity(old_entity_id, new_entity_id),
+            install_manager.async_rename_entity(old_entity_id, new_entity_id),
+            rollout_manager.async_rename_entity(old_entity_id, new_entity_id),
+            staging_skip_manager.async_rename_entity(old_entity_id, new_entity_id),
+        )
+        # excluded_entities lives in the config entry's own options (a
+        # user's Settings-tab picker choice), not in one of the Store-backed
+        # managers above -- found by code review, 2026-08-18: without this,
+        # a rename silently dropped the entity out of its own auto-install
+        # exclusion, re-enabling auto-install for it without the user ever
+        # touching that setting. Persisted through entry.options (not
+        # coordinator.excluded_entities directly) so it goes through the
+        # exact same apply path every other options change already does --
+        # update_listener -> async_apply_options -> coordinator.async_update_rules.
+        excluded = list(entry.options.get(CONF_EXCLUDED_ENTITIES, []))
+        if old_entity_id in excluded:
+            excluded = [new_entity_id if e == old_entity_id else e for e in excluded]
+            hass.config_entries.async_update_entry(
+                entry, options={**entry.options, CONF_EXCLUDED_ENTITIES: excluded}
+            )
+
+    @callback
+    def _on_entity_registry_updated(event) -> None:
+        # old_entity_id is only present on the event when entity_id itself
+        # changed, not on a plain name/area edit -- confirmed against real
+        # homeassistant/helpers/entity_registry.py source, so this can't
+        # misfire on an unrelated registry update.
+        old_entity_id = event.data.get("old_entity_id")
+        if event.data.get("action") != "update" or not old_entity_id:
+            return
+        new_entity_id = event.data["entity_id"]
+        if not new_entity_id.startswith("update."):
+            return
+        hass.async_create_task(_async_apply_entity_rename(old_entity_id, new_entity_id))
+
+    entry.async_on_unload(
+        hass.bus.async_listen(er.EVENT_ENTITY_REGISTRY_UPDATED, _on_entity_registry_updated)
+    )
+
+    @callback
+    def _on_update_install_call(event: Event) -> None:
+        # Every update.install call, not just this project's own, see
+        # rollout_manager.py's own note_external_install_request docstring
+        # for why this needs to exist at all: an install started from Home
+        # Assistant's own native more-info dialog never goes through this
+        # project's own panel/rollout_manager at all, so that path alone
+        # has no way to record who asked. Fired with the real calling
+        # Context already attached (confirmed against Home Assistant's own
+        # real source, homeassistant/core.py's own async_call: this event
+        # fires before the service handler itself even runs), so
+        # event.context.user_id is exactly the same fact
+        # new_state.context.user_id would carry for the first 5 seconds,
+        # just captured immediately instead of racing that window.
+        if event.data.get(ATTR_DOMAIN) != "update" or event.data.get(ATTR_SERVICE) != "install":
+            return
+        entity_ids = event.data.get(ATTR_SERVICE_DATA, {}).get(ATTR_ENTITY_ID)
+        if isinstance(entity_ids, str):
+            entity_ids = [entity_ids]
+        for entity_id in entity_ids or []:
+            rollout_manager.note_external_install_request(entity_id, event.context.user_id)
+
+    entry.async_on_unload(hass.bus.async_listen(EVENT_CALL_SERVICE, _on_update_install_call))
+
     # The other three loads have no such ordering dependency on
     # coordinator.async_start() -- gathered together with it, not awaited
     # in front of it, so they still overlap with the coordinator's own

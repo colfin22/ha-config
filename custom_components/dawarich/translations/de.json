@@ -3,27 +3,53 @@
     "step": {
       "user": {
         "title": "Dawarich",
-        "description": "Bitte geben Sie Ihre Dawarich Daten ein",
+        "description": "Bitte geben Sie Ihre Dawarich Verbindungsdaten ein.",
         "data": {
           "host": "Host",
           "port": "Port",
           "name": "Name",
           "mobile_app": "Geräte Tracker",
-          "ssl": " SSL gebrauchen (i.e. https)",
+          "ssl": "SSL gebrauchen (z.B. https)",
           "verify_ssl": "SSL verifizieren"
         }
       },
       "api_key": {
-        "title": "Dawarich",
-        "description": " Bitte geben Sie ihre Dawarich Daten ein ",
+        "title": "Dawarich API Schlüssel",
+        "description": "Bitte geben Sie Ihren Dawarich API Schlüssel ein.",
         "data": {
           "api_key": "API Schlüssel"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Dawarich erneut authentifizieren",
+        "description": "Ihr Dawarich API Schlüssel für {host} ist ungültig. Bitte geben Sie einen neuen API Schlüssel ein.",
+        "data": {
+          "api_key": "API Schlüssel"
+        }
+      },
+      "reconfigure_confirm": {
+        "title": "Dawarich neu konfigurieren",
+        "description": "Aktualisieren Sie Ihre Dawarich Verbindungseinstellungen. Lassen Sie den API Schlüssel leer, um den aktuellen Schlüssel zu behalten.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "name": "Name",
+          "mobile_app": "Geräte Tracker",
+          "ssl": "SSL gebrauchen (z.B. https)",
+          "verify_ssl": "SSL verifizieren",
+          "api_key": "API Schlüssel (leer lassen um aktuellen zu behalten)"
         }
       }
     },
     "error": {
       "connection_error": "Verbindungsfehler, konnte Dawarich API nicht erreichen.",
       "invalid_api_key": "Ungültiger API Schlüssel."
+    },
+    "abort": {
+      "already_configured": "Diese Dawarich Instanz ist bereits konfiguriert.",
+      "reconfigure_failed": "Neukonfiguration der Integration fehlgeschlagen.",
+      "reconfigure_successful": "Dawarich Konfiguration erfolgreich aktualisiert.",
+      "reauth_successful": "Erneute Authentifizierung erfolgreich. Der API Schlüssel wurde aktualisiert."
     }
   },
   "entity": {
@@ -58,6 +84,16 @@
       "version": {
         "name": "Version"
       }
+    }
+  },
+  "issues": {
+    "device_tracker_unavailable": {
+      "title": "Geräte-Tracker nicht verfügbar",
+      "description": "Der Geräte-Tracker `{device_tracker}`, der für {device_name} konfiguriert ist, ist nicht verfügbar. Dies kann daran liegen, dass die Entität entfernt wurde oder die Integration, die sie bereitstellt, nicht geladen ist. Bitte überprüfen Sie die Entität oder konfigurieren Sie die Dawarich-Integration neu, um einen anderen Geräte-Tracker zu verwenden."
+    },
+    "api_unavailable": {
+      "title": "Dawarich API nicht erreichbar",
+      "description": "Die Dawarich API unter `{url}` ist nicht erreichbar. Der Server hat den Statuscode {status_code} mit folgendem Fehler zurückgegeben: {error}. Bitte überprüfen Sie, ob Ihr Dawarich-Server läuft und erreichbar ist."
     }
   }
 }

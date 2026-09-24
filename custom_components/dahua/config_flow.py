@@ -23,6 +23,16 @@ from .const import (
     DOMAIN,
     PLATFORMS,
     CONF_CHANNEL,
+    CONF_AUTO_DETECT_CHANNEL,
+    CONF_USE_RPC2,
+    CONF_USE_HTTPS,
+    CONF_SCAN_INTERVAL,
+    CONF_NVR_ACTIVE_DETERRENCE,
+    CONF_AUTHORIZED_PLATES,
+    CONF_AUTHORIZED_HOLD_TIME,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_AUTHORIZED_HOLD_TIME,
+    MIN_SCAN_INTERVAL,
 )
 
 """
@@ -77,6 +87,10 @@ ALL_EVENTS = ["VideoMotion",
               "FireWarningInfo",
               "ObjectPlacementDetection",
               "ObjectRemovalDetection",
+              "All",
+              "Traffic",
+              "TrafficJunction",
+              "TrafficSnapshot",
               ]
 
 """
@@ -112,6 +126,7 @@ class DahuaFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 user_input[CONF_PORT],
                 user_input[CONF_RTSP_PORT],
                 user_input[CONF_CHANNEL],
+                True if user_input.get(CONF_USE_HTTPS) else None,
             )
             if data is not None:
                 # Only allow a camera to be setup once
@@ -193,6 +208,43 @@ class DahuaFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry):
         return DahuaOptionsFlowHandler()
 
+    async def async_step_reconfigure(self, user_input=None):
+        """Change an existing entry's connection settings.
+
+        Credentials are left alone - those are what async_step_reauth is for.
+        """
+        self._errors = {}
+        entry = self._get_reconfigure_entry()
+
+        if user_input is not None:
+            data = await self._test_credentials(
+                entry.data[CONF_USERNAME],
+                entry.data[CONF_PASSWORD],
+                user_input[CONF_ADDRESS],
+                user_input[CONF_PORT],
+                user_input[CONF_RTSP_PORT],
+                user_input[CONF_CHANNEL],
+                True if user_input.get(CONF_USE_HTTPS) else None,
+            )
+            if data is not None:
+                return self.async_update_reload_and_abort(entry, data_updates=user_input)
+            self._errors["base"] = "auth"
+
+        current = {**entry.data, **(user_input or {})}
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_ADDRESS, default=current.get(CONF_ADDRESS, "")): str,
+                    vol.Required(CONF_PORT, default=str(current.get(CONF_PORT, "80"))): str,
+                    vol.Required(CONF_RTSP_PORT, default=str(current.get(CONF_RTSP_PORT, "554"))): str,
+                    vol.Required(CONF_CHANNEL, default=int(current.get(CONF_CHANNEL, 0))): int,
+                    vol.Optional(CONF_USE_HTTPS, default=bool(current.get(CONF_USE_HTTPS, False))): bool,
+                }
+            ),
+            errors=self._errors,
+        )
+
     async def _show_config_form_user(self, user_input):  # pylint: disable=unused-argument
         """Show the configuration form to edit camera name."""
         return self.async_show_form(
@@ -205,6 +257,7 @@ class DahuaFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_PORT, default="80"): str,
                     vol.Required(CONF_RTSP_PORT, default="554"): str,
                     vol.Required(CONF_CHANNEL, default=0): int,
+                    vol.Optional(CONF_USE_HTTPS, default=False): bool,
                     vol.Optional(CONF_EVENTS, default=DEFAULT_EVENTS): cv.multi_select(ALL_EVENTS),
                 }
             ),
@@ -223,13 +276,13 @@ class DahuaFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             errors=self._errors,
         )
 
-    async def _test_credentials(self, username, password, address, port, rtsp_port, channel):
+    async def _test_credentials(self, username, password, address, port, rtsp_port, channel, use_https=None):
         """Return name and serialNumber if credentials is valid."""
         # Self signed certs are used over HTTPS so we'll disable SSL verification
         connector = TCPConnector(enable_cleanup_closed=True, ssl=SSL_CONTEXT)
         session = ClientSession(connector=connector)
         try:
-            client = DahuaClient(username, password, address, port, rtsp_port, session)
+            client = DahuaClient(username, password, address, port, rtsp_port, session, use_https)
             data = await client.get_machine_name()
             serial = await client.async_get_system_info()
             data.update(serial)
@@ -256,14 +309,65 @@ class DahuaOptionsFlowHandler(config_entries.OptionsFlow):
             self.options.update(user_input)
             return await self._update_options()
 
+        schema = {
+            vol.Required(x, default=self.options.get(x, True)): bool
+            for x in sorted(PLATFORMS)
+        }
+        schema[
+            vol.Required(
+                CONF_AUTO_DETECT_CHANNEL,
+                default=self.options.get(CONF_AUTO_DETECT_CHANNEL, True),
+            )
+        ] = bool
+        schema[
+            vol.Required(
+                CONF_USE_RPC2,
+                default=self.options.get(CONF_USE_RPC2, False),
+            )
+        ] = bool
+        schema[
+            vol.Optional(
+                CONF_EVENTS,
+                default=self.options.get(
+                    CONF_EVENTS, self.config_entry.data.get(CONF_EVENTS, DEFAULT_EVENTS)
+                ),
+            )
+        ] = cv.multi_select(ALL_EVENTS)
+        schema[
+            vol.Required(
+                CONF_SCAN_INTERVAL,
+                default=self.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+            )
+        ] = vol.All(vol.Coerce(int), vol.Range(min=MIN_SCAN_INTERVAL))
+        schema[
+            vol.Required(
+                CONF_NVR_ACTIVE_DETERRENCE,
+                default=self.options.get(CONF_NVR_ACTIVE_DETERRENCE, False),
+            )
+        ] = bool
+        schema[
+            vol.Optional(
+                CONF_AUTHORIZED_PLATES,
+                default=self.options.get(
+                    CONF_AUTHORIZED_PLATES,
+                    self.config_entry.data.get(CONF_AUTHORIZED_PLATES, ""),
+                ),
+            )
+        ] = str
+        schema[
+            vol.Optional(
+                CONF_AUTHORIZED_HOLD_TIME,
+                default=self.options.get(
+                    CONF_AUTHORIZED_HOLD_TIME,
+                    self.config_entry.data.get(
+                        CONF_AUTHORIZED_HOLD_TIME, DEFAULT_AUTHORIZED_HOLD_TIME
+                    ),
+                ),
+            )
+        ] = vol.All(vol.Coerce(int), vol.Range(min=1, max=3600))
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(x, default=self.options.get(x, True)): bool
-                    for x in sorted(PLATFORMS)
-                }
-            ),
+            data_schema=vol.Schema(schema),
         )
 
     async def _update_options(self):

@@ -69,6 +69,7 @@ from .community_verdict_payload import (
 )
 from .const import DOMAIN
 from .device_identity import resolve_full_identity
+from .entity_rename import relabel_key
 from .hacs_identity import ResolvedIdentity
 
 _LOGGER = logging.getLogger(__name__)
@@ -257,6 +258,14 @@ class CommunityVerdictManager:
         # this is safe to debounce.
         self._store.async_delay_save(lambda: self._cache, 1.0)
 
+    async def async_rename_entity(self, old_entity_id: str, new_entity_id: str) -> None:
+        """Relabels this entity's cached verdict after a live HA entity
+        registry rename -- see __init__.py's own
+        EVENT_ENTITY_REGISTRY_UPDATED listener."""
+        if relabel_key(self._cache, old_entity_id, new_entity_id) is None:
+            return
+        await self._store.async_save(self._cache)
+
     async def async_get_verdict(
         self,
         entity_id: str,
@@ -377,6 +386,18 @@ async def async_fetch_verdict_uncached(
     trusted_vote, trusted_voters_matched = trusted_vote_from_payload(
         payload, identity.from_version, trusted_voters or []
     )
+    # Found by code review, 2026-08-24: the caller's own username stayed in
+    # trusted_voters_matched even when they're a configured trusted voter
+    # themselves, so the dialog's own sentence named them twice ("You and
+    # @yourusername reported this jump as healthy") for one single vote.
+    # my_verdict already represents that same vote on the frontend, so this
+    # list should only ever carry other trusted voters, matching
+    # problematic_reasons_from_payload's own exclude_username just above.
+    # coordinator.py's own separate trusted_vote_from_payload call (used
+    # for the auto-install quorum, not dialog text) is untouched, since
+    # your own trusted vote should still count there.
+    if username and username in trusted_voters_matched:
+        trusted_voters_matched = [voter for voter in trusted_voters_matched if voter != username]
     return (
         verdict_from_payload(payload, identity.from_version),
         other_jumps_from_payload(payload, identity.from_version),

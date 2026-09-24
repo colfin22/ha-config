@@ -1,7 +1,8 @@
 """Cache network statistics for rate computation."""
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from collections import deque
+from typing import Deque, Dict, Optional, Tuple
 
 
 class NetStatsCache:
@@ -88,3 +89,68 @@ class ProcessPeakCache:
         self._peaks[key] = peak
         self._uptimes[key] = uptime
         return peak
+
+
+class RollingAverageCache:
+    """Average recent samples over a trailing time window per key."""
+
+    def __init__(self, window_seconds: float = 300.0) -> None:
+        self._window_seconds = window_seconds
+        self._samples: Dict[str, Deque[Tuple[float, float]]] = {}
+
+    def compute(self, key: str, value: Optional[float], now: float) -> Optional[float]:
+        """Record *value* for *key* and return the average over the trailing window."""
+
+        if value is None:
+            return None
+        samples = self._samples.setdefault(key, deque())
+        samples.append((now, value))
+        cutoff = now - self._window_seconds
+        while samples and samples[0][0] < cutoff:
+            samples.popleft()
+        return sum(sample_value for _, sample_value in samples) / len(samples)
+
+
+class UptimeWindowCache:
+    """Track a time-weighted online/offline ratio over a trailing window per key."""
+
+    def __init__(
+        self,
+        window_seconds: float = 30 * 24 * 3600.0,
+        max_samples: int = 20000,
+    ) -> None:
+        self._window_seconds = window_seconds
+        self._max_samples = max_samples
+        self._events: Dict[str, Deque[Tuple[float, bool]]] = {}
+
+    def compute(self, key: str, online: bool, now: float) -> float:
+        """Record an online/offline sample for *key* and return uptime percent."""
+
+        events = self._events.setdefault(key, deque(maxlen=self._max_samples))
+        events.append((now, online))
+        cutoff = now - self._window_seconds
+        while len(events) > 1 and events[1][0] < cutoff:
+            events.popleft()
+
+        if len(events) < 2:
+            return 100.0 if online else 0.0
+
+        total = 0.0
+        online_total = 0.0
+        start = max(cutoff, events[0][0])
+        state = events[0][1]
+        for timestamp, sample_online in list(events)[1:]:
+            duration = max(0.0, timestamp - start)
+            total += duration
+            if state:
+                online_total += duration
+            start = timestamp
+            state = sample_online
+        duration = max(0.0, now - start)
+        total += duration
+        if state:
+            online_total += duration
+
+        if total <= 0:
+            return 100.0 if online else 0.0
+        return round(online_total / total * 100, 2)
