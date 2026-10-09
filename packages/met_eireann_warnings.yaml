@@ -1,5 +1,8 @@
 rest:
-  - resource: "https://www.met.ie/Open_Data/json/warning_IRELAND.json"
+  # 09-10-2026: met.ie retired warning_IRELAND.json (404 from 06-10) and now
+  # sends level in lowercase, so compares are case-insensitive and the level
+  # is re-capitalised for consumers (banners, push automation).
+  - resource: "https://www.met.ie/Open_Data/json/warning_ALL.json"
     scan_interval: 300
     sensor:
       - name: "Met Éireann Active Warnings"
@@ -14,13 +17,13 @@ rest:
                 {% if r in roscommon %}{% set hit.found = true %}{% endif %}
               {% endfor %}
               {% if hit.found %}
-                {% if w.level == 'Red' %}{% set s = 3 %}
-                {% elif w.level == 'Orange' %}{% set s = 2 %}
-                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% if (w.level | lower) == 'red' %}{% set s = 3 %}
+                {% elif (w.level | lower) == 'orange' %}{% set s = 2 %}
+                {% elif (w.level | lower) == 'yellow' %}{% set s = 1 %}
                 {% else %}{% set s = 0 %}{% endif %}
                 {% if s > ns.score %}
                   {% set ns.score = s %}
-                  {% set ns.best = w.level %}
+                  {% set ns.best = w.level | lower | capitalize %}
                 {% endif %}
               {% endif %}
             {% endif %}
@@ -42,9 +45,9 @@ rest:
                 {% if r in roscommon %}{% set hit.found = true %}{% endif %}
               {% endfor %}
               {% if hit.found %}
-                {% if w.level == 'Red' %}{% set s = 3 %}
-                {% elif w.level == 'Orange' %}{% set s = 2 %}
-                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% if (w.level | lower) == 'red' %}{% set s = 3 %}
+                {% elif (w.level | lower) == 'orange' %}{% set s = 2 %}
+                {% elif (w.level | lower) == 'yellow' %}{% set s = 1 %}
                 {% else %}{% set s = 0 %}{% endif %}
                 {% if s > ns.score %}
                   {% set ns.score = s %}
@@ -66,9 +69,9 @@ rest:
                 {% if r in roscommon %}{% set hit.found = true %}{% endif %}
               {% endfor %}
               {% if hit.found %}
-                {% if w.level == 'Red' %}{% set s = 3 %}
-                {% elif w.level == 'Orange' %}{% set s = 2 %}
-                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% if (w.level | lower) == 'red' %}{% set s = 3 %}
+                {% elif (w.level | lower) == 'orange' %}{% set s = 2 %}
+                {% elif (w.level | lower) == 'yellow' %}{% set s = 1 %}
                 {% else %}{% set s = 0 %}{% endif %}
                 {% if s > ns.score %}
                   {% set ns.score = s %}
@@ -90,9 +93,9 @@ rest:
                 {% if r in roscommon %}{% set hit.found = true %}{% endif %}
               {% endfor %}
               {% if hit.found %}
-                {% if w.level == 'Red' %}{% set s = 3 %}
-                {% elif w.level == 'Orange' %}{% set s = 2 %}
-                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% if (w.level | lower) == 'red' %}{% set s = 3 %}
+                {% elif (w.level | lower) == 'orange' %}{% set s = 2 %}
+                {% elif (w.level | lower) == 'yellow' %}{% set s = 1 %}
                 {% else %}{% set s = 0 %}{% endif %}
                 {% if s > ns.score %}
                   {% set ns.score = s %}
@@ -115,13 +118,13 @@ rest:
                 {% if r in roscommon %}{% set hit.found = true %}{% endif %}
               {% endfor %}
               {% if hit.found %}
-                {% if w.level == 'Red' %}{% set s = 3 %}
-                {% elif w.level == 'Orange' %}{% set s = 2 %}
-                {% elif w.level == 'Yellow' %}{% set s = 1 %}
+                {% if (w.level | lower) == 'red' %}{% set s = 3 %}
+                {% elif (w.level | lower) == 'orange' %}{% set s = 2 %}
+                {% elif (w.level | lower) == 'yellow' %}{% set s = 1 %}
                 {% else %}{% set s = 0 %}{% endif %}
                 {% if s > ns.score %}
                   {% set ns.score = s %}
-                  {% set ns.val = 'Advisory' if w.type == 'Advisory' else 'Warning' %}
+                  {% set ns.val = 'Advisory' if (w.type | lower) == 'advisory' else 'Warning' %}
                 {% endif %}
               {% endif %}
             {% endif %}
