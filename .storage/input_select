@@ -39,8 +39,7 @@
           "Home",
           "Away",
           "Sleeping"
-        ],
-        "initial": "Home"
+        ]
       }
     ]
   }

@@ -96,7 +96,6 @@
         "name": "House Mode Reason",
         "icon": "mdi:comment-question-outline",
         "max": 255,
-        "initial": "seeded",
         "min": 0,
         "mode": "text"
       },
