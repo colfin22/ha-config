@@ -1,15 +1,16 @@
 - id: '1738945275489'
   alias: Bins Out Notification
   description: 'Evening-before bin reminders (Panda waste). 19:00 the night before
-    a collection: pushes Colm + Olivia which bins are due (icon per type, from calendar.panda_waste).
-    22:00: runs BOTH checks independently now that compost can land on the same day
-    as the other bins — if compost is due (its own small bin, not visible to Frigate)
-    always sends a TTS reminder + plain push, no camera check; separately, if any
-    non-compost bin (recycling/waste/etc) is due, checks Frigate''s waste_bin count
-    on the Front Van camera (sensor.front_van_waste_bin_count) — alerts only when
-    the count is 0 — announces a TTS reminder on the home speakers + sends a second
-    phone alert with a camera snapshot. Two calendar triggers on calendar.panda_waste
-    (offset -5h = 19:00, -2h = 22:00), branched by trigger id.'
+    a collection: pushes Colm + Olivia which bins are due (icon per type, from calendar.panda_waste),
+    and resets the input_boolean.bins_seen_out latch to whether Frigate currently
+    counts a bin on Front Van (the separate ''Bins - Seen Out Latch'' automation turns
+    it on whenever the count rises above 0). 22:00: if any non-compost bin (recycling/waste/etc)
+    is due AND the latch is off AND sensor.front_van_waste_bin_count is 0, announces
+    a TTS reminder on the home speakers + sends a phone alert with a camera snapshot.
+    The latch means a bin Frigate saw at any point that evening counts as out, even
+    if Frigate loses it after dark. Compost gets the 19:00 push only (no 22:00 TTS/push,
+    Colm 22-10-2026). Two calendar triggers on calendar.panda_waste (offset -5h =
+    19:00, -2h = 22:00), branched by trigger id.'
   triggers:
   - event: start
     offset: '-5:0:0'
@@ -38,9 +39,6 @@
         if k in key -%}{%- set icon.v = v -%}{%- endfor -%}{%- set ns.lines = ns.lines
         + [icon.v ~ ' ' ~ b] -%}{%- endfor -%}{{ ns.lines | join(' • ') }}"
   - variables:
-      has_compost: '{{ collections[''calendar.panda_waste''][''events''] | map(attribute=''summary'')
-        | map(''lower'') | select(''search'', ''compost'') | list | count > 0 }}'
-  - variables:
       has_wheely: '{{ collections[''calendar.panda_waste''][''events''] | map(attribute=''summary'')
         | map(''lower'') | reject(''search'', ''compost'') | list | count > 0 }}'
   - choose:
@@ -48,6 +46,10 @@
       - condition: trigger
         id: notify_7pm
       sequence:
+      - action: input_boolean.turn_{{ 'on' if states('sensor.front_van_waste_bin_count')
+          | int(0) >= 1 else 'off' }}
+        target:
+          entity_id: input_boolean.bins_seen_out
       - action: notify.mobile_app_np3
         data:
           title: "\U0001F5D1️ Bins Out Tonight"
@@ -78,39 +80,9 @@
       sequence:
       - if:
         - condition: template
-          value_template: '{{ has_compost }}'
-        then:
-        - action: script.tts_announce
-          data:
-            message: Reminder. The compost bin is due for collection tomorrow. Please
-              put it out.
-            target_player: media_player.home_audio_group_cast
-        - action: notify.mobile_app_np3
-          data:
-            title: "\U0001F7E4 Compost Bin Reminder"
-            message: 'Collection tomorrow: {{ bin_lines }}'
-            data:
-              notification_icon: mdi:trash-can
-              color: '#6D4C41'
-              tag: bins-compost
-              group: bins
-              channel: Bins
-              importance: high
-        - action: notify.mobile_app_pixel_6a
-          data:
-            title: "\U0001F7E4 Compost Bin Reminder"
-            message: 'Collection tomorrow: {{ bin_lines }}'
-            data:
-              notification_icon: mdi:trash-can
-              color: '#6D4C41'
-              tag: bins-compost
-              group: bins
-              channel: Bins
-              importance: high
-      - if:
-        - condition: template
-          value_template: '{{ has_wheely and (states(''sensor.front_van_waste_bin_count'')
-            | int(-1) == 0) }}'
+          value_template: '{{ has_wheely and is_state(''input_boolean.bins_seen_out'',
+            ''off'') and (states(''sensor.front_van_waste_bin_count'') | int(-1) ==
+            0) }}'
         then:
         - action: script.tts_announce
           data:
@@ -3443,3 +3415,20 @@
             | round(2), 20] | min }}'
   mode: queued
   max: 10
+- id: '1792654596771'
+  alias: Bins - Seen Out Latch
+  description: Turns input_boolean.bins_seen_out ON whenever Frigate's Front Van waste_bin
+    count goes above 0. Bins Out Notification resets it at 19:00 on collection eve
+    and skips the 22:00 'bins NOT out' alert if it is on, so a bin Frigate loses after
+    dark (stationary object dropped, never re-detected without motion) can't cause
+    a false alert. Added 22-10-2026 after the false alert on 21-10.
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.front_van_waste_bin_count
+    above: 0
+  conditions: []
+  actions:
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.bins_seen_out
+  mode: single
