@@ -2,8 +2,8 @@
 
 # 🏠 Colm's Home Assistant Config
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8.2-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
-[![Automations](https://img.shields.io/badge/Automations-71-success?logo=homeassistant&logoColor=white)](automations.yaml)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.10.4-41BDF5?logo=homeassistant&logoColor=white)](https://www.home-assistant.io/)
+[![Automations](https://img.shields.io/badge/Automations-74-success?logo=homeassistant&logoColor=white)](automations.yaml)
 [![License](https://img.shields.io/badge/Repo-Public-brightgreen)](https://github.com/colfin22/ha-config)
 
 *A family smart home in Ireland — built for reliability, not demos.*
@@ -70,7 +70,7 @@ This repository is the live, version-controlled configuration that runs the hous
 | [Met Éireann](https://www.met.ie/) | Weather warnings — custom REST sensor polling the Met Éireann open data API; automation fires immediately on new alerts |
 | [Forecast.Solar](https://forecast.solar/) | Solar production forecast |
 | [Electricity Maps](https://www.electricitymaps.com/) | Grid CO2 intensity |
-| [esbn-to-mqtt](https://github.com/omgapuppy/esbn-to-mqtt) | HA add-on — official smart meter readings (HDF export), two days in arrears; feeds long-term history and tariff comparison |
+| [ESBN HDF download](https://github.com/colfin22/esbn-hdf-download) | Official smart meter readings (HDF export), fetched nightly outside HA, two days in arrears; feeds history and tariffs |
 
 ### Media & Lifestyle
 | Integration | Purpose |
@@ -96,7 +96,7 @@ This repository is the live, version-controlled configuration that runs the hous
 
 ## 🤖 Automations
 
-71 automations across the home. Key highlights:
+74 automations across the home. Key highlights:
 
 ### 💡 Lighting
 - **All lights on Zigbee2MQTT** — every room migrated off the Hue bridge to Zigbee2MQTT, with HA-native scenes per room (bright/dimmed and colour moods)
@@ -171,7 +171,7 @@ Complex, multi-input automation runs in **Node-RED** (Proxmox LXC). The full flo
 - **House Alarm** — follows house mode: **Away** arms away, **Sleeping** arms night, **Home** disarms. Guest mode suspends away-arming only (guests indoors would trip it) — night arming still happens, and switching guest mode off re-arms to match immediately. A welcome-home announcement plays on return from Away. Every alarm event across house and shed — armed, disarmed, triggered, cleared, failed-to-arm — is pushed to both phones and announced on the speakers, however it was changed (phone, NFC or automatic).
 - **Alarm NFC Tags** — the front-door tag disarms the house; the back-door tag stands the shed down for up to two hours, re-arming 15 minutes after the door closes (left open at the cap → stays disarmed and sends a push + spoken reminder). At 10pm the shed auto-arms if still disarmed with the door closed.
 - **Heating Control** — sets the local HomeKit thermostat from `input_select.house_mode` + time of day (the Netatmo holds a flat baseline; Node-RED only ever raises above it). **Home** → comfort, warmest 7–10pm. **Sleeping** → cooler overnight, warming from 7am — pulled earlier on cold mornings by a nightly Met Éireann forecast check (below-freezing forecasts also push a heads-up the night before). **Away** → baseline, dropping further after a full day empty (a toggle disables the deep setback for absences with pets or plants) — but pre-heats toward comfort when someone is driving home (within ~10 km and getting closer; latches once triggered so a GPS wobble can't bounce the setpoint). Boosting — from the dashboard controls or by nudging the thermostat above the schedule — holds that temperature for two hours; turning it down just cancels. Guest mode keeps the Away setback off while visitors stay. The target is re-asserted every 30 minutes and survives reboots.
-- **Camera Concierge** — all Frigate alerting: grouped 3-stage pushes (instant text → snapshot → GIF) to both phones, per zone (Front / Doorbell / Rear) and object type; tapping opens the event clip. Doorbell persons also cast to the kitchen display and Shield TV; couriers and the postman get spoken announcements (silenced while Sleeping — pushes unaffected); rear cameras mute while the patio-door switch is on. While Sleeping, a person at the cars strobes the lights and warns over the speakers; while Away, pushes escalate to a high-priority ⚠️ “Cameras Away” channel. (Replaced seven former HA notify/alert automations.)
+- **Camera Concierge** — all Frigate alerting: grouped 3-stage pushes (instant text → snapshot → GIF) to both phones, per zone (Front / Doorbell / Rear) and object type; tapping opens the event clip. Doorbell persons also cast to the kitchen display and Shield TV; couriers and the postman get spoken announcements (silenced while Sleeping — pushes unaffected); rear cameras mute while the patio-door switch is on. While Sleeping, a person at the cars strobes the lights and warns over the speakers. All pushes go out at high priority. While Away they move to a ⚠️ “Cameras Away” channel, and person alerts ring once through the alarm stream, even on silent. (Replaced seven former HA notify/alert automations.)
 - **Infra Watchdog** — escalating alerts off Uptime Kuma (service reachability), quiet-hours aware; TTS only when Colm is home. Silenced while maintenance mode is on — still logged, and anything still down when maintenance ends re-alerts on its next reminder cycle.
 - **Infra Health & Alerts** — all homelab health and backup alerting in one flow: server/NAS/app health (CPU, memory, disk, pool, temperature, offline, updates), a daily 07:30 audit that every Proxmox backup ran, config-backup and Restic failure alerts, and Zabbix relays. Notifications go to Colm tagged Health / Backup / Monitoring, with a 22:00–07:00 quiet window flushed at 07:00; silenced (logged only) while maintenance mode is on.
 
