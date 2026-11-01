@@ -957,7 +957,7 @@
       - media_player.sitting_room_speaker_cast
       - media_player.kitchen_display_cast
     data:
-      media_content_id: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/trumpet_fanfare.mp3
+      media_content_id: /local/trumpet_fanfare.mp3
       media_content_type: music
   - delay: 00:00:20
   - action: tts.cloud_say
@@ -1633,8 +1633,8 @@
 
         '
       data:
-        url: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
-        clickAction: https://gn8w3cihiq4zou7b957rm67avh98n4uw.ui.nabu.casa/local/update_tuesday/report.html
+        url: /local/update_tuesday/report.html
+        clickAction: /local/update_tuesday/report.html
         notification_icon: mdi:package-up
   mode: single
 - id: '1779624020049'
