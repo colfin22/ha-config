@@ -109,3 +109,6 @@ Solis_data.json
 # Car photos copied from the Car Costs app for the Cars dashboard tab.
 # They show registration plates, and this is a public repo.
 www/car_costs/
+
+# Update Tuesday host inventory (addresses, users) - kept out of the public repo
+scripts/update_tuesday_hosts.json

@@ -28,40 +28,19 @@ OUTPUT_FILE = f"{OUTPUT_DIR}/report.html"
 
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
 
-PVE_API = {
-    "host": "10.0.0.251",
-    "port": 8006,
-    "token": PVE_TOKEN,
-    "nodes": ["proxmox", "proxmox2"],
-}
+# Host inventory (addresses, users) lives in a gitignored JSON file next to this
+# script, so the public repo carries no network layout. See update_tuesday_hosts.json.
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "update_tuesday_hosts.json")) as _fh:
+    _HOSTS = json.load(_fh)
 
-TRUENAS = {
-    "host": "10.0.0.254",
-    "port": 80,
-    "token": TRUENAS_TOKEN,
-}
-
-MIKROTIK_DEVICES = [
-    {"name": "RB5009 Gateway",    "ip": "10.0.0.1",  "user": "admin"},
-    {"name": "CRS125 Core Switch","ip": "10.0.0.2",  "user": "admin"},
-    {"name": "RB951G Kitchen",    "ip": "10.0.0.3",  "user": "admin"},
-    {"name": "wAP Landing",       "ip": "10.0.0.4",  "user": "admin"},
-    {"name": "wAP Living Room",   "ip": "10.0.0.5",  "user": "admin"},
-    {"name": "RB750GL Sitting Rm","ip": "10.0.0.10", "user": "admin"},
-    {"name": "RB751G Office",     "ip": "10.0.0.11", "user": "admin"},
-]
-
-SSH_HOSTS = [
-    {"label": "proxmox1",         "ip": "10.0.0.251", "user": "root",   "type": "proxmox"},
-    {"label": "proxmox2",         "ip": "10.0.0.228", "user": "root",   "type": "proxmox"},
-    {"label": "proxmox-remote",   "ip": "192.168.88.232",  "user": "root",   "type": "proxmox"},
-    {"label": "PBS1",             "ip": "10.0.0.215", "user": "root",   "type": "pbs"},
-    {"label": "PBS2 (remote)",    "ip": "192.168.88.231",  "user": "root",   "type": "pbs"},
-    {"label": "Docker VM",        "ip": "10.0.0.221", "user": "cfinn",  "type": "ubuntu"},
-    {"label": "Nextcloud VM",     "ip": "10.0.0.226", "user": "cfinn",  "type": "ubuntu"},
-    {"label": "Frigate LXC",      "ip": "10.0.0.246", "user": "hassio", "type": "ubuntu"},
-    {"label": "Immich LXC",       "ip": "10.0.0.253", "user": "root",   "type": "ubuntu"},
-]
+PVE_API = {**_HOSTS["pve_api"], "token": PVE_TOKEN}
+TRUENAS = {**_HOSTS["truenas"], "token": TRUENAS_TOKEN}
+FRIGATE = _HOSTS["frigate"]
+IMMICH = _HOSTS["immich"]
+HA_HOST = _HOSTS["ha_host"]
+MIKROTIK_DEVICES = _HOSTS["mikrotik_devices"]
+SSH_HOSTS = _HOSTS["ssh_hosts"]
+TN_HOST, FR_HOST, IM_HOST = TRUENAS["host"], FRIGATE["host"], IMMICH["host"]
 
 # ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -239,9 +218,9 @@ def http_get_text(url, timeout=15):
 
 def collect_frigate():
     log("Frigate version check...")
-    current = http_get_text("http://10.0.0.246:5000/api/version")
+    current = http_get_text(f"http://{FR_HOST}:{FRIGATE['api_port']}/api/version")
     if not current:
-        raw, _ = ssh_run("hassio", "10.0.0.246",
+        raw, _ = ssh_run(FRIGATE["ssh_user"], FR_HOST,
             "docker inspect frigate 2>/dev/null | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d[0]['Config']['Image'])\" 2>/dev/null", timeout=15)
         current = raw or "Unknown"
 
@@ -265,7 +244,7 @@ def collect_frigate():
 
 def collect_immich():
     log("Immich version check...")
-    data = http_get("http://10.0.0.253:2283/api/server/version")
+    data = http_get(f"http://{IM_HOST}:{IMMICH['port']}/api/server/version")
     if data and isinstance(data, dict):
         current = f"{data.get('major',0)}.{data.get('minor',0)}.{data.get('patch',0)}"
     else:
@@ -613,14 +592,14 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
 
     # ── TrueNAS ────────────────────────────────────────────────────────────
     if truenas["status"] == "error":
-        tn_row = f'<tr><td><strong>TrueNAS SCALE</strong><br><span class="version">10.0.0.254</span></td><td>{err_badge()}</td><td class="status-err">API error</td></tr>'
+        tn_row = f'<tr><td><strong>TrueNAS SCALE</strong><br><span class="version">{TN_HOST}</span></td><td>{err_badge()}</td><td class="status-err">API error</td></tr>'
     else:
         upd = truenas["update_available"]
         upd_ver = truenas.get("update_version") or ""
         ver_detail = f"Version {upd_ver} available" if upd_ver else "Update available (pre-downloaded)"
         detail = f'{ver_detail} · <a class="update-link" href="{truenas["release_notes_url"]}" target="_blank">Release notes ↗</a>' if upd else '<span class="status-ok">Up to date</span>'
         tn_row = f"""<tr>
-<td><strong>TrueNAS SCALE</strong><br><span class="version">10.0.0.254 · {truenas['current_version']}</span></td>
+<td><strong>TrueNAS SCALE</strong><br><span class="version">{TN_HOST} · {truenas['current_version']}</span></td>
 <td>{badge(upd)}</td>
 <td>{detail}</td>
 </tr>"""
@@ -628,19 +607,19 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
 
     # ── Frigate ────────────────────────────────────────────────────────────
     if frigate["status"] == "error":
-        fr_row = f'<tr><td><strong>Frigate NVR</strong><br><span class="version">10.0.0.246</span></td><td>{err_badge()}</td><td class="status-err">API error</td></tr>'
+        fr_row = f'<tr><td><strong>Frigate NVR</strong><br><span class="version">{FR_HOST}</span></td><td>{err_badge()}</td><td class="status-err">API error</td></tr>'
     else:
         upd = frigate["update_available"]
         detail = f'<span class="version">{frigate["current_version"]}</span> → <strong>{frigate["latest_version"]}</strong> · <a class="update-link" href="{frigate["release_notes_url"]}" target="_blank">Release notes ↗</a>' if upd else f'<span class="version">{frigate["current_version"]}</span> · <span class="status-ok">Latest</span>'
-        fr_row = f'<tr><td><strong>Frigate NVR</strong><br><span class="version">10.0.0.246</span></td><td>{badge(upd)}</td><td>{detail}</td></tr>'
+        fr_row = f'<tr><td><strong>Frigate NVR</strong><br><span class="version">{FR_HOST}</span></td><td>{badge(upd)}</td><td>{detail}</td></tr>'
 
     # ── Immich ─────────────────────────────────────────────────────────────
     if immich["status"] == "error":
-        im_row = f'<tr><td><strong>Immich</strong><br><span class="version">10.0.0.253</span></td><td>{err_badge()}</td><td class="status-err">API error</td></tr>'
+        im_row = f'<tr><td><strong>Immich</strong><br><span class="version">{IM_HOST}</span></td><td>{err_badge()}</td><td class="status-err">API error</td></tr>'
     else:
         upd = immich["update_available"]
         detail = f'<span class="version">{immich["current_version"]}</span> → <strong>{immich["latest_version"]}</strong> · <a class="update-link" href="{immich["release_notes_url"]}" target="_blank">Release notes ↗</a>' if upd else f'<span class="version">{immich["current_version"]}</span> · <span class="status-ok">Latest</span>'
-        im_row = f'<tr><td><strong>Immich</strong><br><span class="version">10.0.0.253</span></td><td>{badge(upd)}</td><td>{detail}</td></tr>'
+        im_row = f'<tr><td><strong>Immich</strong><br><span class="version">{IM_HOST}</span></td><td>{badge(upd)}</td><td>{detail}</td></tr>'
 
     apps_section = make_section("Applications", fr_row + im_row, "🐳")
 
@@ -673,7 +652,7 @@ def generate_report(ssh_results, truenas, frigate, immich, mikrotik, ha):
     # ── Home Assistant ─────────────────────────────────────────────────────
     upd = ha["update_available"]
     ha_detail = f'<span class="version">{ha["current_version"]}</span> → <strong>{ha["latest_version"]}</strong> · <a class="update-link" href="{ha["release_notes_url"]}" target="_blank">Release notes ↗</a>' if upd else f'<span class="version">{ha["current_version"]}</span> · <span class="status-ok">Latest ({ha["latest_version"]})</span>'
-    ha_row = f'<tr><td><strong>Home Assistant Core</strong><br><span class="version">10.0.0.252</span></td><td>{badge(upd)}</td><td>{ha_detail}</td></tr>'
+    ha_row = f'<tr><td><strong>Home Assistant Core</strong><br><span class="version">{HA_HOST}</span></td><td>{badge(upd)}</td><td>{ha_detail}</td></tr>'
     ha_section = make_section("Home Assistant", ha_row, "🏠")
 
     # ── Full page ──────────────────────────────────────────────────────────
