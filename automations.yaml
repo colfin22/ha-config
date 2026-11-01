@@ -2371,7 +2371,7 @@
     webhook_id: infra_maint_0a81f6f374ba4add
     allowed_methods:
     - POST
-    local_only: false
+    local_only: true
   actions:
   - choose:
     - conditions:
@@ -2406,7 +2406,7 @@
     webhook_id: infra_updone_129a4814921af30e
     allowed_methods:
     - POST
-    local_only: false
+    local_only: true
   actions:
   - target:
       entity_id: input_boolean.update_tuesday_done
@@ -2508,7 +2508,7 @@
   - trigger: webhook
     allowed_methods:
     - POST
-    local_only: false
+    local_only: true
     webhook_id: infra_ipref_cfd8c38ba3ba124b
   conditions: []
   actions:
