@@ -77,13 +77,13 @@
     <tr><th>Mode</th><th>When</th><th>What happens</th></tr>
     <tr><td class="mode m-home">Home</td><td>At least one of us is in</td>
         <td>Alarm off, heating comfortable (warmest in the evening)</td></tr>
-    <tr><td class="mode m-away">Away</td><td>Both out ~20 min, no movement inside</td>
+    <tr><td class="mode m-away">Away</td><td>Everyone out ~20 min, no movement inside</td>
         <td>Alarm arms fully, heating eases back, camera alerts become urgent</td></tr>
     <tr><td class="mode m-sleep">Sleeping</td><td>Late: TVs &amp; lights off, still 20 min</td>
         <td>Alarm arms the perimeter, heating drops to the night temperature</td></tr>
   </table>
   <div class="card tip"><b>Coming home from Away:</b> the moment one of us arrives, the house
-  switches to Home and disarms itself — you'll hear a welcome-home announcement. Nothing to do.</div>
+  switches to Home and disarms itself — you'll hear <i>"House alarm disarmed."</i> Nothing to do.</div>
   <img class="shot" src="house_mode.png?v=20260713" alt="The House Mode card">
   <p class="cap">The House Mode card on the Home tab, showing the current mode.</p>
   <p><b>Storm</b> and <b>Maintenance</b> on the card are automatic — they light up by themselves (Storm during a weather warning, Maintenance while Colm is working on things) and need nothing from you.</p>
@@ -188,17 +188,16 @@
   <h2>6. Alarm</h2>
   <ul>
     <li><b>Arms and disarms itself</b> with House Mode (see section 1).</li>
-    <li><b>Welcome home:</b> when you get back it disarms on its own — then a few seconds after you
-        open the front door the house greets you by name: <i>"Welcome home, [name]. The house has
-        been disarmed."</i> (It waits for the door so you're inside to hear it.)</li>
     <li><b>Front door tag:</b> a backup — disarming normally happens automatically when you arrive;
         tap your phone on the tag if it hasn't.</li>
     <li><b>Shed:</b> tap the back-door tag before going out — it stands the shed alarm down for up to
-        two hours and re-arms after you're done. It also re-arms at 10pm regardless.</li>
+        two hours and re-arms after you're done. It also re-arms at 10pm if the shed door is shut.</li>
     <li><b>Up late?</b> After 11pm, moving around won&rsquo;t wake the house &mdash; the alarm stays
         on guard overnight. Walking about inside is fine; it only watches the doors and windows,
         so you won&rsquo;t set it off moving between rooms.</li>
-    <li><b>If it triggers:</b> every light strobes, both phones alert, and it announces on the
+    <li><b>Window left open?</b> If something's open when it arms for the night, it tells you which
+        one — close it and it arms itself 20 minutes later.</li>
+    <li><b>If it triggers:</b> every light strobes, everyone's phones alert, and it announces on the
         speakers. Disarm from the app or the front-door tag; the lights return to normal.</li>
   </ul>
   <img class="shot" src="alarm.png?v=20260713" alt="The alarm panels">
@@ -239,7 +238,7 @@
     <li><b>Deliveries:</b> the speakers announce couriers ("DPD has landed…") and the postman.</li>
     <li><b>Out the back?</b> Tap the <b>patio door tag</b> and the rear cameras stop alerting while
         you're gardening — it switches itself off when the patio door is closed again.</li>
-    <li><b>When Away</b>, camera alerts come through as urgent ⚠️ notifications.</li>
+    <li><b>When Away</b>, camera alerts come through as urgent ⚠️ notifications — and anyone seen at the house rings even if your phone is on silent.</li>
     <li><b>While Sleeping</b>, anyone at the cars sets off a light show and a spoken warning —
         automatic.</li>
   </ul>
@@ -253,10 +252,10 @@
   <ul>
     <li>Deliveries and the postman (daytime only).</li>
     <li>Alarm events — when it arms, and if it's triggered.</li>
-    <li><b>Welcome home</b> — a few seconds after you open the front door on your way in:
-        "Welcome home, [name]. The house has been disarmed."</li>
-    <li><b>Bins:</b> a reminder at 7pm on bin night; at 10pm it checks the camera and says so if the
-        bin isn't out at the kerb.</li>
+    <li><b>Coming home</b> — <i>"House alarm disarmed."</i> as you arrive.</li>
+    <li><b>Bins:</b> at 10pm on bin night it checks the camera and says so if a bin isn't out at
+        the kerb.</li>
+    <li><b>Bin lorry:</b> <i>"It looks like the bins are being collected."</i> on bin day.</li>
     <li><b>Cat alarm:</b> when the bird's cage is outside, tap the cage tag — if a cat appears the
         house shouts about it. The kitchen TV light glows green while it's on guard.</li>
   </ul>
@@ -278,6 +277,10 @@
     <tr><td>☀️ "Solar surplus"</td><td>Spare solar, battery full, water hot — a good time to run an
         appliance</td></tr>
     <tr><td>⚠️ Cameras Away</td><td>Urgent: someone at the house while it's empty</td></tr>
+    <tr><td>🔒 Alarm armed / disarmed</td><td>The house or shed alarm changed</td></tr>
+    <tr><td>🗑️ Bin night (7pm)</td><td>Which bins go out tomorrow</td></tr>
+    <tr><td>🔋 Phone battery low</td><td>Someone's phone is under 15% (the alarm needs it to know you're home)</td></tr>
+    <tr><td>❄️ Freezing morning ahead</td><td>It'll start the heating early</td></tr>
   </table>
   <img class="shot" src="notify.png" alt="Example phone notifications" style="max-width:340px">
   <p class="cap">What some of these look like when they arrive.</p>
