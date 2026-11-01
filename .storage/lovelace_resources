@@ -163,6 +163,11 @@
         "id": "9fbb36ab094f4389a7f432a540c09735",
         "url": "/local/infra-frame-card.js?v=1",
         "type": "module"
+      },
+      {
+        "id": "0650819edbc24b5f9159de19834f0303",
+        "url": "/local/private-picture-card.js?v=1",
+        "type": "module"
       }
     ]
   }

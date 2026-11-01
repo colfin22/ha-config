@@ -2045,8 +2045,8 @@
                   ]
                 },
                 {
-                  "type": "picture",
-                  "image": "/local/car_costs/car1.jpg",
+                  "type": "custom:private-picture-card",
+                  "image": "/api/infra_private/car_costs/car1.jpg",
                   "aspect_ratio": "4:3",
                   "tap_action": {
                     "action": "navigate",
@@ -2195,8 +2195,8 @@
                   ]
                 },
                 {
-                  "type": "picture",
-                  "image": "/local/car_costs/car2.jpg",
+                  "type": "custom:private-picture-card",
+                  "image": "/api/infra_private/car_costs/car2.jpg",
                   "aspect_ratio": "4:3",
                   "tap_action": {
                     "action": "navigate",
