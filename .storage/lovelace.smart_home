@@ -3828,9 +3828,9 @@
           "type": "panel",
           "cards": [
             {
-              "type": "iframe",
-              "url": "/local/infra.html?v=20260807a",
-              "disable_sandbox": true
+              "type": "custom:infra-frame-card",
+              "updone_automation": "automation.infra_dashboard_update_tuesday_mark_done",
+              "ipref_automation": "automation.infra_dashboard_refresh_ip_inventory"
             }
           ]
         }

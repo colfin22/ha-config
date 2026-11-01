@@ -158,6 +158,11 @@
         "id": "bcc715988bde4cd4a2564dc9a01249d1",
         "url": "/hacsfiles/wm_animated_ha_card/washing-machine-card.js?hacstag=1342630269130",
         "type": "module"
+      },
+      {
+        "id": "9fbb36ab094f4389a7f432a540c09735",
+        "url": "/local/infra-frame-card.js?v=1",
+        "type": "module"
       }
     ]
   }

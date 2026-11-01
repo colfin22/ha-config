@@ -1633,8 +1633,8 @@
 
         '
       data:
-        url: /local/update_tuesday/report.html
-        clickAction: /local/update_tuesday/report.html
+        url: /smart-home/network
+        clickAction: /smart-home/network
         notification_icon: mdi:package-up
   mode: single
 - id: '1779624020049'

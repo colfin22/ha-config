@@ -2,8 +2,8 @@
 # Update Tuesday launcher - runs from HA SSH addon context
 set -e
 
-LOG="/config/www/update_tuesday/last_run.log"
-mkdir -p /config/www/update_tuesday
+LOG="/config/infra_private/update_tuesday/last_run.log"
+mkdir -p /config/infra_private/update_tuesday
 
 exec > >(tee "$LOG") 2>&1
 

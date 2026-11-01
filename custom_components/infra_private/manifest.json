@@ -1,0 +1,10 @@
+{
+  "domain": "infra_private",
+  "name": "Infra Private Files",
+  "codeowners": [],
+  "dependencies": ["http"],
+  "documentation": "https://github.com/colfin22/ha-config",
+  "iot_class": "local_push",
+  "requirements": [],
+  "version": "1.0.0"
+}

@@ -8,7 +8,7 @@ shell_command:
     "bash /config/scripts/update_tuesday.sh"
 
   # infra dashboard: generate the post-maintenance applied-report on node1 (fire-and-forget;
-  # the report scp's itself back to /config/www/update_tuesday/ when done)
+  # the report scp's itself back to /config/infra_private/update_tuesday/ when done)
   generate_applied_report: !secret applied_report_command
 
   # ha-config #32: sync maintenance mode into Zabbix + Uptime Kuma maintenance windows

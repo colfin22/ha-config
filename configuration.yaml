@@ -107,3 +107,6 @@ homeassistant:
   media_dirs:
     llmvision: /config/media/llmvision
 
+
+# Serves /config/infra_private/ to logged-in users only (infra dashboard, Update Tuesday reports)
+infra_private:

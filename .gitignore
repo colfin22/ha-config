@@ -112,3 +112,6 @@ www/car_costs/
 
 # Update Tuesday host inventory (addresses, users) - kept out of the public repo
 scripts/update_tuesday_hosts.json
+
+# private pages served behind the HA login (custom_components/infra_private)
+/infra_private/

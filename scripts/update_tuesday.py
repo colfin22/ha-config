@@ -23,7 +23,7 @@ SSH_OPTS = [
     "-o", "LogLevel=ERROR",
 ]
 
-OUTPUT_DIR = "/config/www/update_tuesday"
+OUTPUT_DIR = "/config/infra_private/update_tuesday"
 OUTPUT_FILE = f"{OUTPUT_DIR}/report.html"
 
 SUPERVISOR_TOKEN = os.environ.get("SUPERVISOR_TOKEN", "")
