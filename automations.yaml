@@ -2362,36 +2362,6 @@
     action: notify.mobile_app_pixel_6a
   mode: queued
   max: 3
-- id: '1784209486509'
-  alias: Infra Dashboard - Maintenance Mode Toggle
-  description: 'Webhook from the infra dashboard header toggle; flips input_boolean.maintenance_mode
-    (which silences infra alerts). UNUSED since 01-11-2026: the webhook trigger was
-    retired and the infra-frame-card sets input_boolean.maintenance_mode directly
-    over the HA login.'
-  triggers: []
-  actions:
-  - choose:
-    - conditions:
-      - condition: template
-        value_template: '{{ (trigger.json | default({})).get("desired", "") == "on"
-          }}'
-      sequence:
-      - action: input_boolean.turn_on
-        target:
-          entity_id: input_boolean.maintenance_mode
-    - conditions:
-      - condition: template
-        value_template: '{{ (trigger.json | default({})).get("desired", "") == "off"
-          }}'
-      sequence:
-      - action: input_boolean.turn_off
-        target:
-          entity_id: input_boolean.maintenance_mode
-    default:
-    - action: input_boolean.toggle
-      target:
-        entity_id: input_boolean.maintenance_mode
-  mode: single
 - id: '1784292024444'
   alias: Infra Dashboard - Update Tuesday Mark Done
   description: 'Webhook from the infra dashboard Updates tab toggles input_boolean.update_tuesday_done.
