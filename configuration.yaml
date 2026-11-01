@@ -101,8 +101,8 @@ lovelace:
       show_in_sidebar: true
 
 homeassistant:
-  external_url: "https://ha.colfin22.net"
-  internal_url: "http://10.0.0.252:8123"
+  external_url: !secret external_url
+  internal_url: !secret internal_url
   packages: !include_dir_named packages 
   media_dirs:
     llmvision: /config/media/llmvision
