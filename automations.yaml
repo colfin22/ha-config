@@ -2365,8 +2365,9 @@
 - id: '1784209486509'
   alias: Infra Dashboard - Maintenance Mode Toggle
   description: 'Webhook from the infra dashboard header toggle; flips input_boolean.maintenance_mode
-    (which silences infra alerts). Webhook trigger retired 01-11-2026: run from the
-    infra-frame-card (automation.trigger) over the HA login.'
+    (which silences infra alerts). UNUSED since 01-11-2026: the webhook trigger was
+    retired and the infra-frame-card sets input_boolean.maintenance_mode directly
+    over the HA login.'
   triggers: []
   actions:
   - choose:
