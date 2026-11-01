@@ -9,27 +9,15 @@ shell_command:
 
   # infra dashboard: generate the post-maintenance applied-report on node1 (fire-and-forget;
   # the report scp's itself back to /config/www/update_tuesday/ when done)
-  generate_applied_report: >-
-    ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
-    -o ConnectTimeout=10 root@10.0.0.251
-    "nohup python3 /opt/homelab-scripts/infra-dashboard/applied_report.py >/tmp/applied_report.log 2>&1 &"
+  generate_applied_report: !secret applied_report_command
 
   # ha-config #32: sync maintenance mode into Zabbix + Uptime Kuma maintenance windows
   # (fail-soft on node1 — never blocks; 12h auto-expiry is the forget-to-turn-off net)
-  maint_sync_on: >-
-    ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
-    -o ConnectTimeout=10 root@10.0.0.251
-    "nohup /opt/homelab-scripts/maint-sync/venv/bin/python /opt/homelab-scripts/maint-sync/maint_sync.py on >/dev/null 2>&1 &"
+  maint_sync_on: !secret maint_sync_on_command
   # ha-config #42: collect the IP inventory on demand from the dashboard's IPs tab
   # (fire-and-forget - the run takes ~50s incl. the ping sweep; the 60s regen picks the JSON up)
   # flock -n: concurrent webhook posts race past the automation's mode:single, so the lock -
   # not the automation - is what guarantees one collector at a time (and an intact JSON)
-  refresh_ip_inventory: >-
-    ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
-    -o ConnectTimeout=10 root@10.0.0.251
-    "cd /opt/homelab-scripts/infra-dashboard && nohup flock -n /var/lock/ip_inventory.lock python3 ip_inventory.py >>/var/log/ip-inventory.log 2>&1 &"
+  refresh_ip_inventory: !secret ip_inventory_refresh_command
 
-  maint_sync_off: >-
-    ssh -i /config/.ssh/update_report -o StrictHostKeyChecking=no -o BatchMode=yes
-    -o ConnectTimeout=10 root@10.0.0.251
-    "nohup /opt/homelab-scripts/maint-sync/venv/bin/python /opt/homelab-scripts/maint-sync/maint_sync.py off >/dev/null 2>&1 &"
+  maint_sync_off: !secret maint_sync_off_command

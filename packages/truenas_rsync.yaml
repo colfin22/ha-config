@@ -1,5 +1,5 @@
 rest:
-  - resource: "http://10.0.0.254/api/v2.0/rsynctask"
+  - resource: !secret truenas_rsync_resource
     headers:
       Authorization: !secret truenas_api_key
     scan_interval: 300

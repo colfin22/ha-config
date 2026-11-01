@@ -10,8 +10,19 @@ import urllib.request
 import urllib.error
 
 CSV_PATH = "/mnt/c/Users/colfi/Downloads/myenergi-graph-consumed-exported-20_03_2026-28_05_2026.csv"
-INFLUX_URL = "http://10.0.0.254:30115"
-INFLUX_TOKEN = "ZTDJ84HNA2kX4Pt53ndnll2ayO_OdAwHelM22AyxjZ4PlwVqg0PmkpTmJnYo8jbibcSjihPOg6WHHAFn2klEMw=="
+import re as _re
+def _secret(key):
+    """Read one value from Home Assistant's gitignored secrets.yaml."""
+    with open("/config/secrets.yaml") as fh:
+        for line in fh:
+            m = _re.match(r'^%s:\s*"?([^"\n]*)"?\s*$' % _re.escape(key), line)
+            if m:
+                return m.group(1)
+    sys.exit(f"{key} missing from /config/secrets.yaml")
+
+
+INFLUX_URL = _secret("influx_url")
+INFLUX_TOKEN = _secret("influx_token")
 INFLUX_ORG = "homelab"
 INFLUX_BUCKET = "homeassistant"
 MEASUREMENT = "myenergi_daily"
