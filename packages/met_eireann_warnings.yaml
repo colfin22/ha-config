@@ -2,7 +2,12 @@ rest:
   # 09-10-2026: met.ie retired warning_IRELAND.json (404 from 06-10) and now
   # sends level in lowercase, so compares are case-insensitive and the level
   # is re-capitalised for consumers (banners, push automation).
-  - resource: "https://www.met.ie/Open_Data/json/warning_ALL.json"
+  # 01-11-2026: met.ie flips between warning_ALL.json and warning_IRELAND.json
+  # (ALL 404'd 16/17-10, 30-10 and from 31-10 16:00), and a 404 left every
+  # sensor below on 'none'. The probe sensor further down checks ALL every
+  # 5 min; while it isn't 200 the feed falls back to IRELAND (same shape).
+  - resource_template: >
+      {% if is_state('sensor.met_eireann_feed_all_status', '200') %}https://www.met.ie/Open_Data/json/warning_ALL.json{% else %}https://www.met.ie/Open_Data/json/warning_IRELAND.json{% endif %}
     scan_interval: 300
     sensor:
       - name: "Met Éireann Active Warnings"
@@ -139,3 +144,13 @@ template:
         icon: >
           {% set s = states('sensor.met_eireann_active_warnings') %}
           {% if s == 'Yellow' %}mdi:alert{% elif s == 'Orange' %}mdi:alert-circle{% elif s == 'Red' %}mdi:alert-octagon{% else %}mdi:weather-cloudy{% endif %}
+
+command_line:
+  # HTTP status of warning_ALL.json, used by the rest resource_template above
+  # to choose ALL (200) or IRELAND (anything else).
+  - sensor:
+      name: "Met Éireann Feed ALL Status"
+      unique_id: met_eireann_feed_all_status
+      icon: mdi:web-check
+      command: "curl -s -o /dev/null -w '%{http_code}' --max-time 15 https://www.met.ie/Open_Data/json/warning_ALL.json"
+      scan_interval: 300
