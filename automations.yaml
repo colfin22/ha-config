@@ -2364,14 +2364,10 @@
   max: 3
 - id: '1784209486509'
   alias: Infra Dashboard - Maintenance Mode Toggle
-  description: Webhook from the infra dashboard header toggle; flips input_boolean.maintenance_mode
-    (which silences infra alerts).
-  triggers:
-  - platform: webhook
-    webhook_id: infra_maint_0a81f6f374ba4add
-    allowed_methods:
-    - POST
-    local_only: true
+  description: 'Webhook from the infra dashboard header toggle; flips input_boolean.maintenance_mode
+    (which silences infra alerts). Webhook trigger retired 01-11-2026: run from the
+    infra-frame-card (automation.trigger) over the HA login.'
+  triggers: []
   actions:
   - choose:
     - conditions:
@@ -2400,13 +2396,9 @@
   description: 'Webhook from the infra dashboard Updates tab toggles input_boolean.update_tuesday_done.
     When it lands ON: ends the maintenance window (maintenance_mode off) THEN kicks
     the applied-report generator on the Proxmox host. The dashboard page refuses the
-    click while alerts are active.'
-  triggers:
-  - platform: webhook
-    webhook_id: infra_updone_129a4814921af30e
-    allowed_methods:
-    - POST
-    local_only: true
+    click while alerts are active. Webhook trigger retired 01-11-2026: run from the
+    infra-frame-card (automation.trigger) over the HA login.'
+  triggers: []
   actions:
   - target:
       entity_id: input_boolean.update_tuesday_done
@@ -2503,13 +2495,10 @@
   alias: Infra Dashboard - Refresh IP Inventory
   description: 'ha-config #42 - the IPs tab Refresh button runs ip_inventory.py on
     the Proxmox host. mode single plus the trailing delay cap it at one collector
-    run per 60s, so the webhook cannot spawn overlapping ping sweeps.'
-  triggers:
-  - trigger: webhook
-    allowed_methods:
-    - POST
-    local_only: true
-    webhook_id: infra_ipref_cfd8c38ba3ba124b
+    run per 60s, so the webhook cannot spawn overlapping ping sweeps. Webhook trigger
+    retired 01-11-2026: run from the infra-frame-card (automation.trigger) over the
+    HA login.'
+  triggers: []
   conditions: []
   actions:
   - action: shell_command.refresh_ip_inventory
