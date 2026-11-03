@@ -2231,11 +2231,13 @@
   max: 3
 - id: '1782929355416'
   alias: Frost Warning - Car Windscreen
-  description: 'Weekday 07:30 check: if the lower of Met.no/Met Eireann outdoor temp
-    is <=0C, push both phones to allow time to scrape the windscreen.'
+  description: 'Weekday check at input_datetime.weather_alert_time (set on the Node-RED
+    Household page, Weather alerts, 05:00-09:00; shared with the fog warning): if
+    the lower of Met.no/Met Eireann outdoor temp is <=0C, push both phones to allow
+    time to scrape the windscreen.'
   triggers:
   - platform: time
-    at: 07:30:00
+    at: input_datetime.weather_alert_time
   conditions:
   - condition: time
     weekday:
@@ -2272,11 +2274,13 @@
       ''below zero'' }}'
 - id: '1782932115960'
   alias: Fog Warning - Commute
-  description: 'Weekday 07:30 check: if either weather source reports fog, push both
-    phones to allow extra time on the commute.'
+  description: 'Weekday check at input_datetime.weather_alert_time (set on the Node-RED
+    Household page, Weather alerts, 05:00-09:00; shared with the frost warning): if
+    either weather source reports fog, push both phones to allow extra time on the
+    commute.'
   triggers:
   - platform: time
-    at: 07:30:00
+    at: input_datetime.weather_alert_time
   conditions:
   - condition: time
     weekday:
