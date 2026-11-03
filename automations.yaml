@@ -502,8 +502,9 @@
   description: 'Notifies both phones and announces via TTS when a parcel is delivered
     to the smart box, attaching the latest Frigate doorbell person snapshot when it
     is fresh (<60s). Uses front door contact within 30s to classify a collection instead;
-    collections only stamp the datetime. Rebuilt from the eroak/smart-mailbox blueprint
-    for ha-config #28.'
+    collections only stamp the datetime. Push + TTS only 07:00-22:00 like the other
+    alerts; overnight deliveries are still stamped. Rebuilt from the eroak/smart-mailbox
+    blueprint for ha-config #28.'
   triggers:
   - trigger: state
     entity_id: binary_sensor.parcel_delivery_box_contact
@@ -523,43 +524,49 @@
         entity_id: input_datetime.parcel_box_last_delivery
       data:
         timestamp: '{{ triggered_at }}'
-    - variables:
-        snapshot_fresh: '{% set img = states[''image.doorbell_person''] %}{{ img is
-          not none and ((triggered_at - as_timestamp(img.last_changed)) | abs) < 60
-          }}'
     - if:
-      - alias: Doorbell person snapshot is fresh
-        condition: template
-        value_template: '{{ snapshot_fresh }}'
+      - alias: Daytime only (07:00-22:00), no alerts at night
+        condition: time
+        after: 07:00:00
+        before: '22:00:00'
       then:
-      - action: notify.mobile_app_np3
+      - variables:
+          snapshot_fresh: '{% set img = states[''image.doorbell_person''] %}{{ img
+            is not none and ((triggered_at - as_timestamp(img.last_changed)) | abs)
+            < 60 }}'
+      - if:
+        - alias: Doorbell person snapshot is fresh
+          condition: template
+          value_template: '{{ snapshot_fresh }}'
+        then:
+        - action: notify.mobile_app_np3
+          data:
+            message: A Package Has Been Delivered!
+            data:
+              image: /api/image_proxy/image.doorbell_person?t={{ triggered_at | int
+                }}
+              notification_icon: mdi:package-variant-closed
+        - action: notify.mobile_app_pixel_6a
+          data:
+            message: A Package Has Been Delivered!
+            data:
+              image: /api/image_proxy/image.doorbell_person?t={{ triggered_at | int
+                }}
+              notification_icon: mdi:package-variant-closed
+        else:
+        - action: notify.mobile_app_np3
+          data:
+            message: A Package Has Been Delivered!
+            data:
+              notification_icon: mdi:package-variant-closed
+        - action: notify.mobile_app_pixel_6a
+          data:
+            message: A Package Has Been Delivered!
+            data:
+              notification_icon: mdi:package-variant-closed
+      - action: script.tts_announce
         data:
           message: A Package Has Been Delivered!
-          data:
-            image: /api/image_proxy/image.doorbell_person?t={{ triggered_at | int
-              }}
-            notification_icon: mdi:package-variant-closed
-      - action: notify.mobile_app_pixel_6a
-        data:
-          message: A Package Has Been Delivered!
-          data:
-            image: /api/image_proxy/image.doorbell_person?t={{ triggered_at | int
-              }}
-            notification_icon: mdi:package-variant-closed
-      else:
-      - action: notify.mobile_app_np3
-        data:
-          message: A Package Has Been Delivered!
-          data:
-            notification_icon: mdi:package-variant-closed
-      - action: notify.mobile_app_pixel_6a
-        data:
-          message: A Package Has Been Delivered!
-          data:
-            notification_icon: mdi:package-variant-closed
-    - action: script.tts_announce
-      data:
-        message: A Package Has Been Delivered!
     else:
     - action: input_datetime.set_datetime
       target:
