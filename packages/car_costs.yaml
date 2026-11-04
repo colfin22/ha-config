@@ -453,14 +453,12 @@ automation:
                 msg: >-
                   {{ repeat.item.car }}: {{ repeat.item.item }} due
                   {{ repeat.item.date }} ({{ repeat.item.days }} days)
-            - action: notify.mobile_app_np3
-              data:
-                title: Car reminder
-                message: "{{ msg }}"
-                data:
-                  notification_icon: mdi:car
-            - action: notify.mobile_app_pixel_6a
-              data:
+            - event: home_notify
+              event_data:
+                group: people
+                people:
+                  - person.colm_finn
+                  - person.olivia_finn
                 title: Car reminder
                 message: "{{ msg }}"
                 data:
