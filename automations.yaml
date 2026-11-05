@@ -11,7 +11,11 @@
     with a camera snapshot. The latch means a bin Frigate saw at any point that evening
     counts as out, even if Frigate loses it after dark. Compost gets the 19:00 push
     only (no 22:00 TTS/push, Colm 22-10-2026). Two calendar triggers on calendar.panda_waste
-    (offset -5h = 19:00, -2h = 22:00), branched by trigger id.'
+    (offset -5h = 19:00, -2h = 22:00), branched by trigger id. Each calendar event
+    fires its own trigger, so a three-bin day triggers three times within milliseconds:
+    the 10 s delay at the end of the 19:00 branch keeps the first run alive so mode
+    single drops the others and the push is sent once (added 05-11-2026). ''Already
+    running'' warnings at 19:00 and 22:00 on those days are this working as intended.'
   triggers:
   - event: start
     offset: '-5:0:0'
@@ -65,6 +69,8 @@
             group: bins
             channel: Bins
             importance: high
+      - delay:
+          seconds: 10
     - conditions:
       - condition: trigger
         id: check_10pm
@@ -794,7 +800,7 @@
   - condition: not
     conditions:
     - condition: state
-      entity_id: person.olivia
+      entity_id: person.olivia_finn
       state: home
   actions:
   - action: llmvision.image_analyzer
