@@ -5,7 +5,16 @@ shell_command:
     -o BatchMode=yes
     -o ConnectTimeout=10
     root@172.30.33.0
-    "bash /config/scripts/update_tuesday.sh"
+    "setsid nohup bash /config/scripts/update_tuesday.sh </dev/null >/dev/null 2>&1 &"
+
+  # HA kills a shell_command after 60 s, and the report takes ~60 s, so the line above only
+  # launches it detached. The automation waits, then runs this: OK if last_run.log was written
+  # in the last 10 min AND reached "=== Complete", otherwise FAIL. (HA runs
+  # commands without a shell, hence sh -c.)
+  check_update_report: >-
+    sh -c 'find /config/infra_private/update_tuesday/last_run.log -mmin -10 | grep -q .
+    && grep -q "=== Complete" /config/infra_private/update_tuesday/last_run.log
+    && echo OK || echo FAIL'
 
   # infra dashboard: generate the post-maintenance applied-report on node1 (fire-and-forget;
   # the report scp's itself back to /config/infra_private/update_tuesday/ when done)

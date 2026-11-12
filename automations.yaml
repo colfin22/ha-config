@@ -1532,7 +1532,9 @@
 - id: update_tuesday_report
   alias: Update Tuesday - Generate Report
   description: 'Runs on the Monday before Update Tuesday (2nd Tuesday of month) at
-    7pm. Generates a homelab update report and sends a notification.
+    7pm. Launches the homelab update report detached (HA kills a shell_command after
+    60 s and the report takes about that long), waits 3 min, then pushes the report
+    if last_run.log reached ''=== Complete'', or a FAILED push if not.
 
     '
   triggers:
@@ -1544,22 +1546,41 @@
 
       '
   actions:
-  - alias: Generate the report
+  - alias: Launch the report (detached)
     action: shell_command.generate_update_report
-  - delay: 00:00:45
-  - event: home_notify
-    event_data:
-      group: people
-      title: U0001F4CB Update Tuesday is Tomorrow
-      message: 'Your homelab update report is ready. Tap to open the report.
+  - delay: 00:03:00
+  - alias: Did the report finish?
+    action: shell_command.check_update_report
+    response_variable: report_check
+  - if:
+    - condition: template
+      value_template: '{{ report_check.stdout == ''OK'' }}'
+    then:
+    - event: home_notify
+      event_data:
+        group: people
+        title: U0001F4CB Update Tuesday is Tomorrow
+        message: 'Your homelab update report is ready. Tap to open the report.
 
-        '
-      data:
-        url: /smart-home/network
-        clickAction: /smart-home/network
-        notification_icon: mdi:package-up
-      people:
-      - person.colm_finn
+          '
+        data:
+          url: /smart-home/network
+          clickAction: /smart-home/network
+          notification_icon: mdi:package-up
+        people:
+        - person.colm_finn
+    else:
+    - event: home_notify
+      event_data:
+        group: people
+        title: ⚠️ Update Tuesday report FAILED
+        message: 'Tomorrow''s update report did not finish. See last_run.log in /config/infra_private/update_tuesday/.
+
+          '
+        data:
+          notification_icon: mdi:package-variant-remove
+        people:
+        - person.colm_finn
   mode: single
 - id: '1779624020049'
   alias: Cat Alarm - Cat Detected
