@@ -1559,7 +1559,7 @@
     - event: home_notify
       event_data:
         group: people
-        title: U0001F4CB Update Tuesday is Tomorrow
+        title: "\U0001F4CB Update Tuesday is Tomorrow"
         message: 'Your homelab update report is ready. Tap to open the report.
 
           '
