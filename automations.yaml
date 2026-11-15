@@ -2802,20 +2802,24 @@
   mode: single
 - id: '1785778056339'
   alias: Solis - String Imbalance East vs West
-  description: Colm only (infra alert). Watches for one PV string persistently underperforming
-    the other - the classic early signal of shading, soiling, a failed panel or a
-    dead optimiser. There are no per-string ENERGY sensors, only power, so this tracks
-    each string's daily PEAK power in input_number.solis_pv_peak_east_today / _west_today
-    (sampled every 5 min) and compares them at 23:30. Peak ratio (weaker/stronger)
-    measured over 01-08 to 03-08-2026 was 0.97, 0.88 and 0.76, so the alert threshold
-    is 0.50 - well clear of normal aspect and weather variation. A day only counts
-    if BOTH peaks exceed 500 W, so dull days and winter mornings are ignored rather
-    than mistaken for a fault. It alerts only after 5 qualifying days in a row below
-    the threshold (counter in input_number.solis_string_imbalance_days), and alerts
-    once per streak, not nightly. Both strings see the same sky, so a sustained one-sided
-    shortfall is real. Peaks reset at 00:01. The streak count is computed in a variable
-    before it is written, so the alert never depends on re-reading a helper it just
-    set.
+  description: 'Colm only (infra alert). Rebuilt 15-11-2026: compares each string
+    against a CLEAR-SKY SUN MODEL for the date instead of against each other, because
+    the west roof (298 deg, 62 deg off north) gets almost no direct winter sun and
+    the old fixed 0.5 peak-ratio threshold (set from 01-03 Aug data) fired on healthy
+    panels on 14-11. At 23:30 a template computes clear-sky energy and peak power
+    for both planes (East 3.6 kWp 118 deg / West 4.5 kWp 298 deg, both 35 deg, site
+    = HA home location (zone.home), 10-min steps, Meinel-type beam with transmittance 0.8 / air-mass
+    exponent 0.5 plus isotropic diffuse 0.12, PR 0.84; constants calibrated on 7 clear
+    days Aug-Nov so the clear-day index sits 0.82-0.97 in every month). A day QUALIFIES
+    when the stronger string peaks over 500 W and at least one string makes 75% of
+    its clear-sky energy (sensor.solis_pv_energy_east_today / _west_today, Riemann
+    + daily utility meter). Rel = (West peak / East peak) / (model West peak / model
+    East peak). Measured on 22 qualifying days 01-08 to 14-11-2026: rel 0.48 to 1.13,
+    zero alerts. West weak if rel < 0.45, East weak if rel > 2.2; alert after 3 qualifying
+    days running (counter input_number.solis_string_imbalance_days), once per streak.
+    Replay with simulated faults catches a dead string or a 60%+ loss on either roof;
+    a 50% loss is NOT reliably caught. Peaks still sampled every 5 min into input_number.solis_pv_peak_east_today
+    / _west_today, reset 00:01.'
   triggers:
   - platform: time_pattern
     minutes: /5
@@ -2864,18 +2868,48 @@
       - variables:
           pe: '{{ states(''input_number.solis_pv_peak_east_today'') | float(0) }}'
           pw: '{{ states(''input_number.solis_pv_peak_west_today'') | float(0) }}'
+          ee: '{{ states(''sensor.solis_pv_energy_east_today'') | float(0) }}'
+          ew: '{{ states(''sensor.solis_pv_energy_west_today'') | float(0) }}'
+          doy: '{{ now().strftime(''%j'') | int }}'
       - variables:
-          qualifies: '{{ pe > 500 and pw > 500 }}'
-          ratio: '{{ (([pe, pw] | min) / ([pe, pw] | max)) if ([pe, pw] | max) > 0
-            else 1 }}'
-          weak: '{{ ''East'' if pe < pw else ''West'' }}'
+          model: '{%- set ns = namespace(E=0, W=0, pe=0, pw=0) -%}{%- set la = (state_attr(''zone.home'', ''latitude'') | float(53.4)) * pi / 180 -%}{%- set lon = state_attr(''zone.home'', ''longitude'') | float(-8.0) -%}{%- set ti = 35 * pi / 180 -%}{%-
+            for m in range(0, 1440, 10) -%}{%- set hr = m / 60 -%}{%- set g = 2 *
+            pi / 365 * (doy - 1 + (hr - 12) / 24) -%}{%- set decl = 0.006918 - 0.399912*cos(g)
+            + 0.070257*sin(g) - 0.006758*cos(2*g) + 0.000907*sin(2*g) - 0.002697*cos(3*g)
+            + 0.00148*sin(3*g) -%}{%- set eqt = 229.18 * (0.000075 + 0.001868*cos(g)
+            - 0.032077*sin(g) - 0.014615*cos(2*g) - 0.040849*sin(2*g)) -%}{%- set
+            ha = ((hr*60 + eqt + 4*lon) / 4 - 180) * pi / 180 -%}{%- set se = sin(la)*sin(decl)
+            + cos(la)*cos(decl)*cos(ha) -%}{%- if se > 0 -%}{%- set el = asin(se)
+            -%}{%- set eld = el * 180 / pi -%}{%- set az = atan2(sin(ha), cos(ha)*sin(la)
+            - tan(decl)*cos(la)) + pi -%}{%- set am = 1 / (se + 0.50572 * (eld + 6.07995)
+            ** -1.6364) -%}{%- set dni = 1353 * 0.8 ** (am ** 0.5) -%}{%- set diff
+            = 0.12 * dni * se * (1 + cos(ti)) / 2 -%}{%- set ce = sin(ti)*cos(el)*cos(az
+            - 118*pi/180) + cos(ti)*se -%}{%- set cw = sin(ti)*cos(el)*cos(az - 298*pi/180)
+            + cos(ti)*se -%}{%- set e = (dni * ([ce, 0] | max) + diff) * 3.6 * 0.84
+            / 1000 -%}{%- set w = (dni * ([cw, 0] | max) + diff) * 4.5 * 0.84 / 1000
+            -%}{%- set ns.E = ns.E + e / 6 -%}{%- set ns.W = ns.W + w / 6 -%}{%- set
+            ns.pe = [ns.pe, e] | max -%}{%- set ns.pw = [ns.pw, w] | max -%}{%- endif
+            -%}{%- endfor -%}{{ [ns.E | round(3), ns.W | round(3), (ns.pe * 1000)
+            | round(0), (ns.pw * 1000) | round(0)] }}'
+      - variables:
+          idx_e: '{{ (ee / model[0]) | round(2) if model[0] > 0 else 0 }}'
+          idx_w: '{{ (ew / model[1]) | round(2) if model[1] > 0 else 0 }}'
+          exp_share: '{{ (model[3] / model[2]) if model[2] > 0 else 1 }}'
+          act_share: '{{ (pw / pe) if pe > 0 else 99 }}'
+      - variables:
+          qualifies: '{{ ([pe, pw] | max) > 500 and ([idx_e, idx_w] | max) >= 0.75
+            }}'
+          rel: '{{ (act_share / exp_share) | round(2) }}'
           newcount: '{{ (states(''input_number.solis_string_imbalance_days'') | int(0))
             + 1 }}'
+      - variables:
+          weak: '{{ ''West'' if rel < 0.45 else (''East'' if rel > 2.2 else ''none'')
+            }}'
       - condition: template
         value_template: '{{ qualifies }}'
       - if:
         - condition: template
-          value_template: '{{ ratio < 0.5 }}'
+          value_template: '{{ weak != ''none'' }}'
         then:
         - action: input_number.set_value
           target:
@@ -2883,24 +2917,26 @@
           data:
             value: '{{ newcount }}'
         - condition: template
-          value_template: '{{ newcount | int(0) == 5 }}'
+          value_template: '{{ newcount | int(0) == 3 }}'
         - event: home_notify
           event_data:
             group: people
             title: "\U0001F506 Solis {{ weak }} string underperforming"
-            message: 'The {{ weak }} string has peaked below half the other string
-              for 5 days running.
+            message: 'The {{ weak }} string has been well off the clear-sky model
+              for 3 clear days running.
 
 
               Today''s peaks - East {{ pe | round(0) }} W, West {{ pw | round(0) }}
-              W (ratio {{ ratio | round(2) }}).
+              W. For today''s sun the model expects West to peak at {{ (exp_share
+              * 100) | round(0) }}% of East; it was {{ (act_share * 100) | round(0)
+              }}% ({{ rel }}x expected; healthy range 0.48-1.13x).
 
-              Normal ratio here is 0.75 to 0.97.
+              Clear-sky index today - East {{ idx_e }}, West {{ idx_w }} (clear day
+              is about 0.8-1.0).
 
 
-              Both strings see the same sky, so this is not weather. Worth checking
-              for shading, soiling, or a panel/optimiser fault on the {{ weak | lower
-              }} roof.'
+              Worth checking for shading, soiling, or a panel/optimiser fault on the
+              {{ weak | lower }} roof.'
             data:
               notification_icon: mdi:scale-balance
             people:
