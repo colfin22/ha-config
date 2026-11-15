@@ -89,6 +89,9 @@ class CctvCard extends HTMLElement {
   .tile .live{pointer-events:none}
   .tile video{object-fit:cover;display:none;background:#000}
   .past .tile video{display:block}
+  .ld{position:absolute;inset:0;z-index:2;display:flex;align-items:center;justify-content:center;background:var(--cc-deep);color:var(--cc-sec);font-size:12px;pointer-events:none;transition:opacity .4s}
+  .ld.off{opacity:0}
+  .past .tile .ld{display:none}
   .lbl{position:absolute;left:8px;top:6px;background:#000a;color:#fff;padding:3px 8px;border-radius:6px;font-size:12px;z-index:3;pointer-events:none}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cc-gr);margin-right:6px}
   .dot.on{background:var(--cc-am);box-shadow:0 0 8px var(--cc-am)}
@@ -172,7 +175,9 @@ class CctvCard extends HTMLElement {
       const lbl = document.createElement('div');
       lbl.className = 'lbl'; lbl.innerHTML = `<span class="dot"></span>${cam.name}`;
       const rec = document.createElement('div'); rec.className = 'rec';
-      tile.append(live, v, lbl, rec);
+      const ld = document.createElement('div'); ld.className = 'ld'; ld.textContent = 'Loading…';
+      tile.append(live, ld, v, lbl, rec);
+      this._cover(tile, live);
       tile.onclick = () => { this._order = [i, ...this._order.filter((x) => x !== i)]; this._layout(); };
       this._tiles.push(tile); this._liveCards.push(live); this._videos.push(v);
     });
@@ -191,10 +196,38 @@ class CctvCard extends HTMLElement {
       camCfg.live_provider = 'go2rtc';
       camCfg.go2rtc = { stream: big || !cam.sub ? cam.frigate : cam.sub };
     }
-    const live = this._helpers.createCardElement({ type: 'custom:advanced-camera-card', cameras: [camCfg], menu: { style: 'none' }, status_bar: { style: 'none' }, live: { controls: { builtin: false, next_previous: { style: 'none' }, thumbnails: { mode: 'none' }, timeline: { mode: 'none' } }, draggable: false, zoomable: false }, view: { default: 'live' }, dimensions: { aspect_ratio: '16:9' } });
+    const live = this._helpers.createCardElement({ type: 'custom:advanced-camera-card', cameras: [camCfg], menu: { style: 'none' }, status_bar: { style: 'none' }, live: { controls: { builtin: false, next_previous: { style: 'none' }, thumbnails: { mode: 'none' }, timeline: { mode: 'none' } }, draggable: false, zoomable: false }, view: { default: 'live' }, dimensions: { aspect_ratio: '16:9' }, performance: { features: { card_loading_indicator: false } } });
     live.classList.add('live');
     if (this._hass) live.hass = this._hass;
     return live;
+  }
+
+  // Our own "Loading…" box over a tile until its camera shows a real picture
+  // (hides the camera card's own loading screen with its version number).
+  _cover(tile, live) {
+    const ld = tile.querySelector('.ld');
+    if (!ld) return;
+    ld.classList.remove('off');
+    clearInterval(tile._ldTimer);
+    const t0 = Date.now();
+    tile._ldTimer = setInterval(() => {
+      if (!live.isConnected && Date.now() - t0 > 3000 || Date.now() - t0 > 20000 || this._hasFrame(live)) {
+        clearInterval(tile._ldTimer);
+        ld.classList.add('off');
+      }
+    }, 300);
+  }
+
+  _hasFrame(root) {
+    const stack = [root];
+    while (stack.length) {
+      const n = stack.pop();
+      if (n.tagName === 'VIDEO' && n.readyState >= 2 && n.videoWidth > 0) return true;
+      if (n.tagName === 'IMG' && n.complete && n.naturalWidth > 64) return true;
+      if (n.shadowRoot) stack.push(...n.shadowRoot.children);
+      if (n.children) stack.push(...n.children);
+    }
+    return false;
   }
 
   _layout() {
@@ -208,6 +241,7 @@ class CctvCard extends HTMLElement {
         const fresh = this._makeLive(this._config.cameras[i], big);
         tile.replaceChild(fresh, this._liveCards[i]);
         this._liveCards[i] = fresh;
+        this._cover(tile, fresh);
       }
       tile.classList.toggle('big', big);
       tile.dataset.laid = '1';
