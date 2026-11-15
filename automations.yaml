@@ -780,9 +780,7 @@
     takes a doorbell snapshot, asks LLM Vision (Gemini 2.5-flash) for a short witty
     compliment about how she looks today, then greets her with it on the kitchen +
     sitting-room speakers after a 2-min delay (volume boosted then restored). Falls
-    back to a generic greeting if vision fails. Guarded 24-07-2026: only fires if
-    Olivia is not already home (face recognition matched Cian as Olivia and greeted
-    the wrong child).'
+    back to a generic greeting if vision fails.'
   triggers:
   - platform: state
     entity_id: sensor.frigate_olivia_last_camera
@@ -797,11 +795,6 @@
     - wed
     - thu
     - fri
-  - condition: not
-    conditions:
-    - condition: state
-      entity_id: person.olivia_finn
-      state: home
   actions:
   - action: llmvision.image_analyzer
     data:
