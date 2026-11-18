@@ -4,10 +4,10 @@
  * The heating status line is shown VERBATIM (his vocabulary). Today's plan uses his Node-RED Household-page settings, copied into
  * the config (schedule: …) — the card can't read Node-RED, so if he changes them there, update the config too.
  */
-const CL_VERSION = "3";
-const CL_PLAN = `<svg viewBox="0 0 760 560" class="plan"><text class="fl" x="30" y="22">GROUND</text><text class="fl" x="330" y="22">FIRST</text><text class="fl" x="630" y="22">YARD</text><polygon class="room mot" data-m="binary_sensor.sitting_room_presence_occupancy" points="30.0,72.0 84.4,72.0 84.4,41.4 176.2,41.4 176.2,72.0 206.8,72.0 206.8,179.1 159.2,243.7 30.0,243.7"/>
+const CL_VERSION = "7";
+const CL_PLAN = `<svg viewBox="0 0 760 560" class="plan"><text class="fl" x="30" y="22">GROUND</text><text class="fl" x="330" y="22">FIRST</text><text class="fl" x="630" y="22">YARD</text><polygon class="room mot" data-m="binary_sensor.sitting_room_presence_occupancy" points="30.0,72.0 84.4,72.0 84.4,41.4 176.2,41.4 176.2,72.0 206.8,72.0 206.8,196.1 159.2,243.7 30.0,243.7"/>
 <text class="rl" x="118.4" y="142.6">Sitting Room</text>
-<polygon class="room mot" data-m="binary_sensor.hallway_motion_sensor_occupancy" points="206.8,72.0 274.8,72.0 274.8,243.7 221.8,243.7 201.4,264.1 201.4,281.1 30.0,281.1 30.0,243.7 159.2,243.7 206.8,179.1"/>
+<polygon class="room mot" data-m="binary_sensor.hallway_motion_sensor_occupancy" points="206.8,72.0 274.8,72.0 274.8,243.7 221.8,243.7 201.4,264.1 201.4,281.1 30.0,281.1 30.0,243.7 159.2,243.7 206.8,196.1"/>
 <text class="rl" x="240.8" y="140.0">Hallway</text>
 <polygon class="room"  points="221.8,243.7 274.8,243.7 274.8,320.9 201.4,320.9 201.4,264.1"/>
 <text class="rl" x="238.1" y="282.3">Toilet</text>
@@ -25,8 +25,8 @@ const CL_PLAN = `<svg viewBox="0 0 760 560" class="plan"><text class="fl" x="30"
 <line class="we" x1="161.2" y1="531.0" x2="161.2" y2="412.0"/>
 <line class="we" x1="161.2" y1="412.0" x2="30.0" y2="412.0"/>
 <line class="we" x1="30.0" y1="412.0" x2="30.0" y2="72.0"/>
-<line class="wi" x1="206.8" y1="72.0" x2="206.8" y2="179.1"/>
-<line class="wi" x1="206.8" y1="179.1" x2="159.2" y2="243.7"/>
+<line class="wi" x1="206.8" y1="72.0" x2="206.8" y2="196.1"/>
+<line class="wi" x1="206.8" y1="196.1" x2="159.2" y2="243.7"/>
 <line class="wi" x1="30.0" y1="243.7" x2="159.2" y2="243.7"/>
 <line class="wi" x1="30.0" y1="281.1" x2="201.4" y2="281.1"/>
 <line class="wi" x1="221.8" y1="243.7" x2="274.8" y2="243.7"/>
@@ -38,7 +38,7 @@ const CL_PLAN = `<svg viewBox="0 0 760 560" class="plan"><text class="fl" x="30"
 <polygon class="room"  points="330.0,166.5 425.2,166.5 425.2,201.9 330.0,201.9"/>
 <polygon class="room"  points="473.5,72.0 574.8,72.0 574.8,201.9 473.5,201.9"/>
 <text class="rl" x="524.1" y="136.9">Aoife</text>
-<polygon class="room mot" data-m="binary_sensor.landing_motion_sensor_occupancy" points="330.0,201.9 499.0,201.9 499.0,316.8 460.2,316.8 460.2,276.0 444.6,276.0 444.6,243.7 343.6,243.7 343.6,276.0 330.0,276.0"/>
+<polygon class="room mot" data-m="binary_sensor.landing_motion_sensor_occupancy" points="330.0,201.9 499.0,201.9 499.0,316.8 460.2,316.8 460.2,243.7 359.2,243.7 359.2,276.0 330.0,276.0"/>
 <text class="rl" x="398.0" y="221.6">Landing</text>
 <polygon class="room"  points="499.0,201.9 574.8,201.9 574.8,274.6 499.0,274.6"/>
 <text class="rl" x="536.9" y="238.3">Bathroom</text>
@@ -106,7 +106,7 @@ h3 .r{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:400}
 .btn.or{background:#ff8100;border-color:#ff8100;color:#fff}.btn.or.on{box-shadow:0 0 0 3px rgba(255,129,0,.35)}.btn.cx.on{border-color:var(--rd);color:var(--rd)}.btn.cx{color:var(--k-sec)}
 .away{display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px}
 .tgl{width:44px;height:26px;border-radius:999px;background:rgba(127,140,170,.35);position:relative;flex:none;cursor:pointer}.tgl:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
-.tgl.on{background:var(--cy)}.tgl.on:after{left:21px}.away .s{color:var(--k-sec);font-size:12px}
+.tgl.on{background:var(--state-climate-heat-color, #ff8100)}.tgl.on:after{left:21px}.away .s{color:var(--k-sec);font-size:12px}
 svg.ch{width:100%;height:auto;display:block}.sc{overflow-x:auto;scrollbar-width:thin}.ph .sc svg.ch{width:720px;max-width:none}
 .lg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--k-sec);margin-top:6px}.lg span{display:flex;align-items:center;gap:6px}.lg i{display:inline-block;width:16px;height:4px;border-radius:2px}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}.ph .kpis{grid-template-columns:1fr 1fr}
@@ -218,9 +218,9 @@ class ClimateCard extends HTMLElement {
     const arc = (a1, a2) => { const [x1, y1] = pt(a1), [x2, y2] = pt(Math.max(a1 + .01, a2)); return `M${x1} ${y1} A${Rr} ${Rr} 0 ${a2 - a1 > 180 ? 1 : 0} 1 ${x2} ${y2}`; };
     const [tx, ty] = pt(ang(tgt || lo));
     R.getElementById("dial").innerHTML = `<svg viewBox="0 0 170 170"><path d="${arc(a0, a0 + span)}" stroke="rgba(127,140,170,.25)" stroke-width="12" fill="none" stroke-linecap="round"/>
-      ${cur != null ? `<path d="${arc(a0, ang(cur))}" stroke="${heating ? "#ff8100" : "#35c9e6"}" stroke-width="12" fill="none" stroke-linecap="round"/>` : ""}
-      ${tgt != null ? `<circle cx="${tx}" cy="${ty}" r="7" fill="var(--tgt)" stroke="#fff" stroke-width="2"/>` : ""}</svg>
-      <div class="c"><div class="t">${cur != null ? (+cur).toFixed(1) + "°" : "–"}</div><div class="s">target <b style="color:var(--tgt)">${tgt != null ? (+tgt).toFixed(1) + "°" : "–"}</b></div></div>`;
+      ${cur != null ? `<path d="${arc(a0, ang(cur))}" stroke="${heating ? "var(--state-climate-heat-color, #ff8100)" : "var(--state-climate-idle-color, #8a8a8a)"}" stroke-width="12" fill="none" stroke-linecap="round"/>` : ""}
+      ${tgt != null ? `<circle cx="${tx}" cy="${ty}" r="7" fill="${heating ? "var(--state-climate-heat-color, #ff8100)" : "var(--primary-text-color)"}" stroke="var(--k-deep, #0e1420)" stroke-width="2"/>` : ""}</svg>
+      <div class="c"><div class="t">${cur != null ? (+cur).toFixed(1) + "°" : "–"}</div><div class="s">target <b style="color:${heating ? "var(--state-climate-heat-color, #ff8100)" : "var(--secondary-text-color)"}">${tgt != null ? (+tgt).toFixed(1) + "°" : "–"}</b></div></div>`;
     const parts = status.split(" — ");
     R.getElementById("stat").innerHTML = `<b>${cEsc(parts[0])}</b>${parts[1] ? " — " + cEsc(parts.slice(1).join(" — ")) : ""}`;
     const out = this._a(c.weather, "temperature"), hrs = this._n(c.hours);

@@ -166,7 +166,7 @@
       },
       {
         "id": "d9cfb2aa2826419481121c12f6b25a8c",
-        "url": "/local/security-card.js?v=3",
+        "url": "/local/security-card.js?v=5",
         "type": "module"
       },
       {
@@ -186,7 +186,7 @@
       },
       {
         "id": "83a9ba261e054cd1a580cd4288a73f70",
-        "url": "/local/climate-card.js?v=3",
+        "url": "/local/climate-card.js?v=7",
         "type": "module"
       },
       {
@@ -201,7 +201,7 @@
       },
       {
         "id": "12787fbd92c6420588e7e69cf3e6215a",
-        "url": "/local/cctv-where-card.js?v=3",
+        "url": "/local/cctv-where-card.js?v=17",
         "type": "module"
       },
       {

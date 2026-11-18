@@ -5,11 +5,11 @@
  * (Home.xml plan) with room colours, doors/windows, camera dots + beams from HIS markup (beam turns per his corrections), and
  * dashed lines from each box to its camera, recomputed on resize.
  */
-const CW_VERSION = "3";
+const CW_VERSION = "17";
 const CW_OCC = { "Front Van": "binary_sensor.front_van_all_occupancy", Doorbell: "binary_sensor.doorbell_all_occupancy", "Front Car": "binary_sensor.front_car_all_occupancy", "Rear Door": "binary_sensor.rear_door_all_occupancy", "Rear Shed": "binary_sensor.rear_shed_all_occupancy" }; // his cctv-card occupancy sensors (Frigate)
-const CW_PLAN = `<svg viewBox="10 20 290 530" class="plan" id="pl"><text class="fl" x="30" y="22">GROUND</text><text class="fl" x="330" y="22">FIRST</text><text class="fl" x="630" y="22">YARD</text><polygon class="room mot" data-m="binary_sensor.sitting_room_presence_occupancy" points="30.0,72.0 84.4,72.0 84.4,41.4 176.2,41.4 176.2,72.0 206.8,72.0 206.8,179.1 159.2,243.7 30.0,243.7"/>
+const CW_PLAN = `<svg viewBox="10 20 290 530" class="plan" id="pl"><text class="fl" x="30" y="22">GROUND</text><text class="fl" x="330" y="22">FIRST</text><text class="fl" x="630" y="22">YARD</text><polygon class="room mot" data-m="binary_sensor.sitting_room_presence_occupancy" points="30.0,72.0 84.4,72.0 84.4,41.4 176.2,41.4 176.2,72.0 206.8,72.0 206.8,196.1 159.2,243.7 30.0,243.7"/>
 <text class="rl" x="118.4" y="142.6">Sitting Room</text>
-<polygon class="room mot" data-m="binary_sensor.hallway_motion_sensor_occupancy" points="206.8,72.0 274.8,72.0 274.8,243.7 221.8,243.7 201.4,264.1 201.4,281.1 30.0,281.1 30.0,243.7 159.2,243.7 206.8,179.1"/>
+<polygon class="room mot" data-m="binary_sensor.hallway_motion_sensor_occupancy" points="206.8,72.0 274.8,72.0 274.8,243.7 221.8,243.7 201.4,264.1 201.4,281.1 30.0,281.1 30.0,243.7 159.2,243.7 206.8,196.1"/>
 <text class="rl" x="240.8" y="140.0">Hallway</text>
 <polygon class="room"  points="221.8,243.7 274.8,243.7 274.8,320.9 201.4,320.9 201.4,264.1"/>
 <text class="rl" x="238.1" y="282.3">Toilet</text>
@@ -27,8 +27,8 @@ const CW_PLAN = `<svg viewBox="10 20 290 530" class="plan" id="pl"><text class="
 <line class="we" x1="161.2" y1="531.0" x2="161.2" y2="412.0"/>
 <line class="we" x1="161.2" y1="412.0" x2="30.0" y2="412.0"/>
 <line class="we" x1="30.0" y1="412.0" x2="30.0" y2="72.0"/>
-<line class="wi" x1="206.8" y1="72.0" x2="206.8" y2="179.1"/>
-<line class="wi" x1="206.8" y1="179.1" x2="159.2" y2="243.7"/>
+<line class="wi" x1="206.8" y1="72.0" x2="206.8" y2="196.1"/>
+<line class="wi" x1="206.8" y1="196.1" x2="159.2" y2="243.7"/>
 <line class="wi" x1="30.0" y1="243.7" x2="159.2" y2="243.7"/>
 <line class="wi" x1="30.0" y1="281.1" x2="201.4" y2="281.1"/>
 <line class="wi" x1="221.8" y1="243.7" x2="274.8" y2="243.7"/>
@@ -40,7 +40,7 @@ const CW_PLAN = `<svg viewBox="10 20 290 530" class="plan" id="pl"><text class="
 <polygon class="room"  points="330.0,166.5 425.2,166.5 425.2,201.9 330.0,201.9"/>
 <polygon class="room"  points="473.5,72.0 574.8,72.0 574.8,201.9 473.5,201.9"/>
 <text class="rl" x="524.1" y="136.9">Aoife</text>
-<polygon class="room mot" data-m="binary_sensor.landing_motion_sensor_occupancy" points="330.0,201.9 499.0,201.9 499.0,316.8 460.2,316.8 460.2,276.0 444.6,276.0 444.6,243.7 343.6,243.7 343.6,276.0 330.0,276.0"/>
+<polygon class="room mot" data-m="binary_sensor.landing_motion_sensor_occupancy" points="330.0,201.9 499.0,201.9 499.0,316.8 460.2,316.8 460.2,243.7 359.2,243.7 359.2,276.0 330.0,276.0"/>
 <text class="rl" x="398.0" y="221.6">Landing</text>
 <polygon class="room"  points="499.0,201.9 574.8,201.9 574.8,274.6 499.0,274.6"/>
 <text class="rl" x="536.9" y="238.3">Bathroom</text>
@@ -69,7 +69,7 @@ const CW_PLAN = `<svg viewBox="10 20 290 530" class="plan" id="pl"><text class="
 <line class="wi" x1="460.2" y1="276.0" x2="460.2" y2="350.8"/>
 <line class="wi" x1="460.2" y1="350.8" x2="499.0" y2="350.8"/>
 <line class="wi" x1="481.3" y1="350.8" x2="481.3" y2="412.0"/><rect class="room" x="630" y="90" width="81" height="102"/><rect class="shedwall" x="630" y="90" width="81" height="102"/><text class="rl" x="670" y="145">Shed</text><g class="sn door" data-e="binary_sensor.front_door_contact"><line class="hit" x1="217.0" y1="72.0" x2="247.6" y2="72.0"/><line class="op" x1="217.0" y1="72.0" x2="247.6" y2="72.0"/></g><g class="sn door" data-e="binary_sensor.back_door_contact"><line class="hit" x1="161.2" y1="429.0" x2="161.2" y2="459.6"/><line class="op" x1="161.2" y1="429.0" x2="161.2" y2="459.6"/></g><g class="sn door" data-e="binary_sensor.patio_door_contact"><line class="hit" x1="74.2" y1="412.0" x2="135.4" y2="412.0"/><line class="op" x1="74.2" y1="412.0" x2="135.4" y2="412.0"/></g><g class="sn win" data-e="binary_sensor.back_window_contact"><line class="hit" x1="210.2" y1="531.0" x2="244.2" y2="531.0"/><line class="op" x1="210.2" y1="531.0" x2="244.2" y2="531.0"/></g><g class="sn win" data-e="binary_sensor.sitting_room_window_contact"><line class="hit" x1="98.0" y1="41.4" x2="162.6" y2="41.4"/><line class="op" x1="98.0" y1="41.4" x2="162.6" y2="41.4"/></g><g class="sn win" data-e="binary_sensor.colm_window_contact"><line class="hit" x1="398.0" y1="41.4" x2="462.6" y2="41.4"/><line class="op" x1="398.0" y1="41.4" x2="462.6" y2="41.4"/></g><g class="sn win" data-e="binary_sensor.aoife_window_contact"><line class="hit" x1="500.0" y1="72.0" x2="554.4" y2="72.0"/><line class="op" x1="500.0" y1="72.0" x2="554.4" y2="72.0"/></g><g class="sn win" data-e="binary_sensor.cian_window_contact"><line class="hit" x1="360.6" y1="412.0" x2="411.6" y2="412.0"/><line class="op" x1="360.6" y1="412.0" x2="411.6" y2="412.0"/></g><g class="sn win" data-e="binary_sensor.office_window_contact"><line class="hit" x1="513.6" y1="412.0" x2="554.4" y2="412.0"/><line class="op" x1="513.6" y1="412.0" x2="554.4" y2="412.0"/></g><g class="sn door" data-e="binary_sensor.shed_door_contact"><line class="hit" x1="655.5" y1="192.0" x2="686.1" y2="192.0"/><line class="op" x1="655.5" y1="192.0" x2="686.1" y2="192.0"/></g></svg>`;
-const CW_CAMS = {"M": {"Front Van": [33.5, 61.5, -60, true], "Doorbell": [211.3, 64.7, -65, true], "Front Car": [268.3, 64.7, -120, true], "Rear Door": [38.7, 417.0, 65, true], "Rear Shed": [244.7, 478.0, 105, true]}, "BEAM": {"Rear Door": [115, 38], "Rear Shed": [115, 38], "Front Van": [115, 38], "Front Car": [115, 38]}};   // M: name -> [x, y, angle°, known] in plan units; BEAM: name -> [radius, half-angle]
+const CW_CAMS = {"M": {"Front Van": [33.5, 64.7, -60, true], "Doorbell": [211.3, 64.7, -65, true], "Front Car": [268.3, 64.7, -128, true], "Rear Door": [38.7, 417.0, 40, true], "Rear Shed": [234.0, 412.0, 95, true]}, "BEAM": {"Rear Door": [160, 38], "Rear Shed": [160, 38], "Front Van": [130, 38], "Front Car": [130, 38]}};   // M: name -> [x, y, angle°, known] in plan units; BEAM: name -> [radius, half-angle]
 const CW_RC = { "Sitting Room": "#2b3a5c", Hallway: "#33405a", Toilet: "#2d4a55", Kitchen: "#3b3a2c", Utility: "#3a3342" };
 const CW_RC_LT = { "Sitting Room": "#dfe6f5", Hallway: "#e4e8f0", Toilet: "#dcecef", Kitchen: "#efecdc", Utility: "#ece4ef" };
 const CW_CSS = `
