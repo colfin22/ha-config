@@ -30,6 +30,7 @@ from .const import (
     CONF_MEDIUM_WAIT_DAYS,
     CONF_SMALL_WAIT_DAYS,
     CONF_TRUSTED_VOTERS,
+    CONF_WHITELISTED_ENTITIES,
     DEFAULT_WAIT_DAYS,
     DOMAIN,
     WEEKDAY_READY_OPTION_KEYS,
@@ -155,6 +156,26 @@ def _is_excluded_from_auto_install(entity_id: str, excluded_entities: frozenset[
     return entity_id in excluded_entities
 
 
+def has_native_auto_update(state: State) -> bool:
+    """True when Home Assistant's own per-entity "Auto update" toggle is on
+    for this entity (state.attributes["auto_update"]), not anything Update
+    Manager itself set. Home Assistant then installs this update on its own
+    schedule regardless of staging/community/auto-install rules here, and
+    its own update.skip service refuses to run on it (see staging_skip.py's
+    own auto_update check). install_manager.py treats this the same as
+    auto_install_excluded, and the panel badges it, for that same reason."""
+    return bool(state.attributes.get("auto_update"))
+
+
+def _is_whitelisted_for_auto_install(entity_id: str, whitelisted_entities: frozenset[str]) -> bool:
+    """The opposite standing override -- see CONF_WHITELISTED_ENTITIES's
+    own comment. An entity can never be in both this and excluded_entities
+    at once (websocket_api.py's own async_apply_options rejects that
+    combination outright), so there's no precedence question to resolve
+    between the two of these at the call site either."""
+    return entity_id in whitelisted_entities
+
+
 # The shape any status without a countdown attached to it uses, whether
 # that's staging.py's own "blocked"/a "ready" that isn't projected any
 # further out, or coordinator.py's own "skipped" (which isn't a StagingResult
@@ -190,6 +211,10 @@ def _cache_timing_fields(result: StagingResult, now: datetime) -> dict:
 
 def excluded_entities_from_options(options: dict) -> frozenset[str]:
     return frozenset(options.get(CONF_EXCLUDED_ENTITIES, []))
+
+
+def whitelisted_entities_from_options(options: dict) -> frozenset[str]:
+    return frozenset(options.get(CONF_WHITELISTED_ENTITIES, []))
 
 
 def trusted_voters_from_options(options: dict) -> list[str]:
@@ -343,10 +368,12 @@ class UpdateManagerCoordinator:
         excluded_entities: frozenset[str] = frozenset(),
         community_verdict_manager: CommunityVerdictManager | None = None,
         schedule: PostponementSchedule = EMPTY_SCHEDULE,
+        whitelisted_entities: frozenset[str] = frozenset(),
     ) -> None:
         self.hass = hass
         self.rules = rules
         self.excluded_entities = excluded_entities
+        self.whitelisted_entities = whitelisted_entities
         self.schedule = schedule
         # Cached alongside self.schedule itself (see async_update_rules'
         # own matching assignment below), not rescanned inside
@@ -452,6 +479,23 @@ class UpdateManagerCoordinator:
         # Defaults to "never ours" so this coordinator still works
         # standalone (e.g. in tests) without that wiring.
         self._is_own_skip: Callable[[str, str], bool] = lambda entity_id, version: False
+        # Same wiring pattern as self._is_own_skip above, same reason
+        # (install_manager.py depends on this coordinator, not the other
+        # way around, so its own self._postponed can't be read directly
+        # here). Lets _derive_status_fields report "waiting" for an
+        # entity install_manager.py has parked in self._postponed, so
+        # every consumer of cached["status"] (sensor.py's own per-status
+        # counts, staging_skip.py's own hide_postponed eligibility check,
+        # not just the panel's own separate, frontend-only reclassification)
+        # agrees with each other. Found live, 2026-11-02: a postponed
+        # entity counted under the "Ready" sensor while the panel showed it
+        # under "Postponed", and hide_postponed didn't hide it from HA's
+        # own update count the way a staging-wait "Postponed" entity
+        # already does, because this coordinator had no way to know a
+        # "ready" entity was actually blocked at the real install-attempt
+        # level. Defaults to "never postponed" so this coordinator still
+        # works standalone without that wiring.
+        self._is_postponed: Callable[[str], bool] = lambda entity_id: False
 
     def set_master_enabled(self, enabled: bool) -> None:
         self.master_enabled = enabled
@@ -478,6 +522,9 @@ class UpdateManagerCoordinator:
 
     def set_own_skip_checker(self, checker: Callable[[str, str], bool]) -> None:
         self._is_own_skip = checker
+
+    def set_postponed_checker(self, checker: Callable[[str], bool]) -> None:
+        self._is_postponed = checker
 
     async def async_start(self) -> None:
         # Gathered, not sequential awaits -- fully independent Store reads,
@@ -527,9 +574,14 @@ class UpdateManagerCoordinator:
 
         for entity_id in self.hass.states.async_entity_ids("update"):
             state = self.hass.states.get(entity_id)
+            baseline_already_checked = False
             if state is not None:
-                self._check_and_advance_installed_baseline(entity_id, state, retroactive=True)
-            await self._async_refresh_one(entity_id, baseline_already_checked=state is not None)
+                baseline_already_checked = self._check_and_advance_installed_baseline(
+                    entity_id, state, retroactive=True
+                )
+            await self._async_refresh_one(
+                entity_id, baseline_already_checked=baseline_already_checked, retroactive=True
+            )
             await asyncio.sleep(_STARTUP_QUERY_STAGGER)
 
         # _async_refresh_one above (unlike its own async_refresh_one/
@@ -567,7 +619,7 @@ class UpdateManagerCoordinator:
         return entry.unique_id if entry is not None and entry.unique_id else entity_id
 
     @callback
-    def _check_and_advance_installed_baseline(self, entity_id: str, state: State, *, retroactive: bool) -> None:
+    def _check_and_advance_installed_baseline(self, entity_id: str, state: State, *, retroactive: bool) -> bool:
         """Compares `state`'s own installed_version against the persisted
         restart-recovery baseline (self._last_installed_version), fires the
         install listeners if they genuinely disagree, then advances the
@@ -628,14 +680,36 @@ class UpdateManagerCoordinator:
         entirely, so "manual" is always correct for them regardless) --
         narrow enough, and persisting dispatch records across a restart
         invasive enough, that this is left as a documented gap rather than
-        fixed here."""
+        fixed here.
+
+        Returns whether this call actually evaluated the transition
+        (fired the install listeners, or found no disagreement worth
+        acting on) rather than being suppressed outright by the startup
+        grace window below. async_start's own startup sweep uses this to
+        decide whether _async_refresh_one's own follow-up call for the
+        same entity_id is still needed: found live, 2026-09-12, a real
+        Core update installed via a restart went missing from History
+        entirely, not just misattributed. The sweep's own retroactive call
+        is always inside the grace window right at process start (it was
+        just armed a moment earlier in this same async_start), so it's
+        suppressed every single time for a transition discovered this way;
+        skipping the follow-up unconditionally, as a prior fix here did,
+        left nothing to ever actually log it.
+
+        Home Assistant's own Core/Supervisor/OS update entities are exempt
+        from the grace window below entirely, see that condition's own
+        comment for why (2026-11-02)."""
         new_installed = state.attributes.get("installed_version")
         if not new_installed or new_installed == _PLACEHOLDER_INSTALLED_VERSION:
-            return
+            return True
         key = self._stable_key(entity_id)
         old_installed = self._last_installed_version.get(key)
         if old_installed and old_installed != _PLACEHOLDER_INSTALLED_VERSION and old_installed != new_installed:
-            if retroactive and self._within_startup_grace():
+            if (
+                retroactive
+                and self._within_startup_grace()
+                and home_assistant_component_for_entity(self.hass, entity_id) is None
+            ):
                 # Contradicts a baseline persisted from before this
                 # process's own current run. See _within_startup_grace's
                 # own docstring and _RESTART_LAG_GRACE's own comment. Trust
@@ -655,11 +729,36 @@ class UpdateManagerCoordinator:
                 # A live event is, by definition, a real observation right
                 # now, not something to second-guess the way a retroactive
                 # snapshot with no reliable timestamp has to be.
-                return
+                #
+                # Home Assistant's own Core/Supervisor/OS update entities
+                # (found live, 2026-11-02: a Core update went undetected for
+                # a full week) are exempted from this suppression entirely:
+                # unlike a HACS-managed integration that can take a moment
+                # to rescan and report its true state after restarting, all
+                # three read their installed_version synchronously at setup
+                # (homeassistant.const.__version__ for Core, a direct
+                # Supervisor/OS API call for the other two), so there's
+                # nothing here for the grace window to actually guard
+                # against. Suppressing them anyway was actively harmful:
+                # once installed, all three immediately stop being a
+                # pending update and drop out of self.cache, so
+                # _async_periodic_recheck's own self-healing loop (which
+                # only ever walks self.cache) can never reach them again:
+                # the only thing left to catch a suppressed transition here
+                # was pure chance, whichever future restart happened to
+                # observe it outside its own new grace window. Safe to
+                # evaluate immediately instead: _on_install's own retroactive
+                # branch already always resolves to "manual" for these
+                # three regardless (see this method's own docstring,
+                # "Core/Supervisor/OS themselves are hard-excluded from
+                # auto-install entirely"), so there's no misattribution risk
+                # being skipped here either.
+                return False
             self._fire_install_listeners(entity_id, old_installed, new_installed, state, retroactive)
         if old_installed != new_installed:
             self._last_installed_version[key] = new_installed
             self._last_installed_store.async_delay_save(lambda: self._last_installed_version, 1.0)
+        return True
 
     def _within_startup_grace(self) -> bool:
         """True for a short window after this coordinator's own async_start.
@@ -816,10 +915,15 @@ class UpdateManagerCoordinator:
         # pass is the safety net that still gets to it eventually, same
         # "eventually consistent" role _async_recheck_stuck_installs already
         # plays for rollout_manager.py's own equivalent grace period.
+        # One hass.states.get per entity_id, not two (the staleness check
+        # below and native_auto_update further down used to each fetch it
+        # separately) -- this runs every recompute pass over every cached
+        # entity, a real hot path.
+        states = {entity_id: self.hass.states.get(entity_id) for entity_id in self.cache}
         stale = [
             entity_id
-            for entity_id in self.cache
-            if (state := self.hass.states.get(entity_id)) is not None
+            for entity_id, state in states.items()
+            if state is not None
             and state.state == "unavailable"
             and now - state.last_changed >= _CACHE_UNAVAILABLE_GRACE
         ]
@@ -834,6 +938,12 @@ class UpdateManagerCoordinator:
             cached["auto_install_excluded"] = _is_excluded_from_auto_install(
                 entity_id, self.excluded_entities
             )
+            cached["auto_install_whitelisted"] = _is_whitelisted_for_auto_install(
+                entity_id, self.whitelisted_entities
+            )
+            state = states[entity_id]
+            if state is not None:
+                cached["native_auto_update"] = has_native_auto_update(state)
 
     async def _async_periodic_recheck(self, now: datetime) -> None:
         # Self-healing safety net (added 2026-08-18): re-derives the
@@ -859,6 +969,7 @@ class UpdateManagerCoordinator:
         rules: StagingRules,
         excluded_entities: frozenset[str] | None = None,
         schedule: PostponementSchedule | None = None,
+        whitelisted_entities: frozenset[str] | None = None,
     ) -> None:
         """Applies newly-saved staging rules (and, since 2026-07-16, the
         user's own excluded-entities picks, and now the postponement
@@ -874,6 +985,8 @@ class UpdateManagerCoordinator:
         self.rules = rules
         if excluded_entities is not None:
             self.excluded_entities = excluded_entities
+        if whitelisted_entities is not None:
+            self.whitelisted_entities = whitelisted_entities
         if schedule is not None:
             self.schedule = schedule
             self._schedule_active = any(day.enabled for day in schedule.days)
@@ -905,18 +1018,52 @@ class UpdateManagerCoordinator:
         # all.
         old_latest = old_state.attributes.get("latest_version") if old_state else None
         new_latest = new_state.attributes.get("latest_version") if new_state else None
-        old_key = (old_state.state, old_installed, old_latest) if old_state else None
-        new_key = (new_state.state, new_installed, new_latest) if new_state else None
+        # auto_update included here too, found live, 2026-11-03: toggling
+        # Home Assistant's own per-entity "Auto update" switch (Settings >
+        # Apps > the app > Info) changes nothing else in this key, so a
+        # live flip of just that one attribute used to compare equal and
+        # get skipped entirely, leaving cached["native_auto_update"] (see
+        # has_native_auto_update) stale until the next unrelated event or
+        # the periodic recheck caught up to it.
+        old_auto_update = has_native_auto_update(old_state) if old_state else None
+        new_auto_update = has_native_auto_update(new_state) if new_state else None
+        old_key = (old_state.state, old_installed, old_latest, old_auto_update) if old_state else None
+        new_key = (new_state.state, new_installed, new_latest, new_auto_update) if new_state else None
         if old_state is not None and new_state is not None and old_key == new_key:
             # Some other attribute changed (e.g. in_progress toggling
             # during an install) -- not something a fresh recorder lookup
             # would answer differently, skip it rather than re-querying.
             return
 
-        self.hass.async_create_task(self._async_handle_changed(entity_id))
+        # An entity's very first state this session (old_state is None),
+        # seen within the startup grace window, is almost certainly the
+        # startup sweep's own blind spot, not a genuinely live transition --
+        # confirmed live, 2026-10-20 (direct user feedback, a Core update
+        # "not always" making it into History): async_start's own sweep
+        # only iterates hass.states.async_entity_ids("update") as it exists
+        # at that one instant; an update entity the built-in `update`
+        # platform hasn't registered yet at that exact moment (setup order
+        # isn't guaranteed relative to this integration's own
+        # coordinator.async_start) is simply absent from that snapshot,
+        # with nothing to catch it until its own first live state_changed
+        # event fires here instead. That event used to always flow through
+        # as retroactive=False (the default, correct for a *genuinely* live
+        # change on an entity already being tracked), landing in
+        # __init__.py's own _on_install with no was_manually_requested/
+        # context.user_id left to go on (both wiped by the same restart),
+        # falling through to the same unsafe "External" guess the startup
+        # sweep's own follow-up call was already fixed for (2026-10-09) --
+        # this is the third, until-now-unpatched entry point into the same
+        # underlying gap, not a new one. Outside the grace window, or for
+        # an entity genuinely new (never tracked before, so no persisted
+        # baseline to even compare against), this is False exactly like
+        # before, so a real plain reload (2026-08-25's own fix: _started_at
+        # is only armed for a genuine restart to begin with) is unaffected.
+        retroactive = old_state is None and self._within_startup_grace()
+        self.hass.async_create_task(self._async_handle_changed(entity_id, retroactive=retroactive))
 
-    async def _async_handle_changed(self, entity_id: str) -> None:
-        await self._async_refresh_one(entity_id)
+    async def _async_handle_changed(self, entity_id: str, *, retroactive: bool = False) -> None:
+        await self._async_refresh_one(entity_id, retroactive=retroactive)
         self._fire_listeners()
 
     async def async_refresh_one(self, entity_id: str) -> None:
@@ -968,7 +1115,9 @@ class UpdateManagerCoordinator:
         if self.hass.states.get(new_entity_id) is not None:
             await self.async_refresh_one(new_entity_id)
 
-    async def _async_refresh_one(self, entity_id: str, *, baseline_already_checked: bool = False) -> None:
+    async def _async_refresh_one(
+        self, entity_id: str, *, baseline_already_checked: bool = False, retroactive: bool = False
+    ) -> None:
         state = self.hass.states.get(entity_id)
         if state is None:
             self.cache.pop(entity_id, None)
@@ -1000,23 +1149,39 @@ class UpdateManagerCoordinator:
         # Skipped when the caller already ran this for the exact same
         # entity_id and state a moment ago (async_start's own startup
         # sweep, synchronously, with no await in between): running it here
-        # too would silently re-fire the exact same transition again, this
-        # time as retroactive=False. Found live, 2026-09-03: a Home
-        # Assistant Core update, installed via HA's own more-info dialog
-        # while genuinely postponed, showed up in History as install
-        # method "external" instead of "manual". Installing Core always
-        # restarts Home Assistant to take effect, which wipes rollout_
-        # manager.py's own in-memory record of who requested it before the
-        # transition is ever observed; the startup sweep's own retroactive
-        # call already accounts for exactly that (see __init__.py's own
-        # _on_install: retroactive always falls back to the safe "manual"
-        # default, never guesses "external" from an untrustworthy signal),
-        # but that call is itself routinely suppressed by
-        # _within_startup_grace right at process start, without advancing
-        # the baseline, only for this same call to immediately re-fire the
-        # unsuppressed transition, mislabeled as a fresh live observation.
+        # too would silently re-fire the exact same transition again.
+        # `retroactive` (only ever True when passed by that same startup
+        # sweep, see this method's own call sites) matters for exactly that
+        # re-fire: found live, 2026-09-03, a Home Assistant Core update
+        # installed via HA's own more-info dialog showed up in History as
+        # install method "external" instead of "manual". Installing Core
+        # always restarts Home Assistant to take effect, which wipes
+        # rollout_manager.py's own in-memory record of who requested it
+        # before the transition is ever observed; the startup sweep's own
+        # retroactive call already accounts for exactly that (see
+        # __init__.py's own _on_install: retroactive always falls back to
+        # the safe "manual" default, never guesses "external" from an
+        # untrustworthy signal), but that call is itself routinely
+        # suppressed by _within_startup_grace right at process start,
+        # without advancing the baseline, only for this same call to
+        # immediately re-fire the unsuppressed transition. Still
+        # reproducible live, 2026-10-09 (every Core update kept showing
+        # "external", regardless of who requested it) because this line
+        # hardcoded retroactive=False on that re-fire regardless of why it
+        # was needed, mislabeling the sweep's own already-suppressed
+        # retroactive transition as a brand new live one -- __init__.py's
+        # own _on_install only trusts was_manually_requested()/
+        # state.context.user_id for a live read, both already wiped by the
+        # restart by the time this ran. Passing the sweep's own intent
+        # through instead keeps this re-fire retroactive too, so it's
+        # re-suppressed (not misattributed) if still within the grace
+        # window, and correctly logged as "manual" by the periodic recheck
+        # once that window passes -- never skipped outright either (a
+        # since-reverted earlier attempt at exactly that left the
+        # transition missing from History entirely, not just
+        # misattributed, see async_start's own startup sweep comment).
         if not baseline_already_checked:
-            self._check_and_advance_installed_baseline(entity_id, state, retroactive=False)
+            self._check_and_advance_installed_baseline(entity_id, state, retroactive=retroactive)
 
         # HA's own update entities are always exactly "on" (an update is
         # available) or "off" -- "off" normally means genuinely up to
@@ -1122,6 +1287,27 @@ class UpdateManagerCoordinator:
         self._available_since[key] = {"version": latest_version, "since": available_since.isoformat()}
         await self._available_since_store.async_save(self._available_since)
         return available_since
+
+    async def async_reset_available_since(self, entity_id: str, to_version: str) -> None:
+        """Re-anchors to_version's own available_since to right now.
+        Called by install_manager.py once a postponed-for-a-newer-HA-Core
+        update resolves (self._postponed's own comment), direct user
+        feedback, 2026-11-02: the staging wait period (small/medium/large)
+        should start counting once an update is actually actionable, not
+        run invisibly in parallel with however long it sat blocked on the
+        HA Core requirement. Otherwise an update postponed for weeks
+        could clear its entire wait period, or even come out already
+        "ready", the moment HA Core itself updates, never having had a real
+        chance for problems to surface while it was genuinely installable.
+        Overwriting self._available_since[key] here is safe and durable the
+        same way _async_get_available_since's own one-time backfill is: the
+        next staging check for this exact to_version reads this record
+        before ever falling through to a fresh recorder lookup, so this new
+        anchor sticks instead of being silently re-derived back to the
+        original, pre-postponement date."""
+        key = self._stable_key(entity_id)
+        self._available_since[key] = {"version": to_version, "since": dt_util.utcnow().isoformat()}
+        await self._available_since_store.async_save(self._available_since)
 
     def _is_force_ready(self, entity_id: str, latest: str) -> bool:
         record = self._force_ready.get(self._stable_key(entity_id))
@@ -1274,6 +1460,26 @@ class UpdateManagerCoordinator:
                 return target.isoformat()
         return wait_deadline.isoformat()
 
+    def _status_with_postponed_override(self, entity_id: str, status: str) -> str:
+        """Reported as "waiting", same as a staging-wait Postponed entity,
+        not the staging-only "ready" the caller would otherwise use. See
+        self._is_postponed's own comment. Shared by _derive_status_fields
+        (status_now's own fresh-per-request path) and _async_cache_active
+        (the actual self.cache write on every live state_changed event).
+        Found live, 2026-11-02: patching only the first of those left
+        sensor.py's own per-status counts and staging_skip.py's
+        hide_postponed check (both read self.cache directly, never through
+        status_now) still seeing the unpatched "ready", while the panel
+        itself (which does go through status_now) already showed
+        "Postponed" correctly: same underlying fact, two different
+        answers depending on which path asked.
+
+        Only overrides "ready": a "blocked" entity (community-held-back)
+        couldn't have reached a real install attempt in the first place, so
+        the two shouldn't actually co-occur, but leaving "blocked" as-is
+        here is the safer choice if they somehow did."""
+        return "waiting" if status == "ready" and self._is_postponed(entity_id) else status
+
     def _derive_status_fields(self, entity_id: str, cached: dict, now: datetime) -> dict:
         """status/remaining_seconds/ready_at, derived fresh from `cached`'s
         own already-known facts (latest_version/version_size/available_since
@@ -1309,7 +1515,8 @@ class UpdateManagerCoordinator:
         ready_since = self._resolve_ready_since(
             entity_id, cached["latest_version"], cached["version_size"], available_since, self.rules, result.status
         )
-        return {"status": result.status, **_cache_timing_fields(result, now), "ready_since": ready_since}
+        status = self._status_with_postponed_override(entity_id, result.status)
+        return {"status": status, **_cache_timing_fields(result, now), "ready_since": ready_since}
 
     def status_now(self, cached: dict, now: datetime | None = None) -> dict:
         """The current status/remaining_seconds/ready_at for one cache
@@ -1401,7 +1608,7 @@ class UpdateManagerCoordinator:
             "installed_version": current,
             "latest_version": latest,
             "version_size": size,
-            "status": result.status,
+            "status": self._status_with_postponed_override(entity_id, result.status),
             **_cache_timing_fields(result, now),
             "ready_since": ready_since,
             "installable": installable,
@@ -1423,6 +1630,8 @@ class UpdateManagerCoordinator:
             # install_manager.py checks this before ever auto-installing.
             # Doesn't change size/status here, those stay informational.
             "auto_install_excluded": _is_excluded_from_auto_install(entity_id, self.excluded_entities),
+            "auto_install_whitelisted": _is_whitelisted_for_auto_install(entity_id, self.whitelisted_entities),
+            "native_auto_update": has_native_auto_update(state),
             # True only for a "waiting" entity that's *also* currently
             # hidden from HA's own update count via staging_skip.py's own
             # auto-skip (direct user feedback, 2026-07-17: the distinction
@@ -1579,6 +1788,8 @@ class UpdateManagerCoordinator:
             "release_url": corrected_release_url(entity_id, state.attributes.get("release_url"), latest),
             "available_since": available_since,
             "auto_install_excluded": _is_excluded_from_auto_install(entity_id, self.excluded_entities),
+            "auto_install_whitelisted": _is_whitelisted_for_auto_install(entity_id, self.whitelisted_entities),
+            "native_auto_update": has_native_auto_update(state),
             # Always False here -- reaching _cache_skipped at all already
             # means the caller's own is_own_skip check said this isn't
             # ours (see _async_refresh_one). See _async_cache_active's own

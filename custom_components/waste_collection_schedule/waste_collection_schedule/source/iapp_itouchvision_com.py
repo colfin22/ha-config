@@ -166,7 +166,10 @@ def resolve_collection_date(text: str, today: date) -> date:
     are checked against the weekday name and the closest match is taken. That
     keeps collections just after New Year in the right year.
     """
-    weekday_name, day, month_name = text.split()
+    parts = text.split()
+    if len(parts) != 3:
+        raise ValueError(f"Unexpected collection date: {text}")
+    weekday_name, day, month_name = parts
 
     candidates = []
     for year in (today.year - 1, today.year, today.year + 1):
@@ -385,6 +388,11 @@ class Source:
             self._api_url,
             headers={
                 "P_PARAMETER": encrypted_payload,
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/120.0.0.0 Safari/537.36"
+                ),
             },
         )
         response.raise_for_status()
@@ -555,10 +563,20 @@ class Source:
         entries = []
         for row in rows:
             cells = row.select("td")
+            if len(cells) < 2:
+                continue
             bin_type = cells[1].get_text(strip=True)
+            try:
+                collection_date = resolve_collection_date(
+                    cells[0].get_text(strip=True), today
+                )
+            except ValueError:
+                # The portal sometimes answers e.g. "Invalid DateTime" for a
+                # single service; skip that row instead of failing the fetch.
+                continue
             entries.append(
                 Collection(
-                    date=resolve_collection_date(cells[0].get_text(strip=True), today),
+                    date=collection_date,
                     t=bin_type,
                     icon=ICON_MAP.get(bin_type),
                 )

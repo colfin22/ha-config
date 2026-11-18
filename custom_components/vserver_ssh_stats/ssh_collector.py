@@ -292,6 +292,7 @@ WINDOWS_REMOTE_SCRIPT = (
     "security_updates=$null;last_boot=$boot.ToUniversalTime().ToString('o');"
     "kernel_version='Windows';primary_ip='';failed_systemd_units=$null;"
     "failed_systemd_units_list=@();journal_errors=$null;root_fs_readonly=$null;"
+    "root_fs_readonly_expected=0;"
     "failed_ssh_logins_15m=$null;firewall_active=$null;firewall_backend='';"
     "firewall_rules_count=$null;fail2ban_active=$null;fail2ban_banned_count=$null;"
     "fail2ban_jails=@();cert_soonest_expiry_days=$null;cert_entries=@();"
@@ -390,11 +391,15 @@ def _build_collection_commands(
     pkg_timeout: int | None = None,
     docker_timeout: int | None = None,
     storage_timeout: int | None = None,
+    use_sudo: bool = True,
 ) -> list[CollectionCommand]:
-    """Return collection commands ordered by target OS preference."""
+    """Honor explicit OS profiles; only auto mode tries both operating systems."""
 
     normalized = (target_os or "auto").strip().lower()
-    env_parts = [f"VSERVER_SSH_STATS_MODE={collector_mode}"]
+    env_parts = [
+        f"VSERVER_SSH_STATS_MODE={collector_mode}",
+        f"VSERVER_SSH_STATS_USE_SUDO={int(use_sudo)}",
+    ]
     if pkg_timeout is not None:
         env_parts.append(f"VSERVER_SSH_STATS_PKG_TIMEOUT={int(pkg_timeout)}")
     if docker_timeout is not None:
@@ -403,14 +408,16 @@ def _build_collection_commands(
         env_parts.append(f"VSERVER_SSH_STATS_STORAGE_TIMEOUT={int(storage_timeout)}")
     env = " ".join(env_parts)
     linux_commands: list[CollectionCommand] = [
-        (f"{env} bash -s", REMOTE_SCRIPT),
-        (f"{env} /bin/bash -s", REMOTE_SCRIPT),
+        (f"{env} sh -s", REMOTE_SCRIPT),
+        (f"{env} /bin/sh -s", REMOTE_SCRIPT),
     ]
     windows_command: CollectionCommand = (WINDOWS_REMOTE_SCRIPT, None)
     if collector_mode != "base":
         return [] if normalized == "windows" else linux_commands
     if normalized == "windows":
-        return [windows_command, *linux_commands]
+        return [windows_command]
+    if normalized in {"debian", "raspbian"}:
+        return linux_commands
     return [*linux_commands, windows_command]
 
 
@@ -461,18 +468,21 @@ async def _async_collect_raw(
     docker_timeout: int | None = None,
     storage_timeout: int | None = None,
     host_key_fingerprints: object = None,
+    use_sudo: bool = True,
 ) -> tuple[Dict[str, Any] | None, Dict[str, float], Exception | None]:
     """Run one collector mode and return parsed remote JSON."""
 
     data: Dict[str, Any] | None = None
     timing: Dict[str, float] = {}
     last_error: Exception | None = None
+    attempt_errors: list[str] = []
     for cmd, stdin_data in _build_collection_commands(
         target_os,
         collector_mode,
         pkg_timeout,
         docker_timeout,
         storage_timeout,
+        use_sudo=use_sudo,
     ):
         try:
             out, timing = await asyncio.to_thread(
@@ -489,15 +499,24 @@ async def _async_collect_raw(
                 host_key_fingerprints,
             )
             data = _parse_json_output(out)
-            break
+            return data, timing, None
         except Exception as err:
             last_error = err
+            platform = "Linux" if stdin_data is not None else "Windows"
+            attempt_errors.append(f"{platform}: {str(err) or err.__class__.__name__}")
             _LOGGER.debug(
-                "%s collector command failed for %s: %s",
+                "%s %s collector command failed for %s: %s",
+                platform,
                 collector_mode,
                 host,
                 err,
             )
+            # Retrying another shell cannot fix credentials or a pinned host key.
+            # Keep the exception type so async_sample can trigger reauthentication.
+            if isinstance(err, (paramiko.AuthenticationException, SSHHostKeyError)):
+                return None, timing, err
+    if len(attempt_errors) > 1:
+        last_error = RuntimeError("All collector attempts failed: " + "; ".join(attempt_errors))
     return data, timing, last_error
 
 
@@ -747,6 +766,7 @@ async def async_sample(
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
     monitored_ports: object = None,
     host_key_fingerprints: object = None,
+    use_sudo: bool = True,
 ) -> Dict[str, Any]:
     port_check_task = asyncio.create_task(
         _async_check_monitored_ports(host, monitored_ports, connect_timeout)
@@ -762,6 +782,7 @@ async def async_sample(
         command_timeout,
         "base",
         host_key_fingerprints=host_key_fingerprints,
+        use_sudo=use_sudo,
     )
 
     if data is None:
@@ -968,6 +989,9 @@ async def async_sample(
         "swap_total": swap_total_gib,
         "reboot_required": bool(_safe_int(data.get("reboot_required"))),
         "root_fs_readonly": bool(_safe_int(data.get("root_fs_readonly"))),
+        "root_fs_readonly_expected": bool(
+            _safe_int(data.get("root_fs_readonly_expected"))
+        ),
         "failed_systemd_units": _safe_int(data.get("failed_systemd_units")),
         "failed_systemd_units_list": ", ".join(failed_units),
         "failed_systemd_units_details": failed_units,
@@ -1052,6 +1076,7 @@ async def async_sample_packages(
     connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
     host_key_fingerprints: object = None,
+    use_sudo: bool = True,
 ) -> Dict[str, Any]:
     """Collect package update metrics with the slow collector mode."""
 
@@ -1067,6 +1092,7 @@ async def async_sample_packages(
         "packages",
         pkg_timeout=command_timeout,
         host_key_fingerprints=host_key_fingerprints,
+        use_sudo=use_sudo,
     )
     if data is None:
         return {
@@ -1102,6 +1128,7 @@ async def async_sample_docker(
     connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
     host_key_fingerprints: object = None,
+    use_sudo: bool = True,
 ) -> Dict[str, Any]:
     """Collect Docker metrics with the slow collector mode."""
 
@@ -1119,6 +1146,7 @@ async def async_sample_docker(
         "docker",
         docker_timeout=command_timeout,
         host_key_fingerprints=host_key_fingerprints,
+        use_sudo=use_sudo,
     )
     if data is None:
         return {
@@ -1158,6 +1186,7 @@ async def async_sample_storage(
     connect_timeout: int = DEFAULT_CONNECT_TIMEOUT,
     command_timeout: int = DEFAULT_COMMAND_TIMEOUT,
     host_key_fingerprints: object = None,
+    use_sudo: bool = True,
 ) -> Dict[str, Any]:
     """Collect SMART, NVMe, and mdadm metrics with a slow collector mode."""
 
@@ -1174,6 +1203,7 @@ async def async_sample_storage(
         "storage",
         storage_timeout=per_command_timeout,
         host_key_fingerprints=host_key_fingerprints,
+        use_sudo=use_sudo,
     )
     if data is None:
         return {

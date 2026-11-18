@@ -30,6 +30,12 @@
             },
             "needs_manual_action": {
                 "name": "Needs manual action"
+            },
+            "pending_installs": {
+                "name": "Scheduled installs"
+            },
+            "failed_installs": {
+                "name": "Failed installs"
             }
         },
         "switch": {
@@ -64,6 +70,58 @@
                     }
                 }
             }
+        }
+    },
+    "services": {
+        "get_release_notes": {
+            "name": "Get release notes",
+            "description": "Returns the compiled release notes for an update, from the currently installed version up to the target version (the same notes the update-detail dialog itself shows).",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The update entity to fetch release notes for."
+                },
+                "to_version": {
+                    "name": "To version",
+                    "description": "The version to fetch notes up to. Defaults to the entity's own current latest version."
+                }
+            }
+        },
+        "cancel_scheduled_install": {
+            "name": "Cancel scheduled install",
+            "description": "Cancels an auto-install Update Manager has scheduled (or is about to schedule) for an update.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entity",
+                    "description": "The update entity to cancel the scheduled install for."
+                },
+                "to_version": {
+                    "name": "To version",
+                    "description": "The version to cancel the scheduled install for. Defaults to the entity's own current latest version."
+                }
+            }
+        }
+    },
+    "exceptions": {
+        "not_set_up": {
+            "message": "Update Manager isn't set up."
+        },
+        "unknown_update_entity": {
+            "message": "{entity_id} isn't a currently tracked update entity."
+        }
+    },
+    "triggers": {
+        "scheduled_auto_install": {
+            "name": "Scheduled auto-install",
+            "description": "Triggers when an update is announced for a scheduled auto-install (the countdown starting, not the install itself)."
+        },
+        "installed": {
+            "name": "Installed",
+            "description": "Triggers once an update finishes installing, whether auto-installed or installed manually."
+        },
+        "install_failed": {
+            "name": "Install failed",
+            "description": "Triggers when an install attempt fails."
         }
     }
 }

@@ -259,17 +259,143 @@
   name: Kitchen Night
   entities:
     light.kitchen_1:
+      effect_list:
+      - blink
+      - breathe
+      - okay
+      - channel_change
+      - candle
+      - sunset
+      - sunrise
+      - sparkle
+      - opal
+      - glisten
+      - underwater
+      - cosmos
+      - sunbeam
+      - enchant
+      - none
+      - finish_effect
+      - stop_effect
+      - stop_hue_effect
+      supported_color_modes:
+      - brightness
+      effect:
+      color_mode:
+      brightness:
+      friendly_name: Kitchen 1
+      supported_features: 44
       state: 'off'
     light.kitchen_2:
+      effect_list:
+      - blink
+      - breathe
+      - okay
+      - channel_change
+      - candle
+      - sunset
+      - sunrise
+      - sparkle
+      - opal
+      - glisten
+      - underwater
+      - cosmos
+      - sunbeam
+      - enchant
+      - none
+      - finish_effect
+      - stop_effect
+      - stop_hue_effect
+      supported_color_modes:
+      - brightness
+      effect:
+      color_mode:
+      brightness:
+      friendly_name: Kitchen 2
+      supported_features: 44
       state: 'off'
-    light.kitchen_tv_lightstrip:
-      state: 'on'
-      brightness: 192
-      color_temp_kelvin: 2257
     light.kitchen_3:
-      state: 'on'
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      effect_list:
+      - blink
+      - breathe
+      - okay
+      - channel_change
+      - candle
+      - fireplace
+      - colorloop
+      - sunset
+      - sunrise
+      - sparkle
+      - opal
+      - glisten
+      - underwater
+      - cosmos
+      - sunbeam
+      - enchant
+      - none
+      - finish_effect
+      - stop_effect
+      - stop_hue_effect
+      supported_color_modes:
+      - color_temp
+      - xy
+      effect:
+      color_mode: color_temp
       brightness: 75
       color_temp_kelvin: 2242
+      hs_color:
+      - 29.65
+      - 82.775
+      rgb_color:
+      - 255
+      - 148
+      - 44
+      xy_color:
+      - 0.574
+      - 0.388
+      friendly_name: Kitchen 3
+      supported_features: 44
+      state: 'on'
+    light.kitchen_tv_lightstrip:
+      min_color_temp_kelvin: 2000
+      max_color_temp_kelvin: 6535
+      effect_list:
+      - blink
+      - breathe
+      - okay
+      - channel_change
+      - candle
+      - fireplace
+      - colorloop
+      - sunset
+      - sunrise
+      - sparkle
+      - opal
+      - glisten
+      - underwater
+      - cosmos
+      - sunbeam
+      - enchant
+      - none
+      - finish_effect
+      - stop_effect
+      - stop_hue_effect
+      supported_color_modes:
+      - color_temp
+      - xy
+      effect:
+      color_mode:
+      brightness:
+      color_temp_kelvin:
+      hs_color:
+      rgb_color:
+      xy_color:
+      friendly_name: Kitchen TV Lightstrip
+      supported_features: 44
+      state: 'off'
+  metadata: {}
 - id: kitchen_1_and_2
   name: Kitchen 1 and 2
   entities:

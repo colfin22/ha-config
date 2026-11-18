@@ -16,14 +16,18 @@ time.
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import timedelta
 from typing import Any
+from urllib.parse import urlsplit
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Context, HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util import dt as dt_util
+
+_LOGGER = logging.getLogger(__name__)
 
 from .const import (
     CONF_ANNOUNCE_HOURS,
@@ -39,6 +43,7 @@ from .const import (
     CONF_SMALL_AUTO_INSTALL,
     CONF_SMALL_WAIT_DAYS,
     CONF_TRUSTED_VOTERS,
+    CONF_WHITELISTED_ENTITIES,
     DEFAULT_WAIT_DAYS,
     DOMAIN,
     WEEKDAY_READY_OPTION_KEYS,
@@ -55,6 +60,7 @@ from .coordinator import (
     rules_from_options,
     schedule_from_options,
     trusted_voters_from_options,
+    whitelisted_entities_from_options,
 )
 from .core_blog_notes import (
     extract_blog_path,
@@ -68,9 +74,9 @@ from .device_identity import resolve_full_identity
 from .github_release_notes import find_release_by_version, parse_release_url, select_release_range
 from .hacs_identity import ResolvedIdentity, corrected_release_url
 from .install_log_retention import DEFAULT_PAGE_POLICY, entries_to_keep_full_notes
-from .install_manager import auto_install_rules_from_options
+from .install_manager import auto_install_rules_from_options, failure_reason_for
 from .runtime_data import UpdateManagerData, get_data as _get_data, get_entry as _get_entry
-from .semver import strip_version_prefix
+from .semver import min_ha_version_required, strip_version_prefix
 from .vote_issue_body import REASON_CATEGORIES
 
 _WS_REGISTERED = f"{DOMAIN}_ws_registered"
@@ -112,7 +118,10 @@ async def async_apply_options(hass: HomeAssistant, options: dict) -> None:
     # gathering them wouldn't add real concurrency, only reorder which one
     # "wins" the lock first).
     await data.coordinator.async_update_rules(
-        rules_from_options(options), excluded_entities_from_options(options), schedule_from_options(options)
+        rules_from_options(options),
+        excluded_entities_from_options(options),
+        schedule_from_options(options),
+        whitelisted_entities_from_options(options),
     )
     data.install_manager.update_rules(auto_install_rules_from_options(options))
     data.community_verdict_manager.set_trusted_voters(trusted_voters_from_options(options))
@@ -182,6 +191,12 @@ def _handle_updates(hass: HomeAssistant, connection: websocket_api.ActiveConnect
                     if pending is not None
                     else None
                 ),
+                # See install_manager.py's own postponed_for docstring:
+                # the HA Core version this entity's auto-install is still
+                # waiting for, or None if it isn't postponed for that
+                # reason, see update-manager-panel.js's own "Postponed"
+                # badge/section.
+                "postponed_min_ha_version": install_manager.postponed_for(entry["entity_id"]),
             }
         )
     connection.send_result(
@@ -224,13 +239,20 @@ async def _handle_refresh_community_verdicts(
     still happens to have. Awaited here (not fired as a background task)
     so the panel's own immediately-following update_manager/updates call
     sees the freshly-patched cache, not a stale one with a refresh still
-    in flight."""
+    in flight.
+
+    Also re-evaluates pending/postponed auto-install state right away (see
+    install_manager.py's own async_force_reevaluate), found live,
+    2026-11-04: without it, this button looked like it refreshed
+    everything, but a stale "Scheduled updates" entry still waited for the
+    next periodic timer or unrelated coordinator recompute to clear."""
     data = _get_data(hass)
     if not data:
         connection.send_error(msg["id"], "not_found", "Update Manager isn't set up")
         return
     await data.coordinator.async_force_refresh_community_verdicts()
     await _async_reconcile_my_votes(hass, data)
+    await data.install_manager.async_force_reevaluate()
     connection.send_result(msg["id"])
 
 
@@ -272,7 +294,7 @@ async def _async_reconcile_my_votes(hass: HomeAssistant, data: UpdateManagerData
     await data.my_votes_manager.async_forget_many(stale_jump_keys)
 
 
-async def _async_fetch_github_release_notes(
+async def async_fetch_github_release_notes(
     hass: HomeAssistant,
     release_url: str | None,
     access_token: str | None,
@@ -481,7 +503,7 @@ async def _async_core_aware_section(hass: HomeAssistant, is_core: bool, tag_name
     """"## {tag_name}\n\n{body}", except for home-assistant/core's own .0
     releases (is_core and tag_name strips down to an "X.Y.0" version), where
     body is replaced outright by that release's own blog announcement intro
-    (_async_fetch_core_announcement's own short frontmatter description) --
+    (async_fetch_core_announcement's own short frontmatter description) --
     never GitHub's raw PR-list body for a .0 release, direct user feedback,
     2026-08-08 ("bij core .0 enkel dat intro zinnetje"). Falls back to the
     raw GitHub body when the announcement fetch itself finds nothing (a
@@ -491,7 +513,7 @@ async def _async_core_aware_section(hass: HomeAssistant, is_core: bool, tag_name
     whenever there ends up nothing at all to show, so an empty section never
     contributes a bare heading to the eventual join."""
     if is_core and strip_version_prefix(tag_name).endswith(".0"):
-        announcement = await _async_fetch_core_announcement(hass, tag_name)
+        announcement = await async_fetch_core_announcement(hass, tag_name)
         if announcement and announcement.get("intro"):
             body = announcement["intro"]
     return f"## {tag_name}\n\n{body}" if body else None
@@ -535,7 +557,7 @@ async def _handle_github_release_notes(hass: HomeAssistant, connection: websocke
     entity_id = msg.get("entity_id")
     if entity_id and to_version:
         release_url = corrected_release_url(entity_id, release_url, to_version) or release_url
-    result = await _async_fetch_github_release_notes(
+    result = await async_fetch_github_release_notes(
         hass, release_url, access_token, msg.get("from_version"), to_version
     )
     if result is None:
@@ -547,7 +569,7 @@ async def _handle_github_release_notes(hass: HomeAssistant, connection: websocke
 
 async def _async_fetch_text(hass: HomeAssistant, url: str) -> str | None:
     """Plain GET, text body, None on anything but a clean 200 -- shared by
-    both fetches _async_fetch_core_announcement below needs. No
+    both fetches async_fetch_core_announcement below needs. No
     authentication: both files this is ever called with live in a public
     repo (home-assistant/home-assistant.io), no rate-limit-sensitive volume
     expected here (the frontend caches every result, per exact version, in
@@ -562,7 +584,7 @@ async def _async_fetch_text(hass: HomeAssistant, url: str) -> str | None:
         return None
 
 
-async def _async_fetch_core_announcement(hass: HomeAssistant, latest_version: str) -> dict[str, str | None] | None:
+async def async_fetch_core_announcement(hass: HomeAssistant, latest_version: str) -> dict[str, str | None] | None:
     """{"url": ..., "intro": ...} for a Core update's own "Open release
     announcement" link -- see core_blog_notes.py's own module docstring for
     the two-file fetch this does (home-assistant/home-assistant.io's own
@@ -620,7 +642,7 @@ async def _async_fetch_core_announcement(hass: HomeAssistant, latest_version: st
     }
 )
 async def _handle_core_announcement(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
-    result = await _async_fetch_core_announcement(hass, msg["latest_version"])
+    result = await async_fetch_core_announcement(hass, msg["latest_version"])
     if result is None:
         connection.send_result(msg["id"], {"url": None, "intro": None})
         return
@@ -746,6 +768,81 @@ async def _handle_cancel_queued(hass: HomeAssistant, connection: websocket_api.A
     connection.send_result(msg["id"])
 
 
+async def _async_run_manual_install(
+    hass: HomeAssistant,
+    data: UpdateManagerData | None,
+    entity_id: str,
+    to_version: str | None,
+    service_data: dict[str, Any],
+    ha_context: Context,
+) -> None:
+    """The non-queued half of _handle_install's own dispatch, as its own
+    task (see that docstring for why it isn't awaited there) -- mirrors
+    install_manager.py's own _async_run_install exactly, down to the log
+    message, so a failure here gets the exact same "Failed updates"
+    notification an auto-install failure does (via handle_manual_install_
+    failure, deliberately without a backoff retry of its own, see that
+    method's own docstring).
+
+    Routed through data.install_manager.async_dispatch_install (its own
+    lock) rather than calling hass.services.async_call directly whenever
+    data exists, found live, 2026-11-04: a panel "Update all" click on a
+    real batch (14 updates) dispatched every one of them through this exact
+    function at once, none of them serialized against each other at all,
+    and HACS's own backup step shares a single /tmp/hacs_backup directory
+    across every install (see that lock's own comment), so several
+    installing at the same moment raced each other there. Falls back to the
+    bare service call whenever data is missing (the one case this already
+    tolerated before, see the required_version line below), same as it
+    always did."""
+    try:
+        if data:
+            await data.install_manager.async_dispatch_install(service_data, context=ha_context)
+        else:
+            await hass.services.async_call("update", "install", service_data, blocking=True, context=ha_context)
+    except Exception as exception:
+        # Classified before logging, not after, so the log level can match
+        # install_manager.py's own auto-install path (_async_run_install):
+        # a too-old HA Core is a known, recoverable condition there,
+        # deliberately logged at debug instead of a full .exception
+        # traceback. Found by /simplify review, 2026-11-03: this path
+        # still always logged a full traceback for that exact same
+        # condition, the one place the two paths' otherwise-shared
+        # classification diverged.
+        required_version = min_ha_version_required(exception) if data and to_version else None
+        reason = failure_reason_for(exception) if required_version is None else None
+        if required_version is not None:
+            _LOGGER.debug(
+                "Update Manager postponed %s: needs Home Assistant %s or newer", entity_id, required_version
+            )
+        elif reason is not None:
+            # Same "known, recoverable, not actually wrong" reasoning as the
+            # required_version branch above, for the other labeled failure
+            # this project recognizes (Marketplace's own one-time "accept
+            # the warning" gate, see install_manager.py's own
+            # _MARKETPLACE_WARNING_NOT_ACCEPTED_KEY comment): nothing here
+            # needs a developer's traceback, a plain fact does the whole
+            # job. Found live, 2026-11-04: this path still always logged a
+            # full traceback for that exact same condition, same gap the
+            # 2026-11-03 /simplify review above already closed for the
+            # required_version case.
+            _LOGGER.debug("Update Manager's manual install for %s failed: %s", entity_id, reason)
+        else:
+            _LOGGER.exception("Update Manager's manual install failed for %s", entity_id)
+        if data and to_version:
+            # Parked in self._postponed, same as install_manager.py's own
+            # auto-install path, rather than just a labeled "Failed updates"
+            # entry. Direct user feedback, 2026-11-02: a too-old HA Core
+            # is true regardless of which path discovered it, so a manual
+            # click learning it should update the same shared state auto-
+            # install itself will otherwise only rediscover much later, on
+            # its own schedule.
+            if required_version is not None:
+                await data.install_manager.async_mark_postponed(entity_id, to_version, required_version)
+            else:
+                data.install_manager.handle_manual_install_failure(entity_id, to_version, reason=reason)
+
+
 @websocket_api.require_admin
 @websocket_api.async_response
 @websocket_api.websocket_command(
@@ -771,7 +868,15 @@ async def _handle_install(hass: HomeAssistant, connection: websocket_api.ActiveC
     install takes, e.g. a slow firmware flash) -- its own in_progress/
     installed_version attributes stream back to the panel live through the
     normal hass state-push mechanism regardless (see the panel's own
-    _updateInstallProgress/_updateDialogProgress)."""
+    _updateInstallProgress/_updateDialogProgress). Wrapped in its own
+    try/except (see _async_run_manual_install below), found live,
+    2026-10-24, right after install_manager.py's own auto-install failures
+    started getting a real notification + backoff retry: this explicit,
+    user-clicked path had *less* failure visibility than an automatic one,
+    the wrong way around -- a bare async_create_task with no try/except at
+    all around it, so a real failure here just vanished into HA's own
+    generic unhandled-task-exception log, no Update Manager context, no
+    notification, nothing."""
     entity_id = msg["entity_id"]
     data = _get_data(hass)
     if data:
@@ -810,9 +915,7 @@ async def _handle_install(hass: HomeAssistant, connection: websocket_api.ActiveC
         )
         queued = result == "queued"
     if not queued:
-        hass.async_create_task(
-            hass.services.async_call("update", "install", service_data, blocking=True, context=ha_context)
-        )
+        hass.async_create_task(_async_run_manual_install(hass, data, entity_id, to_version, service_data, ha_context))
     if data:
         # Awaited, not left to the state_changed event clear_skipped above
         # already schedules on its own -- that's a background task HA
@@ -936,6 +1039,7 @@ def _handle_get_settings(hass: HomeAssistant, connection: websocket_api.ActiveCo
                 vol.Required(CONF_LARGE_AUTO_INSTALL): bool,
                 vol.Required(CONF_ANNOUNCE_HOURS): vol.All(vol.Coerce(int), vol.Range(min=1, max=336)),
                 vol.Required(CONF_EXCLUDED_ENTITIES): [str],
+                vol.Required(CONF_WHITELISTED_ENTITIES): [str],
                 vol.Required(CONF_HIDE_POSTPONED): bool,
                 vol.Required(CONF_SHOW_SKIPPED_UPDATES): bool,
                 vol.Required(CONF_SHOW_NOT_INSTALLABLE_UPDATES): bool,
@@ -958,6 +1062,21 @@ async def _handle_save_settings(hass: HomeAssistant, connection: websocket_api.A
     entry = _get_entry(hass)
     if not entry:
         connection.send_error(msg["id"], "not_found", "Update Manager isn't set up")
+        return
+    # "Never" and "always" contradicting each other for the same entity has
+    # no sensible resolution -- rejected outright rather than silently
+    # picking a winner, see const.py's own CONF_WHITELISTED_ENTITIES
+    # comment. The panel's own entity pickers already filter each other's
+    # picks out so this shouldn't normally be reachable through the UI
+    # (see _buildAutoInstallCard), this is the backend's own last-resort
+    # guard for anything else that might save options directly.
+    overlap = set(msg[CONF_EXCLUDED_ENTITIES]) & set(msg[CONF_WHITELISTED_ENTITIES])
+    if overlap:
+        connection.send_error(
+            msg["id"],
+            "entity_on_both_lists",
+            f"{', '.join(sorted(overlap))} can't be on both the never- and always-auto-update lists at once.",
+        )
         return
     options = {k: v for k, v in msg.items() if k not in ("type", "id")}
     hass.config_entries.async_update_entry(entry, options=options)
@@ -1202,6 +1321,21 @@ async def _handle_verdict_for_version(hass: HomeAssistant, connection: websocket
     )
 
 
+def _validate_web_url(value: str) -> str:
+    """Rejects anything but a real http(s) URL -- a vote's own link ends up
+    rendered as a clickable anchor for every Update Manager user who later
+    looks at this exact version jump, on every instance, via community-
+    votes (confirmed real, 2026-10-18, hacs/default PR review): a
+    javascript: (or other) scheme here is stored-XSS against all of them,
+    not just a mistake by whoever voted. The panel's own buildReasonItem
+    already refuses to render anything but http(s) as a link either way,
+    this closes the same hole from the submitting side too, matching
+    community-votes' own process-vote.yml validation on its end."""
+    if urlsplit(value).scheme not in ("http", "https"):
+        raise vol.Invalid("link must be an http or https URL")
+    return value
+
+
 @websocket_api.require_admin
 @websocket_api.async_response
 @websocket_api.websocket_command(
@@ -1216,7 +1350,7 @@ async def _handle_verdict_for_version(hass: HomeAssistant, connection: websocket
         vol.Required("verdict"): vol.In(["healthy", "problematic"]),
         vol.Optional("reason_category"): vol.In(REASON_CATEGORIES),
         vol.Optional("notes"): str,
-        vol.Optional("link"): str,
+        vol.Optional("link"): vol.All(str, _validate_web_url),
     }
 )
 async def _handle_vote(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:

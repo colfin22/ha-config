@@ -56,6 +56,36 @@ RECORDER_STATE_ONLY_KEYS = frozenset({
 })
 
 
+def _solar_daily_authority_audit(core) -> dict[str, Any]:
+    """Read-only comparison of Zeus Today authority and HA daily PV meters."""
+    from homeassistant.util import dt as dt_util
+    now = dt_util.now()
+    mapping = dict((getattr(core.registry, "data", {}) or {}).get("entity_mappings", {}) or {})
+    analytics = core.analytics.summary() or {}
+    row = next((r for r in ((analytics.get("chart_history") or {}).get("today") or []) if isinstance(r, dict)), {})
+    mapped_id = str(mapping.get("solar_energy_today") or "").strip()
+    mapped_state = core.hass.states.get(mapped_id) if mapped_id else None
+    def entity_info(entity_id):
+        st = core.hass.states.get(entity_id) if entity_id else None
+        return {"entity_id": entity_id or None, "state": st.state if st else None,
+                "unit": st.attributes.get("unit_of_measurement") if st else None,
+                "last_updated": st.last_updated.isoformat() if st else None}
+    return {
+        "status": "read_only", "local_date": now.date().isoformat(),
+        "canonical_solar_kwh": row.get("solar_energy_kwh"),
+        "canonical_method": row.get("solar_energy_kwh_method"),
+        "canonical_source": row.get("solar_energy_kwh_source"),
+        "hybrid_true_pv_configured": row.get("hybrid_true_pv_configured"),
+        "true_pv_integrated_kwh": row.get("solar_true_pv_integrated_kwh"),
+        "true_pv_entity": row.get("hybrid_true_pv_entity"),
+        "mapped_daily_meter": entity_info(mapped_id),
+        "observed_zeus_solar_daily": entity_info("sensor.zeus_solar_daily"),
+        "observed_zeus_solar_energy": entity_info("sensor.zeus_solar_energy"),
+        "forecast_actual_history_source": "analytics.chart_history.total",
+        "note": "Diagnostics only; no meter mapping, forecast sample, or stored data changed",
+    }
+
+
 def _json_payload_bytes(value: Any) -> int:
     """Return a stable UTF-8 JSON size estimate for Recorder-facing data."""
     try:
@@ -433,7 +463,15 @@ def _weather_context_attributes(core) -> dict[str, Any]:
             "available": item.get("available"),
             "supported_features": item.get("supported_features"),
         })
+    secondary = core.registry.data.get("sources", {}).get("weather_secondary", {})
+    secondary_id = secondary.get("entity_id") if secondary.get("enabled") else None
+    secondary_state = core.hass.states.get(secondary_id) if secondary_id else None
     return {
+        "secondary_weather_entity_id": secondary_id,
+        "secondary_weather_available": bool(secondary_state and secondary_state.state not in ("unknown", "unavailable")),
+        "secondary_weather_condition": secondary_state.state if secondary_state else None,
+        "secondary_weather_temperature": secondary_state.attributes.get("temperature") if secondary_state else None,
+        "secondary_weather_role": "comparison_only_no_production_control",
         "status": data.get("status"),
         "entity_id": data.get("entity_id"),
         "available": data.get("available"),
@@ -981,6 +1019,72 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         }
 
 
+    def _intelligence_engine_attributes(core) -> dict[str, Any]:
+        """Return the compact live Intelligence Engine payload used by Zeus UI.
+
+        The engine keeps its complete optimizer/knowledge/briefing snapshots
+        internally. Publishing those duplicated nested snapshots on the Home
+        Assistant entity made every state write unnecessarily expensive even
+        though Recorder already excludes the attributes. Keep only the fields
+        consumed by the public Zeus frontend.
+        """
+        data = core.intelligence.summary() or {}
+
+        def text(value: Any, limit: int = 420) -> Any:
+            if not isinstance(value, str):
+                return value
+            return value if len(value) <= limit else value[: max(0, limit - 1)] + "…"
+
+        def recommendation(row: Any) -> dict[str, Any] | None:
+            if not isinstance(row, dict):
+                return None
+            keys = (
+                "device_id", "device_name", "device_type", "device_icon",
+                "is_system_status", "title", "source_action", "normalized_action",
+                "action", "why_now", "reason", "expected_benefit", "urgency",
+                "confidence", "confidence_percent", "confidence_label",
+                "best_window", "estimated_saving", "estimated_saving_eur",
+                "currency", "actionable_surplus_sink", "actionable_surplus",
+            )
+            out: dict[str, Any] = {}
+            for key in keys:
+                value = row.get(key)
+                out[key] = text(value, 420 if key in {"why_now", "reason", "expected_benefit"} else 220)
+            constraints = row.get("constraints")
+            if isinstance(constraints, list):
+                out["constraints"] = [text(v, 220) for v in constraints[:4]]
+            return out
+
+        recommendations = [
+            item for item in
+            (recommendation(row) for row in list(data.get("recommendations") or [])[:6])
+            if item is not None
+        ]
+        top = recommendation(data.get("top_recommendation"))
+        battery = data.get("battery_strategy") if isinstance(data.get("battery_strategy"), dict) else {}
+
+        return {
+            "status": data.get("status"),
+            "mode": data.get("mode"),
+            "recommendation_count": data.get("recommendation_count"),
+            "recommendations": recommendations,
+            "top_recommendation": top,
+            "system_confidence": data.get("system_confidence"),
+            "confidence_label": data.get("confidence_label"),
+            "best_surplus_window": data.get("best_surplus_window"),
+            "battery_strategy": {
+                "status": battery.get("status"),
+                "strategy": battery.get("strategy"),
+                "reason": text(battery.get("reason"), 320),
+                "soc_percent": battery.get("soc_percent"),
+            },
+            "summary": text(data.get("summary"), 420),
+            "limitations": [text(v, 260) for v in list(data.get("limitations") or [])[:4]],
+            "safety": text(data.get("safety"), 260),
+            "payload_scope": "public_compact",
+        }
+
+
     def _optimization_intelligence_attributes(core) -> dict[str, Any]:
         """Recorder-safe Optimization Intelligence payload.
 
@@ -1229,6 +1333,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 "cop_history_status": row.get("cop_history_status"),
                 "cop_today_average": row.get("cop_today_average"),
                 "cop_week_average": row.get("cop_week_average"),
+                "cop_month_energy_ratio": row.get("cop_month_energy_ratio"),
+                "cop_year_energy_ratio": row.get("cop_year_energy_ratio"),
                 "cop_month_average": row.get("cop_month_average"),
                 "cop_year_average": row.get("cop_year_average"),
                 "cop_today_bucket_count": row.get("cop_today_bucket_count"),
@@ -1239,6 +1345,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 "sample_count": row.get("sample_count"),
                 "method": row.get("method"),
                 "integrated_energy_today_kwh": row.get("integrated_energy_today_kwh"),
+                # Heat Pump operation evidence used by the Day Status UI. Keep these
+                # compact derived fields in the HA payload; verbose/raw Recorder
+                # evidence remains backend-only.
+                "cycle_starts_today": row.get("cycle_starts_today"),
+                "cycle_stops_today": row.get("cycle_stops_today"),
+                "cycle_completed_today": row.get("cycle_completed_today"),
+                "cycle_today_transitions": row.get("cycle_today_transitions"),
+                "compressor_runtime_today_minutes": row.get("compressor_runtime_today_minutes"),
+                "compressor_runtime_today_source": row.get("compressor_runtime_today_source"),
+                "compressor_starts_today_source": row.get("compressor_starts_today_source"),
+                "compressor_power_diagnostic": row.get("compressor_power_diagnostic"),
             })
         return {
             "status": data.get("status"),
@@ -1294,6 +1411,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 "derived_live_cop_reason": hp.get("derived_live_cop_reason"),
                 "thermal_power_w": hp.get("thermal_power_w"),
                 "electrical_power_w": hp.get("electrical_power_w"),
+                "electrical_power_source_audit": hp.get("electrical_power_source_audit"),
                 "compressor_state": hp.get("compressor_state"),
                 "compressor_activity": hp.get("compressor_activity"),
                 "compressor_speed": hp.get("compressor_speed"),
@@ -1338,6 +1456,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 "cycle_raw_state_count": hp.get("cycle_raw_state_count"),
                 "cycle_transition_count": hp.get("cycle_transition_count"),
                 "cycle_today_transitions": hp.get("cycle_today_transitions"),
+                # Compressor power-history authority used by Heat Pump Day Status.
+                # These compact derived fields are intentionally exposed here because
+                # that page consumes the dedicated Heat Pump Intelligence sensor, not
+                # the generic Device Analytics payload. Raw Recorder rows remain backend-only.
+                "compressor_runtime_today_minutes": hp.get("compressor_runtime_today_minutes"),
+                "compressor_runtime_today_source": hp.get("compressor_runtime_today_source"),
+                "compressor_starts_today_source": hp.get("compressor_starts_today_source"),
+                "compressor_power_diagnostic": hp.get("compressor_power_diagnostic"),
                 "cycle_starts_today": hp.get("cycle_starts_today"),
                 "cycle_stops_today": hp.get("cycle_stops_today"),
                 "cycle_completed_today": hp.get("cycle_completed_today"),
@@ -1401,6 +1527,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 # Analytics already computes these fields; previous builds dropped them
                 # while compacting the sensor attributes, which made the kiosk hide DHW.
                 "separate_heating_dhw_measurements": hp.get("separate_heating_dhw_measurements"),
+                "circuit_efficiency": hp.get("circuit_efficiency"),
+                # Experimental total-input evidence is separate from existing COP.
+                # Only bounded summaries enter the Recorder-safe sensor attributes.
+                "total_input_efficiency": {
+                    period: {
+                        "status": evidence.get("status", "unavailable"),
+                        "value": evidence.get("value"),
+                        "reason": evidence.get("reason"),
+                        "coverage_start": evidence.get("coverage_start"),
+                        "coverage_end": evidence.get("coverage_end"),
+                        "matched_hours": evidence.get("matched_hours"),
+                    }
+                    for period, evidence in (
+                        (period, (row.get("total_input_efficiency") or {}).get(period) or {})
+                        for period in ("day", "week", "month", "year")
+                    )
+                    if evidence
+                },
                 "heating_electrical_power_configured": hp.get("heating_electrical_power_configured"),
                 "heating_thermal_power_configured": hp.get("heating_thermal_power_configured"),
                 "heating_electrical_energy_configured": hp.get("heating_electrical_energy_configured"),
@@ -1744,7 +1888,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         SimpleSensor(coordinator, core, "Adaptive Advisor", "adaptive_advisor", "mdi:account-sync-outline", lambda c: c.adaptive_advisor.summary().get("status"), lambda c: c.adaptive_advisor.summary()),
         SimpleSensor(coordinator, core, "Decision Engine", "decision_engine", "mdi:source-branch-check", lambda c: c.decision_engine.summary().get("decision"), _decision_engine_attributes),
         SimpleSensor(coordinator, core, "Scenario Simulator", "scenario_simulator", "mdi:compare-horizontal", lambda c: c.scenario_simulator.summary().get("status"), lambda c: c.scenario_simulator.summary()),
+        SimpleSensor(coordinator, core, "Solar Daily Authority Audit", "solar_daily_authority_audit", "mdi:solar-power-variant", lambda c: "read_only", _solar_daily_authority_audit),
         SimpleSensor(coordinator, core, "Prediction Accuracy", "prediction_accuracy", "mdi:target-account", lambda c: c.prediction_accuracy.summary().get("status"), lambda c: c.prediction_accuracy.summary()),
+        ForecastV21ShadowSensor(coordinator, core),
+        SimpleSensor(
+            coordinator, core, "Array Forecast Evidence", "array_forecast_evidence",
+            "mdi:database-check-outline",
+            lambda c: _array_forward_evidence_attributes(c).get("target_array_status", "unavailable"),
+            _array_forward_evidence_attributes,
+        ),
         ForecastExplorerDataSensor(coordinator, core, "Forecast Explorer Data", "forecast_explorer_data", "mdi:chart-timeline-variant-shimmer"),
         SimpleSensor(coordinator, core, "Home Profile", "home_profile", "mdi:home-analytics", lambda c: c.home_profile.summary().get("status"), lambda c: c.home_profile.summary()),
         AnomalyIntelligenceSensor(coordinator, core, "Anomaly Intelligence", "anomaly_intelligence", "mdi:chart-bell-curve-cumulative"),
@@ -1779,7 +1931,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         SimpleSensor(coordinator, core, "Planning Engine", "planning_engine", "mdi:calendar-clock-outline", lambda c: c.planning_engine.recorder_summary().get("status"), lambda c: c.planning_engine.recorder_summary()),
         OptimizationIntelligenceSensor(coordinator, core, "Optimization Intelligence", "optimization_intelligence", "mdi:target", lambda c: c.optimization_intelligence.summary().get("optimization_score") if c.optimization_intelligence.summary().get("optimization_score") is not None else c.optimization_intelligence.summary().get("status"), _optimization_intelligence_attributes),
         SimpleSensor(coordinator, core, "Insight Intelligence", "insight_intelligence", "mdi:lightbulb-alert-outline", lambda c: c.insight_intelligence.summary().get("briefing", {}).get("headline", c.insight_intelligence.summary().get("status")), lambda c: _insight_intelligence_attributes(c)),
-        SimpleSensor(coordinator, core, "Root Cause Intelligence", "root_cause_intelligence", "mdi:source-branch", lambda c: c.root_cause_intelligence.summary().get("severity", "Information"), lambda c: c.root_cause_intelligence.summary()),
+        RootCauseRecorderSensor(coordinator, core, "Root Cause Intelligence", "root_cause_intelligence", "mdi:source-branch", lambda c: c.root_cause_intelligence.summary().get("severity", "Information"), lambda c: c.root_cause_intelligence.summary()),
         SimpleSensor(coordinator, core, "Correlation Confidence", "correlation_confidence", "mdi:vector-link", lambda c: c.correlation_confidence.summary().get("confidence_percent", 0), lambda c: c.correlation_confidence.summary()),
         SimpleSensor(coordinator, core, "Recommendation Priority", "recommendation_priority", "mdi:format-list-numbered", lambda c: c.recommendation_priority.summary().get("top_priority", "Information"), lambda c: c.recommendation_priority.summary()),
         SimpleSensor(coordinator, core, "System Story", "system_story", "mdi:text-box-outline", lambda c: c.system_story.summary().get("action_state", "Monitoring"), lambda c: c.system_story.summary()),
@@ -1801,22 +1953,41 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         SimpleSensor(coordinator, core, "Learning Engine 2.0", "learning_preview", "mdi:brain", lambda c: c.learning.summary().get("status"), _learning_preview_attributes),
         SimpleSensor(coordinator, core, "Long-Term Seasonal Analysis", "seasonal_analysis", "mdi:calendar-range", lambda c: c.learning.summary().get("confidence_label"), lambda c: c.learning.summary()),
         SimpleSensor(coordinator, core, "Home Efficiency", "home_efficiency", "mdi:home-analytics", lambda c: c.home_efficiency.summary().get("score"), lambda c: c.home_efficiency.summary()),
-        SimpleSensor(coordinator, core, "Forecast Today", "forecast_today", "mdi:weather-sunny", lambda c: c.forecast.summary().get("expected_solar_next_24h_kwh"), lambda c: {"unit": "kWh", "confidence": c.forecast.summary().get("confidence"), "best_surplus_window": c.forecast.summary().get("best_surplus_window"), "daily_forecast": c.forecast.summary().get("daily_forecast", [])}),
-        SimpleSensor(coordinator, core, "Forecast Tomorrow", "forecast_tomorrow", "mdi:weather-sunset-up", lambda c: c.forecast.summary().get("expected_solar_following_24h_kwh"), lambda c: {"unit": "kWh", "confidence": c.forecast.summary().get("confidence"), "daily": (c.forecast.summary().get("daily_forecast") or [None, None])[1] if len(c.forecast.summary().get("daily_forecast") or []) > 1 else None}),
+        SimpleSensor(coordinator, core, "Forecast Next 24h", "forecast_today", "mdi:weather-sunny", lambda c: c.forecast.summary().get("expected_solar_next_24h_kwh"), lambda c: {"unit": "kWh", "horizon": "rolling_next_24h", "confidence": c.forecast.summary().get("confidence"), "best_surplus_window": c.forecast.summary().get("best_surplus_window")}),
+        SimpleSensor(coordinator, core, "Forecast Following 24h", "forecast_tomorrow", "mdi:weather-sunset-up", lambda c: c.forecast.summary().get("expected_solar_following_24h_kwh"), lambda c: {"unit": "kWh", "horizon": "rolling_following_24h", "confidence": c.forecast.summary().get("confidence")}),
         SimpleSensor(coordinator, core, "Forecast Consumption", "forecast_consumption", "mdi:home-lightning-bolt-outline", lambda c: c.forecast.summary().get("expected_consumption_next_24h_kwh"), lambda c: {"unit": "kWh", "next_24h_kwh": c.forecast.summary().get("expected_consumption_next_24h_kwh"), "following_24h_kwh": c.forecast.summary().get("expected_consumption_following_24h_kwh"), "confidence": c.forecast.summary().get("confidence"), "recorder_safe": True}),
         SimpleSensor(coordinator, core, "Forecast Battery", "forecast_battery", "mdi:battery-clock-outline", lambda c: c.forecast.summary().get("projected_battery_soc_24h_percent"), lambda c: {"unit": "%", "soc_24h_percent": c.forecast.summary().get("projected_battery_soc_24h_percent"), "soc_48h_percent": c.forecast.summary().get("projected_battery_soc_48h_percent"), "confidence": c.forecast.summary().get("confidence"), "limitations": c.forecast.summary().get("limitations"), "recorder_safe": True}),
         SimpleSensor(coordinator, core, "Forecast Grid", "forecast_grid", "mdi:transmission-tower", lambda c: c.forecast.summary().get("expected_grid_import_next_24h_kwh"), lambda c: {"unit": "kWh", "import_next_24h_kwh": c.forecast.summary().get("expected_grid_import_next_24h_kwh"), "export_next_24h_kwh": c.forecast.summary().get("expected_grid_export_next_24h_kwh"), "import_following_24h_kwh": c.forecast.summary().get("expected_grid_import_following_24h_kwh"), "export_following_24h_kwh": c.forecast.summary().get("expected_grid_export_following_24h_kwh"), "confidence": c.forecast.summary().get("confidence"), "recorder_safe": True}),
-        SimpleSensor(coordinator, core, "Forecast Confidence", "forecast_confidence", "mdi:gauge", lambda c: c.forecast.summary().get("confidence"), lambda c: {"unit": "%", "label": c.forecast.summary().get("confidence_label"), "factors": c.forecast.summary().get("confidence_factors", {}), "method": c.forecast.summary().get("method"), "recorder_safe": True}),
+        ForecastMetricSensor(coordinator, core, "Forecast Confidence", "forecast_confidence", "mdi:gauge", lambda c: c.forecast.summary().get("confidence"), unit="%", state_class=SensorStateClass.MEASUREMENT, attrs_fn=lambda c: {"label": c.forecast.summary().get("confidence_label"), "quality": c.forecast.summary().get("forecast_quality", {}), "method": c.forecast.summary().get("method")}),
+        ForecastMetricSensor(coordinator, core, "Expected Solar Today", "forecast_solar_today", "mdi:solar-power", lambda c: _forecast_day(c, 0).get("expected_solar_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT, attrs_fn=lambda c: {"date": _forecast_day(c, 0).get("date"), "evidence_method": _forecast_day(c, 0).get("evidence_method")}),
+        ForecastMetricSensor(coordinator, core, "Expected Solar Remaining Today", "forecast_solar_remaining_today", "mdi:solar-power-variant", lambda c: _forecast_day(c, 0).get("expected_solar_remaining_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Expected Solar Tomorrow", "forecast_solar_tomorrow", "mdi:weather-sunset-up", lambda c: _forecast_day(c, 1).get("expected_solar_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT, attrs_fn=lambda c: {"date": _forecast_day(c, 1).get("date"), "evidence_method": _forecast_day(c, 1).get("evidence_method")}),
+        ForecastMetricSensor(coordinator, core, "Expected Consumption Today", "forecast_consumption_today", "mdi:home-lightning-bolt-outline", lambda c: _forecast_day(c, 0).get("expected_consumption_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Expected Consumption Tomorrow", "forecast_consumption_tomorrow", "mdi:home-lightning-bolt-outline", lambda c: _forecast_day(c, 1).get("expected_consumption_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Expected Grid Import Today", "forecast_grid_import_today", "mdi:transmission-tower-import", lambda c: _forecast_day(c, 0).get("expected_grid_import_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Expected Grid Import Tomorrow", "forecast_grid_import_tomorrow", "mdi:transmission-tower-import", lambda c: _forecast_day(c, 1).get("expected_grid_import_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Expected Grid Export Today", "forecast_grid_export_today", "mdi:transmission-tower-export", lambda c: _forecast_day(c, 0).get("expected_grid_export_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Expected Grid Export Tomorrow", "forecast_grid_export_tomorrow", "mdi:transmission-tower-export", lambda c: _forecast_day(c, 1).get("expected_grid_export_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Expected Surplus Deficit Today", "forecast_surplus_deficit_today", "mdi:scale-balance", lambda c: _forecast_day(c, 0).get("expected_energy_balance_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT, attrs_fn=lambda c: {"meaning": "positive=solar surplus vs consumption; negative=solar deficit vs consumption"}),
+        ForecastMetricSensor(coordinator, core, "Expected Surplus Deficit Tomorrow", "forecast_surplus_deficit_tomorrow", "mdi:scale-balance", lambda c: _forecast_day(c, 1).get("expected_energy_balance_kwh"), unit="kWh", state_class=SensorStateClass.MEASUREMENT, attrs_fn=lambda c: {"meaning": "positive=solar surplus vs consumption; negative=solar deficit vs consumption"}),
+        ForecastMetricSensor(coordinator, core, "Expected Battery SoC End Today", "forecast_battery_soc_end_today", "mdi:battery-clock-outline", lambda c: _forecast_day(c, 0).get("battery_soc_end_percent"), unit="%", device_class=SensorDeviceClass.BATTERY, state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Expected Battery SoC End Tomorrow", "forecast_battery_soc_end_tomorrow", "mdi:battery-clock-outline", lambda c: _forecast_day(c, 1).get("battery_soc_end_percent"), unit="%", device_class=SensorDeviceClass.BATTERY, state_class=SensorStateClass.MEASUREMENT),
+        ForecastMetricSensor(coordinator, core, "Best Surplus Window Start", "forecast_best_surplus_window_start", "mdi:clock-start", lambda c: _forecast_timestamp(c, "start"), device_class=SensorDeviceClass.TIMESTAMP),
+        ForecastMetricSensor(coordinator, core, "Best Surplus Window End", "forecast_best_surplus_window_end", "mdi:clock-end", lambda c: _forecast_timestamp(c, "end"), device_class=SensorDeviceClass.TIMESTAMP),
         SimpleSensor(coordinator, core, "Next Best Energy Window", "next_best_window", "mdi:clock-star-four-points", lambda c: (c.forecast.summary().get("best_surplus_window") or {}).get("label") or "Calculating", lambda c: {"window": c.forecast.summary().get("best_surplus_window"), "recommendations": (c.forecast.summary().get("recommendations") or [])[:3], "safety": c.forecast.summary().get("safety"), "recorder_safe": True}),
         SimpleSensor(coordinator, core, "Optimization Score", "optimization_score", "mdi:gauge", lambda c: c.home_efficiency.summary().get("score"), lambda c: c.home_efficiency.summary()),
         SimpleSensor(coordinator, core, "AI Energy Advisor", "ai_energy_advisor", "mdi:account-tie-voice", lambda c: c.ai_advisor.summary().get("headline"), _advisor_attributes),
         SimpleSensor(coordinator, core, "Conversational Zeus Assistant", "conversational_assistant", "mdi:message-processing-outline", lambda c: c.conversational_assistant.summary().get("status"), lambda c: c.conversational_assistant.summary()),
         PredictiveBatterySensor(coordinator, core, "Predictive Battery Optimization", "predictive_battery", "mdi:battery-clock-outline", lambda c: c.predictive_battery.summary().get("strategy"), lambda c: c.predictive_battery.summary()),
-        IntelligenceEngineSensor(coordinator, core, "Intelligence Engine", "intelligence_engine", "mdi:brain", lambda c: c.intelligence.summary().get("status"), lambda c: c.intelligence.summary()),
+        IntelligenceEngineSensor(coordinator, core, "Intelligence Engine", "intelligence_engine", "mdi:brain", lambda c: c.intelligence.summary().get("status"), _intelligence_engine_attributes),
         SimpleSensor(coordinator, core, "Notification Engine", "notification_engine", "mdi:bell-outline", lambda c: c.notifications.summary().get("status"), lambda c: c.notifications.summary()),
         SimpleSensor(coordinator, core, "Control Audit Trail", "control_audit_trail", "mdi:clipboard-text-clock-outline", lambda c: c.control_audit.summary().get("status"), lambda c: c.control_audit.summary()),
         SimpleSensor(coordinator, core, "Dashboard API", "dashboard_api", "mdi:api", lambda c: c.dashboard_api.summary().get("status"), lambda c: c.dashboard_api.recorder_summary()),
-        SimpleSensor(coordinator, core, "Settings API", "settings_api", "mdi:cog-transfer-outline", lambda c: c.settings_api.summary().get("status"), lambda c: {"schema_version": c.settings_api.summary().get("schema_version"), "device_count": len(c.settings_api.summary().get("devices", [])), "battery_capacity_kwh": (c.settings_api.summary().get("home_settings") or {}).get("battery_capacity_kwh"), "battery_profile": {k: v for k, v in ((c.settings_api.summary().get("home_settings") or {}).get("battery_profile") or {}).items() if k in {"registered", "capacity_kwh", "minimum_soc_percent", "emergency_reserve_percent", "maximum_soc_percent", "max_charge_power_w", "max_discharge_power_w", "round_trip_efficiency", "source"}}, "home_settings": {"owner_name": str((c.settings_api.summary().get("home_settings") or {}).get("owner_name") or "")[:80], "home_name": str((c.settings_api.summary().get("home_settings") or {}).get("home_name") or "Home")[:80], "use_owner_name": (c.settings_api.summary().get("home_settings") or {}).get("use_owner_name", True), "story_style": str((c.settings_api.summary().get("home_settings") or {}).get("story_style") or "friendly"), "briefing_length": str((c.settings_api.summary().get("home_settings") or {}).get("briefing_length") or "normal"), "data_epoch": (c.settings_api.summary().get("home_settings") or {}).get("data_epoch")}, "data_epoch": c.settings_api.summary().get("data_epoch"), "recorder_history_preserved": c.settings_api.summary().get("recorder_history_preserved", True), "persistence": c.settings_api.summary().get("persistence"), "safety": c.settings_api.summary().get("safety")}),
+        SimpleSensor(coordinator, core, "Settings API", "settings_api", "mdi:cog-transfer-outline", lambda c: c.settings_api.summary().get("status"), lambda c: {"schema_version": c.settings_api.summary().get("schema_version"), "device_count": len(c.settings_api.summary().get("devices", [])), "battery_capacity_kwh": (c.settings_api.summary().get("home_settings") or {}).get("battery_capacity_kwh"), "battery_profile": {k: v for k, v in ((c.settings_api.summary().get("home_settings") or {}).get("battery_profile") or {}).items() if k in {"registered", "capacity_kwh", "minimum_soc_percent", "emergency_reserve_percent", "maximum_soc_percent", "max_charge_power_w", "max_discharge_power_w", "round_trip_efficiency", "source"}}, "home_settings": {"pv_arrays": list((c.settings_api.summary().get("home_settings") or {}).get("pv_arrays") or [])[:12], "owner_name": str((c.settings_api.summary().get("home_settings") or {}).get("owner_name") or "")[:80], "home_name": str((c.settings_api.summary().get("home_settings") or {}).get("home_name") or "Home")[:80], "use_owner_name": (c.settings_api.summary().get("home_settings") or {}).get("use_owner_name", True), "story_style": str((c.settings_api.summary().get("home_settings") or {}).get("story_style") or "friendly"), "briefing_length": str((c.settings_api.summary().get("home_settings") or {}).get("briefing_length") or "normal"),  "data_epoch": (c.settings_api.summary().get("home_settings") or {}).get("data_epoch"),
+"solar_forecast_engine_mode": (
+(c.settings_api.summary().get("home_settings") or {}).get("solar_forecast_engine_mode")
+if (c.settings_api.summary().get("home_settings") or {}).get("solar_forecast_engine_mode") in ("legacy", "v2")
+else "legacy")}, "data_epoch": c.settings_api.summary().get("data_epoch"), "recorder_history_preserved": c.settings_api.summary().get("recorder_history_preserved", True), "persistence": c.settings_api.summary().get("persistence"), "safety": c.settings_api.summary().get("safety")}),
     ]
 
     sensors.extend([
@@ -1879,6 +2050,117 @@ class SimpleSensor(CoordinatorEntity, SensorEntity):
         return _apply_recorder_guard(self, attrs)
 
 
+def _array_forward_evidence_attributes(core) -> dict[str, Any]:
+    """Compact, independent read-only view of immutable array snapshot evidence.
+
+    Do not depend on the large Forecast V2.1 Shadow attributes or recompute
+    array predictions. The existing frozen storage is the only authority.
+    """
+    from homeassistant.util import dt as dt_util
+    target = (dt_util.now().date() + timedelta(days=1)).isoformat()
+    accuracy = core.prediction_accuracy
+    frozen_rows = getattr(accuracy, "_hourly_frozen", ()) or ()
+    target_row = next((row for row in reversed(frozen_rows)
+                       if isinstance(row, dict) and row.get("target_date") == target), None)
+    frozen = ((target_row or {}).get("array_candidate_frozen") or {})
+    status = (frozen.get("status") or "not_captured_in_existing_snapshot"
+              if target_row is not None else "awaiting_future_capture")
+    try:
+        summary = accuracy._array_candidate_forward_summary()
+    except (AttributeError, ValueError, TypeError, KeyError):
+        summary = {"status": "summary_unavailable"}
+    return {
+        "status": summary.get("status", "unavailable"),
+        "target_date": target,
+        "target_snapshot_exists": target_row is not None,
+        "target_array_status": status,
+        "target_frozen_candidate_kwh": (frozen.get("candidate_kwh")
+                                        if frozen.get("status") == "frozen" else None),
+        "frozen_candidate_days": summary.get("frozen_candidate_days", 0),
+        "matched_days": summary.get("matched_days", 0),
+        "mean_absolute_error_kwh": summary.get("mean_absolute_error_kwh"),
+        "recent": list(summary.get("recent") or [])[-3:],
+        "capture": dict(getattr(accuracy, "_hourly_capture_status", {}) or {}),
+        "source": "immutable_hourly_frozen_storage",
+        "no_retroactive_backfill": True,
+        "accuracy_validated": False,
+        "production_applied": False,
+        "control_permission": False,
+    }
+
+
+class ForecastV21ShadowSensor(SimpleSensor):
+    """Build the shadow diagnostic once for each coordinator refresh.
+
+    Home Assistant reads native_value and extra_state_attributes separately.
+    Both must use the same snapshot, without repeating expensive evidence
+    audits or changing the production forecast.
+    """
+
+    def __init__(self, coordinator, core) -> None:
+        super().__init__(coordinator, core, "Forecast V2.1 Shadow", "forecast_v21_shadow", "mdi:chart-line-variant", lambda c: None, lambda c: {})
+        self._shadow_snapshot = None
+
+    def _snapshot(self):
+        if self._shadow_snapshot is None:
+            self._shadow_snapshot = self.core.prediction_accuracy.v21_shadow_summary() or {}
+        return self._shadow_snapshot
+
+    @property
+    def native_value(self):
+        return self._snapshot().get("status")
+
+    @property
+    def extra_state_attributes(self):
+        return _apply_recorder_guard(self, self._snapshot())
+
+    def _handle_coordinator_update(self) -> None:
+        self._shadow_snapshot = None
+        super()._handle_coordinator_update()
+
+
+class ForecastMetricSensor(CoordinatorEntity, SensorEntity):
+    """Recorder-visible HA-native metric backed by the Zeus Forecast Engine."""
+
+    def __init__(self, coordinator, core, name, key, icon, value_fn, *, unit=None, device_class=None, state_class=None, attrs_fn=None) -> None:
+        super().__init__(coordinator)
+        self.core = core
+        self._attr_has_entity_name = True
+        self._attr_name = name
+        self._attr_unique_id = f"{DOMAIN}_{key}"
+        self._attr_icon = icon
+        self.entity_id = f"sensor.aion_ems_zeus_{key}"
+        self.value_fn = value_fn
+        self.attrs_fn = attrs_fn
+        self._attr_native_unit_of_measurement = unit
+        self._attr_device_class = device_class
+        self._attr_state_class = state_class
+
+    @property
+    def native_value(self):
+        return self.value_fn(self.core)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return self.attrs_fn(self.core) if self.attrs_fn else {}
+
+
+def _forecast_day(core, index: int) -> dict[str, Any]:
+    days = core.forecast.summary().get("daily_forecast") or []
+    return days[index] if len(days) > index and isinstance(days[index], dict) else {}
+
+
+def _forecast_timestamp(core, key: str):
+    value = (core.forecast.summary().get("best_surplus_window") or {}).get(key)
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value))
+        return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
 class RecorderStateOnlySimpleSensor(SimpleSensor):
     """Recorder-efficient internal Zeus diagnostic sensor.
 
@@ -1908,6 +2190,26 @@ class RecorderStateOnlySimpleSensor(SimpleSensor):
         # event-driven at the Home Assistant state-machine boundary.
         await SensorEntity.async_added_to_hass(self)
         self.async_on_remove(self.coordinator.async_add_listener(self._handle_coordinator_update))
+        # Mapping configuration is user-driven, not a high-frequency diagnostic.
+        # Publish it immediately on Save/Clear rather than waiting for the
+        # diagnostic keepalive (which can be 15 minutes).
+        # Switch Hub is a safety-relevant control diagnostic. Publish its
+        # attributes immediately after configuration changes rather than
+        # retaining the old threshold until the 15-minute keepalive.
+        if self._attr_unique_id == f"{DOMAIN}_switch_hub":
+            self.async_on_remove(
+                self.hass.bus.async_listen(
+                    f"{DOMAIN}_switch_hub_changed",
+                    lambda event: self._handle_coordinator_update(force=True),
+                )
+            )
+        if self._attr_unique_id == f"{DOMAIN}_energy_mapping":
+            self.async_on_remove(
+                self.hass.bus.async_listen(
+                    f"{DOMAIN}_mapping_changed",
+                    lambda event: self._handle_coordinator_update(force=True),
+                )
+            )
         self._handle_coordinator_update()
 
     @property
@@ -1919,7 +2221,7 @@ class RecorderStateOnlySimpleSensor(SimpleSensor):
         # and refresh it only on the bounded diagnostic publish cadence.
         return self._zeus_cached_diag_attrs
 
-    def _handle_coordinator_update(self) -> None:
+    def _handle_coordinator_update(self, force: bool = False) -> None:
         now = monotonic()
         current_state = self.native_value
         changed = (
@@ -1931,13 +2233,35 @@ class RecorderStateOnlySimpleSensor(SimpleSensor):
             or now - self._zeus_last_diag_publish_monotonic
             >= self._ZEUS_DIAGNOSTIC_KEEPALIVE_SECONDS
         )
-        if not changed and not keepalive_due:
+        if not force and not changed and not keepalive_due:
             return
         self._zeus_cached_diag_attrs = _apply_recorder_guard(self, self.attrs_fn(self.core) or {})
         self._zeus_last_diag_publish_monotonic = now
         self._zeus_last_diag_state = current_state
         self._zeus_diag_publish_initialized = True
         self.async_write_ha_state()
+
+
+class RootCauseRecorderSensor(RecorderStateOnlySimpleSensor):
+    """Publish root-cause summary at most once per minute to HA Recorder.
+
+    The core root-cause engine is never throttled. The HA entity keeps the
+    full live snapshot refreshed on a bounded cadence; the existing sensor
+    value and attributes are preserved. No Recorder exclusions required.
+    """
+
+    _ZEUS_ROOT_CAUSE_MIN_PUBLISH_SECONDS = 60.0
+    _ZEUS_DIAGNOSTIC_KEEPALIVE_SECONDS = 300.0
+
+    def _handle_coordinator_update(self) -> None:
+        now = monotonic()
+        if (
+            self._zeus_diag_publish_initialized
+            and now - self._zeus_last_diag_publish_monotonic
+            < self._ZEUS_ROOT_CAUSE_MIN_PUBLISH_SECONDS
+        ):
+            return
+        super()._handle_coordinator_update()
 
 
 class AnomalyIntelligenceSensor(SimpleSensor):
@@ -2106,7 +2430,7 @@ class EnergyFlowSensor(SimpleSensor):
     """
 
     _unrecorded_attributes = frozenset({MATCH_ALL})
-    _ZEUS_FLOW_SUMMARY_PUBLISH_SECONDS = 5.0
+    _ZEUS_FLOW_SUMMARY_PUBLISH_SECONDS = 60.0
 
     def __init__(self, coordinator, core, name, key, icon, value_fn, attrs_fn) -> None:
         super().__init__(coordinator, core, name, key, icon, value_fn, attrs_fn)
@@ -2424,7 +2748,8 @@ class EVSurplusGridSignalSensor(CoordinatorEntity, SensorEntity):
             "sign_convention": "positive_import_negative_export",
             "go_e_pgrid_compatible": True,
             "recommended_payload_field": "pGrid",
-            "battery_payload_policy": "pAkku remains charger/automation policy; Zeus does not override it.",
+            "go_e_publisher_policy": "Canonical signed grid balance: import positive pGrid, export/surplus negative pGrid.",
+            "battery_payload_policy": "Zeus go-e publisher always sends pAkku = 0; battery does not contribute.",
             "source": "aion_ems_energy_flow_canonical_grid_balance",
             "safety": "Read-only derived signal. No charger current, phase or relay control.",
         }

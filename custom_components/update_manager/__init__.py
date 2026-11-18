@@ -15,6 +15,7 @@ from .const import (
     CONF_HIDE_POSTPONED,
     CONF_LARGE_AUTO_INSTALL,
     CONF_LARGE_WAIT_DAYS,
+    CONF_WHITELISTED_ENTITIES,
     DOMAIN,
     EVENT_INSTALLED,
 )
@@ -24,6 +25,7 @@ from .coordinator import (
     rules_from_options,
     schedule_from_options,
     trusted_voters_from_options,
+    whitelisted_entities_from_options,
 )
 from .device import device_info as update_manager_device_info
 from .github_auth import GitHubAuthManager
@@ -34,6 +36,7 @@ from .my_votes import MyVotesManager
 from .panel import async_register_update_manager_panel
 from .rollout_manager import RolloutManager
 from .runtime_data import UpdateManagerConfigEntry, UpdateManagerData
+from .services import async_setup_services
 from .staging_skip import StagingSkipManager
 from .websocket_api import async_apply_options, async_setup_websocket_api
 
@@ -181,23 +184,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
     # async_apply_options on every settings save, no reload needed either.
     community_verdict_manager.set_trusted_voters(trusted_voters_from_options(options))
     # Same reasoning as community_verdict_manager just above: needs only
-    # hass, nothing else holds a reference into it (yet, a future voting
-    # feature will read it for a valid access token, not the other way
-    # around), so no setter/callback wiring needed here either.
-    github_auth_manager = GitHubAuthManager(hass)
+    # hass, nothing else holds a reference into it, so no setter/callback
+    # wiring needed here either. Constructed before InstallManager below,
+    # which does read it (a valid access token for its own proactive
+    # hacs.json lookups, min_ha_version_fetch.py), same "needs this in hand
+    # before construction, not wired in after" reasoning as rollout_manager
+    # just below.
+    github_auth_manager = GitHubAuthManager(hass, entry.entry_id)
     # Same reasoning again: needs only hass, read by websocket_api.py's own
     # verdict_for_version handler, written by its vote handler.
     my_votes_manager = MyVotesManager(hass)
     coordinator = UpdateManagerCoordinator(
-        hass, rules, excluded_entities_from_options(options), community_verdict_manager, schedule_from_options(options)
+        hass,
+        rules,
+        excluded_entities_from_options(options),
+        community_verdict_manager,
+        schedule_from_options(options),
+        whitelisted_entities_from_options(options),
     )
     install_log = InstallLog(hass)
     # Constructed before InstallManager/StagingSkipManager: both take a
     # reference to it (see rollout_manager.py's own docstring: gates every
     # install dispatch, and staging_skip.py hides a queued entry the same
     # way it already hides a plain "waiting" one).
-    rollout_manager = RolloutManager(hass, coordinator)
-    install_manager = InstallManager(hass, coordinator, auto_install_rules_from_options(options), rollout_manager)
+    rollout_manager = RolloutManager(hass, coordinator, entry.entry_id)
+    install_manager = InstallManager(
+        hass, coordinator, auto_install_rules_from_options(options), rollout_manager, github_auth_manager
+    )
     staging_skip_manager = StagingSkipManager(hass, coordinator, rollout_manager)
     # The reverse direction: only wireable once install_manager exists, see
     # rollout_manager.py's own set_recently_executed_setter docstring for
@@ -207,8 +220,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
     # Same reasoning, see rollout_manager.py's own set_failure_handler
     # docstring: a queued entry's install can fail too, once this module is
     # the one dispatching it, and it needs the exact same cleanup/
-    # notification install_manager.py's own non-queued path already has.
+    # notification install_manager.py's own non-queued path already has --
+    # two separate handlers since a queued entry can be either auto-install's
+    # own doing or a manual click that simply had to wait its turn.
     rollout_manager.set_failure_handler(install_manager.handle_install_failure)
+    rollout_manager.set_manual_failure_handler(install_manager.handle_manual_install_failure)
+    # Same reasoning again, see rollout_manager.py's own set_postponed_handler
+    # docstring: a queued install can also hit the "needs a newer HA Core"
+    # case the two non-queued paths already handle via async_mark_postponed.
+    rollout_manager.set_postponed_handler(install_manager.async_mark_postponed)
+    # Same reasoning again, see rollout_manager.py's own set_install_dispatcher
+    # docstring: a queued install's actual update.install call needs the same
+    # shared lock install_manager.py's own non-queued path already dispatches
+    # through, so two installs from different Zigbee networks/tiers never hit
+    # HACS's own shared-backup-directory race.
+    rollout_manager.set_install_dispatcher(install_manager.async_dispatch_install)
     # The single shared master-enabled flag (see coordinator.py's own
     # set_master_enabled) -- set once, here, before either manager's
     # async_start() runs; both read it directly off the coordinator from
@@ -220,6 +246,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
     # place) correctly reads as "postponed", not "skipped", from the
     # start.
     coordinator.set_own_skip_checker(staging_skip_manager.is_own_skip)
+    # Same reasoning/ordering as set_own_skip_checker just above, see
+    # coordinator.py's own set_postponed_checker/self._is_postponed
+    # comments.
+    coordinator.set_postponed_checker(lambda entity_id: install_manager.postponed_for(entity_id) is not None)
 
     # staging_skip_manager.async_load() awaited on its own, *before*
     # coordinator.async_start() -- found live (well, found by review, not
@@ -234,30 +264,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
     # coordinator's own staggered bulk scan is the actual slow part on a
     # large instance) behind it too.
     await staging_skip_manager.async_load()
-    # install_log.async_load() *and* community_verdict_manager.async_load()
-    # specifically (not the other three loads below) must both finish
-    # before coordinator.async_start() -- install_log for the reason given
-    # at _on_install's own registration further down, community_verdict_manager
+    # install_log.async_load(), community_verdict_manager.async_load(), and
+    # now install_manager.async_load() too must all finish before
+    # coordinator.async_start(): install_log for the reason given at
+    # _on_install's own registration further down, community_verdict_manager
     # because coordinator.py's own _async_cache_active reads
     # CommunityVerdictManager.peek_cached_verdict/peek_cached_trusted_vote
     # synchronously, straight from its in-memory cache, during the bulk
-    # scan async_start() itself runs -- found by code review, 2026-07-27:
+    # scan async_start() itself runs. Found by code review, 2026-07-27:
     # gathering it concurrently with async_start() again (an earlier
     # efficiency fix) reintroduced exactly the kind of race this whole
     # split was meant to avoid, just for a different manager: whichever
     # entities the scan reaches before this Store read resolves would
     # silently get None/empty community-verdict data for a moment, even
-    # though a persisted cache exists on disk. install_manager/
-    # rollout_manager/github_auth_manager have no such ordering dependency
-    # and stay gathered together with coordinator.async_start() itself.
-    # integration fetched alongside the other two here purely for
-    # efficiency (see this gather's own docstring above for why install_log/
-    # community_verdict_manager specifically can't just join
-    # coordinator.async_start()'s own gather further down) -- fetching the
-    # manifest.json version has no ordering dependency on anything else at
-    # all, so it's free to run concurrently with them.
-    _, _, integration = await asyncio.gather(
-        install_log.async_load(), community_verdict_manager.async_load(), async_get_integration(hass, DOMAIN)
+    # though a persisted cache exists on disk. install_manager joined this
+    # same group for the exact same reason, found by code review,
+    # 2026-11-03: set_postponed_checker above reads install_manager's own
+    # self._postponed synchronously, same as set_own_skip_checker reads
+    # staging_skip_manager's, so its own data needs to already be loaded
+    # by the time coordinator.async_start()'s bulk scan reaches its first
+    # already-postponed entity too, not still mid-gather with it.
+    # rollout_manager/github_auth_manager still have no such ordering
+    # dependency and stay gathered together with coordinator.async_start()
+    # itself further down. integration fetched alongside the others here
+    # purely for efficiency (see this gather's own docstring above for why
+    # install_log/community_verdict_manager/install_manager specifically
+    # can't just join coordinator.async_start()'s own gather further down):
+    # fetching the manifest.json version has no ordering dependency on
+    # anything else at all, so it's free to run concurrently with them.
+    _, _, _, integration = await asyncio.gather(
+        install_log.async_load(),
+        community_verdict_manager.async_load(),
+        install_manager.async_load(),
+        async_get_integration(hass, DOMAIN),
     )
 
     @callback
@@ -282,14 +321,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
         # this: a genuine human-triggered install always carries a
         # resolvable context.user_id, propagated synchronously from the
         # update.install service call all the way to this exact state,
-        # confirmed against core.py's own source too, not guessed. An
-        # entity that updated itself outside Home Assistant entirely (a
-        # UniFi switch's own auto-update, a Home Assistant Voice PE and a
-        # Zigbee device both silently reporting an already-newer version)
-        # never went through that service call at all, so user_id is
-        # always empty there, same "Via Update"/no attribution shown in
-        # the Logbook itself for exactly these three real cases. Only
-        # checked once "auto" (our own dispatch) is already ruled out:
+        # confirmed against core.py's own source too, not guessed. "external"
+        # itself only ever means that -- no observed update.install call to
+        # attribute this to -- not a confirmed fact about where the install
+        # actually happened (2026-11-09: a real case, reimporting a blueprint
+        # through Home Assistant's own blueprint UI, looks identical here to
+        # an entity genuinely self-updating outside Home Assistant entirely,
+        # like a UniFi switch's own auto-update; neither ever goes through
+        # that service call, so user_id is always empty for both). The UI
+        # (panel/update-manager-panel.js's own installMethodText, the notify
+        # Blueprint's own "Update installed" message) only ever shows this as
+        # the absence of a known method, never a specific claim about one.
+        # Only checked once "auto" (our own dispatch) is already ruled out:
         # install_manager.py's own service calls have no user_id either
         # (backend code, not a logged-in session), which would otherwise
         # misread as "external" too.
@@ -309,6 +352,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
         # reason) or one that genuinely finished within that 5-second
         # window.
         #
+        # was_manually_requested itself returns (found, user_id), not just
+        # user_id: an automation or Blueprint action rarely carries an
+        # attributable user even for a real, observed update.install call,
+        # so a bare, possibly-None user_id can't tell that apart from no
+        # record at all. Only the found flag decides "manual" here, exactly
+        # the gap that misread a notify-Blueprint install as "External".
+        #
         # A previous attempt at this exact fix was reverted, 2026-08-25,
         # direct user feedback, on suspicion it had caused a
         # real ESPHome install to go missing from History entirely rather
@@ -325,16 +375,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
         # moment with no guaranteed relationship to when the install
         # actually happened (possibly across a restart). Neither
         # was_manually_requested nor new_state.context.user_id can be
-        # trusted there either, so this falls back to the older, safe
-        # "manual" default instead of guessing "external" from an
-        # untrustworthy signal.
+        # trusted there either, so this is as unconfirmed as install_method
+        # ever gets -- "external" exactly, now that that value means "not
+        # confirmed", not "confirmed to have happened somewhere else"
+        # (2026-11-09, see this function's own comment on "manual" vs
+        # "external" below). Used to default to "manual" instead, back when
+        # "external" still carried that stronger, wrong implication.
         if context is not None:
             install_method = "auto"
         elif retroactive:
-            install_method = "manual"
+            install_method = "external"
         else:
-            manual_user_id = rollout_manager.was_manually_requested(entity_id, new_version) or new_state.context.user_id
-            install_method = "manual" if manual_user_id else "external"
+            requested, _ = rollout_manager.was_manually_requested(entity_id, new_version)
+            install_method = "manual" if requested or new_state.context.user_id else "external"
         cached = coordinator.cache.get(entity_id)
         hass.async_create_task(
             install_log.async_log_install(
@@ -415,11 +468,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
         # exact same apply path every other options change already does --
         # update_listener -> async_apply_options -> coordinator.async_update_rules.
         excluded = list(entry.options.get(CONF_EXCLUDED_ENTITIES, []))
+        whitelisted = list(entry.options.get(CONF_WHITELISTED_ENTITIES, []))
+        new_options = dict(entry.options)
+        changed = False
         if old_entity_id in excluded:
-            excluded = [new_entity_id if e == old_entity_id else e for e in excluded]
-            hass.config_entries.async_update_entry(
-                entry, options={**entry.options, CONF_EXCLUDED_ENTITIES: excluded}
-            )
+            new_options[CONF_EXCLUDED_ENTITIES] = [new_entity_id if e == old_entity_id else e for e in excluded]
+            changed = True
+        # Same reasoning as excluded_entities above, same rename event --
+        # whitelisted_entities lives in the exact same config-entry-options
+        # shape, added 2026-10-10.
+        if old_entity_id in whitelisted:
+            new_options[CONF_WHITELISTED_ENTITIES] = [
+                new_entity_id if e == old_entity_id else e for e in whitelisted
+            ]
+            changed = True
+        if changed:
+            hass.config_entries.async_update_entry(entry, options=new_options)
 
     @callback
     def _on_entity_registry_updated(event) -> None:
@@ -463,14 +527,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
 
     entry.async_on_unload(hass.bus.async_listen(EVENT_CALL_SERVICE, _on_update_install_call))
 
-    # The other three loads have no such ordering dependency on
-    # coordinator.async_start() -- gathered together with it, not awaited
+    # The remaining loads have no such ordering dependency on
+    # coordinator.async_start(). Gathered together with it, not awaited
     # in front of it, so they still overlap with the coordinator's own
     # slow, staggered bulk scan the same way they did before install_log/
-    # community_verdict_manager needed to move out on their own above.
+    # community_verdict_manager/install_manager needed to move out on their
+    # own above.
     await asyncio.gather(
         coordinator.async_start(),
-        install_manager.async_load(),
         rollout_manager.async_load(),
         github_auth_manager.async_load(),
         my_votes_manager.async_load(),
@@ -501,6 +565,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: UpdateManagerConfigEntry
     _migrate_enabled_switch_entity_id(hass)
 
     async_setup_websocket_api(hass)
+    async_setup_services(hass)
     await async_register_update_manager_panel(hass)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

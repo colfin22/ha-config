@@ -128,6 +128,16 @@ export const TRANSLATIONS = {
     status_waiting_short: "Postponed",
     status_blocked: "Discouraged",
     status_skipped: "Skipped",
+    // The detail dialog's header badge, opened for a purely historical
+    // entry (no pending update being tracked right now at all, so none of
+    // the status_* strings above apply): the entity's own real current
+    // state.state, "on"/"off", in plain words.
+    status_update_available: "Update available",
+    status_up_to_date: "Up-to-date",
+    // The same dialog header badge, for a History entry whose entity no
+    // longer exists at all. Distinct from both strings above, which imply
+    // a real, currently-known entity.
+    status_unavailable: "Unavailable",
     // Lowercase, distinct from the Title Case group heading above -- matches
     // ha-config-updates.ts's own row template, confirmed against its real
     // source: `${title} ${latest_version} (${localize("ui.panel.config.updates.skipped")})`.
@@ -142,13 +152,31 @@ export const TRANSLATIONS = {
     // other way to say what's happening right now.
     status_installing: "Installing…",
     status_pending_install: (when) => `Will update automatically ${when}`,
+    // Same "Postponed" group as status_waiting_soon/status_pending_install
+    // above, just a different, known reason (see install_manager.py's own
+    // self._postponed): a first install attempt already found out this
+    // needs a newer HA Core than what's running, no further install
+    // attempt happens until that changes.
+    status_postponed: (version) => `Postponed until Home Assistant ${version} or newer`,
+    timer_postponed: (version) => `HA ${version}+`,
     // Plain " ⋅ " separator, not a parenthetical -- same separator already
     // used elsewhere in this file (e.g. the history entry's
     // "from → to ⋅ when" line) to combine two independent facts.
     always_manual_suffix: " ⋅ Always manual",
-    field_excluded_entities: "Always manual",
+    field_excluded_entities: "Never auto-update",
+    // "your other auto-update settings", not "what's configured above" --
+    // this same string doubles as both the Settings-page row's own
+    // description AND the modal's (_openEntityListModal), which has
+    // nothing "above" it at all. Direct user feedback, 2026-10-10.
     field_excluded_entities_helper:
-      "Still shown normally in Updates and History. Update Manager just never auto-installs these, regardless of what's configured above.",
+      "Still shown normally in Updates and History. Update Manager just never auto-installs these, regardless of your other auto-update settings.",
+    // Answers issue #10's own "instant-install allow list" request, direct
+    // user feedback, 2026-10-10.
+    field_whitelisted_entities: "Always auto-update",
+    field_whitelisted_entities_helper:
+      "Installs the instant a new version is available, skipping the wait and the community vote check entirely, regardless of your other auto-update settings.",
+    entity_list_configured_count: (count) => (count === 1 ? "1 entity" : `${count} entities`),
+    save: "Save",
     field_wait_days_unit: "days",
     field_auto_install: "Update automatically",
     auto_install_section_title: "Auto-update",
@@ -169,7 +197,11 @@ export const TRANSLATIONS = {
     weekday_sunday_short: "Sunday",
     field_trusted_voters: "Trusted voters",
     field_trusted_voters_helper:
-      "A GitHub username you trust more than your own rules. Their healthy vote overrides your rules above and auto-installs that jump immediately, even over someone else's problematic report.",
+      "GitHub usernames you trust more than your own rules. A healthy vote from any of them overrides your rules above and auto-installs that jump immediately, even over someone else's problematic report.",
+    // _buildListSummary's own countText override: usernames, not entities.
+    // See its own comment for why entity_list_configured_count doesn't fit
+    // here.
+    trusted_voters_configured_count: (count) => (count === 1 ? "1 trusted voter" : `${count} trusted voters`),
     announce_hours_label: "Announcement notice",
     announce_hours_unit: "hours",
     announce_hours_helper: "How long you still have to cancel a scheduled automatic install.",
@@ -182,7 +214,16 @@ export const TRANSLATIONS = {
     // Pointer to the Community section further down this same dialog, not
     // a restatement of it -- shown on the Auto-install step whenever
     // heldBackByCommunity is true.
-    dialog_timeline_held_back_pointer: "Held back by the community verdict below.",
+    dialog_timeline_held_back_pointer: "Held back by the community verdict.",
+    // Its own step (see Step 3b in the dialog's own build method), title
+    // kept short, the actual explanation (with the version comparison)
+    // lives in dialog_timeline_postponed_detail below.
+    dialog_timeline_postponed: "Postponed",
+    dialog_timeline_postponed_detail: (required, current) =>
+      `Requires Home Assistant ${required}. You're currently on ${current}.`,
+    dialog_timeline_native_auto_update: "Managed by Home Assistant",
+    dialog_timeline_native_auto_update_detail:
+      "Home Assistant's own “Auto update” toggle is on for this entity, so it installs this update itself, on its own schedule.",
     dialog_community_verdict_disclaimer:
       "A collected opinion from other users, not a guarantee. Be extra careful with safety-relevant devices (locks, alarms, smoke detectors).",
     // Also the "nothing at all" row of the Community section's own fact
@@ -264,21 +305,29 @@ export const TRANSLATIONS = {
     dialog_history_installed_at: "Installed",
     dialog_history_method_label: "Install method",
     dialog_history_method_manual: "Manual",
-    // Distinct from Manual since 2026-08-18: no resolvable person behind
-    // this at all (unlike Manual, where a real Home Assistant user's own
-    // context.user_id was found) -- an entity that updated itself outside
-    // Home Assistant entirely, only noticed here after the fact.
-    dialog_history_method_external: "External",
     dialog_history_method_rules: "Automatic, your own rules",
     dialog_history_method_trusted: (names) => `Automatic, trusted vote from ${names}`,
+    dialog_history_method_whitelist: "Automatic, always auto-update list",
     dialog_history_backup_label: "Backup",
     dialog_history_backup_yes: "Taken before installing",
     dialog_history_backup_no: "Not supported by this entity",
     dialog_release_notes_heading: "Release notes",
+    // toVersion spelled out, once known. See insertReleaseNotesSection's own
+    // comment; the download-count suffix is built separately, right next
+    // to this text, not part of this string.
+    dialog_release_notes_heading_version: (v) => `Release notes v${v}`,
     dialog_upstream_release_notes: (repo) => `${repo}'s own release notes:`,
     dialog_community_heading: "Community",
     list_and: "and",
     dialog_more_info: "More info",
+    dialog_menu_marketplace: "Marketplace",
+    dialog_menu_visit: "Visit",
+    dialog_menu_repository: "Repository",
+    dialog_menu_issue_tracker: "Issues",
+    // Marketplace's own real open-issue count, resolved async
+    // (_resolveMarketplaceInfo). Only shown once that's actually known; see
+    // dialog_menu_issue_tracker above for the plain fallback.
+    dialog_menu_issue_tracker_count: (n) => `Issues (${n})`,
     paused_banner: "Update Manager is paused. Nothing below will be updated, announced, or hidden automatically.",
     // Renamed from "Update Manager" (2026-07-21, direct user feedback): now
     // that this card also covers hide_postponed (merged in from its own
@@ -334,10 +383,15 @@ export const TRANSLATIONS = {
     save: "Save",
     settings_saved_toast: "Settings saved",
     cancel_auto_install: "Cancel",
-    // The pending-update dialog's own "Ready now" button, next to Cancel --
-    // forces this one jump to evaluate as ready immediately, skipping the
-    // rest of its postponement period.
-    dialog_force_ready: "Ready",
+    // The pending-update dialog's own button, next to Cancel -- forces
+    // this one jump to evaluate as ready immediately, skipping the rest of
+    // its postponement period. Not bare "Ready" (reads as a status, not an
+    // action) and not "Ready to install" either (collides with the
+    // timeline's own "Ready to update" step, group_ready below). "Ready
+    // now" shares its "Ready ___" core word with mark_all_ready's own
+    // "Ready all" (the same action applied in bulk) without that
+    // collision.
+    dialog_force_ready: "Ready now",
     dialog_open_update: "Open update",
     dialog_skip: "Skip",
     dialog_unskip: "Clear skipped",
@@ -345,6 +399,14 @@ export const TRANSLATIONS = {
     group_waiting: "Postponed",
     group_blocked: "Discouraged",
     update_all: "Update all",
+    // Postponed group's own header button (see _markAllReadyInGroup) --
+    // same effect as the per-entity dialog_force_ready button above, just
+    // applied to every postponed update at once. "Ready all", matching
+    // update_all's own "<verb> all" shape, not "Mark all ready" -- shorter,
+    // and shares its own core word with dialog_force_ready, so it reads as
+    // the same action applied in bulk.
+    mark_all_ready: "Ready all",
+    mark_all_ready_started_toast: (count) => (count === 1 ? "Marking 1 update ready…" : `Marking ${count} updates ready…`),
     // The "Installing" section's own title (see _buildInstallingCard) --
     // everything currently installing or held back (the tier gate or the
     // Zigbee model gate, both server-side in rollout_manager.py), pulled
@@ -521,19 +583,30 @@ export const TRANSLATIONS = {
     status_blocked: "Afgeraden",
     status_skipped: "Overgeslagen",
     status_skipped_suffix: "overgeslagen",
+    status_update_available: "Update beschikbaar",
+    status_up_to_date: "Up-to-date",
+    status_unavailable: "Niet beschikbaar",
     status_installing: "Bezig met installeren…",
     status_pending_install: (when) => `Wordt automatisch geüpdatet ${when}`,
+    status_postponed: (version) => `Uitgesteld tot Home Assistant ${version} of nieuwer`,
+    timer_postponed: (version) => `HA ${version}+`,
     always_manual_suffix: " ⋅ Altijd handmatig",
-    field_excluded_entities: "Altijd handmatig",
+    field_excluded_entities: "Nooit automatisch updaten",
     field_excluded_entities_helper:
-      "Blijven gewoon zichtbaar bij Updates en Historie. Update Manager installeert ze alleen nooit automatisch, ongeacht wat je hierboven instelt.",
+      "Blijven gewoon zichtbaar bij Updates en Historie. Update Manager installeert ze alleen nooit automatisch, ongeacht je overige auto-update-instellingen.",
+    field_whitelisted_entities: "Altijd automatisch updaten",
+    field_whitelisted_entities_helper:
+      "Installeert direct zodra er een nieuwe versie beschikbaar is, en slaat daarbij de wachttijd en de community-stemcontrole helemaal over, ongeacht je overige auto-update-instellingen.",
+    entity_list_configured_count: (count) => (count === 1 ? "1 entiteit" : `${count} entiteiten`),
+    save: "Opslaan",
     field_wait_days_unit: "dagen",
     field_auto_install: "Automatisch updaten",
     auto_install_section_title: "Auto-update",
     auto_install_sizes_label: "Welke groottes installeer je automatisch?",
     field_trusted_voters: "Vertrouwde stemmers",
     field_trusted_voters_helper:
-      "Een GitHub-gebruikersnaam die je meer vertrouwt dan je eigen regels. Hun probleemloze stem overrult je eigen regels hierboven en installeert die sprong meteen automatisch, ook als iemand anders 'm als problematisch meldde.",
+      "GitHub-gebruikersnamen die je meer vertrouwt dan je eigen regels. Een probleemloze stem van een van hen overrult je eigen regels hierboven en installeert die sprong meteen automatisch, ook als iemand anders 'm als problematisch meldde.",
+    trusted_voters_configured_count: (count) => (count === 1 ? "1 vertrouwde stemmer" : `${count} vertrouwde stemmers`),
     field_hide_postponed: "Uitgestelde updates verbergen",
     field_hide_postponed_helper: "Verbergt 'm uit Home Assistants eigen update-telling tot 'ie klaar is.",
     field_ready_days_add: "Dag toevoegen",
@@ -551,7 +624,13 @@ export const TRANSLATIONS = {
     announce_hours_helper: "Hoelang je nog hebt om een geplande automatische installatie te annuleren.",
     dialog_timeline_update_available: "Update beschikbaar",
     dialog_timeline_auto_install: "Auto-install",
-    dialog_timeline_held_back_pointer: "Tegengehouden door het communityoordeel hieronder.",
+    dialog_timeline_held_back_pointer: "Tegengehouden door het communityoordeel.",
+    dialog_timeline_postponed: "Uitgesteld",
+    dialog_timeline_postponed_detail: (required, current) =>
+      `Vereist Home Assistant ${required}. Jij hebt nu ${current}.`,
+    dialog_timeline_native_auto_update: "Wordt beheerd door Home Assistant",
+    dialog_timeline_native_auto_update_detail:
+      "Home Assistant's eigen “Auto update” staat aan voor deze entiteit, dus hij installeert deze update zelf, op zijn eigen moment.",
     dialog_community_verdict_disclaimer:
       "Een verzamelde mening van andere gebruikers, geen garantie. Wees extra voorzichtig bij veiligheidsgevoelige apparaten (sloten, alarmen, rookmelders).",
     community_not_yet_rated: "Niemand heeft nog iets over deze sprong gemeld.",
@@ -592,17 +671,23 @@ export const TRANSLATIONS = {
     dialog_history_installed_at: "Geïnstalleerd",
     dialog_history_method_label: "Installatiemethode",
     dialog_history_method_manual: "Handmatig",
-    dialog_history_method_external: "Extern",
     dialog_history_method_rules: "Automatisch, je eigen regels",
     dialog_history_method_trusted: (names) => `Automatisch, vertrouwde stem van ${names}`,
+    dialog_history_method_whitelist: "Automatisch, altijd-updaten-lijst",
     dialog_history_backup_label: "Back-up",
     dialog_history_backup_yes: "Gemaakt voor het installeren",
     dialog_history_backup_no: "Niet ondersteund door deze entiteit",
     dialog_release_notes_heading: "Release notes",
+    dialog_release_notes_heading_version: (v) => `Release notes v${v}`,
     dialog_upstream_release_notes: (repo) => `Eigen release notes van ${repo}:`,
     dialog_community_heading: "Community",
     list_and: "en",
     dialog_more_info: "Meer info",
+    dialog_menu_marketplace: "Marketplace",
+    dialog_menu_visit: "Bezoeken",
+    dialog_menu_repository: "Repository",
+    dialog_menu_issue_tracker: "Issues",
+    dialog_menu_issue_tracker_count: (n) => `Issues (${n})`,
     paused_banner: "Update Manager staat gepauzeerd. Niets hieronder wordt automatisch geüpdatet, aangekondigd of verborgen.",
     community_section_title: "Help anderen",
     community_section_desc:
@@ -631,7 +716,7 @@ export const TRANSLATIONS = {
     save: "Opslaan",
     settings_saved_toast: "Instellingen opgeslagen",
     cancel_auto_install: "Annuleren",
-    dialog_force_ready: "Klaar",
+    dialog_force_ready: "Nu klaar",
     dialog_open_update: "Update openen",
     dialog_skip: "Overslaan",
     dialog_unskip: "Overslaan ongedaan maken",
@@ -639,6 +724,9 @@ export const TRANSLATIONS = {
     group_waiting: "Uitgesteld",
     group_blocked: "Afgeraden",
     update_all: "Alles updaten",
+    mark_all_ready: "Alles klaar",
+    mark_all_ready_started_toast: (count) =>
+      count === 1 ? "1 update wordt klaar gemarkeerd…" : `${count} updates worden klaar gemarkeerd…`,
     installing_section_title: "Bezig met installeren",
     tier_waiting_text: "Wacht tot andere updates eerst klaar zijn",
     stuck_waiting_text: (duration) => `Installeert al ${duration}, langer dan gebruikelijk`,

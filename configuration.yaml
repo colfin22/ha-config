@@ -9,6 +9,12 @@ frontend:
 
 recorder:
   purge_keep_days: 7
+  include:
+    entities:  # 18-11-2026: security card history; named includes beat the *_occupancy exclude glob, nothing else changes
+      - binary_sensor.hallway_motion_sensor_occupancy
+      - binary_sensor.landing_motion_sensor_occupancy
+      - binary_sensor.sitting_room_presence_occupancy
+      - binary_sensor.office_presence_occupancy
   exclude:
     entities:
       - sensor.solis_rtc

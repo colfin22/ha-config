@@ -1,13 +1,13 @@
 import logging
 import math
 import time
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date
 from types import SimpleNamespace
 from typing import Any, cast
 
 import homeassistant.util.dt as dt_util
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, PERCENTAGE, STATE_UNAVAILABLE, STATE_UNKNOWN, EntityCategory
 from homeassistant.core import HomeAssistant, callback
@@ -15,7 +15,8 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.restore_state import ExtraStoredData, RestoreEntity
 
 from .const import (
     CONF_READ_BATTERY,
@@ -28,10 +29,12 @@ from .const import (
     SLEEPMODE_NONE,
     SLEEPMODE_ZERO,
     BaseModbusSensorEntityDescription,
+    descriptor_optional_depends,
+    is_inputless_computed_sensor,
     matches_modbus_protocol,
 )
 from .debug import get_debug_setting
-from .device_registry_lookup import get_device_by_identifier
+from .device_registry_lookup import get_device_by_identifier, link_parent_device
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,6 +44,8 @@ COMMUNICATION_SENSOR_TYPES: list[BaseModbusSensorEntityDescription] = [
         name="Communication Health",
         key="communication_health",
         value_function=lambda initval, descr, datadict: datadict.get("communication_health", "Unknown"),
+        depends_on=[],
+        recompute_each_poll=True,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:heart-pulse",
     ),
@@ -48,6 +53,9 @@ COMMUNICATION_SENSOR_TYPES: list[BaseModbusSensorEntityDescription] = [
         name="Communication Success Rate",
         key="communication_success_rate",
         value_function=lambda initval, descr, datadict: datadict.get("communication_success_rate"),
+        depends_on=[],
+        recompute_each_poll=True,
+        allow_none=True,
         native_unit_of_measurement=PERCENTAGE,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:percent-circle-outline",
@@ -56,6 +64,8 @@ COMMUNICATION_SENSOR_TYPES: list[BaseModbusSensorEntityDescription] = [
         name="Communication Quarantined Registers",
         key="communication_quarantined_registers",
         value_function=lambda initval, descr, datadict: datadict.get("communication_quarantined_registers", 0),
+        depends_on=[],
+        recompute_each_poll=True,
         entity_category=EntityCategory.DIAGNOSTIC,
         icon="mdi:shield-alert-outline",
     ),
@@ -239,14 +249,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     manufacturer=hub.plugin.plugin_manufacturer,
                     serial_number=batt_pack_serial,
                 )
-                # Link to the parent inverter via via_device_id (scoped to this config
-                # entry) on HA 2026.8+, falling back to the deprecated via_device tuple.
-                parent_identifier = (DOMAIN, hub_name, INVERTER_IDENT)
-                parent_device = get_device_by_identifier(dev_registry, parent_identifier, entry.entry_id)
-                if parent_device is not None:
-                    cast(dict[str, Any], device_info_battery)["via_device_id"] = parent_device.id
-                else:
-                    device_info_battery["via_device"] = parent_identifier  # type: ignore[typeddict-item]
+                # Link to the parent inverter (via_device_id on HA 2026.8+, legacy
+                # via_device tuple otherwise — decided by API support, not lookup success).
+                link_parent_device(
+                    cast(dict[str, Any], device_info_battery),
+                    dev_registry,
+                    (DOMAIN, hub_name, INVERTER_IDENT),
+                    entry.entry_id,
+                )
 
                 key_prefix = battery_config.battery_sensor_key_prefix.replace("{batt-nr}", str(batt_nr + 1)).replace(
                     "{pack-nr}", str(batt_pack_nr + 1)
@@ -273,9 +283,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                     if device is not None:
                         batt_pack_model = await battery_config.get_batt_pack_model(hub)
                         batt_pack_sw_version = await battery_config.get_batt_pack_sw_version(hub, new_data, key_prefix)
-                        dev_registry.async_update_device(device.id, sw_version=batt_pack_sw_version, model=batt_pack_model)
                     result = await battery_config.check_battery_on_end(hub, old_data, new_data, key_prefix, batt_nr, batt_pack_nr)
-                    return bool(result)
+                    if not result:
+                        return False
+                    if device is not None:
+                        batt_pack_serial = await battery_config.get_batt_pack_serial(hub, batt_nr, batt_pack_nr)
+                        old_serial = device.serial_number
+                        dev_registry.async_update_device(
+                            device.id, sw_version=batt_pack_sw_version, model=batt_pack_model, serial_number=batt_pack_serial
+                        )
+                        if old_serial != batt_pack_serial:
+                            _LOGGER.warning(
+                                "%s: Battery %s / Pack %s: serial number changed from %r to %r; device information updated",
+                                hub_name,
+                                batt_nr + 1,
+                                batt_pack_nr + 1,
+                                old_serial,
+                                batt_pack_serial,
+                            )
+                    return True
 
                 entityToList(
                     hub,
@@ -400,23 +426,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                         _LOGGER.info("%s: Registering %s Energy Dashboard entities", hub_name, len(new_entities))
                         entities.extend(new_entities)
                         async_add_entities(new_entities)
+                        # New computed entities may require disabled raw sensors.
+                        hub.blocks_changed = True
 
                     for key, description in desired.items():
                         sensor = dashboard_entities.get(key) or hub.sensorEntities.get(key)
-                        if (
-                            description.register < 0
-                            and description.value_function
-                            and not getattr(
-                                description,
-                                "_is_riemann_sum_sensor",
-                                False,
-                            )
-                        ):
-                            try:
-                                hub.data[key] = description.value_function(0, description, hub.data)
-                            except Exception as ex:
-                                _LOGGER.debug("%s: ED refresh value_function failed for %s: %s", hub_name, key, ex)
-                                continue
+                        if description.register < 0 and description.value_function and not getattr(description, "_is_riemann_sum_sensor", False):
+                            hub.evaluate_computed_sensor(description, hub.data, force=True)
                         if sensor is not None and getattr(sensor, "hass", None) is not None:
                             sensor.modbus_data_updated()
 
@@ -455,6 +471,8 @@ class SolaXModbusSensor(SensorEntity):
         # self.entity_id = "sensor." + platform_name + "_" + description.key
         self.entity_description: BaseModbusSensorEntityDescription = description
         self._energy_dashboard_active = True
+        self._computed_available = True
+        self._cancel_computed_expiry: Any = None
         self._attr_extra_state_attributes = _energy_dashboard_mapping_attrs(self.entity_description, self._hub)
         scale = description.scale
         if description.native_unit_of_measurement is not None and isinstance(scale, (int, float)) and not isinstance(scale, bool) and scale > 0:
@@ -464,6 +482,14 @@ class SolaXModbusSensor(SensorEntity):
             # precision, hiding real decimals or padding integers with a fake ".0".
             expressible = 0 if scale >= 1 else math.ceil(-math.log10(scale))
             self._attr_suggested_display_precision = min(expressible, description.rounding)
+        elif isinstance(scale, dict) and all(isinstance(opt, str) for opt in scale.values()) and description.native_unit_of_measurement is None:
+            # If the sensor has a set of distinct string options as reported by its value
+            # function being a dict, then inform HA of the available options.
+            # Only apply ENUM when there is no unit of measurement — a unit implies
+            # a numeric value and HA rejects the combination of a unit with a
+            # non-numeric device class (e.g. Growatt eps_set_voltage in V).
+            self._attr_options = list(scale.values())
+            self._attr_device_class = SensorDeviceClass.ENUM
 
     @callback
     def set_energy_dashboard_active(self, active: bool) -> None:
@@ -494,21 +520,19 @@ class SolaXModbusSensor(SensorEntity):
         # Skip hub registration for computed/internal sensors (those without modbus registers)
         # These sensors don't participate in the polling cycle
         if self.entity_description.register < 0:
-            if self.entity_description.value_function and self._energy_dashboard_active:
+            if (
+                self.entity_description.value_function
+                and self._energy_dashboard_active
+                and self.entity_description.key not in COMMUNICATION_SENSOR_KEYS
+            ):
                 self._hub.computedSensors[self.entity_description.key] = self.entity_description
-                try:
-                    self._hub.data[self.entity_description.key] = self.entity_description.value_function(
-                        0,
-                        self.entity_description,
-                        self._hub.data,
-                    )
-                    self.modbus_data_updated()
-                except Exception as e:
-                    _LOGGER.debug("%s: value_function failed for %s: %s", self._platform_name, self.entity_description.key, e)
             return
         await self._hub.async_add_solax_modbus_sensor(self)
 
     async def async_will_remove_from_hass(self) -> None:
+        if self._cancel_computed_expiry is not None:
+            self._cancel_computed_expiry()
+            self._cancel_computed_expiry = None
         if self.entity_description.register >= 0 or getattr(self.entity_description, "_is_riemann_sum_sensor", False):
             await self._hub.async_remove_solax_modbus_sensor(self)
         if self.entity_description.register < 0 and not getattr(self.entity_description, "_is_riemann_sum_sensor", False):
@@ -519,7 +543,32 @@ class SolaXModbusSensor(SensorEntity):
     def modbus_data_updated(self) -> None:
         if not self._energy_dashboard_active:
             return
+        description = self.entity_description
+        if (
+            description.register < 0
+            and description.value_function
+            and description.key not in COMMUNICATION_SENSOR_KEYS
+            and not getattr(description, "_is_riemann_sum_sensor", False)
+        ):
+            if self._cancel_computed_expiry is not None:
+                self._cancel_computed_expiry()
+                self._cancel_computed_expiry = None
+            if is_inputless_computed_sensor(description):
+                # Configuration/local context has no measured input to expire.
+                self._computed_available = True
+            else:
+                remaining_age = self._hub.computed_sensor_remaining_age(description)
+                self._computed_available = remaining_age > 0
+                # Only accepted computations publish this callback. A failed poll
+                # cannot renew the lease; a timer also handles complete poll silence.
+                self._cancel_computed_expiry = async_call_later(self.hass, remaining_age, self._expire_computed)
         self._attr_extra_state_attributes = _energy_dashboard_mapping_attrs(self.entity_description, self._hub)
+        self.async_write_ha_state()
+
+    @callback
+    def _expire_computed(self, _now: Any) -> None:
+        self._cancel_computed_expiry = None
+        self._computed_available = False
         self.async_write_ha_state()
 
     @callback
@@ -540,6 +589,12 @@ class SolaXModbusSensor(SensorEntity):
     @property
     def native_value(self) -> Any:
         """Return the state of the sensor."""
+        if self.entity_description.fault_bits is not None:
+            value = self._fault_raw_value()
+            if value is None:
+                return None
+            count = value.bit_count()
+            return f"{count} active fault{'s' if count != 1 else ''}" if count else "Normal"
         if self.entity_description.key in self._hub.data:
             return self._hub.data[self.entity_description.key]
             # try:    val = self._hub.data[self.entity_description.key] *self.entity_description.read_scale # a bit ugly as we might multiply strings or other types with 1
@@ -550,21 +605,46 @@ class SolaXModbusSensor(SensorEntity):
     @property
     def available(self) -> bool:
         """Return whether the dashboard currently exposes this entity."""
-        return self._energy_dashboard_active and super().available
+        if self.entity_description._energy_dashboard_source_hubs and self.native_value is None:
+            return False
+        return self._energy_dashboard_active and self._computed_available and super().available
 
     @property
     def should_poll(self) -> bool:
         """Data is delivered by the hub."""
         return False
 
+    def _fault_raw_value(self) -> int | None:
+        """Never report a missing or invalid fault word as a healthy inverter."""
+        value = self._hub.data.get(self.entity_description.key)
+        return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs = dict(self._attr_extra_state_attributes)
+        fault_bits = self.entity_description.fault_bits
+        if fault_bits is not None:
+            value = self._fault_raw_value()
+            attrs["raw_value"] = value
+            attrs["active_errors"] = (
+                [fault_bits.get(bit, f"Unknown bit {bit}") for bit in range(value.bit_length()) if value & (1 << bit)] if value is not None else None
+            )
         if self.entity_description.key == "communication_health":
             attrs.update(self._hub.communication_health_attributes())
         elif self.entity_description.key == "communication_quarantined_registers":
             attrs.update(self._hub.communication_quarantine_attributes())
         return attrs
+
+
+@dataclass
+class RiemannExtraStoredData(ExtraStoredData):
+    """Persist the integral even when HA exposes an unavailable state."""
+
+    energy: float | None
+    last_reset_date: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"energy": self.energy, "last_reset_date": self.last_reset_date}
 
 
 class RiemannSumEnergySensor(SolaXModbusSensor, RestoreEntity):
@@ -589,14 +669,33 @@ class RiemannSumEnergySensor(SolaXModbusSensor, RestoreEntity):
         self._filter_function = (riemann_mapping.filter_function if riemann_mapping else None) or (lambda v: v)
         self._last_power_value: float | None = None
         self._last_update_time: float | None = None
+        self._last_source_deadline: float | None = None
+        self._minimum_source_time: float | None = None
         self._total_energy: float = 0.0  # kWh
+        self._has_valid_total = False
+        self._last_source_key: str | None = None
+        self._last_source_hub: Any = None
         self._last_reset_date: date = dt_util.now().date()
         self._attr_extra_state_attributes = self._riemann_extra_attrs()
 
     def _energy_dashboard_reactivated(self) -> None:
         """Avoid integrating the time while the dashboard entity was inactive."""
+        self._reset_power_interval(time.monotonic())
+
+    def _reset_power_interval(self, minimum_source_time: float) -> None:
+        """A cached observation preceding a gap cannot start the next interval."""
         self._last_power_value = None
         self._last_update_time = None
+        self._last_source_deadline = None
+        self._last_source_key = None
+        self._last_source_hub = None
+        self._minimum_source_time = minimum_source_time
+
+    @callback
+    def _expire_computed(self, _now: Any) -> None:
+        """Preserve the total but never integrate across a missing-data gap."""
+        self._energy_dashboard_reactivated()
+        super()._expire_computed(_now)
 
     def _riemann_extra_attrs(self) -> dict[str, Any]:
         attrs = _energy_dashboard_mapping_attrs(self.entity_description, self._hub)
@@ -604,26 +703,42 @@ class RiemannSumEnergySensor(SolaXModbusSensor, RestoreEntity):
             attrs["last_reset_date"] = self._last_reset_date.isoformat()
         return attrs
 
+    @property
+    def extra_restore_state_data(self) -> RiemannExtraStoredData:
+        """Use restore data: ordinary HA attributes are omitted when unavailable."""
+        return RiemannExtraStoredData(self._total_energy if self._has_valid_total else None, self._last_reset_date.isoformat())
+
     async def async_added_to_hass(self) -> None:
         """Register callbacks and restore state."""
-        # Restore previous state if available
-        if last_state := await self.async_get_last_state():
+        last_state = await self.async_get_last_state()
+        extra_data = await self.async_get_last_extra_data()
+        restored = extra_data.as_dict() if extra_data is not None else {}
+        restored_total = restored.get("energy")
+        reset_date = restored.get("last_reset_date")
+        # Backward compatibility with totals saved before extra restore data.
+        if not restored and last_state is not None:
             if last_state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE):
-                try:
-                    self._total_energy = float(last_state.state)
-                    if last_state.last_updated:
-                        self._last_update_time = last_state.last_updated.timestamp()
-                    _LOGGER.debug(
-                        "%s: Restored Riemann sum state for %s: %s kWh", self._platform_name, self.entity_description.key, self._total_energy
-                    )
-                except (ValueError, AttributeError, TypeError) as e:
-                    _LOGGER.debug("%s: Could not restore Riemann sum state for %s: %s", self._platform_name, self.entity_description.key, e)
-            reset_date = last_state.attributes.get("last_reset_date") if last_state.attributes else None
-            if reset_date:
-                try:
-                    self._last_reset_date = date.fromisoformat(reset_date)
-                except (TypeError, ValueError):
-                    self._last_reset_date = dt_util.now().date()
+                restored_total = last_state.state
+            legacy_attrs: dict[str, Any] = dict(last_state.attributes or {})
+            reset_date = legacy_attrs.get("last_reset_date")
+        if restored_total is not None:
+            try:
+                if isinstance(restored_total, bool):
+                    raise ValueError("Boolean restored energy")
+                self._total_energy = float(restored_total)
+                if not math.isfinite(self._total_energy):
+                    raise ValueError("Non-finite restored energy")
+                self._has_valid_total = True
+                _LOGGER.debug("%s: Restored Riemann sum state for %s: %s kWh", self._platform_name, self.entity_description.key, self._total_energy)
+            except (ValueError, TypeError) as e:
+                self._total_energy = 0.0
+                _LOGGER.debug("%s: Could not restore Riemann sum state for %s: %s", self._platform_name, self.entity_description.key, e)
+        if reset_date:
+            try:
+                self._last_reset_date = date.fromisoformat(reset_date)
+            except (TypeError, ValueError):
+                self._last_reset_date = dt_util.now().date()
+        self._attr_extra_state_attributes = self._riemann_extra_attrs()
 
         hub_name = getattr(self._hub, "_name", None)
         if hub_name and get_debug_setting(
@@ -635,6 +750,7 @@ class RiemannSumEnergySensor(SolaXModbusSensor, RestoreEntity):
         ):
             _LOGGER.warning("%s: reset_riemann_sums_on_restart enabled for %s - resetting daily total", hub_name, self.entity_description.key)
             self._total_energy = 0.0
+            self._has_valid_total = True
             self._last_reset_date = dt_util.now().date()
             self._last_power_value = None
             self._last_update_time = None
@@ -655,33 +771,59 @@ class RiemannSumEnergySensor(SolaXModbusSensor, RestoreEntity):
             return
         from .energy_dashboard import RIEMANN_ROUND_DIGITS
 
-        # Get current power value from source sensor
+        # Use the source hub's accepted observations, not its retained cache.
         data_hub = getattr(self.entity_description, "_riemann_data_hub", None) or self._hub
-        hub_data = getattr(data_hub, "data", None) or getattr(data_hub, "datadict", {})
-        source_key = self._riemann_mapping.get_source_key(hub_data)
-
-        # PV variant energy should track the matching Energy Dashboard PV power entity
-        # to stay aligned in parallel mode. The Master inverter uses its own raw
-        # pv_power_{n}, so only use ED power for Slave-derived variants.
-        current_power = None
-        if "_pv_energy_" in self.entity_description.key:
-            if data_hub is not self._hub:
-                ed_power_key = self.entity_description.key.replace("_pv_energy_", "_pv_power_")
-                ed_hub_data = getattr(self._hub, "data", None) or getattr(self._hub, "datadict", {})
-                current_power = ed_hub_data.get(ed_power_key)
-
-        if current_power is None:
-            current_power = hub_data.get(source_key)
-
-        if current_power is None:
-            # Source sensor not available, keep current total
+        sample = data_hub._dashboard_source_sample(self._riemann_mapping, {}, set(), require_source_sample=True)
+        if sample is None:
+            self._invalidate_power_sample()
             return
-
-        # Apply filter function (e.g., only > 0 for import, only < 0 for export)
-        filtered_power = self._filter_function(current_power)
-
-        # Get current time
-        current_time = time.time()
+        current_time, source_data = sample
+        source_key = self._riemann_mapping.get_source_key(source_data)
+        current_power = source_data.get(source_key)
+        if not isinstance(current_power, (int, float)) or isinstance(current_power, bool) or not math.isfinite(current_power):
+            self._invalidate_power_sample()
+            return
+        try:
+            filtered_power = self._filter_function(current_power)
+        except (ValueError, TypeError, ArithmeticError):
+            self._invalidate_power_sample()
+            return
+        if not isinstance(filtered_power, (int, float)) or isinstance(filtered_power, bool) or not math.isfinite(filtered_power):
+            self._invalidate_power_sample()
+            return
+        max_age = data_hub.computed_sensor_max_age(SimpleNamespace(key=None, depends_on=[source_key]))
+        observation = data_hub._accepted_input_sample(source_key, include_pending=False)
+        deadline = observation.deadline if observation is not None else current_time + max_age
+        topology = data_hub._accepted_input_sample("parallel_setting", include_pending=False) if self._riemann_mapping.source_key_pm else None
+        if topology is not None:
+            deadline = min(deadline, topology.deadline)
+        minimum_source_time = None
+        if self._last_source_hub is not None and self._last_source_hub is not data_hub:
+            minimum_source_time = time.monotonic()
+        elif self._last_source_hub is not None and self._last_source_key != source_key:
+            minimum_source_time = topology.timestamp if topology is not None else current_time
+        if self._last_source_deadline is not None and time.monotonic() >= self._last_source_deadline:
+            minimum_source_time = max(minimum_source_time or self._last_source_deadline, self._last_source_deadline)
+        if minimum_source_time is not None:
+            self._reset_power_interval(minimum_source_time)
+        if self._minimum_source_time is not None and current_time < self._minimum_source_time:
+            minimum_source_time = self._minimum_source_time
+            self._invalidate_power_sample()
+            self._minimum_source_time = minimum_source_time
+            return
+        # Topology refreshes and unrelated polls are not new power observations.
+        duplicate = self._last_update_time is not None and current_time <= self._last_update_time
+        if deadline != self._last_source_deadline or not self._computed_available:
+            if self._cancel_computed_expiry is not None:
+                self._cancel_computed_expiry()
+            self._cancel_computed_expiry = async_call_later(self.hass, max(0.0, deadline - time.monotonic()), self._expire_computed)
+        self._last_source_key = source_key
+        self._last_source_hub = data_hub
+        self._last_source_deadline = deadline
+        self._computed_available = True
+        self._has_valid_total = True
+        if duplicate:
+            return
         current_date = dt_util.now().date()
 
         # Reset daily totals at midnight (local time)
@@ -716,14 +858,22 @@ class RiemannSumEnergySensor(SolaXModbusSensor, RestoreEntity):
         # Update state
         self.async_write_ha_state()
 
+    def _invalidate_power_sample(self) -> None:
+        """Cancel the lease and break the integration interval on invalid input."""
+        if self._cancel_computed_expiry is not None:
+            self._cancel_computed_expiry()
+        self._expire_computed(None)
+
     @property
     def native_value(self) -> float | None:
         """Return the calculated energy value."""
+        from .energy_dashboard import RIEMANN_ROUND_DIGITS
+
         # Value is stored in hub.data by modbus_data_updated
         if self.entity_description.key in self._hub.data:
             value = self._hub.data[self.entity_description.key]
             return float(value) if value is not None else None
-        return self._total_energy
+        return round(self._total_energy, RIEMANN_ROUND_DIGITS) if self._has_valid_total else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -938,8 +1088,10 @@ def entityToListSingle(
 
     hub.sensorDescriptions[newdescr.key] = newdescr
     # register dependency chain
-    deplist = newdescr.depends_on
-    if deplist is not None:
+    dependency_groups: list[Any] = [newdescr.depends_on or [], descriptor_optional_depends(newdescr) or []]
+    dependency_groups.extend(newdescr.depends_on_any or [])
+    deplist = list(dict.fromkeys(dep_on for group in dependency_groups for dep_on in ([group] if isinstance(group, str) else group)))
+    if deplist:
         _LOGGER.debug("%s: %s depends on entities %s", hub.name, newdescr.key, deplist)
         for dep_on in deplist:  # register inter-sensor dependencies (e.g. for value functions)
             if dep_on != newdescr.key:

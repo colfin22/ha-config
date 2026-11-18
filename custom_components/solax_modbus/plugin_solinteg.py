@@ -142,8 +142,8 @@ def _bytes_str(b_array: list[int]) -> str:
 
 
 def _model_str(val: int) -> str:
-    # Mapping based on Solinteg documentation in issue #2158
-    d = {
+    # Mapping based on Solinteg documentation in issue #2158 and the confirmed model in #2416.
+    d: dict[int, list[str] | dict[int, str]] = {
         30: [
             "MHT-4K-25",
             "MHT-5K-25",
@@ -190,6 +190,7 @@ def _model_str(val: int) -> str:
             "M2HT-40K-150",
             "M2HT-50K-150",
         ],
+        42: {3: "M2HT-10K-30"},
         43: [
             "M2HT-75K-300",
             "M2HT-80K-300",
@@ -1457,6 +1458,27 @@ SENSOR_TYPES: list[SolintegModbusSensorEntityDescription] = [
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SolintegModbusSensorEntityDescription(
+        name="Bat. Max Cell Temperature",
+        key="battery_max_cell_temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        register=33009,
+        scale=0.1,
+        allowedtypes=HYBRID,
+        entity_registry_enabled_default=False,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SolintegModbusSensorEntityDescription(
+        name="Bat. Max Cell Temperature ID",
+        key="battery_max_cell_temperature_id",
+        native_unit_of_measurement="",
+        register=33008,
+        allowedtypes=HYBRID,
+        entity_registry_enabled_default=False,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SolintegModbusSensorEntityDescription(
         name="Bat. Min Cell Voltage",
         key="battery_min_cell_voltage",
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
@@ -2063,10 +2085,10 @@ class solinteg_plugin(plugin_base):
 
         bh, bl = model // 256, model % 256
         invertertype = 0
-        if bh in [30, 31, 32, 40, 41, 43]:
+        if bh in [30, 31, 32, 40, 41, 42, 43]:
             invertertype = invertertype | HYBRID
 
-        if bh in [30, 32, 41, 43]:
+        if bh in [30, 32, 41, 42, 43]:
             invertertype = invertertype | X3
         else:
             invertertype = invertertype | X1

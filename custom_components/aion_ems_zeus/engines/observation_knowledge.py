@@ -58,6 +58,7 @@ class ObservationKnowledgeEngine:
         self.data.setdefault("observations", [])
         self.data.setdefault("evolution", [])
         self.data.setdefault("metadata", {})
+        self.data.setdefault("timeline_flow_states", {})
 
     async def async_save(self) -> None:
         self._save_pending = False
@@ -95,13 +96,20 @@ class ObservationKnowledgeEngine:
         """Return compact active/inactive evidence for registered consuming devices."""
         result: dict[str, dict[str, Any]] = {}
         devices = list((getattr(self.registry, "data", {}) or {}).get("devices", []) or [])
+        flow_devices = (self.energy_flow.summary() or {}).get("registered_devices") or []
+        flow_by_id = {str(d.get("id")): d for d in flow_devices if isinstance(d, dict) and d.get("id") is not None}
         for device in devices:
             if not isinstance(device, dict) or device.get("enabled") is False:
                 continue
             device_id = str(device.get("id") or "").strip()
             if not device_id:
                 continue
-            dtype = str(device.get("type") or "device").strip().lower()
+            dtype = str(device.get("type") or device.get("device_type") or "device").strip().lower()
+            device_identity = " ".join(str(device.get(k) or "") for k in ("type", "category", "role", "device_profile")).lower()
+            if dtype in {"ev", "evse", "wallbox", "ev charger", "electric_vehicle_charger"} or any(
+                marker in device_identity for marker in ("ev_charger", "ev charger", "wallbox", "go-e", "evse")
+            ):
+                dtype = "ev_charger"
             # Inverters are valid Timeline devices: users need to see each
             # physical inverter start/stop independently. Only non-load source
             # objects that have no meaningful run session stay excluded here.
@@ -118,7 +126,8 @@ class ObservationKnowledgeEngine:
                 or "fronius" in identity
                 or "inverter" in identity
             )
-            power_entity = str(device.get("power_entity") or "").strip()
+            mappings = device.get("mappings") if isinstance(device.get("mappings"), dict) else {}
+            power_entity = str(device.get("power_entity") or mappings.get("power_entity") or "").strip()
             power_w = 0.0
             power_valid = False
 
@@ -139,6 +148,27 @@ class ObservationKnowledgeEngine:
                     return 0.0, False
 
             power_w, power_valid = _read_power(power_entity)
+            if dtype == "ev_charger":
+                # Energy Flow's resolved live device power is the same evidence
+                # shown on the working landing-page EV card. Prefer it even
+                # when a generic registered power entity returns a valid but
+                # stale zero (a common EVSE mapping).
+                live = flow_by_id.get(device_id) or {}
+                live_w = live.get("power_w")
+                if live.get("available") is not False and live_w is not None:
+                    try:
+                        candidate = float(live_w)
+                        if 0 <= candidate < float("inf"):
+                            power_w, power_valid = candidate, True
+                    except (TypeError, ValueError):
+                        pass
+            if dtype == "ev_charger" and not power_valid:
+                # Preserve prior evidence through temporary unavailable readings;
+                # never invent a charger STOP from a missing sensor.
+                previous_ev = (self.data.get("previous_devices") or {}).get(device_id)
+                if isinstance(previous_ev, dict):
+                    result[device_id] = dict(previous_ev)
+                continue
             # v14.8.10.16: inverter Timeline activity must evaluate every mapped
             # live production source, not only fall back to solar_power_entity
             # when power_entity is unavailable. Hybrid integrations can keep a
@@ -176,6 +206,10 @@ class ObservationKnowledgeEngine:
             # Timeline chatter when a device hovers around the old 50 W threshold
             # or briefly reports unknown/unavailable during polling.
             previous_item = (self.data.get("previous_devices") or {}).get(device_id) or {}
+            if dtype == "ev_charger" and not power_valid:
+                if previous_item:
+                    result[device_id] = dict(previous_item)
+                continue
             previously_active = bool(previous_item.get("active"))
             if not power_valid:
                 active = previously_active
@@ -280,6 +314,61 @@ class ObservationKnowledgeEngine:
         stable_next: dict[str, dict[str, Any]] = dict(previous)
         now_dt = datetime.now(timezone.utc)
 
+        # EV charging sessions are tracked independently of generic device
+        # activity. A single measured edge must not be lost when other device
+        # events cause frequent refreshes or a charger remains active for hours.
+        # A stop requires 180 seconds of measured inactivity.
+        ev_sessions = self.data.setdefault("ev_charger_sessions", {})
+        for ev_id, ev in current.items():
+            if str(ev.get("type") or "") != "ev_charger":
+                continue
+            active = bool(ev.get("active"))
+            power_w = float(ev.get("power_w") or 0)
+            name = str(ev.get("name") or ev_id)
+            session = ev_sessions.get(ev_id)
+            if not isinstance(session, dict):
+                # An already-active charger is an observed baseline, not an
+                # invented historical start event.
+                ev_sessions[ev_id] = {"active": active, "stop_since": None}
+                if active:
+                    self._add_observation(
+                        "ev", f"{name} charging active",
+                        f"Charging observed at {power_w:.0f} W when session tracking began.",
+                        {"device_id": ev_id, "power_w": round(power_w, 1), "baseline": True},
+                    )
+                continue
+            was_active = bool(session.get("active"))
+            if active:
+                session["stop_since"] = None
+                if not was_active:
+                    session["active"] = True
+                    self._add_observation(
+                        "ev", f"{name} charging started",
+                        f"Measured charging power reached {power_w:.0f} W.",
+                        {"device_id": ev_id, "power_w": round(power_w, 1), "session_aware": True},
+                    )
+            elif was_active:
+                try:
+                    first = datetime.fromisoformat(str(session.get("stop_since") or ""))
+                    if first.tzinfo is None:
+                        first = first.replace(tzinfo=timezone.utc)
+                except (ValueError, TypeError):
+                    first = now_dt
+                    session["stop_since"] = now_dt.isoformat()
+                if (now_dt - first).total_seconds() >= 180:
+                    session["active"] = False
+                    session["stop_since"] = None
+                    self._add_observation(
+                        "ev", f"{name} charging stopped",
+                        "Charging power remained below the inactive threshold for 180 seconds.",
+                        {"device_id": ev_id, "power_w": round(power_w, 1), "confirmed_seconds": 180, "session_aware": True},
+                    )
+            else:
+                session["stop_since"] = None
+        for ev_id in list(ev_sessions):
+            if ev_id not in current or str(current[ev_id].get("type") or "") != "ev_charger":
+                ev_sessions.pop(ev_id, None)
+
         def _window_seconds(dtype: str, candidate_active: bool, inverter_like: bool = False) -> int:
             dtype = str(dtype or "device")
             if inverter_like:
@@ -289,7 +378,7 @@ class ObservationKnowledgeEngine:
                 # already has 75/25 W hysteresis, so confirm the edge now.
                 return 0
             if dtype == "ev_charger":
-                return 5 if candidate_active else 180
+                return 0 if candidate_active else 180
             if dtype == "heat_pump":
                 # v14.8.10.9: Heat Pump electrical activity uses the confirmed >25 W running threshold
                 # hysteresis, and split power/compressor evidence is watched live.
@@ -317,10 +406,22 @@ class ObservationKnowledgeEngine:
 
         if previous:
             for device_id, item in current.items():
+                if item.get("type") == "ev_charger":
+                    stable_next[device_id] = item
+                    pending.pop(device_id, None)
+                    continue
                 before = previous.get(device_id)
                 if not isinstance(before, dict):
                     stable_next[device_id] = item
                     pending.pop(device_id, None)
+                    # Already-charging newly registered devices are observed
+                    # as active, not falsely described as a historical start.
+                    if item.get("type") == "ev_charger" and item.get("active"):
+                        self._add_observation(
+                            "ev", f"{item.get('name') or device_id} charging active",
+                            f"Registered charger measured {float(item.get('power_w') or 0):.0f} W at observation baseline.",
+                            {"device_id": device_id, "power_w": round(float(item.get("power_w") or 0), 1), "baseline": True},
+                        )
                     continue
 
                 was_active, candidate_active = bool(before.get("active")), bool(item.get("active"))
@@ -390,6 +491,8 @@ class ObservationKnowledgeEngine:
         elif current:
             for device_id, item in current.items():
                 stable_next[device_id] = item
+                if item.get("type") == "ev_charger":
+                    continue
                 if not bool(item.get("active")):
                     continue
                 name = str(item.get("name") or device_id)
@@ -436,15 +539,78 @@ class ObservationKnowledgeEngine:
         self.data["observations"] = self.data["observations"][:self.MAX_OBSERVATIONS]
         self._schedule_save()
 
+    # Timeline flow thresholds (watts). Keep device and safety observations separate.
+    TIMELINE_FLOW_DEFAULTS = {"import": 500.0, "export": 1000.0, "solar": 500.0}
+    TIMELINE_CONFIRM_SECONDS = 30.0
+    TIMELINE_STOP_RATIO = 0.8
+    TIMELINE_MIN_TRANSITION_SECONDS = 600.0  # 10 minutes between visible transitions per flow
+
+    def _observe_timeline_flows(self, current: dict[str, float]) -> None:
+        """Emit sustained flow transitions, never instantaneous grid jitter.
+
+        The state is retained in memory across refreshes. A threshold must hold
+        for 30 seconds before an event; a lower exit threshold provides hysteresis.
+        No initial 'started' event is emitted until a threshold is confirmed.
+        """
+        now = datetime.now(timezone.utc)
+        # Persist confirmed state and last transition to avoid phantom events on restart.
+        states = self.data.setdefault("timeline_flow_states", {})
+        for key, threshold in self.TIMELINE_FLOW_DEFAULTS.items():
+            value = max(0.0, self._num(current.get(key)))
+            state = states.setdefault(key, {"active": None, "pending": None, "since": None, "last_transition": None})
+            active = state.get("active")
+            if active is None:
+                # First observation establishes baseline, not a historical start event.
+                state.update(active=value >= threshold, pending=None, since=None)
+                self._schedule_save()
+                continue
+            desired = not active
+            crossed = value <= threshold * self.TIMELINE_STOP_RATIO if active else value >= threshold
+            if not crossed:
+                state["pending"] = None
+                state["since"] = None
+                continue
+            if state.get("pending") != desired or not state.get("since"):
+                state["pending"] = desired
+                state["since"] = now.isoformat()
+                continue
+            try:
+                pending_age = (now - datetime.fromisoformat(state["since"])).total_seconds()
+            except (TypeError, ValueError):
+                state["since"] = now.isoformat()
+                continue
+            if pending_age < self.TIMELINE_CONFIRM_SECONDS:
+                continue
+            last = state.get("last_transition")
+            try:
+                elapsed = (now - datetime.fromisoformat(last)).total_seconds() if last else float("inf")
+            except (TypeError, ValueError):
+                elapsed = float("inf")
+            if elapsed < self.TIMELINE_MIN_TRANSITION_SECONDS:
+                # Keep the candidate pending; only confirm if it stays across cooldown.
+                continue
+            state.update(active=desired, pending=None, since=None, last_transition=now.isoformat())
+            self._schedule_save()
+            label = {"import": "Grid import", "export": "Grid export", "solar": "Solar production"}[key]
+            action = "started" if desired else "stopped"
+            self._add_observation(
+                "solar" if key == "solar" else "grid",
+                f"{label} {action}",
+                f"{label} {'reached' if desired else 'fell to'} {value:.0f} W "
+                f"(start {threshold:.0f} W, stop {threshold * self.TIMELINE_STOP_RATIO:.0f} W; "
+                f"confirmed {self.TIMELINE_CONFIRM_SECONDS:.0f} s).",
+                {**current, "timeline_flow": key, "power_w": value, "threshold_w": threshold,
+                 "confirmed_seconds": self.TIMELINE_CONFIRM_SECONDS,
+                 "minimum_transition_seconds": self.TIMELINE_MIN_TRANSITION_SECONDS},
+                100,
+            )
+
     def _observe_transitions(self, current: dict[str, float]) -> None:
         prev = self.data.get("previous") or {}
+        self._observe_timeline_flows(current)
         threshold = 50.0
         if prev:
             transitions = [
-                (prev.get("solar", 0) <= threshold < current["solar"], "solar", "Solar production started", f"Solar output rose to {current['solar']:.0f} W."),
-                (prev.get("solar", 0) > threshold >= current["solar"], "solar", "Solar production stopped", "Measured solar output fell below the active-flow threshold."),
-                (prev.get("import", 0) <= threshold < current["import"], "grid", "Grid import started", f"The grid began supplying {current['import']:.0f} W."),
-                (prev.get("export", 0) <= threshold < current["export"], "grid", "Grid export started", f"Surplus export reached {current['export']:.0f} W."),
                 (prev.get("charge", 0) <= threshold < current["charge"], "battery", "Battery charging started", f"Battery charge power reached {current['charge']:.0f} W."),
                 (prev.get("discharge", 0) <= threshold < current["discharge"], "battery", "Battery support started", f"Battery discharge power reached {current['discharge']:.0f} W."),
                 (prev.get("soc", -1) < 99 <= current["soc"], "battery", "Battery reached full", "Battery state of charge reached the full threshold."),
@@ -599,6 +765,36 @@ class ObservationKnowledgeEngine:
         weather_intelligence = self._weather_intelligence(rows)
         evolution = self._evolution(rows)
         graph = self._knowledge_graph(patterns, habits, hyper)
+        # Diagnostic-only: compare registered EV evidence with observation state.
+        # No event behavior, polling cadence, or device controls are modified.
+        ev_debug = []
+        flow_rows = (self.energy_flow.summary() or {}).get("registered_devices") or []
+        flow_by_id = {str(d.get("id")): d for d in flow_rows if isinstance(d, dict)}
+        for d in (self.registry.data.get("devices", []) or []):
+            if not isinstance(d, dict):
+                continue
+            kind = str(d.get("type") or "").lower()
+            identity = " ".join(str(d.get(k) or "") for k in ("type", "category", "role", "name")).lower()
+            if kind not in ("ev_charger", "ev", "evse", "wallbox") and not any(
+                term in identity for term in ("charger", "wallbox", "go-e", "evse")
+            ):
+                continue
+            entity = str(d.get("power_entity") or "").strip()
+            state = self.hass.states.get(entity) if entity else None
+            live = flow_by_id.get(str(d.get("id")), {})
+            previous = (self.data.get("previous_devices") or {}).get(str(d.get("id")), {})
+            ev_debug.append({
+                "id": str(d.get("id") or ""), "name": str(d.get("name") or ""),
+                "registered_type": kind, "enabled": d.get("enabled", True),
+                "power_entity": entity,
+                "ha_state": str(state.state) if state is not None else None,
+                "ha_unit": state.attributes.get("unit_of_measurement") if state is not None else None,
+                "ha_last_updated": state.last_updated.isoformat() if state is not None else None,
+                "flow_power_w": live.get("power_w"),
+                "flow_available": live.get("available"),
+                "observation_active": previous.get("active") if isinstance(previous, dict) else None,
+                "observation_power_w": previous.get("power_w") if isinstance(previous, dict) else None,
+            })
         observations = self.data.get("observations", [])[:20]
         evidence = []
         for pattern in patterns[:4]:
@@ -615,6 +811,7 @@ class ObservationKnowledgeEngine:
             "observation_count": len(self.data.get("observations", [])),
             "knowledge_object_count": knowledge_objects,
             "observations": observations,
+            "ev_charger_diagnostics": ev_debug,
             "patterns": patterns,
             "habits": habits,
             "weather_intelligence": weather_intelligence,

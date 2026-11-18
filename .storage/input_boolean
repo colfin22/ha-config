@@ -71,16 +71,6 @@
         "icon": "mdi:water-boiler"
       },
       {
-        "id": "appliance_nudge_sent_colm",
-        "name": "Appliance Nudge Sent Colm",
-        "icon": "mdi:washing-machine"
-      },
-      {
-        "id": "appliance_nudge_sent_olivia",
-        "name": "Appliance Nudge Sent Olivia",
-        "icon": "mdi:washing-machine"
-      },
-      {
         "id": "bins_seen_out",
         "name": "Bins Seen Out",
         "icon": "mdi:delete-circle-outline"

@@ -18,6 +18,12 @@
             },
             "needs_manual_action": {
                 "default": "mdi:hand-back-right-outline"
+            },
+            "pending_installs": {
+                "default": "mdi:timer-sand"
+            },
+            "failed_installs": {
+                "default": "mdi:alert-circle-outline"
             }
         },
         "switch": {
@@ -27,6 +33,17 @@
                     "off": "mdi:update-off"
                 }
             }
+        }
+    },
+    "triggers": {
+        "scheduled_auto_install": {
+            "trigger": "mdi:timer-sand"
+        },
+        "installed": {
+            "trigger": "mdi:check-circle"
+        },
+        "install_failed": {
+            "trigger": "mdi:alert-circle-outline"
         }
     }
 }

@@ -6,32 +6,27 @@
     "items": [
       {
         "id": "9fa6ccd1a9394be7a918de5abe7ddc39",
-        "url": "/hacsfiles/ha-floorplan/floorplan.js?hacstag=188323494113",
-        "type": "module"
-      },
-      {
-        "id": "73a9f8a1dea04a8fb7e31b1c38cfb1b3",
-        "url": "/hacsfiles/garbage-collection-card/garbage-collection-card.js?hacstag=2070182001241",
+        "url": "/local/community/ha-floorplan/floorplan.js?v=188323494113",
         "type": "module"
       },
       {
         "id": "bafd971413ea41ceb00ab13b3698c91a",
-        "url": "/hacsfiles/my-cards/my-cards.js?hacstag=399108901231",
+        "url": "/local/community/my-cards/my-cards.js?v=399108901231",
         "type": "module"
       },
       {
         "id": "06354bb8e733487e9d0ce2fe98d96af5",
-        "url": "/hacsfiles/button-card/button-card.js?hacstag=146194325430",
+        "url": "/local/community/button-card/button-card.js?v=146194325430",
         "type": "module"
       },
       {
         "id": "5c2de537914d4ddbbc0f0da4e632d287",
-        "url": "/hacsfiles/lovelace-card-mod/card-mod.js?hacstag=190927524345",
+        "url": "/local/community/lovelace-card-mod/card-mod.js?v=190927524345",
         "type": "module"
       },
       {
         "id": "96111904be4b427cb59379af5ab865d3",
-        "url": "/hacsfiles/lovelace-layout-card/layout-card.js?hacstag=156434866245",
+        "url": "/local/community/lovelace-layout-card/layout-card.js?v=156434866245",
         "type": "module"
       },
       {
@@ -41,32 +36,32 @@
       },
       {
         "id": "942d3da1788e465cafd6363295bc860e",
-        "url": "/hacsfiles/mushroom-strategy/mushroom-strategy.js?hacstag=619284862320",
+        "url": "/local/community/mushroom-strategy/mushroom-strategy.js?v=619284862320",
         "type": "module"
       },
       {
         "id": "4a86e0ee53f44ae78f91455ec1200527",
-        "url": "/hacsfiles/lovelace-mushroom/mushroom.js?hacstag=444350375523",
+        "url": "/local/community/lovelace-mushroom/mushroom.js?v=444350375-v5.3.0",
         "type": "module"
       },
       {
         "id": "6aefe0bb890b46efbc5903953d2e6d4a",
-        "url": "/hacsfiles/mini-graph-card/mini-graph-card-bundle.js?hacstag=1512800620130",
+        "url": "/local/community/mini-graph-card/mini-graph-card-bundle.js?v=1512800620130",
         "type": "module"
       },
       {
         "id": "9fdab41b23ca40bfb76637ec2d5120bc",
-        "url": "/hacsfiles/energy-sankey/energy-sankey.js?hacstag=8757988630027",
+        "url": "/local/community/energy-sankey/energy-sankey.js?v=8757988630027",
         "type": "css"
       },
       {
         "id": "1de5bc6ac6914a6f9fda0ad35bba7d6d",
-        "url": "/hacsfiles/Bubble-Card/bubble-card.js?hacstag=680112919340",
+        "url": "/local/community/Bubble-Card/bubble-card.js?v=680112919-v3.4.3",
         "type": "module"
       },
       {
         "id": "be3e797adf164098b8114a6a8a16e6b9",
-        "url": "/hacsfiles/lovelace-state-switch/state-switch.js?hacstag=158756598196",
+        "url": "/local/community/lovelace-state-switch/state-switch.js?v=158756598196",
         "type": "module"
       },
       {
@@ -76,42 +71,37 @@
       },
       {
         "id": "080924d3819948b3a3acf2e02ab774a4",
-        "url": "/browser_mod.js?automatically-added&3.2.3",
+        "url": "/browser_mod.js?automatically-added&3.4.2",
         "type": "module"
       },
       {
         "id": "9ad886b2398c425cb7c0276425d8591d",
-        "url": "/hacsfiles/apexcharts-card/apexcharts-card.js",
+        "url": "/local/community/apexcharts-card/apexcharts-card.js",
         "type": "module"
       },
       {
         "id": "a280e483fbcf47baaf26b5df4532e982",
-        "url": "/hacsfiles/swipe-card/swipe-card.js?hacstag=192732887500",
+        "url": "/local/community/swipe-card/swipe-card.js?v=192732887500",
         "type": "module"
       },
       {
         "id": "ebdd6f33f9a541ef8164aa029fbaf8ca",
-        "url": "/hacsfiles/hass-swipe-navigation/swipe-navigation.js?hacstag=5017254791161",
-        "type": "module"
-      },
-      {
-        "id": "812ff7f6863e4dd8898b2ae5c0d3532e",
-        "url": "/hacsfiles/platinum-weather-card/platinum-weather-card.js?hacstag=488086721105",
+        "url": "/local/community/hass-swipe-navigation/swipe-navigation.js?v=501725479-v1.16.3",
         "type": "module"
       },
       {
         "id": "c8ae491804204e1c88904ce7813e2e45",
-        "url": "/hacsfiles/clock-weather-card/clock-weather-card.js?hacstag=522634019294",
+        "url": "/local/community/clock-weather-card/clock-weather-card.js?v=522634019-v3.1.0",
         "type": "module"
       },
       {
         "id": "6ea4bce91a564b8f8ef8afd04351251b",
-        "url": "/hacsfiles/mini-media-player/mini-media-player-bundle.js?hacstag=14852083811612",
+        "url": "/local/community/mini-media-player/mini-media-player-bundle.js?v=14852083811612",
         "type": "module"
       },
       {
         "id": "1ff8fec70dca4a128dcc393efc97256c",
-        "url": "/hacsfiles/alarmo-card/alarmo-card.js?hacstag=391372854169",
+        "url": "/local/community/alarmo-card/alarmo-card.js?v=391372854169",
         "type": "module"
       },
       {
@@ -131,7 +121,7 @@
       },
       {
         "id": "4237ba80f5e34a53a3897c57d6efb4a4",
-        "url": "/hacsfiles/HA-Firemote/HA-Firemote.js?hacstag=536329656419",
+        "url": "/local/community/HA-Firemote/HA-Firemote.js?v=536329656419",
         "type": "module"
       },
       {
@@ -141,22 +131,22 @@
       },
       {
         "id": "0ea13e852b4645518275efaa6f3751d5",
-        "url": "/hacsfiles/advanced-camera-card/advanced-camera-card.js?hacstag=394082552810",
+        "url": "/local/community/advanced-camera-card/advanced-camera-card.js?v=394082552-v8.2.0",
         "type": "module"
       },
       {
         "id": "fa01b2f6bda848b5a1a5d600d9e1b654",
-        "url": "/hacsfiles/energy-custom-graph/energycustomgraph.js?hacstag=1082381944101",
+        "url": "/local/community/energy-custom-graph/energycustomgraph.js?v=1082381944-1.3.1",
         "type": "module"
       },
       {
         "id": "b8f408e3e5854b42b24ef12647ad8fe6",
-        "url": "/hacsfiles/sun-weather-card/sun-weather-card.js?hacstag=1297690428191",
+        "url": "/local/community/sun-weather-card/sun-weather-card.js?v=1297690428-v1.14.1",
         "type": "module"
       },
       {
         "id": "bcc715988bde4cd4a2564dc9a01249d1",
-        "url": "/hacsfiles/wm_animated_ha_card/washing-machine-card.js?hacstag=1342630269130",
+        "url": "/local/community/wm_animated_ha_card/washing-machine-card.js?v=1342630269-v1.5.0",
         "type": "module"
       },
       {
@@ -167,6 +157,56 @@
       {
         "id": "0650819edbc24b5f9159de19834f0303",
         "url": "/local/private-picture-card.js?v=1",
+        "type": "module"
+      },
+      {
+        "id": "4dcbaa4eccd541648fcc310578468c68",
+        "url": "/local/cctv-card.js?v=34",
+        "type": "module"
+      },
+      {
+        "id": "d9cfb2aa2826419481121c12f6b25a8c",
+        "url": "/local/security-card.js?v=3",
+        "type": "module"
+      },
+      {
+        "id": "bb6fe73b5dfa41c0841d950e52316a41",
+        "url": "/local/home-card.js?v=1",
+        "type": "module"
+      },
+      {
+        "id": "a5b00f99a4064df1a0f8882e75cb1569",
+        "url": "/local/room-card.js?v=2",
+        "type": "module"
+      },
+      {
+        "id": "f3395ba2401a4413b6d39abef92d4b8a",
+        "url": "/local/solar-card.js?v=2",
+        "type": "module"
+      },
+      {
+        "id": "83a9ba261e054cd1a580cd4288a73f70",
+        "url": "/local/climate-card.js?v=3",
+        "type": "module"
+      },
+      {
+        "id": "ca9f07f101f34604a08d329f1ee0ad07",
+        "url": "/local/appliances-card.js?v=1",
+        "type": "module"
+      },
+      {
+        "id": "63ad839d5fa14d0b9d17efaf09b34043",
+        "url": "/local/cars-card.js?v=5",
+        "type": "module"
+      },
+      {
+        "id": "12787fbd92c6420588e7e69cf3e6215a",
+        "url": "/local/cctv-where-card.js?v=3",
+        "type": "module"
+      },
+      {
+        "id": "acae53dfde9b4d88bba570b5caaf5cf7",
+        "url": "/local/cctv-strip-card.js?v=1",
         "type": "module"
       }
     ]

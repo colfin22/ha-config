@@ -19,7 +19,7 @@ from homeassistant.helpers.entity import (  # type: ignore[attr-defined]
     EntityCategory,
 )
 
-from custom_components.solax_modbus.const import (  # type: ignore[attr-defined]
+from custom_components.solax_modbus.const import (
     CONF_READ_DCB,
     CONF_READ_EPS,
     DEFAULT_READ_DCB,
@@ -46,6 +46,7 @@ from custom_components.solax_modbus.const import (  # type: ignore[attr-defined]
     plugin_base,
     value_function_battery_input_solis,
     value_function_battery_output_solis,
+    value_function_packed_switches,
     value_function_rtc_ymd,
     value_function_sync_rtc_ymd,
 )
@@ -105,7 +106,7 @@ async def async_read_serialnr(hub: Any, address: int, swapbytes: bool) -> str | 
     res = None
     try:
         inverter_data = await hub.async_read_input_registers(unit=hub._modbus_addr, address=address, count=8)
-        if not inverter_data.isError():
+        if inverter_data is not None and not inverter_data.isError():
             raw = convert_from_registers(inverter_data.registers[0:8], DataType.STRING, "big")  # type: ignore[attr-defined]  # Dynamic enum aliasing
             res = raw.decode("ascii", errors="ignore") if isinstance(raw, (bytes, bytearray)) else str(raw)
             if swapbytes:
@@ -156,16 +157,6 @@ class SolisModbusSensorEntityDescription(BaseModbusSensorEntityDescription):
 
 
 # ====================================== Computed value functions  =================================================
-
-
-# This value function converts the bits to the number
-def mutate_bit_in_register(bit: int | None, state: bool | None, descr: str | None, datadict: dict[str, Any]) -> int:
-    assert bit is not None and descr is not None
-    state_int = 1 if state else 0
-    value = int(datadict.get(descr, 0))
-    _LOGGER.debug(">>> Old value of %s: %s", descr, value)
-    new_value = (value & ~(1 << bit)) | (state_int << bit)
-    return new_value
 
 
 def value_function_battery_control_override(initval: int, descr: Any, datadict: dict[str, Any]) -> dict[str, Any] | None:
@@ -945,7 +936,7 @@ SWITCH_TYPES = [
         icon="mdi:switch",
         register_bit=0,
         sensor_key="special_settings",
-        value_function=mutate_bit_in_register,
+        value_function=value_function_packed_switches,
     ),
     SolisModbusSwitchEntityDescription(
         name="IgFollow",
@@ -954,7 +945,7 @@ SWITCH_TYPES = [
         icon="mdi:switch",
         register_bit=1,
         sensor_key="special_settings",
-        value_function=mutate_bit_in_register,
+        value_function=value_function_packed_switches,
     ),
     SolisModbusSwitchEntityDescription(
         name="Relay protection",
@@ -963,7 +954,7 @@ SWITCH_TYPES = [
         icon="mdi:switch",
         register_bit=2,
         sensor_key="special_settings",
-        value_function=mutate_bit_in_register,
+        value_function=value_function_packed_switches,
     ),
     SolisModbusSwitchEntityDescription(
         name="I-leak protection",
@@ -972,7 +963,7 @@ SWITCH_TYPES = [
         icon="mdi:switch",
         register_bit=3,
         sensor_key="special_settings",
-        value_function=mutate_bit_in_register,
+        value_function=value_function_packed_switches,
     ),
     SolisModbusSwitchEntityDescription(
         name="PV iso Protection",
@@ -981,7 +972,7 @@ SWITCH_TYPES = [
         icon="mdi:switch",
         register_bit=4,
         sensor_key="special_settings",
-        value_function=mutate_bit_in_register,
+        value_function=value_function_packed_switches,
     ),
     SolisModbusSwitchEntityDescription(
         name="Grid-interference protection",
@@ -990,7 +981,7 @@ SWITCH_TYPES = [
         icon="mdi:switch",
         register_bit=5,
         sensor_key="special_settings",
-        value_function=mutate_bit_in_register,
+        value_function=value_function_packed_switches,
     ),
     SolisModbusSwitchEntityDescription(
         name="DC component of grid current protection switch",
@@ -999,7 +990,7 @@ SWITCH_TYPES = [
         icon="mdi:switch",
         register_bit=6,
         sensor_key="special_settings",
-        value_function=mutate_bit_in_register,
+        value_function=value_function_packed_switches,
     ),
     SolisModbusSwitchEntityDescription(
         name="Const Voltage Mode Enable",
@@ -1008,7 +999,7 @@ SWITCH_TYPES = [
         icon="mdi:switch",
         register_bit=7,
         sensor_key="special_settings",
-        value_function=mutate_bit_in_register,
+        value_function=value_function_packed_switches,
     ),
 ]
 
@@ -1066,6 +1057,7 @@ SELECT_TYPES = [
             49: "Backup/Reserve - No Timed Charge/Discharge",
             51: "Backup/Reserve",
             64: "Feed-in priority - No Grid Charging",
+            80: "Feed-in priority + Backup/Reserve - No Grid Charging",
             96: "Feed-in priority - No Timed Charge/Discharge",
             98: "Feed-in priority",
         },
@@ -1241,6 +1233,7 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_function=value_function_pv1_power,
+        depends_on=["pv_voltage_1", "pv_current_1"],
         allowedtypes=HYBRID,
         icon="mdi:solar-power-variant",
     ),
@@ -1276,6 +1269,7 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_function=value_function_pv2_power,
+        depends_on=["pv_voltage_2", "pv_current_2"],
         allowedtypes=HYBRID,
         icon="mdi:solar-power-variant",
     ),
@@ -1311,6 +1305,7 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_function=value_function_pv3_power,
+        depends_on=["pv_voltage_3", "pv_current_3"],
         allowedtypes=HYBRID | MPPT4 | MPPT3,
         icon="mdi:solar-power-variant",
     ),
@@ -1346,6 +1341,7 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_function=value_function_pv4_power,
+        depends_on=["pv_voltage_4", "pv_current_4"],
         allowedtypes=HYBRID | MPPT4,
         icon="mdi:solar-power-variant",
     ),
@@ -1586,6 +1582,20 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
         allowedtypes=HYBRID,
     ),
     SolisModbusSensorEntityDescription(
+        name="Lead-acid Battery Temperature",
+        key="lead_acid_battery_temperature",
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        register=33096,
+        register_type=REG_INPUT,
+        scale=0.1,
+        rounding=1,
+        entity_registry_enabled_default=False,
+        allowedtypes=HYBRID,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SolisModbusSensorEntityDescription(
         name="Meter Total ActivePower",
         key="meter_total_activepower",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -1649,6 +1659,7 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
             49: "Backup/Reserve - No Timed Charge/Discharge",
             51: "Backup/Reserve",
             64: "Feed-in priority - No Grid Charging",
+            80: "Feed-in priority + Backup/Reserve - No Grid Charging",
             96: "Feed-in priority - No Timed Charge/Discharge",
             98: "Feed-in priority",
         },
@@ -1826,6 +1837,7 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
         key="total_battery_charge",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         register=33161,
         register_type=REG_INPUT,
         register_data_type=REGISTER_U32,
@@ -1860,6 +1872,7 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
         key="total_battery_discharge",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
         register=33165,
         register_type=REG_INPUT,
         register_data_type=REGISTER_U32,
@@ -2038,6 +2051,32 @@ SENSOR_TYPES: list[SolisModbusSensorEntityDescription] = [
         scale=0.1,
         rounding=1,
         allowedtypes=HYBRID | X1,
+    ),
+    SolisModbusSensorEntityDescription(
+        name="Battery Float Charge Voltage",
+        key="battery_float_charge_voltage",
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        device_class=SensorDeviceClass.VOLTAGE,
+        register=33209,
+        register_type=REG_INPUT,
+        scale=0.1,
+        rounding=1,
+        entity_registry_enabled_default=False,
+        allowedtypes=HYBRID,
+        entity_category=EntityCategory.DIAGNOSTIC,
+    ),
+    SolisModbusSensorEntityDescription(
+        name="Battery Equalisation Charge Voltage",
+        key="battery_equalisation_charge_voltage",
+        native_unit_of_measurement=UnitOfElectricPotential.VOLT,
+        device_class=SensorDeviceClass.VOLTAGE,
+        register=33210,
+        register_type=REG_INPUT,
+        scale=0.1,
+        rounding=1,
+        entity_registry_enabled_default=False,
+        allowedtypes=HYBRID,
+        entity_category=EntityCategory.DIAGNOSTIC,
     ),
     SolisModbusSensorEntityDescription(
         name="Meter AC Voltage",
@@ -2757,12 +2796,16 @@ class solis_plugin(plugin_base):
             invertertype = HYBRID | X1  # Hybrid Gen5 3.6kW - 48v
         elif seriesnumber.startswith("160F5"):
             invertertype = HYBRID | X1  # Hybrid Gen5 3.6kW - 48v
+        elif seriesnumber.startswith("103303"):
+            invertertype = HYBRID | X3 | MPPT4  # Hybrid Gen6  5kW - HV
         elif seriesnumber.startswith("103305"):
             invertertype = HYBRID | X3 | MPPT4  # Hybrid Gen6  8kW - HV
-        elif seriesnumber.startswith("103306"):
+        elif seriesnumber.startswith(("103306", "133306")):
             invertertype = HYBRID | X3 | MPPT4  # Hybrid Gen6  10kW - HV
         elif seriesnumber.startswith("103314"):
             invertertype = HYBRID | X3 | MPPT4  # Hybrid Gen6  12kW - HV
+        elif seriesnumber.startswith("103315"):
+            invertertype = HYBRID | X3 | MPPT4  # Hybrid Gen6  15kW - HV (S6-EH3P15K-H) #2468
         elif seriesnumber.startswith("103316"):
             invertertype = HYBRID | X3 | MPPT4  # Hybrid Gen6  20kW - HV (S6-EH3P20K-H)
         elif seriesnumber.startswith("103330"):
@@ -2775,6 +2818,8 @@ class solis_plugin(plugin_base):
             invertertype = HYBRID | X3  # PV Only Gen5 5-20kW
         elif seriesnumber.startswith("2051"):
             invertertype = HYBRID | X1  # Hybrid Gen6 EO1p-48v 5kW
+        elif seriesnumber.startswith("303126"):
+            invertertype = HYBRID | X1  # S6-EH1P8K-L-PLUS, single phase, two MPPTs
         elif seriesnumber.startswith("6031"):
             invertertype = HYBRID | X1  # Hybrid Gen5 3105 / 3122 Model 6kW - 48V
         elif seriesnumber.startswith("6041"):

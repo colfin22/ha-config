@@ -1,0 +1,133 @@
+instant_playlist:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: audiomuse
+    prompt:
+      required: true
+      example: "Upbeat 90s indie for a Sunday morning"
+      selector:
+        text:
+          multiline: true
+    mode:
+      default: ai
+      selector:
+        select:
+          translation_key: mode
+          options:
+            - ai
+            - search
+    count:
+      selector:
+        number:
+          min: 5
+          max: 200
+          mode: box
+    name:
+      selector:
+        text:
+    save:
+      default: true
+      selector:
+        boolean:
+    play_on:
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+              integration: music_assistant
+              supported_features:
+                - media_player.MediaPlayerEntityFeature.MEDIA_ENQUEUE
+
+similar_artists:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: audiomuse
+    artist:
+      required: true
+      example: "Alice and the Bobs"
+      selector:
+        text:
+    count:
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          mode: box
+
+artist_playlist:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: audiomuse
+    artist:
+      required: true
+      example: "Alice and the Bobs"
+      selector:
+        text:
+    include_similar:
+      default: 4
+      selector:
+        number:
+          min: 0
+          max: 20
+          mode: box
+    count:
+      selector:
+        number:
+          min: 5
+          max: 200
+          mode: box
+    name:
+      selector:
+        text:
+    save:
+      default: true
+      selector:
+        boolean:
+    play_on:
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+              integration: music_assistant
+              supported_features:
+                - media_player.MediaPlayerEntityFeature.MEDIA_ENQUEUE
+
+playlist_ideas:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: audiomuse
+
+run_radios:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: audiomuse
+
+play_playlist:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: audiomuse
+    playlist_id:
+      required: true
+      selector:
+        text:
+    entity_id:
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+              integration: music_assistant
+              supported_features:
+                - media_player.MediaPlayerEntityFeature.MEDIA_ENQUEUE

@@ -1,0 +1,240 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to AudioMuse-AI",
+        "description": "Enter the address of your AudioMuse-AI server. Version {min_version} or newer is required.",
+        "data": {
+          "url": "Server URL",
+          "api_token": "API token"
+        },
+        "data_description": {
+          "url": "For example {example_url}",
+          "api_token": "AudioMuse-AI → Setup Wizard → API token. Only needed when authentication is enabled in AudioMuse-AI; leave empty otherwise."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Update the AudioMuse-AI API token",
+        "description": "The API token for {url} is no longer accepted. Enter the current one.",
+        "data": {
+          "api_token": "API token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot reach AudioMuse-AI at that address.",
+      "invalid_auth": "AudioMuse-AI rejected the request. If authentication is enabled in AudioMuse-AI, enter its API token.",
+      "unsupported_version": "This AudioMuse-AI server reports {version}; version {min_version} or newer is required.",
+      "unknown": "Unexpected error. See the Home Assistant log."
+    },
+    "abort": {
+      "already_configured": "This AudioMuse-AI server is already set up.",
+      "reauth_successful": "API token updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AudioMuse-AI options",
+        "data": {
+          "default_count": "Songs per playlist",
+          "default_player": "Default speaker",
+          "ai_provider": "AI provider for Instant Playlist",
+          "ai_model": "AI model for Instant Playlist",
+          "ai_server_url": "AI server URL (OpenAI-compatible)",
+          "music_assistant_provider": "Music Assistant provider"
+        },
+        "data_description": {
+          "default_count": "Used when an action does not give a song count.",
+          "default_player": "A Music Assistant speaker to play new playlists on when none is chosen.",
+          "ai_provider": "Leave empty to use the provider set in AudioMuse-AI.",
+          "ai_model": "Leave empty to use the model set in AudioMuse-AI. Pick a model that supports tool calling.",
+          "ai_server_url": "Only for OpenAI-compatible services. Leave empty to use AudioMuse-AI's setting.",
+          "music_assistant_provider": "Only needed if playback fails or you have several Music Assistant providers for the same server type: the Music Assistant provider instance ID. Navidrome, Jellyfin, Emby and Plex are detected automatically."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "songs_analysed": {
+        "name": "Songs analysed"
+      },
+      "albums": {
+        "name": "Albums analysed"
+      },
+      "artists": {
+        "name": "Artists analysed"
+      },
+      "lyrics_songs": {
+        "name": "Songs with lyrics analysed"
+      },
+      "busy_workers": {
+        "name": "Busy workers"
+      },
+      "queue_pending": {
+        "name": "Queued tasks"
+      },
+      "unanalysable": {
+        "name": "Unanalysable songs"
+      },
+      "version": {
+        "name": "Version"
+      }
+    }
+  },
+  "exceptions": {
+    "entry_not_found": {
+      "message": "No loaded AudioMuse-AI server has that config entry ID."
+    },
+    "entry_required": {
+      "message": "Several AudioMuse-AI servers are set up; choose one with config_entry_id."
+    },
+    "not_loaded": {
+      "message": "No AudioMuse-AI server is loaded."
+    },
+    "no_player": {
+      "message": "Choose a speaker, or set a default speaker in the AudioMuse-AI options."
+    },
+    "no_music_assistant": {
+      "message": "Playback needs the Music Assistant integration."
+    },
+    "no_ma_provider": {
+      "message": "Playback is not available for this music server: Music Assistant has no music provider for it (for example Lyrion), or it is not recognised. Set 'Music Assistant provider' in the AudioMuse-AI options if Music Assistant does have one."
+    }
+  },
+  "services": {
+    "instant_playlist": {
+      "name": "Instant Playlist",
+      "description": "Get songs from your library for a request (AI pick or quick text search), save them as a playlist and optionally play it.",
+      "fields": {
+        "config_entry_id": {
+          "name": "AudioMuse-AI server",
+          "description": "Only needed if you have more than one."
+        },
+        "prompt": {
+          "name": "Request",
+          "description": "What you want to hear, in plain words."
+        },
+        "mode": {
+          "name": "How to pick songs",
+          "description": "AI pick asks AudioMuse-AI's AI (needs an AI provider). Quick search uses AudioMuse-AI's text search: faster, no AI needed."
+        },
+        "count": {
+          "name": "Songs",
+          "description": "How many songs. Defaults to the integration option."
+        },
+        "name": {
+          "name": "Playlist name",
+          "description": "Defaults to the request text. AudioMuse-AI adds \"_instant\"."
+        },
+        "save": {
+          "name": "Save playlist",
+          "description": "Save to the music server. Turn off to only get the song list."
+        },
+        "play_on": {
+          "name": "Play on",
+          "description": "A Music Assistant speaker to start the playlist on."
+        }
+      }
+    },
+    "similar_artists": {
+      "name": "Similar artists",
+      "description": "Find artists in your library that sound like a given artist.",
+      "fields": {
+        "config_entry_id": {
+          "name": "AudioMuse-AI server",
+          "description": "Only needed if you have more than one."
+        },
+        "artist": {
+          "name": "Artist",
+          "description": "Artist name as it appears in your library."
+        },
+        "count": {
+          "name": "How many",
+          "description": "Number of similar artists to return."
+        }
+      }
+    },
+    "artist_playlist": {
+      "name": "Artist playlist",
+      "description": "Make a playlist from an artist and the artists that sound most like them.",
+      "fields": {
+        "config_entry_id": {
+          "name": "AudioMuse-AI server",
+          "description": "Only needed if you have more than one."
+        },
+        "artist": {
+          "name": "Artist",
+          "description": "Artist name as it appears in your library."
+        },
+        "include_similar": {
+          "name": "Similar artists to include",
+          "description": "0 for this artist only."
+        },
+        "count": {
+          "name": "Songs",
+          "description": "How many songs. Defaults to the integration option."
+        },
+        "name": {
+          "name": "Playlist name",
+          "description": "Defaults to \"[artist] and similar\". AudioMuse-AI adds \"_instant\"."
+        },
+        "save": {
+          "name": "Save playlist",
+          "description": "Save to the music server. Turn off to only get the song list."
+        },
+        "play_on": {
+          "name": "Play on",
+          "description": "A Music Assistant speaker to start the playlist on."
+        }
+      }
+    },
+    "playlist_ideas": {
+      "name": "Playlist ideas",
+      "description": "Get AudioMuse-AI's suggested playlist prompts.",
+      "fields": {
+        "config_entry_id": {
+          "name": "AudioMuse-AI server",
+          "description": "Only needed if you have more than one."
+        }
+      }
+    },
+    "run_radios": {
+      "name": "Refresh Radios",
+      "description": "Create or refresh one playlist per enabled AudioMuse-AI Radio.",
+      "fields": {
+        "config_entry_id": {
+          "name": "AudioMuse-AI server",
+          "description": "Only needed if you have more than one."
+        }
+      }
+    },
+    "play_playlist": {
+      "name": "Play playlist",
+      "description": "Play a music-server playlist on a Music Assistant speaker.",
+      "fields": {
+        "config_entry_id": {
+          "name": "AudioMuse-AI server",
+          "description": "Only needed if you have more than one."
+        },
+        "playlist_id": {
+          "name": "Playlist ID",
+          "description": "The ID returned when the playlist was saved."
+        },
+        "entity_id": {
+          "name": "Speaker",
+          "description": "Defaults to the speaker set in the options."
+        }
+      }
+    }
+  },
+  "selector": {
+    "mode": {
+      "options": {
+        "ai": "AI pick",
+        "search": "Quick search (no AI)"
+      }
+    }
+  }
+}

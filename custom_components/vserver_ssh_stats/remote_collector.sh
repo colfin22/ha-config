@@ -1,4 +1,4 @@
-
+# Portable shell payload: supports Bash, dash and BusyBox ash (LibreELEC).
 set -e
 export LC_ALL=C
 export LANG=C
@@ -55,28 +55,29 @@ if [ "$docker_quick_timeout" -gt 30 ]; then
 fi
 
 human_bytes() {
-  raw=${1//[[:space:]]/}
-  [[ "$raw" =~ ^([0-9]+([.][0-9]+)?)([KMGTPE]?i?B)?$ ]] || return 0
-  value=${BASH_REMATCH[1]}
-  unit=${BASH_REMATCH[3]}
-  factor=1
-  case "$unit" in
-    kB|KB) factor=1000 ;;
-    MB) factor=1000000 ;;
-    GB) factor=1000000000 ;;
-    TB) factor=1000000000000 ;;
-    KiB) factor=1024 ;;
-    MiB) factor=1048576 ;;
-    GiB) factor=1073741824 ;;
-    TiB) factor=1099511627776 ;;
-  esac
-  awk -v value="$value" -v factor="$factor" 'BEGIN {printf "%.0f", value*factor}'
+  printf '%s' "$1" | awk '
+    {
+      gsub(/[[:space:]]/, "")
+      if ($0 !~ /^[0-9]+([.][0-9]+)?([kKMGTPE]?i?B)?$/) exit
+      value=$0+0
+      unit=$0
+      sub(/^[0-9]+([.][0-9]+)?/, "", unit)
+      factor=1
+      if (unit != "" && unit != "B") {
+        prefix=toupper(substr(unit,1,1))
+        power=index("KMGTPE",prefix)
+        if (!power) exit
+        base=(unit ~ /iB$/ ? 1024 : 1000)
+        factor=base^power
+      }
+      printf "%.0f", value*factor
+    }'
 }
 
 read_power_metrics() {
   power_energy_file=""
   for rapl in /sys/class/powercap/*/energy_uj; do
-    [[ -r "$rapl" ]] || continue
+    [ -r "$rapl" ] || continue
     power_energy_file=$rapl
     break
   done
@@ -149,11 +150,13 @@ read_mem_stats() {
   swap_free=""
   while IFS=: read -r key value; do
     case "$key" in
-      MemTotal) mem_total=${value//[^0-9]/} ;;
-      MemAvailable) mem_avail=${value//[^0-9]/} ;;
-      MemFree) [ -z "$mem_avail" ] && mem_avail=${value//[^0-9]/} ;;
-      SwapTotal) swap_total=${value//[^0-9]/} ;;
-      SwapFree) swap_free=${value//[^0-9]/} ;;
+      MemTotal) mem_total=$(printf '%s' "$value" | tr -cd '0-9') ;;
+      MemAvailable) mem_avail=$(printf '%s' "$value" | tr -cd '0-9') ;;
+      MemFree)
+        if [ -z "$mem_avail" ]; then mem_avail=$(printf '%s' "$value" | tr -cd '0-9'); fi
+        ;;
+      SwapTotal) swap_total=$(printf '%s' "$value" | tr -cd '0-9') ;;
+      SwapFree) swap_free=$(printf '%s' "$value" | tr -cd '0-9') ;;
     esac
   done < /proc/meminfo
   if [ -n "$mem_total" ] && [ "$mem_total" -gt 0 ]; then
@@ -197,7 +200,7 @@ awk '{gsub(/\\040/," ",$2); printf "%s\t%s\t%s\t%s\n", $1, $2, $3, $4}')
     fi
     if [ $disk_status -ne 0 ] || [ -z "$disk_lines" ]; then
       set +e
-      disk_lines=$(df -P 2>/dev/null | tail -n +2 | awk '{if($1 !~ "^/") next; gsub(/\\040/," ",$6); size=$2*1024; avail=$4*1024;
+      disk_lines=$(df -Pk 2>/dev/null | tail -n +2 | awk '{if($1 !~ "^/") next; gsub(/\\040/," ",$6); size=$2*1024; avail=$4*1024;
 printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
       disk_status=$?
       set -e
@@ -208,7 +211,7 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
   fi
 
   if [ -n "$disk_lines" ]; then
-    tab=$(echo -ne '\t')
+    tab=$(printf '\t')
     oldifs=$IFS
     IFS=$tab
     disk_entries=""
@@ -225,7 +228,9 @@ printf "%s\t%s\t%.0f\t%.0f\n", $1, $6, size, avail}')
       source_json=$(json_escape "$source")
       target_json=$(json_escape "$target")
       disk_entries="$disk_entries{\"name\":\"$source_json\",\"mount\":\"$target_json\",\"total\":$size,\"free\":$avail},"
-    done < <(echo "$disk_lines")
+    done <<EOF
+$disk_lines
+EOF
     IFS=$oldifs
     if [ -n "$disk_entries" ]; then
       disk_stats="[${disk_entries%,}]"
@@ -339,6 +344,16 @@ read_cpu_throttle() {
   done
 }
 
+run_docker() {
+  docker_command_timeout=$1
+  shift
+  if [ "$docker_use_sudo" = "1" ]; then
+    run_limited "$docker_command_timeout" sudo -n docker "$@"
+  else
+    run_limited "$docker_command_timeout" docker "$@"
+  fi
+}
+
 read_docker_stats() {
   docker=""
   containers=""
@@ -349,41 +364,46 @@ read_docker_stats() {
   docker_containers_size_bytes=""
   docker_volumes_size_bytes=""
   docker_build_cache_size_bytes=""
-  docker_command=(docker)
+  docker_use_sudo=0
   if ! command -v docker >/dev/null 2>&1; then
     docker=0
     docker_stats_complete=1
   else
     set +e
-    run_limited "$docker_quick_timeout" "${docker_command[@]}" info >/dev/null 2>&1
+    run_docker "$docker_quick_timeout" info >/dev/null 2>&1
     docker_info_status=$?
-    if [ "$docker_info_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
-      docker_command=(sudo -n docker)
-      run_limited "$docker_quick_timeout" "${docker_command[@]}" info >/dev/null 2>&1
+    if [ "$docker_info_status" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
+      docker_use_sudo=1
+      run_docker "$docker_quick_timeout" info >/dev/null 2>&1
       docker_info_status=$?
     fi
     set -e
     if [ "$docker_info_status" -eq 0 ]; then
       set +e
       docker=1
-      ps_lines=$(run_limited "$docker_quick_timeout" "${docker_command[@]}" ps -a --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
+      ps_lines=$(run_docker "$docker_quick_timeout" ps -a --format '{{.ID}}|{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}' 2>/dev/null)
       ps_status=$?
       if [ "$ps_status" -eq 0 ]; then
         docker_stats_complete=1
       fi
       containers=$(printf '%s\n' "$ps_lines" | awk -F'|' 'NF {print $2}' | tr '\n' ',' )
       containers=$(trim_comma "$containers")
-      containers=${containers//,/, }
+      containers=$(printf '%s' "$containers" | sed 's/,/, /g')
       stats_lines=""
       inspect_lines=""
       if [ -n "$ps_lines" ]; then
-        container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' '{print $1}' | tr '\n' ' ')
+        container_ids=$(printf '%s\n' "$ps_lines" | awk -F'|' 'NF {print $1}')
         running_container_ids=$(printf '%s\n' "$ps_lines" |
-          awk -F'|' '$4 ~ /^(Up|Restarting)/ {printf "%s ", $1}')
+          awk -F'|' '$4 ~ /^(Up|Restarting)/ {print $1}')
         stats_status=0
         if [ -n "$running_container_ids" ]; then
-          read -r -a running_container_id_args <<< "$running_container_ids"
-          stats_raw=$(run_limited "$docker_timeout" "${docker_command[@]}" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.PIDs}}' "${running_container_id_args[@]}" 2>/dev/null)
+          set --
+          while IFS= read -r docker_id; do
+            [ -n "$docker_id" ] && set -- "$@" "$docker_id"
+          done <<EOF
+$running_container_ids
+EOF
+          stats_raw=$(run_docker "$docker_timeout" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.PIDs}}' "$@" 2>/dev/null)
           stats_status=$?
           if [ "$stats_status" -eq 0 ] && ! printf '%s\n' "$stats_raw" |
             awk -F'|' '
@@ -396,7 +416,7 @@ read_docker_stats() {
               value($3) > 0 || value($4) > 0 { found=1 }
               END { exit found ? 0 : 1 }'; then
             sleep 1
-            retry_stats_raw=$(run_limited "$docker_timeout" "${docker_command[@]}" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.PIDs}}' "${running_container_id_args[@]}" 2>/dev/null)
+            retry_stats_raw=$(run_docker "$docker_timeout" stats --no-stream --format '{{.ID}}|{{.Name}}|{{.CPUPerc}}|{{.MemPerc}}|{{.MemUsage}}|{{.PIDs}}' "$@" 2>/dev/null)
             retry_stats_status=$?
             if [ "$retry_stats_status" -eq 0 ] && [ -n "$retry_stats_raw" ]; then
               stats_raw=$retry_stats_raw
@@ -406,8 +426,13 @@ read_docker_stats() {
           fi
           stats_lines=$stats_raw
         fi
-        read -r -a container_id_args <<< "$container_ids"
-        inspect_lines=$(run_limited "$docker_quick_timeout" "${docker_command[@]}" inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}|{{.HostConfig.RestartPolicy.Name}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.swarm.service.name"}}|{{.State.Pid}}|{{.HostConfig.Memory}}' "${container_id_args[@]}" 2>/dev/null)
+        set --
+        while IFS= read -r docker_id; do
+          [ -n "$docker_id" ] && set -- "$@" "$docker_id"
+        done <<EOF
+$container_ids
+EOF
+        inspect_lines=$(run_docker "$docker_quick_timeout" inspect --format '{{.Id}}|{{.RestartCount}}|{{.State.Running}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}|{{.HostConfig.RestartPolicy.Name}}|{{index .Config.Labels "com.docker.compose.project"}}|{{index .Config.Labels "com.docker.compose.service"}}|{{index .Config.Labels "com.docker.swarm.service.name"}}|{{.State.Pid}}|{{.HostConfig.Memory}}' "$@" 2>/dev/null)
         inspect_status=$?
         if [ "$stats_status" -ne 0 ] || [ "$inspect_status" -ne 0 ]; then
           docker_stats_partial=1
@@ -437,7 +462,9 @@ read_docker_stats() {
           container_mem_usage=""
           container_pids=""
           if [ -n "$stats_match" ]; then
-            IFS='|' read -r container_cpu container_mem container_mem_usage_raw container_pids <<< "$stats_match"
+            IFS='|' read -r container_cpu container_mem container_mem_usage_raw container_pids <<EOF
+$stats_match
+EOF
             container_mem_usage=${container_mem_usage_raw%%/*}
             container_mem_usage=$(human_bytes "$container_mem_usage")
           fi
@@ -470,11 +497,11 @@ read_docker_stats() {
             container_pid=${inspect_remainder%%|*}
             container_memory_limit=${inspect_remainder#*|}
           fi
-          restart_count=${restart_count//[^0-9]/}
+          restart_count=$(printf '%s' "$restart_count" | tr -cd '0-9')
           restart_count_json=$(number_or_null "$restart_count")
-          container_pid=${container_pid//[^0-9]/}
-          container_memory_limit=${container_memory_limit//[^0-9]/}
-          container_pids=${container_pids//[^0-9]/}
+          container_pid=$(printf '%s' "$container_pid" | tr -cd '0-9')
+          container_memory_limit=$(printf '%s' "$container_memory_limit" | tr -cd '0-9')
+          container_pids=$(printf '%s' "$container_pids" | tr -cd '0-9')
           read_cpu_throttle "$container_pid"
           case "$running_state" in
             true|false) running_json=$running_state ;;
@@ -491,7 +518,9 @@ read_docker_stats() {
           compose_service_json=$(json_escape "$compose_service")
           swarm_service_json=$(json_escape "$swarm_service")
           container_entries="$container_entries{\"id\":\"$container_id_json\",\"name\":\"$name_json\",\"cpu\":$container_cpu,\"mem\":$container_mem,\"memory_usage_bytes\":$(number_or_null "$container_mem_usage"),\"memory_limit_bytes\":$(number_or_null "$container_memory_limit"),\"pids\":$(number_or_null "$container_pids"),\"cpu_throttled_periods\":$(number_or_null "$throttle_periods"),\"cpu_throttled_usec\":$(number_or_null "$throttle_usec"),\"image\":\"$image_json\",\"status\":\"$status_json\",\"restart_count\":$restart_count_json,\"ports\":\"$ports_json\",\"health_state\":\"$health_json\",\"running\":$running_json,\"restart_policy\":\"$restart_policy_json\",\"compose_project\":\"$compose_project_json\",\"compose_service\":\"$compose_service_json\",\"swarm_service\":\"$swarm_service_json\"},"
-        done < <(printf '%s\n' "$ps_lines")
+        done <<EOF
+$ps_lines
+EOF
         if [ -n "$container_entries" ]; then
           container_stats="[${container_entries%,}]"
         else
@@ -500,7 +529,7 @@ read_docker_stats() {
       else
         container_stats="[]"
       fi
-      docker_disk_lines=$(run_limited "$docker_quick_timeout" "${docker_command[@]}" system df --format '{{.Type}}|{{.Size}}|{{.Reclaimable}}' 2>/dev/null)
+      docker_disk_lines=$(run_docker "$docker_quick_timeout" system df --format '{{.Type}}|{{.Size}}|{{.Reclaimable}}' 2>/dev/null)
       while IFS='|' read -r docker_disk_type docker_disk_size _docker_reclaimable; do
         docker_disk_bytes=$(human_bytes "$docker_disk_size")
         case "$docker_disk_type" in
@@ -509,7 +538,9 @@ read_docker_stats() {
           "Local Volumes") docker_volumes_size_bytes=$docker_disk_bytes ;;
           "Build Cache") docker_build_cache_size_bytes=$docker_disk_bytes ;;
         esac
-      done < <(printf '%s\n' "$docker_disk_lines")
+      done <<EOF
+$docker_disk_lines
+EOF
       set -e
     else
       docker=1
@@ -574,7 +605,7 @@ read_top_processes() {
     top_process_status=$?
     set -e
     if [ $top_process_status -eq 0 ] && [ -n "$top_process_lines" ]; then
-      tab=$(echo -ne '\t')
+      tab=$(printf '\t')
       oldifs=$IFS
       IFS=$tab
       top_process_entries=""
@@ -582,7 +613,9 @@ read_top_processes() {
         [ -z "$pid" ] && continue
         command_json=$(json_escape "$command")
         top_process_entries="$top_process_entries{\"pid\":$pid,\"command\":\"$command_json\",\"cpu\":$process_cpu,\"mem\":$process_mem},"
-      done < <(echo "$top_process_lines")
+      done <<EOF
+$top_process_lines
+EOF
       IFS=$oldifs
       if [ -n "$top_process_entries" ]; then
         top_processes_json="[${top_process_entries%,}]"
@@ -592,13 +625,11 @@ read_top_processes() {
 }
 
 parse_process_state() {
-  local stat_line="$1"
-  local stat_remainder
   parsed_process_state=""
-  case "$stat_line" in
+  case "$1" in
     *") "*)
-      stat_remainder=${stat_line##*) }
-      parsed_process_state=${stat_remainder%% *}
+      parsed_process_state=${1##*) }
+      parsed_process_state=${parsed_process_state%% *}
       ;;
   esac
 }
@@ -686,7 +717,7 @@ read_software_raid() {
   ' /proc/mdstat 2>/dev/null)
 
   raid_entries=""
-  tab=$(echo -ne '\t')
+  tab=$(printf '\t')
   while IFS="$tab" read -r raid_name raid_state raid_level raid_members raid_degraded raid_rebuild raid_progress raid_finish; do
     [ -n "$raid_name" ] || continue
     software_raid_arrays=$((software_raid_arrays + 1))
@@ -703,7 +734,9 @@ read_software_raid() {
     raid_progress_json=$(number_or_null "$raid_progress")
     raid_finish_json=$(number_or_null "$raid_finish")
     raid_entries="$raid_entries{\"name\":\"$raid_name_json\",\"state\":\"$raid_state_json\",\"level\":\"$raid_level_json\",\"members\":\"$raid_members_json\",\"degraded\":$raid_degraded,\"rebuild_active\":$raid_rebuild,\"rebuild_progress\":$raid_progress_json,\"rebuild_remaining_minutes\":$raid_finish_json},"
-  done < <(printf '%s\n' "$raid_lines")
+  done <<EOF
+$raid_lines
+EOF
   [ -n "$raid_entries" ] && raid_arrays_json="[${raid_entries%,}]"
   return 0
 }
@@ -739,19 +772,19 @@ read_storage_health() {
       smart_output=$(run_limited "$storage_timeout" smartctl -a "$device_path" 2>&1)
       smart_command_status=$?
       if ! printf '%s\n' "$smart_output" | grep -Eq 'SMART support is|SMART overall-health|SMART Health Status|SMART Attributes Data Structure|NVMe|Critical Warning|Temperature:|Device Model:|Model Number:'; then
-        if command -v sudo >/dev/null 2>&1; then
+        if [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
           smart_output=$(run_limited "$storage_timeout" sudo -n smartctl -a "$device_path" 2>&1)
           smart_command_status=$?
         fi
       fi
       set -e
-    elif [[ "$device_name" == nvme* ]] && command -v nvme >/dev/null 2>&1; then
+    elif [ "${device_name#nvme}" != "$device_name" ] && command -v nvme >/dev/null 2>&1; then
       storage_tools_available=1
       protocol="nvme"
       set +e
       smart_output=$(run_limited "$storage_timeout" nvme smart-log "$device_path" 2>&1)
       smart_command_status=$?
-      if [ "$smart_command_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+      if [ "$smart_command_status" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
         smart_output=$(run_limited "$storage_timeout" sudo -n nvme smart-log "$device_path" 2>&1)
         smart_command_status=$?
       fi
@@ -815,13 +848,13 @@ read_storage_health() {
       [ -z "$serial" ] && serial=$(printf '%s\n' "$smart_output" | awk -F: '/^Serial Number:/ {sub(/^[[:space:]]*/, "", $2); print $2; exit}')
     fi
 
-    temperature=${temperature//[^0-9.]/}
-    wear_percent=${wear_percent//[^0-9.]/}
-    media_errors=${media_errors//[^0-9]/}
-    reallocated_sectors=${reallocated_sectors//[^0-9]/}
-    pending_sectors=${pending_sectors//[^0-9]/}
-    uncorrectable_sectors=${uncorrectable_sectors//[^0-9]/}
-    power_on_hours=${power_on_hours//[^0-9]/}
+    temperature=$(printf '%s' "$temperature" | tr -cd '0-9.')
+    wear_percent=$(printf '%s' "$wear_percent" | tr -cd '0-9.')
+    media_errors=$(printf '%s' "$media_errors" | tr -cd '0-9')
+    reallocated_sectors=$(printf '%s' "$reallocated_sectors" | tr -cd '0-9')
+    pending_sectors=$(printf '%s' "$pending_sectors" | tr -cd '0-9')
+    uncorrectable_sectors=$(printf '%s' "$uncorrectable_sectors" | tr -cd '0-9')
+    power_on_hours=$(printf '%s' "$power_on_hours" | tr -cd '0-9')
     device_name_json=$(json_escape "$device_name")
     device_path_json=$(json_escape "$device_path")
     model_json=$(json_escape "$model")
@@ -841,7 +874,7 @@ read_storage_health() {
       [ -e "$md_path" ] || continue
       set +e
       md_detail=$(run_limited "$storage_timeout" mdadm --detail --export "$md_path" 2>/dev/null)
-      if [ -z "$md_detail" ] && command -v sudo >/dev/null 2>&1; then
+      if [ -z "$md_detail" ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
         md_detail=$(run_limited "$storage_timeout" sudo -n mdadm --detail --export "$md_path" 2>/dev/null)
       fi
       set -e
@@ -916,7 +949,9 @@ read_network_bytes() {
       esac
       iface_name_json=$(json_escape "$iface_name")
       iface_entries="$iface_entries{\"name\":\"$iface_name_json\",\"rx\":$iface_rx,\"tx\":$iface_tx},"
-    done < <(awk -F: '/:/{name=$1; gsub(/^[ \t]+|[ \t]+$/,"",name); split($2,n," "); print name"|"n[1]"|"n[9]}' /proc/net/dev 2>/dev/null | head -n 20)
+    done <<EOF
+$(awk -F: '/:/{name=$1; gsub(/^[ \t]+|[ \t]+$/,"",name); split($2,n," "); print name"|"n[1]"|"n[9]}' /proc/net/dev 2>/dev/null | head -n 20)
+EOF
     if [ -n "$iface_entries" ]; then
       network_interfaces_json="[${iface_entries%,}]"
     fi
@@ -1019,7 +1054,9 @@ read_systemd_failures() {
         [ -z "$unit" ] && continue
         unit_json=$(json_escape "$unit")
         unit_entries="$unit_entries\"$unit_json\","
-      done < <(printf '%s\n' "$failed_units")
+      done <<EOF
+$failed_units
+EOF
       if [ -n "$unit_entries" ]; then
         failed_systemd_units_json="[${unit_entries%,}]"
       fi
@@ -1039,11 +1076,24 @@ read_journal_errors() {
 
 read_root_filesystem_status() {
   root_fs_readonly=0
+  root_fs_readonly_expected=0
   if [ -r /proc/mounts ]; then
     root_mount_options=$(awk '$2 == "/" {print $4; exit}' /proc/mounts 2>/dev/null || echo "")
     case ",$root_mount_options," in
       *,ro,*) root_fs_readonly=1 ;;
     esac
+    if [ "$root_fs_readonly" = "1" ]; then
+      root_mount_type=$(awk '$2 == "/" {print $3; exit}' /proc/mounts 2>/dev/null || echo "")
+      if [ "$root_mount_type" = "squashfs" ]; then
+        # LibreELEC boots an intentionally read-only SquashFS system image.
+        # Read the ID as data; never execute os-release. A loop device alone
+        # is not evidence that a read-only root filesystem is intentional.
+        root_os_id=$(sed -n 's/^ID=//p' /etc/os-release 2>/dev/null | tr -d "\"'" || true)
+        if [ "$root_os_id" = "libreelec" ]; then
+          root_fs_readonly_expected=1
+        fi
+      fi
+    fi
   fi
 }
 
@@ -1067,7 +1117,7 @@ read_firewall_status() {
     set +e
     ufw_status=$(run_limited 4 ufw status verbose 2>/dev/null)
     ufw_status_code=$?
-    if [ "$ufw_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$ufw_status_code" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       ufw_status=$(run_limited 4 sudo -n ufw status verbose 2>/dev/null)
     fi
     set -e
@@ -1097,7 +1147,7 @@ read_firewall_status() {
     set +e
     nft_rules=$(run_limited 4 nft -a list ruleset 2>/dev/null)
     nft_status=$?
-    if [ "$nft_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$nft_status" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       nft_rules=$(run_limited 4 sudo -n nft -a list ruleset 2>/dev/null)
       nft_status=$?
     fi
@@ -1113,7 +1163,7 @@ read_firewall_status() {
     set +e
     iptables_rules=$(run_limited 4 iptables -S 2>/dev/null)
     iptables_status=$?
-    if [ "$iptables_status" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$iptables_status" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       iptables_rules=$(run_limited 4 sudo -n iptables -S 2>/dev/null)
       iptables_status=$?
     fi
@@ -1141,7 +1191,7 @@ read_fail2ban_status() {
   set +e
   f2b_status=$(run_limited 4 fail2ban-client status 2>/dev/null)
   f2b_status_code=$?
-  if [ "$f2b_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+  if [ "$f2b_status_code" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
     f2b_status=$(run_limited 4 sudo -n fail2ban-client status 2>/dev/null)
     f2b_status_code=$?
   fi
@@ -1158,7 +1208,7 @@ read_fail2ban_status() {
     set +e
     jail_status=$(run_limited 3 fail2ban-client status "$jail" 2>/dev/null)
     jail_status_code=$?
-    if [ "$jail_status_code" -ne 0 ] && command -v sudo >/dev/null 2>&1; then
+    if [ "$jail_status_code" -ne 0 ] && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       jail_status=$(run_limited 3 sudo -n fail2ban-client status "$jail" 2>/dev/null)
       jail_status_code=$?
     fi
@@ -1171,7 +1221,9 @@ read_fail2ban_status() {
     fail2ban_banned_count=$((fail2ban_banned_count + jail_banned))
     jail_name_json=$(json_escape "$jail")
     jail_entries="$jail_entries{\"jail\":\"$jail_name_json\",\"banned\":$jail_banned},"
-  done < <(printf '%s\n' "$jail_list")
+  done <<EOF
+$jail_list
+EOF
   if [ -n "$jail_entries" ]; then
     fail2ban_jails_json="[${jail_entries%,}]"
   fi
@@ -1200,7 +1252,7 @@ read_certificate_expiry() {
     set +e
     end_date=$(run_limited 3 openssl x509 -enddate -noout -in "$cert_file" 2>/dev/null | sed 's/^notAfter=//')
     end_status=$?
-    if { [ "$end_status" -ne 0 ] || [ -z "$end_date" ]; } && command -v sudo >/dev/null 2>&1; then
+    if { [ "$end_status" -ne 0 ] || [ -z "$end_date" ]; } && [ "${VSERVER_SSH_STATS_USE_SUDO:-1}" = "1" ] && command -v sudo >/dev/null 2>&1; then
       end_date=$(run_limited 3 sudo -n openssl x509 -enddate -noout -in "$cert_file" 2>/dev/null | sed 's/^notAfter=//')
       end_status=$?
     fi
@@ -1214,7 +1266,9 @@ read_certificate_expiry() {
     fi
     domain_json=$(json_escape "$domain")
     cert_entries="$cert_entries{\"domain\":\"$domain_json\",\"expiry_days\":$days_left},"
-  done < <(printf '%s\n' "$cert_paths")
+  done <<EOF
+$cert_paths
+EOF
   if [ -n "$cert_entries" ]; then
     cert_entries_json="[${cert_entries%,}]"
   fi
@@ -1250,7 +1304,9 @@ read_backup_status() {
     active_state_json=$(json_escape "$active_state")
     result_json=$(json_escape "$unit_result")
     backup_entries="$backup_entries{\"unit\":\"$unit_json\",\"active_state\":\"$active_state_json\",\"result\":\"$result_json\"},"
-  done < <(printf '%s\n' "$unit_list")
+  done <<EOF
+$unit_list
+EOF
   if [ -n "$backup_entries" ]; then
     backup_jobs_json="[${backup_entries%,}]"
   fi
@@ -1349,6 +1405,7 @@ prepare_numeric_json_values() {
   failed_systemd_units_json_count=$(number_or_null "$failed_systemd_units")
   journal_errors_json=$(number_or_null "$journal_errors")
   root_fs_readonly_json=$(number_or_null "$root_fs_readonly")
+  root_fs_readonly_expected_json=$(number_or_null "$root_fs_readonly_expected")
   failed_ssh_logins_15m_json=$(number_or_null "$failed_ssh_logins_15m")
   firewall_active_json=$(number_or_null "$firewall_active")
   firewall_backend_json=$(json_escape "$firewall_backend")
@@ -1484,7 +1541,7 @@ read_disk_io_bytes
 compute_power
 prepare_numeric_json_values
 
-printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"fail2ban_active":%s,"fail2ban_banned_count":%s,"fail2ban_jails":%s,"cert_soonest_expiry_days":%s,"cert_entries":%s,"backup_jobs_detected":%s,"backup_job_failed":%s,"backup_jobs":%s,"unattended_upgrades_active":%s,"network_interfaces":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
+printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"uptime":%s,"temp":%s,"rx":%s,"tx":%s,"ram":%s,"cores":%s,"load_1":%s,"load_5":%s,"load_15":%s,"cpu_freq":%s,"os":"%s","pkg_count":%s,"pkg_list":"%s","docker":%s,"containers":"%s","container_stats":%s,"mac_address":"%s","mac_addresses":%s,"top_processes":%s,"process_total":%s,"process_running":%s,"process_zombies":%s,"tcp_established":%s,"tcp_time_wait":%s,"sockets_used":%s,"tcp_sockets_in_use":%s,"conntrack_count":%s,"conntrack_max":%s,"software_raid_arrays":%s,"software_raid_degraded":%s,"software_raid_rebuild_active":%s,"software_raid_rebuild_progress":%s,"software_raid_rebuild_remaining_minutes":%s,"raid_arrays":%s,"vnc":"%s","web":"%s","ssh":"%s","power_w":%s,"energy_uj":%s,"energy_range_uj":%s,"swap_usage":%s,"swap_total":%s,"reboot_required":%s,"security_updates":%s,"last_boot":"%s","kernel_version":"%s","primary_ip":"%s","failed_systemd_units":%s,"failed_systemd_units_list":%s,"journal_errors":%s,"root_fs_readonly":%s,"root_fs_readonly_expected":%s,"failed_ssh_logins_15m":%s,"firewall_active":%s,"firewall_backend":"%s","firewall_rules_count":%s,"fail2ban_active":%s,"fail2ban_banned_count":%s,"fail2ban_jails":%s,"cert_soonest_expiry_days":%s,"cert_entries":%s,"backup_jobs_detected":%s,"backup_job_failed":%s,"backup_jobs":%s,"unattended_upgrades_active":%s,"network_interfaces":%s,"disk_read_bytes":%s,"disk_write_bytes":%s}\n' \
   "$cpu_json" "$mem_json" "$disk_json" "$disk_total_bytes_json" "$disk_stats_json" "$uptime_json" "$temp_json" "$rx_json" "$tx_json" "$ram_json" "$cores_json" "$load_1_json" \
   "$load_5_json" "$load_15_json" "$cpu_freq_json" "$os_json" "$pkg_count_json" "$pkg_list_json" "$docker_json" "$containers_json" "$container_stats_json" \
   "$mac_address_json" "$mac_addresses_json" "$top_processes_json" "$process_total_json" "$process_running_json" "$process_zombies_json" \
@@ -1492,7 +1549,7 @@ printf '{"cpu":%s,"mem":%s,"disk":%s,"disk_capacity_total":%s,"disk_stats":%s,"u
   "$software_raid_arrays_json" "$software_raid_degraded_json" "$software_raid_rebuild_active_json" "$software_raid_rebuild_progress_json" "$software_raid_rebuild_remaining_minutes_json" "$raid_arrays_json" \
   "$vnc" "$web" "$ssh_enabled" "$power_w_json" "$energy_counter_json" "$energy_range_json" "$swap_usage_json" "$swap_total_json" \
   "$reboot_required_json" "$security_updates_json" "$last_boot_json" "$kernel_version_json" "$primary_ip_json" "$failed_systemd_units_json_count" "$failed_systemd_units_json" \
-  "$journal_errors_json" "$root_fs_readonly_json" "$failed_ssh_logins_15m_json" "$firewall_active_json" "$firewall_backend_json" "$firewall_rules_count_json" \
+  "$journal_errors_json" "$root_fs_readonly_json" "$root_fs_readonly_expected_json" "$failed_ssh_logins_15m_json" "$firewall_active_json" "$firewall_backend_json" "$firewall_rules_count_json" \
   "$fail2ban_active_json" "$fail2ban_banned_count_json" "$fail2ban_jails_json" \
   "$cert_soonest_expiry_days_json" "$cert_entries_json" "$backup_jobs_detected_json" "$backup_job_failed_json" "$backup_jobs_json" \
   "$unattended_upgrades_active_json" "$network_interfaces_json" \

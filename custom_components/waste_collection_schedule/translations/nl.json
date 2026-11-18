@@ -19057,6 +19057,7 @@
           "g5": "G5",
           "house_number": "House Number",
           "language": "Language",
+          "region": "Region",
           "street": "Street",
           "town": "Town"
         },
@@ -19080,6 +19081,7 @@
           "g5": "G5",
           "house_number": "House Number",
           "language": "Language",
+          "region": "Region",
           "street": "Street",
           "town": "Town"
         },
@@ -23348,11 +23350,12 @@
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
           "calendar_title": "Calendar Title",
+          "address": "Address",
+          "postcode": "Postcode",
           "uprn": "UPRN"
         },
         "data_description": {
-          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
-          "uprn": "An easy way to discover your Unique Property Reference Number (UPRN) is by going to {url_www_findmyaddress_co_uk} and entering in your address details."
+          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
         }
       },
       "reconfigure_doncaster_gov_uk": {
@@ -23360,11 +23363,11 @@
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
           "calendar_title": "Calendar Title",
+          "address": "Address",
+          "postcode": "Postcode",
           "uprn": "UPRN"
         },
-        "data_description": {
-          "uprn": "An easy way to discover your Unique Property Reference Number (UPRN) is by going to {url_www_findmyaddress_co_uk} and entering in your address details."
-        }
+        "data_description": {}
       },
       "args_lincoln_gov_uk": {
         "title": "Configure Source",
@@ -24355,8 +24358,7 @@
           "uprn": "UPRN"
         },
         "data_description": {
-          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
-          "uprn": "An easy way to discover your Unique Property Reference Number (UPRN) is by going to {url_www_findmyaddress_co_uk} and entering in your address details."
+          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
         }
       },
       "reconfigure_exeter_gov_uk": {
@@ -24366,9 +24368,7 @@
           "calendar_title": "Calendar Title",
           "uprn": "UPRN"
         },
-        "data_description": {
-          "uprn": "An easy way to discover your Unique Property Reference Number (UPRN) is by going to {url_www_findmyaddress_co_uk} and entering in your address details."
-        }
+        "data_description": {}
       },
       "args_ics_falkirk_gov_uk": {
         "title": "Configure Source",
@@ -28151,7 +28151,8 @@
         "data": {
           "calendar_title": "Calendar Title",
           "post_code": "Postcode",
-          "street_name": "Street Name"
+          "street_name": "Street Name",
+          "uprn": "UPRN"
         },
         "data_description": {
           "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
@@ -28163,7 +28164,8 @@
         "data": {
           "calendar_title": "Calendar Title",
           "post_code": "Postcode",
-          "street_name": "Street Name"
+          "street_name": "Street Name",
+          "uprn": "UPRN"
         },
         "data_description": {}
       },
@@ -29019,7 +29021,7 @@
         },
         "data_description": {}
       },
-      "args_ics_barrowbc_gov_uk": {
+      "args_ics_westmorlandandfurness_gov_uk": {
         "title": "Configure Source",
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
@@ -29042,51 +29044,7 @@
           "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
         }
       },
-      "reconfigure_ics_barrowbc_gov_uk": {
-        "title": "Reconfigure Source",
-        "description": "Configure your service provider. {howto}More details: {docs_url}.",
-        "data": {
-          "calendar_title": "Calendar Title",
-          "file": "File",
-          "headers": "Headers",
-          "impersonate": "Impersonate",
-          "method": "Method",
-          "offset": "Offset",
-          "params": "Parameters",
-          "regex": "Regex",
-          "split_at": "Split At",
-          "title_template": "Title Template",
-          "url": "Url",
-          "verify_ssl": "Verify Ssl",
-          "version": "Version",
-          "year_field": "Year Field"
-        },
-        "data_description": {}
-      },
-      "args_ics_southlakeland_gov_uk": {
-        "title": "Configure Source",
-        "description": "Configure your service provider. {howto}More details: {docs_url}.",
-        "data": {
-          "calendar_title": "Calendar Title",
-          "file": "File",
-          "headers": "Headers",
-          "impersonate": "Impersonate",
-          "method": "Method",
-          "offset": "Offset",
-          "params": "Parameters",
-          "regex": "Regex",
-          "split_at": "Split At",
-          "title_template": "Title Template",
-          "url": "Url",
-          "verify_ssl": "Verify Ssl",
-          "version": "Version",
-          "year_field": "Year Field"
-        },
-        "data_description": {
-          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
-        }
-      },
-      "reconfigure_ics_southlakeland_gov_uk": {
+      "reconfigure_ics_westmorlandandfurness_gov_uk": {
         "title": "Reconfigure Source",
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {

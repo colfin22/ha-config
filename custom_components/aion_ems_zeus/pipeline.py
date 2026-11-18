@@ -44,12 +44,22 @@ class IntegrationHub:
         settings.setdefault("safety_mode", "recommendation_only")
         return settings
 
+    @staticmethod
+    def _full_device_entry(device):
+        """Return metadata-bearing registry entries, never child-device entries.
+
+        Home Assistant ChildDeviceEntry does not expose connections, manufacturer,
+        or model. Accessing those fields emits deprecation warnings and will
+        fail in Home Assistant 2027.9.0.
+        """
+        return device if isinstance(device, dr.DeviceEntry) else None
+
     def _registry_context(self, state):
         """Return entity/device registry metadata used for reliable discovery."""
         entity_reg = er.async_get(self.hass)
         device_reg = dr.async_get(self.hass)
         entry = entity_reg.async_get(state.entity_id)
-        device = device_reg.async_get(entry.device_id) if entry and entry.device_id else None
+        device = self._full_device_entry(device_reg.async_get(entry.device_id)) if entry and entry.device_id else None
         identifiers = []
         connections = []
         if device:
@@ -131,7 +141,7 @@ class IntegrationHub:
             if getattr(entry, "device_id", None)
         }
         for device_id in device_ids:
-            device = device_reg.async_get(device_id)
+            device = self._full_device_entry(device_reg.async_get(device_id))
             if device is None:
                 continue
             identifiers = flatten(getattr(device, "identifiers", None))
@@ -650,7 +660,7 @@ class IntegrationHub:
         for entry in entity_reg.entities.values():
             if entry.domain != "notify":
                 continue
-            device = device_reg.async_get(entry.device_id) if entry.device_id else None
+            device = self._full_device_entry(device_reg.async_get(entry.device_id)) if entry.device_id else None
             text = " ".join(str(x or "") for x in (
                 entry.entity_id, entry.platform, entry.original_name,
                 getattr(device, "name", "") if device else "",
@@ -1013,11 +1023,34 @@ class IntegrationHub:
         return self.refresh()
 
     def _nas_target_path(self, cfg):
-        """Return selected HA mount plus optional Zeus backup subfolder."""
+        """Accept only a discovered writable mount or HA-allowed base path."""
         from pathlib import Path
-        mount = Path(str(cfg.get("path", "") or "").strip()).expanduser()
-        folder = str(cfg.get("folder", "") or "").strip().strip("/\\")
-        return mount / folder if folder else mount
+
+        raw = str(cfg.get("path", "") or "").strip()
+        folder = str(cfg.get("folder", "") or "").strip()
+        if not raw:
+            raise ValueError("Select an approved Home Assistant storage location")
+        relative = Path(folder)
+        if relative.is_absolute() or ".." in relative.parts or chr(92) in folder or folder.startswith("/"):
+            raise ValueError("Backup folder must be relative and cannot contain '..' or backslashes")
+        mount = Path(raw).expanduser().resolve()
+        discovered = any(
+            Path(str(item.get("path", "") or "")).expanduser().resolve() == mount
+            and item.get("available", False) and item.get("writable", False)
+            for item in self._ha_mount_candidates if item.get("path")
+        )
+        if not discovered and not self.hass.config.is_allowed_path(str(mount)):
+            raise ValueError("Backup destination is not a discovered writable mount or allowed Home Assistant path")
+        target = (mount / relative).resolve()
+        if not target.is_relative_to(mount):
+            raise ValueError("Backup folder escapes the selected storage location")
+        # Do not expose the configuration registry via Home Assistant's
+        # unauthenticated /local/ static-file route. Resolve first to catch
+        # symlinked mounts or nested folders leading into www.
+        www_root = Path(self.hass.config.path("www")).expanduser().resolve()
+        if target == www_root or target.is_relative_to(www_root):
+            raise ValueError("Registry backups cannot be written under Home Assistant's public www directory")
+        return target
 
     def _candidate_registry_state(self, candidate):
         """Classify a discovered candidate against the Zeus Registry.
@@ -1128,6 +1161,13 @@ class IntegrationHub:
     async def async_save_settings(self, plugin_id, values):
         if plugin_id not in self.PLUGINS: raise ValueError("Unknown plugin")
         safe=dict(values); safe.pop("control",None); safe["control_permission"]=False
+        if plugin_id == "nas_backup" and ("path" in safe or "folder" in safe):
+            proposed = dict(self._settings().get(plugin_id, {}))
+            proposed.update(safe)
+            if proposed.get("path"):
+                await self.hass.async_add_executor_job(self._nas_target_path, proposed)
+            elif proposed.get("folder"):
+                raise ValueError("Select an approved storage path before specifying a backup folder")
         self._settings().setdefault(plugin_id,{}).update(safe)
         await self.registry.async_save(); return self.refresh()
 
@@ -1212,6 +1252,7 @@ class IntegrationHub:
         if not raw:
             raise ValueError("Discover and select Home Assistant network storage first")
 
+        validated_target = await self.hass.async_add_executor_job(self._nas_target_path, cfg)
         candidate = self._selected_ha_storage(cfg)
         if candidate and str(candidate.get("usage", "") or "").lower() == "backup":
             if not candidate.get("available", False):
@@ -1222,7 +1263,7 @@ class IntegrationHub:
         exists = await self.hass.async_add_executor_job(lambda: mount.exists() and mount.is_dir())
         if not exists:
             raise ValueError("The selected Home Assistant storage mount is unavailable. Refresh storage and select it again.")
-        path = self._nas_target_path(cfg)
+        path = validated_target
         await self.hass.async_add_executor_job(path.mkdir, parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
         out = path / f"aion_ems_zeus_backup_{stamp}.json"
@@ -1285,6 +1326,7 @@ class IntegrationHub:
         if not raw:
             raise ValueError("NAS server is reachable. Discover and select Home Assistant storage")
 
+        validated_target = await self.hass.async_add_executor_job(self._nas_target_path, cfg)
         candidate = self._selected_ha_storage(cfg)
         if candidate and str(candidate.get("usage", "") or "").lower() == "backup":
             if not candidate.get("available", False):
@@ -1308,7 +1350,7 @@ class IntegrationHub:
         exists = await self.hass.async_add_executor_job(lambda: mount.exists() and mount.is_dir())
         if not exists:
             raise ValueError("NAS server is reachable, but the selected Home Assistant mount is unavailable")
-        target = self._nas_target_path(cfg)
+        target = validated_target
 
         def test_write():
             target.mkdir(parents=True, exist_ok=True)
@@ -1724,6 +1766,26 @@ class DataLake:
                 return float(value), field, item.get("entity_id")
         return None, None, None
 
+    @staticmethod
+    def _protected_solar_daily(daily, value, entity_id):
+        """Hold the highest measured daily PV value for one local calendar day.
+
+        An inverter may report zero when it sleeps. The day-specific DataLake
+        summary persists the last valid reading; a new day has a fresh row.
+        No historic readings are rewritten, and no source is silently switched.
+        """
+        value = max(float(value), 0.0)
+        previous_source = str(daily.get("solar_daily_guard_source") or "")
+        if previous_source != str(entity_id or ""):
+            daily["solar_daily_guard_source"] = str(entity_id or "")
+            daily["solar_daily_guard_max_kwh"] = round(value, 4)
+            daily.pop("solar_daily_guard_holding", None)
+            return value
+        maximum = max(float(daily.get("solar_daily_guard_max_kwh", 0.0) or 0.0), value)
+        daily["solar_daily_guard_max_kwh"] = round(maximum, 4)
+        daily["solar_daily_guard_holding"] = value + 0.001 < maximum
+        return maximum
+
     def _apply_mapped_daily_energy(self, daily, energy_key, today_fields, total_fields, reading):
         """Prefer daily meters; continuously accumulate cumulative battery-meter deltas.
 
@@ -1757,6 +1819,8 @@ class DataLake:
             )
 
         if field in today_fields and not duplicate_today_total:
+            if energy_key == "solar_energy_kwh":
+                value = self._protected_solar_daily(daily, value, entity_id)
             daily[energy_key] = round(value, 4)
             daily[f"{energy_key}_method"] = "measured_daily_energy"
             daily[f"{energy_key}_source"] = entity_id
@@ -1951,7 +2015,7 @@ class DataLake:
             # remains authoritative for instantaneous PV power and is the fallback
             # integration source only when no daily Solar energy meter exists.
             mapped_value, _mapped_field, mapped_entity = mapped_daily_solar
-            daily["solar_energy_kwh"] = round(max(float(mapped_value), 0.0), 4)
+            daily["solar_energy_kwh"] = round(self._protected_solar_daily(daily, mapped_value, mapped_entity), 4)
             daily["solar_energy_kwh_method"] = "mapped_true_pv_daily_energy"
             daily["solar_energy_kwh_source"] = mapped_entity
             daily["solar_true_pv_daily_authority"] = True
@@ -2153,7 +2217,7 @@ class DataLake:
         mapped_daily_solar = self._mapped_energy_kwh("solar_energy_today")
         if dedicated_pv_entity and mapped_daily_solar[0] is not None:
             mapped_value, _mapped_field, mapped_entity = mapped_daily_solar
-            daily["solar_energy_kwh"] = round(max(float(mapped_value), 0.0), 4)
+            daily["solar_energy_kwh"] = round(self._protected_solar_daily(daily, mapped_value, mapped_entity), 4)
             daily["solar_energy_kwh_method"] = "mapped_true_pv_daily_energy"
             daily["solar_energy_kwh_source"] = mapped_entity
             daily["solar_true_pv_daily_authority"] = True
