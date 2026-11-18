@@ -10,10 +10,10 @@
  *   alarms:  [{entity, name, plan: house|shed (outline on the plan), modes:[disarmed, armed_away, armed_night], labels:{disarmed:'Disarmed', ...}}]
  *   sensors: [{entity, name, kind: door|win|mot, battery, tamper, alarm, modes:[armed_away, ...]}]
  */
-const SC_VERSION = "3";
-const SC_PLAN = `<svg viewBox="0 0 760 560" class="plan"><text class="fl" x="30" y="22">GROUND</text><text class="fl" x="330" y="22">FIRST</text><text class="fl" x="630" y="22">YARD</text><polygon class="room mot" data-m="binary_sensor.sitting_room_presence_occupancy" points="30.0,72.0 84.4,72.0 84.4,41.4 176.2,41.4 176.2,72.0 206.8,72.0 206.8,179.1 159.2,243.7 30.0,243.7"/>
+const SC_VERSION = "5";
+const SC_PLAN = `<svg viewBox="0 0 760 560" class="plan"><text class="fl" x="30" y="22">GROUND</text><text class="fl" x="330" y="22">FIRST</text><text class="fl" x="630" y="22">YARD</text><polygon class="room mot" data-m="binary_sensor.sitting_room_presence_occupancy" points="30.0,72.0 84.4,72.0 84.4,41.4 176.2,41.4 176.2,72.0 206.8,72.0 206.8,196.1 159.2,243.7 30.0,243.7"/>
 <text class="rl" x="118.4" y="142.6">Sitting Room</text>
-<polygon class="room mot" data-m="binary_sensor.hallway_motion_sensor_occupancy" points="206.8,72.0 274.8,72.0 274.8,243.7 221.8,243.7 201.4,264.1 201.4,281.1 30.0,281.1 30.0,243.7 159.2,243.7 206.8,179.1"/>
+<polygon class="room mot" data-m="binary_sensor.hallway_motion_sensor_occupancy" points="206.8,72.0 274.8,72.0 274.8,243.7 221.8,243.7 201.4,264.1 201.4,281.1 30.0,281.1 30.0,243.7 159.2,243.7 206.8,196.1"/>
 <text class="rl" x="240.8" y="140.0">Hallway</text>
 <polygon class="room"  points="221.8,243.7 274.8,243.7 274.8,320.9 201.4,320.9 201.4,264.1"/>
 <text class="rl" x="238.1" y="282.3">Toilet</text>
@@ -31,8 +31,8 @@ const SC_PLAN = `<svg viewBox="0 0 760 560" class="plan"><text class="fl" x="30"
 <line class="we" x1="161.2" y1="531.0" x2="161.2" y2="412.0"/>
 <line class="we" x1="161.2" y1="412.0" x2="30.0" y2="412.0"/>
 <line class="we" x1="30.0" y1="412.0" x2="30.0" y2="72.0"/>
-<line class="wi" x1="206.8" y1="72.0" x2="206.8" y2="179.1"/>
-<line class="wi" x1="206.8" y1="179.1" x2="159.2" y2="243.7"/>
+<line class="wi" x1="206.8" y1="72.0" x2="206.8" y2="196.1"/>
+<line class="wi" x1="206.8" y1="196.1" x2="159.2" y2="243.7"/>
 <line class="wi" x1="30.0" y1="243.7" x2="159.2" y2="243.7"/>
 <line class="wi" x1="30.0" y1="281.1" x2="201.4" y2="281.1"/>
 <line class="wi" x1="221.8" y1="243.7" x2="274.8" y2="243.7"/>
@@ -44,7 +44,7 @@ const SC_PLAN = `<svg viewBox="0 0 760 560" class="plan"><text class="fl" x="30"
 <polygon class="room"  points="330.0,166.5 425.2,166.5 425.2,201.9 330.0,201.9"/>
 <polygon class="room"  points="473.5,72.0 574.8,72.0 574.8,201.9 473.5,201.9"/>
 <text class="rl" x="524.1" y="136.9">Aoife</text>
-<polygon class="room mot" data-m="binary_sensor.landing_motion_sensor_occupancy" points="330.0,201.9 499.0,201.9 499.0,316.8 460.2,316.8 460.2,276.0 444.6,276.0 444.6,243.7 343.6,243.7 343.6,276.0 330.0,276.0"/>
+<polygon class="room mot" data-m="binary_sensor.landing_motion_sensor_occupancy" points="330.0,201.9 499.0,201.9 499.0,316.8 460.2,316.8 460.2,243.7 359.2,243.7 359.2,276.0 330.0,276.0"/>
 <text class="rl" x="398.0" y="221.6">Landing</text>
 <polygon class="room"  points="499.0,201.9 574.8,201.9 574.8,274.6 499.0,274.6"/>
 <text class="rl" x="536.9" y="238.3">Bathroom</text>
