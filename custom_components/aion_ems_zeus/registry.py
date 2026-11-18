@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import copy
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -37,6 +40,7 @@ class RegistryEngine:
         self.hass = hass
         self.event_bus = event_bus
         self.store = Store(hass, 2, REGISTRY_STORAGE_KEY)
+        self._save_lock = asyncio.Lock()
         # Finance tariff resilience: keep the canonical tariff configuration in
         # a dedicated HA Store as a recovery copy. Integration upgrades replace
         # code files, never this HA storage. The registry remains authoritative;
@@ -88,6 +92,7 @@ class RegistryEngine:
         # v9 migration: classify every existing energy entity without deleting data.
         heat_pump_optional_fields = (
             "cop_entity", "thermal_power_entity", "thermal_energy_entity",
+            "total_input_electrical_energy_entity", "total_input_thermal_energy_entity",
             "supply_temperature_entity", "return_temperature_entity",
             "outdoor_temperature_entity", "compressor_state_entity",
             "compressor_runtime_entity", "compressor_starts_entity",
@@ -175,20 +180,19 @@ class RegistryEngine:
         self.event_bus.publish("RegistryLoaded", "RegistryEngine", self.summary())
 
     async def async_save(self) -> None:
-        # Long-run stability: keep the persistent audit useful but bounded.
-        # Several configuration/services append audit records over the life of
-        # the installation; serialising an ever-growing list wastes memory and
-        # storage I/O without improving diagnostics.
-        audit = self.data.get("audit")
-        if isinstance(audit, list) and len(audit) > MAX_AUDIT_ENTRIES:
-            self.data["audit"] = audit[-MAX_AUDIT_ENTRIES:]
-        await self.store.async_save(self.data)
-        # Mirror the canonical tariff block to its recovery store. Clearing
-        # tariffs also writes the disabled block, so an intentional Clear can
-        # never be resurrected on the next restart.
-        tariffs = self.data.get("sources", {}).get("tariffs")
-        if isinstance(tariffs, dict):
-            await self.tariff_store.async_save(dict(tariffs))
+        """Serialize registry writes and snapshot mutable configuration.
+
+        Uses the supported Home Assistant Store async_save API for all writes.
+        """
+        async with self._save_lock:
+            audit = self.data.get("audit")
+            if isinstance(audit, list) and len(audit) > MAX_AUDIT_ENTRIES:
+                self.data["audit"] = audit[-MAX_AUDIT_ENTRIES:]
+            snapshot = copy.deepcopy(self.data)
+            await self.store.async_save(snapshot)
+            tariffs = snapshot.get("sources", {}).get("tariffs")
+            if isinstance(tariffs, dict):
+                await self.tariff_store.async_save(dict(tariffs))
 
     def build_device(
         self,
@@ -213,6 +217,8 @@ class RegistryEngine:
         cop_entity: str | None = None,
         thermal_power_entity: str | None = None,
         thermal_energy_entity: str | None = None,
+        total_input_electrical_energy_entity: str | None = None,
+        total_input_thermal_energy_entity: str | None = None,
         supply_temperature_entity: str | None = None,
         return_temperature_entity: str | None = None,
         outdoor_temperature_entity: str | None = None,
@@ -352,6 +358,8 @@ class RegistryEngine:
             "cop_entity": cop_entity,
             "thermal_power_entity": thermal_power_entity,
             "thermal_energy_entity": thermal_energy_entity,
+            "total_input_electrical_energy_entity": total_input_electrical_energy_entity,
+            "total_input_thermal_energy_entity": total_input_thermal_energy_entity,
             "supply_temperature_entity": supply_temperature_entity,
             "return_temperature_entity": return_temperature_entity,
             "outdoor_temperature_entity": outdoor_temperature_entity,
@@ -644,7 +652,7 @@ class RegistryEngine:
             "backup_count": len(self.data.get("backups", [])),
             "audit_count": len(self.data.get("audit", [])),
             "entity_mappings": dict(self.data.get("entity_mappings", {})),
-            "devices": self.data.get("devices", [])[:20],
+            "devices": list(self.data.get("devices", [])),
             "rooms": self.data.get("rooms", [])[:20],
             "groups": self.data.get("groups", [])[:20],
             "sites": self.data.get("sites", [])[:10],
@@ -656,6 +664,12 @@ class RegistryEngine:
                 "story_style": str((self.data.get("home_settings") or {}).get("story_style") or "friendly"),
                 "briefing_length": str((self.data.get("home_settings") or {}).get("briefing_length") or "normal"),
                 "data_epoch": (self.data.get("home_settings") or {}).get("data_epoch"),
+                "pv_arrays": list((self.data.get("home_settings") or {}).get("pv_arrays") or [])[:12],
+                "solar_forecast_engine_mode": (
+                    (self.data.get("home_settings") or {}).get("solar_forecast_engine_mode")
+                    if (self.data.get("home_settings") or {}).get("solar_forecast_engine_mode") in ("legacy", "v2")
+                    else "legacy"
+                ),
             },
             "safety": "No device control.",
         }

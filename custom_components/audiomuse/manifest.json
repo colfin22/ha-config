@@ -1,0 +1,23 @@
+{
+  "domain": "audiomuse",
+  "name": "AudioMuse-AI",
+  "after_dependencies": [
+    "music_assistant"
+  ],
+  "codeowners": [
+    "@colfin22"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "panel_custom",
+    "websocket_api"
+  ],
+  "documentation": "https://github.com/colfin22/ha-audiomuse",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/colfin22/ha-audiomuse/issues",
+  "requirements": [],
+  "version": "1.0.1"
+}

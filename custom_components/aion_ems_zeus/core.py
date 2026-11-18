@@ -238,6 +238,7 @@ class AionCore:
         )
         self._unsub_auto_capture = None
         self._unsub_planning_capture = None
+        self._unsub_cloud_capture = None
         self._unsub_smart_control_keepalive = None
         self._unsub_smart_control_listener = None
         self._unsub_switch_hub_tick = None
@@ -275,6 +276,9 @@ class AionCore:
         # Persistent configuration and the data lake are required before entity
         # platforms, services and the frontend are exposed.  Keep these awaited.
         await self.registry.async_load()
+        # Make saved Switch Hub configuration visible immediately after reload,
+        # even while deferred warm-up is still running. Display-only.
+        self.switch_hub.prime_from_registry()
         configure_data_epoch((self.registry.data.get("home_settings") or {}).get("data_epoch"))
         await self.data_lake.async_load()
 
@@ -320,12 +324,15 @@ class AionCore:
 
         await self._async_startup_step("weather_history_load", self.weather_history.async_load)
         await self._async_startup_step("recorder_energy", self.device_analytics.async_refresh_recorder_energy)
+        # Read-only, bounded heat-pump evidence: startup only, not the live 5s loop.
+        await self._async_startup_step("heat_pump_total_input", self.device_analytics.async_refresh_total_input_if_due)
         await self._async_startup_step("device_analytics", self.device_analytics.refresh)
         await self._async_startup_step("device_energy_attribution", self.device_energy_attribution.async_refresh)
         await self._async_startup_step("battery_history", self.analytics.async_refresh_ha_energy_battery)
         await self._async_startup_step("observation_knowledge_load", self.observation_knowledge.async_load)
         await self._async_startup_step("intelligence_memory_load", self.intelligence_memory.async_load)
         await self._async_startup_step("decision_engine_load", self.decision_engine.async_load)
+        await self._async_startup_step("prediction_accuracy_load", self.prediction_accuracy.async_load)
         await self._async_startup_step("opportunity_learning_load", self.opportunity_learning.async_load)
         await self._async_startup_step("planning_engine_load", self.planning_engine.async_load)
         await self._async_startup_step("ha_mount_discovery", self.integration_hub.async_discover_ha_mounts)
@@ -371,6 +378,24 @@ class AionCore:
             self.hass, _capture_plan, timedelta(minutes=30)
         )
 
+        # Capture the evening cloud-model evidence independently of the normal
+        # forecast refresh cadence. Never trigger a forecast recalculation here.
+        async def _cloud_capture_tick(_now=None):
+            self.prediction_accuracy.capture_cloud_snapshot_tick()
+            self.prediction_accuracy.capture_hourly_forecast_tick()
+            await self.prediction_accuracy.async_pair_completed_hourly_actuals()
+            if self.hass.services.has_service("homeassistant", "update_entity"):
+                await self.hass.services.async_call(
+                    "homeassistant", "update_entity",
+                    {"entity_id": "sensor.aion_ems_zeus_prediction_accuracy"},
+                    blocking=False,
+                )
+
+        self._unsub_cloud_capture = async_track_time_interval(
+            self.hass, _cloud_capture_tick, timedelta(minutes=5)
+        )
+        await _cloud_capture_tick()
+
         elapsed_ms = round((perf_counter() - started) * 1000.0, 1)
         self.performance["startup_warmup_ms"] = elapsed_ms
         self.performance["startup_phase"] = "ready"
@@ -396,6 +421,12 @@ class AionCore:
                 "background_failed_steps": failed,
             },
         )
+        # Sensor entities are registered before deferred Recorder warm-up.
+        # Publish the completed in-memory snapshot now that the UpdateEngine is
+        # running, so Heat Pump Intelligence immediately exposes Recorder-backed
+        # compressor runtime instead of waiting for the 5-minute coordinator tick.
+        if update_ok:
+            await self.update_engine.async_publish_current_snapshot("background_warmup_complete")
 
     async def async_unload(self) -> None:
         # If Zeus owns an active ELWA session, attempt one safe 0 W before unload.
@@ -404,6 +435,9 @@ class AionCore:
         if self._unsub_planning_capture:
             self._unsub_planning_capture()
             self._unsub_planning_capture = None
+        if self._unsub_cloud_capture:
+            self._unsub_cloud_capture()
+            self._unsub_cloud_capture = None
         if self._unsub_smart_control_keepalive:
             self._unsub_smart_control_keepalive()
             self._unsub_smart_control_keepalive = None
@@ -544,6 +578,15 @@ class AionCore:
         for device in self.registry.data.get("devices", []):
             if not device.get("enabled", True):
                 continue
+            # EV and other registered devices can store power mappings in a
+            # nested mapping dict. Track these entities as event-driven sources
+            # instead of waiting for an unrelated periodic refresh.
+            device_mappings = device.get("mappings")
+            if isinstance(device_mappings, dict):
+                for mapped in device_mappings.values():
+                    entity_id = mapped.get("entity_id") if isinstance(mapped, dict) else mapped
+                    if isinstance(entity_id, str) and "." in entity_id:
+                        entities.add(entity_id)
             for key in (
                 "power_entity",
                 # Registered inverter activity can use a dedicated true-PV
@@ -733,6 +776,8 @@ class AionCore:
         await self.intelligence_memory.async_capture_today()
         await self.weather_history.async_capture_today()
         await self.device_analytics.async_refresh_recorder_energy()
+        # Daily capture refresh; the reader enforces its own 15-minute guard.
+        await self.device_analytics.async_refresh_total_input_if_due()
         self.device_analytics.refresh()
         await self.device_energy_attribution.async_refresh()
         await self.analytics.async_refresh_ha_energy_battery()

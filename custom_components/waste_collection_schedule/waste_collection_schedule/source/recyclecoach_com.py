@@ -81,6 +81,8 @@ ICON_MAP = {
     "Compost Yard Open Saturday": Icons.EVENT,
     "Compost Yard Open Wednesday": Icons.EVENT,
     "3 Bags of Waste": Icons.GENERAL_WASTE,
+    "Organics Collection": Icons.ORGANIC,
+    "Newmarket Electronics Recycling Event": Icons.ELECTRONICS,
 }
 
 EXTRA_INFO = [
@@ -356,6 +358,12 @@ EXTRA_INFO = [
         "country": "us",
         "default_params": {"project_id": "621", "district_id": "BLO"},
     },
+    {
+        "title": "Newmarket (ON)",
+        "url": "https://www.newmarket.ca/",
+        "country": "ca",
+        "default_params": {"project_id": "530", "district_id": "NEW"},
+    },
 ]
 
 TEST_CASES = {
@@ -488,6 +496,11 @@ TEST_CASES = {
         "city": "Carleton Place",
         "state": "Ontario",
     },
+    "Newmarket, ON, Canada (with district_id, project_id & zone_id)": {
+        "district_id": "NEW",
+        "project_id": "530",
+        "zone_id": "zone-z12563",
+    },
 }
 
 
@@ -532,11 +545,22 @@ class Source:
 
         if len(city_data) > 1:
             for city in city_data:
-                if city["city_nm"].upper() == self.city.upper():
+                if (
+                    city["city_nm"].upper() == self.city.upper()
+                    and float(city["stage"]) >= 3
+                ):
                     self.project_id = city["project_id"]
                     self.district_id = city["district_id"]
                     self.stage = float(city["stage"])
                     return
+
+            # No exact, fully supported match (or the exact match is an
+            # unsupported placeholder): suggest the fully supported candidates.
+            raise SourceArgumentNotFoundWithSuggestions(
+                "city",
+                self.city,
+                [c["city_nm"] for c in city_data if float(c["stage"]) >= 3],
+            )
 
         raise Exception(
             "Could not determine district or project, This probably means your city, state is wrong or not supported."
@@ -695,6 +719,16 @@ class Source:
 
         entries = []
         date_format = "%Y-%m-%d"
+
+        if not isinstance(schedule_def, dict) or not isinstance(
+            schedule_def.get("DATA"), list
+        ):
+            raise SourceArgumentNotFound(
+                "street",
+                self.street,
+                "no collection schedule found for this address "
+                "(RecycleCoach returned no service zone)",
+            )
 
         for year in schedule_def["DATA"]:
             for month in year["months"]:

@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 import voluptuous as vol
 
 import homeassistant.helpers.config_validation as cv
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     DOMAIN,
@@ -56,6 +60,8 @@ from .const import (
     SERVICE_CLEAR_ENTITY_MAPPING,
     SERVICE_SAVE_WEATHER_SOURCE,
     SERVICE_CLEAR_WEATHER_SOURCE,
+    SERVICE_SAVE_SECONDARY_WEATHER_SOURCE,
+    SERVICE_CLEAR_SECONDARY_WEATHER_SOURCE,
     SERVICE_SAVE_LOCAL_WEATHER_STATION,
     SERVICE_CLEAR_LOCAL_WEATHER_STATION,
     SERVICE_SAVE_TARIFF_SETTINGS,
@@ -86,6 +92,7 @@ from .const import (
 
 
 REGISTERED = False
+_LOGGER = logging.getLogger(__name__)
 
 
 def _core(hass: HomeAssistant):
@@ -128,8 +135,8 @@ def _device_schema(require_all=True):
         req("power_entity"): vol.Any("", cv.entity_id),
         req("energy_entity"): vol.Any("", cv.entity_id),
         vol.Optional("energy_type", default="auto"): vol.In(["auto", "daily", "total_increasing"]),
-        vol.Optional("state_entity"): cv.entity_id,
-        vol.Optional("availability_entity"): cv.entity_id,
+        vol.Optional("state_entity"): _entity_id_or_empty,
+        vol.Optional("availability_entity"): _entity_id_or_empty,
         vol.Optional("device_type", default="custom"): cv.string,
         vol.Optional("category", default="other"): cv.string,
         vol.Optional("room_id", default="unassigned"): cv.string,
@@ -139,52 +146,54 @@ def _device_schema(require_all=True):
         vol.Optional("enabled", default=True): cv.boolean,
         vol.Optional("notes", default=""): cv.string,
         vol.Optional("hybrid_inverter", default=False): cv.boolean,
-        vol.Optional("solar_power_entity"): cv.entity_id,
-        vol.Optional("temperature_entity"): cv.entity_id,
-        vol.Optional("cop_entity"): cv.entity_id,
-        vol.Optional("thermal_power_entity"): cv.entity_id,
-        vol.Optional("thermal_energy_entity"): cv.entity_id,
-        vol.Optional("supply_temperature_entity"): cv.entity_id,
-        vol.Optional("return_temperature_entity"): cv.entity_id,
-        vol.Optional("outdoor_temperature_entity"): cv.entity_id,
-        vol.Optional("compressor_state_entity"): cv.entity_id,
-        vol.Optional("compressor_runtime_entity"): cv.entity_id,
-        vol.Optional("compressor_starts_entity"): cv.entity_id,
-        vol.Optional("dhw_temperature_entity"): cv.entity_id,
-        vol.Optional("dhw_energy_entity"): cv.entity_id,
-        vol.Optional("heating_energy_entity"): cv.entity_id,
-        vol.Optional("cooling_energy_entity"): cv.entity_id,
-        vol.Optional("heating_electrical_power_entity"): cv.entity_id,
-        vol.Optional("heating_thermal_power_entity"): cv.entity_id,
-        vol.Optional("heating_electrical_energy_entity"): cv.entity_id,
-        vol.Optional("heating_thermal_energy_entity"): cv.entity_id,
-        vol.Optional("dhw_electrical_power_entity"): cv.entity_id,
-        vol.Optional("dhw_thermal_power_entity"): cv.entity_id,
-        vol.Optional("dhw_electrical_energy_entity"): cv.entity_id,
-        vol.Optional("dhw_thermal_energy_entity"): cv.entity_id,
-        vol.Optional("cooling_electrical_power_entity"): cv.entity_id,
-        vol.Optional("cooling_electrical_energy_entity"): cv.entity_id,
-        vol.Optional("cooling_thermal_power_entity"): cv.entity_id,
-        vol.Optional("cooling_thermal_energy_entity"): cv.entity_id,
+        vol.Optional("solar_power_entity"): _entity_id_or_empty,
+        vol.Optional("temperature_entity"): _entity_id_or_empty,
+        vol.Optional("cop_entity"): _entity_id_or_empty,
+        vol.Optional("thermal_power_entity"): _entity_id_or_empty,
+        vol.Optional("thermal_energy_entity"): _entity_id_or_empty,
+        vol.Optional("total_input_electrical_energy_entity"): _entity_id_or_empty,
+        vol.Optional("total_input_thermal_energy_entity"): _entity_id_or_empty,
+        vol.Optional("supply_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("return_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("outdoor_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("compressor_state_entity"): _entity_id_or_empty,
+        vol.Optional("compressor_runtime_entity"): _entity_id_or_empty,
+        vol.Optional("compressor_starts_entity"): _entity_id_or_empty,
+        vol.Optional("dhw_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("dhw_energy_entity"): _entity_id_or_empty,
+        vol.Optional("heating_energy_entity"): _entity_id_or_empty,
+        vol.Optional("cooling_energy_entity"): _entity_id_or_empty,
+        vol.Optional("heating_electrical_power_entity"): _entity_id_or_empty,
+        vol.Optional("heating_thermal_power_entity"): _entity_id_or_empty,
+        vol.Optional("heating_electrical_energy_entity"): _entity_id_or_empty,
+        vol.Optional("heating_thermal_energy_entity"): _entity_id_or_empty,
+        vol.Optional("dhw_electrical_power_entity"): _entity_id_or_empty,
+        vol.Optional("dhw_thermal_power_entity"): _entity_id_or_empty,
+        vol.Optional("dhw_electrical_energy_entity"): _entity_id_or_empty,
+        vol.Optional("dhw_thermal_energy_entity"): _entity_id_or_empty,
+        vol.Optional("cooling_electrical_power_entity"): _entity_id_or_empty,
+        vol.Optional("cooling_electrical_energy_entity"): _entity_id_or_empty,
+        vol.Optional("cooling_thermal_power_entity"): _entity_id_or_empty,
+        vol.Optional("cooling_thermal_energy_entity"): _entity_id_or_empty,
         vol.Optional("separate_heating_dhw_measurements", default=False): cv.boolean,
         vol.Optional("cooling_measurements_enabled", default=False): cv.boolean,
-        vol.Optional("operating_mode_entity"): cv.entity_id,
-        vol.Optional("target_temperature_entity"): cv.entity_id,
-        vol.Optional("jaz_entity"): cv.entity_id,
-        vol.Optional("heat_carrier_forward_entity"): cv.entity_id,
-        vol.Optional("heat_carrier_return_entity"): cv.entity_id,
-        vol.Optional("source_in_temperature_entity"): cv.entity_id,
-        vol.Optional("source_out_temperature_entity"): cv.entity_id,
-        vol.Optional("source_pump_speed_entity"): cv.entity_id,
-        vol.Optional("heat_carrier_pump_speed_entity"): cv.entity_id,
-        vol.Optional("compressor_activity_entity"): cv.entity_id,
-        vol.Optional("compressor_speed_entity"): cv.entity_id,
-        vol.Optional("compressor_target_speed_entity"): cv.entity_id,
-        vol.Optional("dhw_target_temperature_entity"): cv.entity_id,
+        vol.Optional("operating_mode_entity"): _entity_id_or_empty,
+        vol.Optional("target_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("jaz_entity"): _entity_id_or_empty,
+        vol.Optional("heat_carrier_forward_entity"): _entity_id_or_empty,
+        vol.Optional("heat_carrier_return_entity"): _entity_id_or_empty,
+        vol.Optional("source_in_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("source_out_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("source_pump_speed_entity"): _entity_id_or_empty,
+        vol.Optional("heat_carrier_pump_speed_entity"): _entity_id_or_empty,
+        vol.Optional("compressor_activity_entity"): _entity_id_or_empty,
+        vol.Optional("compressor_speed_entity"): _entity_id_or_empty,
+        vol.Optional("compressor_target_speed_entity"): _entity_id_or_empty,
+        vol.Optional("dhw_target_temperature_entity"): _entity_id_or_empty,
         vol.Optional("controllable", default=False): cv.boolean,
         vol.Optional("control_permission", default=False): cv.boolean,
         vol.Optional("actuator_type"): vol.In(["entity", "service", "modbus", "mqtt"]),
-        vol.Optional("control_entity"): cv.entity_id,
+        vol.Optional("control_entity"): _entity_id_or_empty,
         vol.Optional("control_service"): cv.string,
         vol.Optional("control_min_power_w"): vol.Coerce(float),
         vol.Optional("control_max_power_w"): vol.Coerce(float),
@@ -192,10 +201,10 @@ def _device_schema(require_all=True):
         vol.Optional("control_elwa_ip"): cv.string,
         vol.Optional("control_unit"): vol.Coerce(int),
         vol.Optional("control_address"): vol.Coerce(int),
-        vol.Optional("control_boiler_temperature_entity"): cv.entity_id,
-        vol.Optional("control_element_temperature_entity"): cv.entity_id,
-        vol.Optional("control_surplus_entity"): cv.entity_id,
-        vol.Optional("control_lockout_entity"): cv.entity_id,
+        vol.Optional("control_boiler_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("control_element_temperature_entity"): _entity_id_or_empty,
+        vol.Optional("control_surplus_entity"): _entity_id_or_empty,
+        vol.Optional("control_lockout_entity"): _entity_id_or_empty,
         vol.Optional("control_stop_temperature_c"): vol.Coerce(float),
         vol.Optional("control_restart_temperature_c"): vol.Coerce(float),
         vol.Optional("device_profile"): cv.string,
@@ -208,7 +217,7 @@ def _device_schema(require_all=True):
         vol.Optional("control_grid_backup_stop_c"): vol.Coerce(float),
         vol.Optional("control_keepalive_interval_s"): vol.Coerce(float),
         vol.Optional("control_owner"): vol.In(["home_assistant", "zeus"]),
-        vol.Optional("control_previous_controller_entity"): cv.entity_id,
+        vol.Optional("control_previous_controller_entity"): _entity_id_or_empty,
         vol.Optional("control_handover_confirmed", default=False): cv.boolean,
         vol.Optional("control_execution_arm_requested", default=False): cv.boolean,
         vol.Optional("control_execution_arm_confirmed", default=False): cv.boolean,
@@ -216,8 +225,8 @@ def _device_schema(require_all=True):
         vol.Optional("control_emergency_stop", default=False): cv.boolean,
         vol.Optional("control_goe_id"): cv.string,
         vol.Optional("control_mqtt_topic"): cv.string,
-        vol.Optional("control_grid_power_entity"): cv.entity_id,
-        vol.Optional("control_battery_power_entity"): cv.entity_id,
+        vol.Optional("control_grid_power_entity"): _entity_id_or_empty,
+        vol.Optional("control_battery_power_entity"): _entity_id_or_empty,
         vol.Optional("control_publish_interval_s"): vol.Coerce(float),
     })
 
@@ -258,6 +267,8 @@ def _device_update_schema():
         vol.Optional("cop_entity"): _entity_id_or_empty,
         vol.Optional("thermal_power_entity"): _entity_id_or_empty,
         vol.Optional("thermal_energy_entity"): _entity_id_or_empty,
+        vol.Optional("total_input_electrical_energy_entity"): _entity_id_or_empty,
+        vol.Optional("total_input_thermal_energy_entity"): _entity_id_or_empty,
         vol.Optional("supply_temperature_entity"): _entity_id_or_empty,
         vol.Optional("return_temperature_entity"): _entity_id_or_empty,
         vol.Optional("outdoor_temperature_entity"): _entity_id_or_empty,
@@ -495,6 +506,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             cop_entity=call.data.get("cop_entity"),
             thermal_power_entity=call.data.get("thermal_power_entity"),
             thermal_energy_entity=call.data.get("thermal_energy_entity"),
+            total_input_electrical_energy_entity=call.data.get("total_input_electrical_energy_entity"),
+            total_input_thermal_energy_entity=call.data.get("total_input_thermal_energy_entity"),
             supply_temperature_entity=call.data.get("supply_temperature_entity"),
             return_temperature_entity=call.data.get("return_temperature_entity"),
             outdoor_temperature_entity=call.data.get("outdoor_temperature_entity"),
@@ -602,6 +615,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             "power_entity", "energy_entity",
             "state_entity", "availability_entity", "solar_power_entity",
             "temperature_entity", "cop_entity", "thermal_power_entity", "thermal_energy_entity",
+            "total_input_electrical_energy_entity", "total_input_thermal_energy_entity",
             "supply_temperature_entity", "return_temperature_entity", "outdoor_temperature_entity",
             "compressor_state_entity", "compressor_runtime_entity", "compressor_starts_entity",
             "dhw_temperature_entity", "dhw_energy_entity", "heating_energy_entity", "cooling_energy_entity",
@@ -680,6 +694,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             cop_entity=merged.get("cop_entity", existing.get("cop_entity")),
             thermal_power_entity=merged.get("thermal_power_entity", existing.get("thermal_power_entity")),
             thermal_energy_entity=merged.get("thermal_energy_entity", existing.get("thermal_energy_entity")),
+            total_input_electrical_energy_entity=merged.get("total_input_electrical_energy_entity", existing.get("total_input_electrical_energy_entity")),
+            total_input_thermal_energy_entity=merged.get("total_input_thermal_energy_entity", existing.get("total_input_thermal_energy_entity")),
             supply_temperature_entity=merged.get("supply_temperature_entity", existing.get("supply_temperature_entity")),
             return_temperature_entity=merged.get("return_temperature_entity", existing.get("return_temperature_entity")),
             outdoor_temperature_entity=merged.get("outdoor_temperature_entity", existing.get("outdoor_temperature_entity")),
@@ -991,6 +1007,32 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         await _refresh_aion_entities(hass)
 
 
+    async def save_secondary_weather_source(call: ServiceCall) -> None:
+        """Persist an optional comparison source without changing forecast authority."""
+        core = _core(hass)
+        entity_id = call.data["entity_id"]
+        state = hass.states.get(entity_id)
+        if not entity_id.startswith("weather.") or state is None:
+            raise vol.Invalid("A valid Home Assistant weather.* entity is required")
+        primary = core.registry.data.get("sources", {}).get("weather", {}).get("entity_id")
+        if entity_id == primary:
+            raise vol.Invalid("Secondary weather source must differ from primary")
+        core.registry.data.setdefault("sources", {})["weather_secondary"] = {
+            "entity_id": entity_id,
+            "enabled": True,
+            "saved_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
+        }
+        await core.registry.async_save()
+        await _refresh_aion_entities(hass)
+
+    async def clear_secondary_weather_source(call: ServiceCall) -> None:
+        core = _core(hass)
+        core.registry.data.setdefault("sources", {})["weather_secondary"] = {
+            "entity_id": None, "enabled": False,
+        }
+        await core.registry.async_save()
+        await _refresh_aion_entities(hass)
+
     async def save_local_weather_station(call: ServiceCall) -> None:
         """Save optional local on-site weather observation entities."""
         core = _core(hass)
@@ -1256,6 +1298,53 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         await _refresh_aion_entities(hass)
 
 
+    async def set_solar_forecast_engine(call: ServiceCall) -> None:
+        """Explicit user opt-in with persistent immediate legacy rollback."""
+        core = _core(hass)
+        mode = str(call.data["mode"])
+        core.registry.data.setdefault("home_settings", {})["solar_forecast_engine_mode"] = mode
+        core.registry.data.setdefault("audit", []).append({
+            "action": "set_solar_forecast_engine", "mode": mode
+        })
+        await core.registry.async_save()
+        core.settings_api.refresh()
+        core.refresh_pipeline()
+        await _refresh_aion_entities(hass)
+
+    async def save_pv_arrays(call: ServiceCall) -> None:
+        """Store per-array geometry only; never modify active forecasts."""
+        core = _core(hass)
+        raw = call.data["arrays"]
+        if not isinstance(raw, list) or len(raw) > 12:
+            raise vol.Invalid("PV arrays must be a list of at most 12 entries")
+        arrays = []
+        for index, item in enumerate(raw):
+            if not isinstance(item, dict):
+                raise vol.Invalid("Each PV array must be an object")
+            name = str(item.get("name", "")).strip()
+            if not name or len(name) > 80:
+                raise vol.Invalid("Each PV array needs a name of at most 80 characters")
+            try:
+                capacity = float(item["capacity_kwp"])
+                azimuth = float(item["azimuth_deg"])
+                tilt = float(item["tilt_deg"])
+            except (KeyError, ValueError, TypeError) as exc:
+                raise vol.Invalid("Capacity, azimuth and tilt must be numbers") from exc
+            import math
+            if not all(math.isfinite(v) for v in (capacity, azimuth, tilt)) or not (0 < capacity <= 1000 and 0 <= azimuth < 360 and 0 <= tilt <= 90):
+                raise vol.Invalid("PV geometry out of range: kWp > 0, azimuth 0–<360, tilt 0–90")
+            entity = str(item.get("power_entity") or "").strip()
+            if entity and not cv.entity_id(entity):
+                raise vol.Invalid("Invalid PV power entity")
+            arrays.append({"name": name, "capacity_kwp": round(capacity, 4),
+                           "azimuth_deg": round(azimuth, 3), "tilt_deg": round(tilt, 3),
+                           "power_entity": entity or None})
+        core.registry.data.setdefault("home_settings", {})["pv_arrays"] = arrays
+        core.registry.data.setdefault("audit", []).append({"action": "save_pv_arrays", "array_count": len(arrays)})
+        await core.registry.async_save()
+        core.settings_api.refresh()
+        await _refresh_aion_entities(hass)
+
     async def save_home_profile(call: ServiceCall) -> None:
         core = _core(hass)
         owner_name = str(call.data.get("owner_name", "")).strip()[:80]
@@ -1368,8 +1457,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             core.registry.data.setdefault("mapping_options", {})["battery_power_sign"] = battery_convention
         core.registry.data.setdefault("audit", []).append({"action": "save_entity_mapping", "field": call.data["field"], "entity_id": call.data["entity_id"], "sign_convention": call.data.get("sign_convention")})
         await core.registry.async_save()
+        # Refresh the published mapping snapshot immediately after persistence.
+        # Otherwise the frontend's energy_mapping sensor can retain a stale
+        # mapping even though the registry has already saved the change.
+        core.energy_mapping.refresh()
         core.update_engine.refresh_tracked_entities()
         core.refresh_pipeline()
+        # Notify the Energy Mapping entity directly: its Recorder-efficient
+        # attribute cache must not delay explicit user configuration changes.
+        hass.bus.async_fire(f"{DOMAIN}_mapping_changed")
         core.device_import_manager.last_validation = {"status": "Mapping Saved", "message": f"Saved {call.data['field']} -> {call.data['entity_id']}.", "issues": []}
         await _refresh_aion_entities(hass)
 
@@ -1387,8 +1483,15 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             core.registry.data.setdefault("mapping_options", {}).pop("battery_mode", None)
         core.registry.data.setdefault("audit", []).append({"action": "clear_entity_mapping", "field": call.data["field"]})
         await core.registry.async_save()
+        # Refresh the published mapping snapshot immediately after persistence.
+        # Otherwise the frontend's energy_mapping sensor can retain a stale
+        # mapping even though the registry has already saved the change.
+        core.energy_mapping.refresh()
         core.update_engine.refresh_tracked_entities()
         core.refresh_pipeline()
+        # Notify the Energy Mapping entity directly: its Recorder-efficient
+        # attribute cache must not delay explicit user configuration changes.
+        hass.bus.async_fire(f"{DOMAIN}_mapping_changed")
         core.device_import_manager.last_validation = {"status": "Mapping Cleared", "message": f"Cleared {call.data['field']}.", "issues": []}
         await _refresh_aion_entities(hass)
 
@@ -1467,25 +1570,61 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         )
 
     # Register services explicitly, once.
-    hass.services.async_register(DOMAIN, SERVICE_EXPORT_REGISTRY, export_registry)
-    hass.services.async_register(DOMAIN, SERVICE_BACKUP_REGISTRY, backup_registry)
-    hass.services.async_register(DOMAIN, SERVICE_RESTORE_LATEST_BACKUP, restore_latest_backup)
-    hass.services.async_register(DOMAIN, SERVICE_RELOAD_REGISTRY, reload_registry)
+    async def refresh_heat_pump_total_input_year(call: ServiceCall) -> None:
+        """Explicit read-only annual efficiency request, never a periodic query."""
+        core = _core(hass)
+        from homeassistant.util import dt as dt_util
+        requested_id = str(call.data.get("device_id") or "").strip()
+        heat_pumps = [device for device in core.registry.data.get("devices", [])
+                      if str(device.get("type") or "") == "heat_pump" and device.get("id")]
+        if not requested_id:
+            if len(heat_pumps) != 1:
+                raise ValueError("Specify a registered heat pump device_id")
+            requested_id = str(heat_pumps[0]["id"])
+        if not any(str(device["id"]) == requested_id for device in heat_pumps):
+            raise ValueError("Unknown or unavailable heat pump device_id")
+        now = dt_util.now()
+        await core.device_analytics.async_refresh_total_input_periods(
+            now, str(hass.config.time_zone or "UTC"), periods=("year",), device_id=requested_id
+        )
+        core.device_analytics.refresh()
+        # Resolve the live entity ID by its stable unique ID. Users can rename
+        # the entity in Home Assistant; the originally suggested ID is not stable.
+        entity_id = er.async_get(hass).async_get_entity_id(
+            "sensor", DOMAIN, f"{DOMAIN}_heat_pump_intelligence"
+        )
+        if entity_id and hass.states.get(entity_id) is not None:
+            await hass.services.async_call(
+                "homeassistant", "update_entity",
+                {"entity_id": entity_id}, blocking=True,
+            )
+        else:
+            # Annual Recorder evidence is already stored in analytics; a
+            # disabled/removed sensor must not turn that successful read into
+            # a service error or trigger updates of unrelated sensors.
+            _LOGGER.warning(
+                "Heat Pump Intelligence entity unavailable; Year evidence updated "
+                "but sensor notification skipped (entity_id=%s)", entity_id
+            )
 
-    hass.services.async_register(DOMAIN, SERVICE_REFRESH_ENTITY_DISCOVERY, refresh_entity_discovery)
+    hass.services.async_register(DOMAIN, "refresh_heat_pump_total_input_year", refresh_heat_pump_total_input_year, schema=vol.Schema({vol.Optional("device_id"): cv.string}))
+    async_register_admin_service(hass, DOMAIN, SERVICE_EXPORT_REGISTRY, export_registry)
+    async_register_admin_service(hass, DOMAIN, SERVICE_BACKUP_REGISTRY, backup_registry)
+    async_register_admin_service(hass, DOMAIN, SERVICE_RESTORE_LATEST_BACKUP, restore_latest_backup)
+    async_register_admin_service(hass, DOMAIN, SERVICE_RELOAD_REGISTRY, reload_registry)
+
+    async_register_admin_service(hass, DOMAIN, SERVICE_REFRESH_ENTITY_DISCOVERY, refresh_entity_discovery)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_ENERGY_MAPPING, refresh_energy_mapping)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_INTEGRATION_HUB, refresh_integration_hub)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_DATA_BUS, refresh_data_bus)
-    hass.services.async_register(DOMAIN, SERVICE_CAPTURE_DATA_LAKE_SNAPSHOT, capture_data_lake_snapshot)
+    async_register_admin_service(hass, DOMAIN, SERVICE_CAPTURE_DATA_LAKE_SNAPSHOT, capture_data_lake_snapshot)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_DATA_LAKE_SUMMARY, refresh_data_lake_summary)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_KNOWLEDGE_ENGINE, refresh_knowledge_engine)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_BRIEFING_CENTER, refresh_briefing_center)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_QUESTION_LIBRARY, refresh_question_library)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_CAPABILITY_REPORT, refresh_capability_report)
     hass.services.async_register(DOMAIN, SERVICE_PREVIEW_HA_ENERGY_IMPORT, preview_home_assistant_energy_import)
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_APPLY_HA_ENERGY_IMPORT,
+    async_register_admin_service(hass, DOMAIN, SERVICE_APPLY_HA_ENERGY_IMPORT,
         apply_home_assistant_energy_import,
         schema=vol.Schema({
             vol.Optional("import_whole_home", default=True): cv.boolean,
@@ -1494,9 +1633,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         }),
     )
 
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_REGISTER_BATTERY_PROFILE,
+    async_register_admin_service(hass, DOMAIN, SERVICE_REGISTER_BATTERY_PROFILE,
         register_battery_profile,
         schema=vol.Schema({
             vol.Optional("device_id", default="canonical_battery"): cv.string,
@@ -1511,17 +1648,17 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             vol.Optional("round_trip_efficiency"): vol.Coerce(float),
         }),
     )
-    hass.services.async_register(DOMAIN, SERVICE_CLEAR_BATTERY_PROFILE, clear_battery_profile)
+    async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_BATTERY_PROFILE, clear_battery_profile)
     hass.services.async_register(DOMAIN, SERVICE_LIFECYCLE_STATUS, lifecycle_status)
     mapping_schema = vol.Schema({vol.Required("field"): vol.In(list(_core(hass).energy_mapping.FIELD_RULES)), vol.Required("entity_id"): cv.entity_id, vol.Optional("sign_convention"): vol.In(["positive_import", "positive_export"]), vol.Optional("grid_mode"): vol.In(["bidirectional", "separate"]), vol.Optional("battery_mode"): vol.In(["bidirectional", "separate"]), vol.Optional("battery_sign_convention"): vol.In(["positive_discharge", "positive_charge", "unsigned_magnitude"])})
     hass.services.async_register(DOMAIN, SERVICE_TEST_ENTITY_MAPPING, test_entity_mapping, schema=mapping_schema)
-    hass.services.async_register(DOMAIN, SERVICE_SAVE_ENTITY_MAPPING, save_entity_mapping, schema=mapping_schema)
-    hass.services.async_register(DOMAIN, SERVICE_CLEAR_ENTITY_MAPPING, clear_entity_mapping, schema=vol.Schema({vol.Required("field"): vol.In(list(_core(hass).energy_mapping.FIELD_RULES))}))
-    hass.services.async_register(DOMAIN, SERVICE_SAVE_WEATHER_SOURCE, save_weather_source, schema=vol.Schema({vol.Required("entity_id"): cv.entity_id}))
-    hass.services.async_register(DOMAIN, SERVICE_CLEAR_WEATHER_SOURCE, clear_weather_source)
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SAVE_LOCAL_WEATHER_STATION,
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_ENTITY_MAPPING, save_entity_mapping, schema=mapping_schema)
+    async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_ENTITY_MAPPING, clear_entity_mapping, schema=vol.Schema({vol.Required("field"): vol.In(list(_core(hass).energy_mapping.FIELD_RULES))}))
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_WEATHER_SOURCE, save_weather_source, schema=vol.Schema({vol.Required("entity_id"): cv.entity_id}))
+    async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_WEATHER_SOURCE, clear_weather_source)
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_SECONDARY_WEATHER_SOURCE, save_secondary_weather_source, schema=vol.Schema({vol.Required("entity_id"): cv.entity_id}))
+    async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_SECONDARY_WEATHER_SOURCE, clear_secondary_weather_source)
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_LOCAL_WEATHER_STATION,
         save_local_weather_station,
         schema=vol.Schema({
             vol.Optional("name", default="Local Weather Station"): cv.string,
@@ -1538,17 +1675,20 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             vol.Optional("uv_index"): cv.entity_id,
         }),
     )
-    hass.services.async_register(DOMAIN, SERVICE_CLEAR_LOCAL_WEATHER_STATION, clear_local_weather_station)
-    hass.services.async_register(DOMAIN, SERVICE_SAVE_HOME_PROFILE, save_home_profile, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_LOCAL_WEATHER_STATION, clear_local_weather_station)
+    async_register_admin_service(
+        hass, DOMAIN, "set_solar_forecast_engine", set_solar_forecast_engine,
+        schema=vol.Schema({vol.Required("mode"): vol.In(["legacy", "v2"])}),
+    )
+    async_register_admin_service(hass, DOMAIN, "save_pv_arrays", save_pv_arrays, schema=vol.Schema({vol.Required("arrays"): list}))
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_HOME_PROFILE, save_home_profile, schema=vol.Schema({
         vol.Optional("owner_name", default=""): cv.string,
         vol.Optional("home_name", default="Home"): cv.string,
         vol.Optional("use_owner_name", default=True): cv.boolean,
         vol.Optional("story_style", default="friendly"): vol.In(["professional", "friendly", "technical", "concise"]),
         vol.Optional("briefing_length", default="normal"): vol.In(["short", "normal", "detailed"]),
     }))
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SAVE_TARIFF_SETTINGS,
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_TARIFF_SETTINGS,
         save_tariff_settings,
         schema=vol.Schema({
             vol.Required("currency"): cv.string,
@@ -1561,13 +1701,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             vol.Optional("vat_included", default=True): cv.boolean,
         }),
     )
-    hass.services.async_register(DOMAIN, SERVICE_CLEAR_TARIFF_SETTINGS,
-    SERVICE_SAVE_BATTERY_CAPACITY,
-    SERVICE_SAVE_HOME_PROFILE,
-    SERVICE_CLEAR_BATTERY_CAPACITY, clear_tariff_settings)
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_SAVE_PAYBACK_SETTINGS,
+    async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_TARIFF_SETTINGS, clear_tariff_settings)
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_PAYBACK_SETTINGS,
         save_payback_settings,
         schema=vol.Schema({
             vol.Required("gross_investment"): vol.Coerce(float),
@@ -1576,7 +1711,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             vol.Optional("commissioning_date", default=""): cv.string,
         }),
     )
-    hass.services.async_register(DOMAIN, SERVICE_CLEAR_PAYBACK_SETTINGS, clear_payback_settings)
+    async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_PAYBACK_SETTINGS, clear_payback_settings)
     dynamic_price_schema = vol.Schema({
         vol.Required("prices"): vol.All(cv.ensure_list, [vol.Schema({
             vol.Required("start"): cv.string,
@@ -1587,60 +1722,60 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("price_unit", default="MWh"): cv.string,
         vol.Optional("source", default="Home Assistant automation"): cv.string,
     })
-    hass.services.async_register(DOMAIN, SERVICE_SET_ENERGY_PRICES, set_energy_prices, schema=dynamic_price_schema)
-    hass.services.async_register(DOMAIN, SERVICE_CLEAR_DYNAMIC_TARIFF, clear_dynamic_tariff)
+    async_register_admin_service(hass, DOMAIN, SERVICE_SET_ENERGY_PRICES, set_energy_prices, schema=dynamic_price_schema)
+    async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_DYNAMIC_TARIFF, clear_dynamic_tariff)
 
-    hass.services.async_register(DOMAIN, SERVICE_IMPORT_DISCOVERY_CANDIDATE, import_discovery_candidate, schema=_device_schema())
+    async_register_admin_service(hass, DOMAIN, SERVICE_IMPORT_DISCOVERY_CANDIDATE, import_discovery_candidate, schema=_device_schema())
 
-    hass.services.async_register(DOMAIN, SERVICE_IMPORT_RECOMMENDED_DEVICES, import_recommended_devices, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_IMPORT_RECOMMENDED_DEVICES, import_recommended_devices, schema=vol.Schema({
         vol.Optional("dry_run", default=True): cv.boolean,
         vol.Optional("include_system_devices", default=True): cv.boolean,
         vol.Optional("include_appliances", default=True): cv.boolean,
         vol.Optional("overwrite_existing", default=False): cv.boolean,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_REFRESH_DEVICE_IMPORT_REVIEW, refresh_device_import_review, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_REFRESH_DEVICE_IMPORT_REVIEW, refresh_device_import_review, schema=vol.Schema({
         vol.Optional("include_system_devices", default=True): cv.boolean,
         vol.Optional("include_appliances", default=True): cv.boolean,
         vol.Optional("overwrite_existing", default=False): cv.boolean,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_IMPORT_REVIEWED_DEVICES, import_reviewed_devices, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_IMPORT_REVIEWED_DEVICES, import_reviewed_devices, schema=vol.Schema({
         vol.Optional("dry_run", default=True): cv.boolean,
         vol.Optional("include_system_devices", default=True): cv.boolean,
         vol.Optional("include_appliances", default=True): cv.boolean,
         vol.Optional("overwrite_existing", default=False): cv.boolean,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_DEVICE_MANAGER_BUILD_REVIEW, device_manager_build_review, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_DEVICE_MANAGER_BUILD_REVIEW, device_manager_build_review, schema=vol.Schema({
         vol.Optional("include_system_devices", default=True): cv.boolean,
         vol.Optional("include_appliances", default=False): cv.boolean,
         vol.Optional("overwrite_existing", default=False): cv.boolean,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_DEVICE_MANAGER_IMPORT_READY, device_manager_import_ready, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_DEVICE_MANAGER_IMPORT_READY, device_manager_import_ready, schema=vol.Schema({
         vol.Optional("dry_run", default=True): cv.boolean,
         vol.Optional("include_system_devices", default=True): cv.boolean,
         vol.Optional("include_appliances", default=False): cv.boolean,
         vol.Optional("overwrite_existing", default=False): cv.boolean,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_DEVICE_MANAGER_REMOVE_DEVICE, device_manager_remove_device, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_DEVICE_MANAGER_REMOVE_DEVICE, device_manager_remove_device, schema=vol.Schema({
         vol.Required("device_id"): cv.string,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_REMOVE_AUTO_IMPORTED_DEVICES, remove_auto_imported_devices, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_REMOVE_AUTO_IMPORTED_DEVICES, remove_auto_imported_devices, schema=vol.Schema({
         vol.Optional("dry_run", default=True): cv.boolean,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_ADD_DEVICE, add_device, schema=_device_schema())
-    hass.services.async_register(DOMAIN, SERVICE_UPDATE_DEVICE, update_device, schema=_device_update_schema())
-    hass.services.async_register(DOMAIN, SERVICE_REMOVE_DEVICE, remove_device, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_ADD_DEVICE, add_device, schema=_device_schema())
+    async_register_admin_service(hass, DOMAIN, SERVICE_UPDATE_DEVICE, update_device, schema=_device_update_schema())
+    async_register_admin_service(hass, DOMAIN, SERVICE_REMOVE_DEVICE, remove_device, schema=vol.Schema({
         vol.Required("device_id"): cv.string,
     }))
-    hass.services.async_register(DOMAIN, SERVICE_ADD_DEVICE_PREVIEW, add_device, schema=_device_schema())
+    async_register_admin_service(hass, DOMAIN, SERVICE_ADD_DEVICE_PREVIEW, add_device, schema=_device_schema())
 
-    hass.services.async_register(DOMAIN, SERVICE_ADD_ROOM, add_room, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_ADD_ROOM, add_room, schema=vol.Schema({
         vol.Required("room_id"): cv.string,
         vol.Required("name"): cv.string,
         vol.Optional("icon", default="mdi:home"): cv.icon,
@@ -1648,7 +1783,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("hybrid_inverter", default=False): cv.boolean,
         vol.Optional("solar_power_entity"): cv.entity_id,
     }))
-    hass.services.async_register(DOMAIN, SERVICE_UPDATE_ROOM, update_room, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_UPDATE_ROOM, update_room, schema=vol.Schema({
         vol.Required("room_id"): cv.string,
         vol.Required("name"): cv.string,
         vol.Optional("icon", default="mdi:home"): cv.icon,
@@ -1656,11 +1791,11 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("hybrid_inverter", default=False): cv.boolean,
         vol.Optional("solar_power_entity"): cv.entity_id,
     }))
-    hass.services.async_register(DOMAIN, SERVICE_REMOVE_ROOM, remove_room, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_REMOVE_ROOM, remove_room, schema=vol.Schema({
         vol.Required("room_id"): cv.string,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_ADD_GROUP, add_group, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_ADD_GROUP, add_group, schema=vol.Schema({
         vol.Required("group_id"): cv.string,
         vol.Required("name"): cv.string,
         vol.Optional("category", default="other"): cv.string,
@@ -1670,7 +1805,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("hybrid_inverter", default=False): cv.boolean,
         vol.Optional("solar_power_entity"): cv.entity_id,
     }))
-    hass.services.async_register(DOMAIN, SERVICE_UPDATE_GROUP, update_group, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_UPDATE_GROUP, update_group, schema=vol.Schema({
         vol.Required("group_id"): cv.string,
         vol.Required("name"): cv.string,
         vol.Optional("category", default="other"): cv.string,
@@ -1680,14 +1815,14 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("hybrid_inverter", default=False): cv.boolean,
         vol.Optional("solar_power_entity"): cv.entity_id,
     }))
-    hass.services.async_register(DOMAIN, SERVICE_REMOVE_GROUP, remove_group, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_REMOVE_GROUP, remove_group, schema=vol.Schema({
         vol.Required("group_id"): cv.string,
     }))
 
     hass.services.async_register(DOMAIN, SERVICE_HELIOS_MIGRATION_ANALYZE, helios_migration_analyze)
     hass.services.async_register(DOMAIN, SERVICE_HELIOS_MIGRATION_PREVIEW, helios_migration_preview)
     hass.services.async_register(DOMAIN, SERVICE_HELIOS_SMART_IMPORT_REPORT, helios_smart_import_report)
-    hass.services.async_register(DOMAIN, SERVICE_APPLY_HELIOS_MIGRATION_PREVIEW, apply_helios_migration_preview)
+    async_register_admin_service(hass, DOMAIN, SERVICE_APPLY_HELIOS_MIGRATION_PREVIEW, apply_helios_migration_preview)
 
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_FORECAST, refresh_preview)
     hass.services.async_register(DOMAIN, SERVICE_REFRESH_OPTIMIZER_PREVIEW, refresh_preview)
@@ -1696,7 +1831,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     # Verify the finance services explicitly; these are required by Sources → Tariffs.
     if not hass.services.has_service(DOMAIN, SERVICE_SAVE_TARIFF_SETTINGS):
-        hass.services.async_register(DOMAIN, SERVICE_SAVE_TARIFF_SETTINGS, save_tariff_settings, schema=vol.Schema({
+        async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_TARIFF_SETTINGS, save_tariff_settings, schema=vol.Schema({
             vol.Required("currency"): cv.string,
             vol.Optional("tariff_mode", default="fixed"): cv.string,
             vol.Optional("import_tariff", default=0.0): vol.Coerce(float),
@@ -1707,31 +1842,28 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             vol.Optional("vat_included", default=True): cv.boolean,
         }))
     if not hass.services.has_service(DOMAIN, SERVICE_CLEAR_TARIFF_SETTINGS):
-        hass.services.async_register(DOMAIN, SERVICE_CLEAR_TARIFF_SETTINGS,
-    SERVICE_SAVE_BATTERY_CAPACITY,
-    SERVICE_SAVE_HOME_PROFILE,
-    SERVICE_CLEAR_BATTERY_CAPACITY, clear_tariff_settings)
+        async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_TARIFF_SETTINGS, clear_tariff_settings)
     if not hass.services.has_service(DOMAIN, SERVICE_SET_ENERGY_PRICES):
-        hass.services.async_register(DOMAIN, SERVICE_SET_ENERGY_PRICES, set_energy_prices, schema=dynamic_price_schema)
+        async_register_admin_service(hass, DOMAIN, SERVICE_SET_ENERGY_PRICES, set_energy_prices, schema=dynamic_price_schema)
     if not hass.services.has_service(DOMAIN, SERVICE_CLEAR_DYNAMIC_TARIFF):
-        hass.services.async_register(DOMAIN, SERVICE_CLEAR_DYNAMIC_TARIFF, clear_dynamic_tariff)
+        async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_DYNAMIC_TARIFF, clear_dynamic_tariff)
 
 
     if not hass.services.has_service(DOMAIN, SERVICE_SAVE_BATTERY_CAPACITY):
-        hass.services.async_register(DOMAIN, SERVICE_SAVE_BATTERY_CAPACITY, save_battery_capacity, schema=vol.Schema({
+        async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_BATTERY_CAPACITY, save_battery_capacity, schema=vol.Schema({
             vol.Required("capacity_kwh"): vol.All(vol.Coerce(float), vol.Range(min=0.1, max=10000)),
         }))
     if not hass.services.has_service(DOMAIN, SERVICE_CLEAR_BATTERY_CAPACITY):
-        hass.services.async_register(DOMAIN, SERVICE_CLEAR_BATTERY_CAPACITY, clear_battery_capacity)
+        async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_BATTERY_CAPACITY, clear_battery_capacity)
 
 
     if not hass.services.has_service(DOMAIN, SERVICE_SET_DATA_EPOCH):
-        hass.services.async_register(DOMAIN, SERVICE_SET_DATA_EPOCH, set_data_epoch, schema=vol.Schema({
+        async_register_admin_service(hass, DOMAIN, SERVICE_SET_DATA_EPOCH, set_data_epoch, schema=vol.Schema({
             vol.Optional("mode", default="today"): vol.In(["today", "date"]),
             vol.Optional("date"): cv.string,
         }))
     if not hass.services.has_service(DOMAIN, SERVICE_CLEAR_DATA_EPOCH):
-        hass.services.async_register(DOMAIN, SERVICE_CLEAR_DATA_EPOCH, clear_data_epoch)
+        async_register_admin_service(hass, DOMAIN, SERVICE_CLEAR_DATA_EPOCH, clear_data_epoch)
 
     async def save_switch_hub_device(call: ServiceCall) -> None:
         core = _core(hass)
@@ -1762,8 +1894,12 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             rows.append(row)
         core.registry.data["switch_hub"] = rows[:30]
         await core.registry.async_save()
+        core.switch_hub.prime_from_registry()
         await core.switch_hub.async_evaluate()
         await _refresh_aion_entities(hass)
+        # Force the recorder-efficient diagnostic sensor to publish the
+        # newly evaluated control thresholds immediately.
+        hass.bus.async_fire(f"{DOMAIN}_switch_hub_changed")
 
     async def remove_switch_hub_device(call: ServiceCall) -> None:
         core = _core(hass)
@@ -1773,10 +1909,14 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             if str(row.get("id") or "") != device_id
         ]
         await core.registry.async_save()
+        core.switch_hub.prime_from_registry()
         await core.switch_hub.async_evaluate()
         await _refresh_aion_entities(hass)
+        # Force the recorder-efficient diagnostic sensor to publish the
+        # newly evaluated control thresholds immediately.
+        hass.bus.async_fire(f"{DOMAIN}_switch_hub_changed")
 
-    hass.services.async_register(DOMAIN, SERVICE_SAVE_SWITCH_HUB_DEVICE, save_switch_hub_device, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_SWITCH_HUB_DEVICE, save_switch_hub_device, schema=vol.Schema({
         vol.Required("device_id"): cv.string,
         vol.Required("name"): cv.string,
         vol.Required("switch_entity"): cv.entity_id,
@@ -1788,28 +1928,28 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         vol.Optional("on_time", default="22:00"): cv.string,
         vol.Optional("off_time", default="06:00"): cv.string,
     }))
-    hass.services.async_register(DOMAIN, SERVICE_REMOVE_SWITCH_HUB_DEVICE, remove_switch_hub_device, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_REMOVE_SWITCH_HUB_DEVICE, remove_switch_hub_device, schema=vol.Schema({
         vol.Required("device_id"): cv.string,
     }))
 
-    hass.services.async_register(DOMAIN, SERVICE_SAVE_NOTIFICATION_SETTINGS, save_notification_settings, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_NOTIFICATION_SETTINGS, save_notification_settings, schema=vol.Schema({
         vol.Optional("enabled"): cv.boolean, vol.Optional("persistent_enabled"): cv.boolean, vol.Optional("mobile_enabled"): cv.boolean,
         vol.Optional("mobile_targets"): vol.All(cv.ensure_list,[cv.string]), vol.Optional("quiet_hours_enabled"): cv.boolean,
         vol.Optional("quiet_start"): cv.string, vol.Optional("quiet_end"): cv.string, vol.Optional("confidence_threshold"): vol.All(vol.Coerce(int),vol.Range(min=0,max=100)),
         vol.Optional("cooldown_minutes"): vol.All(vol.Coerce(int),vol.Range(min=1,max=1440)),
         **{vol.Optional("category_"+k):cv.boolean for k in ("recommendation","battery","scheduler","high_grid_import","solar_surplus","tariff","daily_report","system_health")}
     }))
-    hass.services.async_register(DOMAIN, SERVICE_TEST_NOTIFICATION, test_notification)
-    hass.services.async_register(DOMAIN, SERVICE_SAVE_PLUGIN_SETTINGS, save_plugin_settings, schema=vol.Schema({
+    async_register_admin_service(hass, DOMAIN, SERVICE_TEST_NOTIFICATION, test_notification)
+    async_register_admin_service(hass, DOMAIN, SERVICE_SAVE_PLUGIN_SETTINGS, save_plugin_settings, schema=vol.Schema({
         vol.Required("plugin_id"): vol.In(["email","pushover","shelly","zigbee","mqtt","nas_backup","inverter_adapters"]),
         vol.Optional("enabled"): cv.boolean, vol.Optional("service"): cv.string, vol.Optional("path"): cv.string,
         vol.Optional("server"): cv.string, vol.Optional("protocol"): vol.In(["smb","nfs"]), vol.Optional("nas_type"): vol.In(["synology","qnap","truenas","unraid","generic"]),
         vol.Optional("remote_path"): cv.string, vol.Optional("share"): cv.string, vol.Optional("folder"): cv.string, vol.Optional("username"): cv.string,
         vol.Optional("retention"): vol.All(vol.Coerce(int),vol.Range(min=1,max=100)), vol.Optional("schedule"): cv.string,
     }))
-    hass.services.async_register(DOMAIN, SERVICE_TEST_PLUGIN, test_plugin, schema=vol.Schema({vol.Required("plugin_id"): cv.string}))
-    hass.services.async_register(DOMAIN, SERVICE_CREATE_NAS_BACKUP, create_nas_backup)
-    hass.services.async_register(DOMAIN, SERVICE_REFRESH_PLUGIN_DISCOVERY, refresh_plugin_discovery, schema=vol.Schema({vol.Optional("plugin_id"): vol.In(["email","pushover","shelly","zigbee","mqtt","nas_backup","inverter_adapters"])}))
+    async_register_admin_service(hass, DOMAIN, SERVICE_TEST_PLUGIN, test_plugin, schema=vol.Schema({vol.Required("plugin_id"): cv.string}))
+    async_register_admin_service(hass, DOMAIN, SERVICE_CREATE_NAS_BACKUP, create_nas_backup)
+    async_register_admin_service(hass, DOMAIN, SERVICE_REFRESH_PLUGIN_DISCOVERY, refresh_plugin_discovery, schema=vol.Schema({vol.Optional("plugin_id"): vol.In(["email","pushover","shelly","zigbee","mqtt","nas_backup","inverter_adapters"])}))
     hass.services.async_register(DOMAIN, SERVICE_RUN_QA_HEALTH_CHECK, run_qa_health_check)
     REGISTERED = True
 
@@ -1820,6 +1960,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         return
     services = [
         SERVICE_EXPORT_REGISTRY, SERVICE_BACKUP_REGISTRY, SERVICE_RESTORE_LATEST_BACKUP, SERVICE_RELOAD_REGISTRY,
+        "refresh_heat_pump_total_input_year",
         SERVICE_REFRESH_ENTITY_DISCOVERY,
     SERVICE_REFRESH_ENERGY_MAPPING,
     SERVICE_REFRESH_ENERGY_FLOW, SERVICE_REFRESH_INTEGRATION_HUB, SERVICE_REFRESH_DATA_BUS,
@@ -1838,6 +1979,7 @@ async def async_unload_services(hass: HomeAssistant) -> None:
         SERVICE_REFRESH_LEARNING_PREVIEW,
         SERVICE_SAVE_WEATHER_SOURCE, SERVICE_CLEAR_WEATHER_SOURCE,
         SERVICE_SAVE_TARIFF_SETTINGS, SERVICE_CLEAR_TARIFF_SETTINGS, SERVICE_SAVE_HOME_PROFILE,
+        "save_pv_arrays",
     SERVICE_SAVE_BATTERY_CAPACITY,
     SERVICE_SAVE_HOME_PROFILE,
     SERVICE_CLEAR_BATTERY_CAPACITY, SERVICE_SET_DATA_EPOCH, SERVICE_CLEAR_DATA_EPOCH, SERVICE_SAVE_NOTIFICATION_SETTINGS, SERVICE_TEST_NOTIFICATION,

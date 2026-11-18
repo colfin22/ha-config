@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from homeassistant.util import dt as dt_util
 from typing import Any
 
 
@@ -55,8 +56,19 @@ class WeatherEngine:
         configured = self._configured_entity()
         if configured and self.hass.states.get(configured):
             return configured
-        candidates = sorted(state.entity_id for state in self.hass.states.async_all("weather"))
-        return candidates[0] if candidates else None
+        # When no weather entity is explicitly configured, prefer one that
+        # advertises hourly forecasts over a measurement-only weather station.
+        # HA WeatherEntityFeature: FORECAST_DAILY=1, FORECAST_HOURLY=2.
+        candidates = sorted(self.hass.states.async_all("weather"), key=lambda state: state.entity_id)
+        usable = [state for state in candidates if state.state not in ("unknown", "unavailable")]
+        for feature in (2, 1):
+            for state in usable:
+                try:
+                    if int(state.attributes.get("supported_features") or 0) & feature:
+                        return state.entity_id
+                except (TypeError, ValueError):
+                    continue
+        return usable[0].entity_id if usable else (candidates[0].entity_id if candidates else None)
 
     @classmethod
     def factor_for(cls, condition: str | None, cloud_coverage: Any = None) -> float:
@@ -79,6 +91,8 @@ class WeatherEngine:
 
     def refresh(self) -> dict[str, Any]:
         entity_id = self._select_entity()
+        if not self._configured_entity() and self.last.get("forecast_available") and self.last.get("entity_id"):
+            entity_id = self.last["entity_id"]
         state = self.hass.states.get(entity_id) if entity_id else None
 
         # Modern HA forecasts are fetched separately via weather.get_forecasts.
@@ -135,7 +149,7 @@ class WeatherEngine:
             "wind_speed": attrs.get("wind_speed"),
             "precipitation": attrs.get("precipitation", attrs.get("precipitation_amount", attrs.get("rainfall"))),
             "forecast_available": bool(forecast),
-            "forecast": forecast[:168],
+            "forecast": forecast[:169],
             "forecast_granularity": (
                 "legacy"
                 if legacy_forecast
@@ -170,6 +184,8 @@ class WeatherEngine:
             "hourly": {"status": "not_requested", "rows": 0, "error": None, "sample": []},
             "daily": {"status": "not_requested", "rows": 0, "error": None, "sample": []},
             "selected_granularity": None,
+            "configured_entity": self._configured_entity(),
+            "available_weather_entities": self.candidates(),
         }
 
         async def _request(kind: str) -> list[dict[str, Any]]:
@@ -203,8 +219,114 @@ class WeatherEngine:
             ]
             return rows
 
+        # Auto-select by actual next-day hourly coverage, not alphabetical
+        # entity order. Explicit user-selected sources are never overridden.
+        preselected_rows = None
+        if not self._configured_entity():
+            target_day = dt_util.as_local(dt_util.utcnow()).date() + timedelta(days=1)
+            source_audit = []
+            best = None
+            for candidate in self.candidates():
+                source_id = candidate["entity_id"]
+                if not candidate.get("available"):
+                    continue
+                try:
+                    if not (int(candidate.get("supported_features") or 0) & 2):
+                        continue
+                    response = await self.hass.services.async_call(
+                        "weather", "get_forecasts", {"type": "hourly"},
+                        blocking=True, return_response=True,
+                        target={"entity_id": source_id},
+                    )
+                    raw = ((response or {}).get(source_id) or {}).get("forecast") or []
+                    unique = set()
+                    for row in raw:
+                        if not isinstance(row, dict):
+                            continue
+                        try:
+                            stamp = datetime.fromisoformat(str(row.get("datetime") or row.get("time") or "").replace("Z", "+00:00"))
+                            if stamp.tzinfo is None or stamp.utcoffset() is None:
+                                continue
+                            if not (str(row.get("condition") or "").lower() in self.CONDITION_FACTORS or
+                                    any(row.get(k) is not None for k in ("cloud_coverage", "cloud_cover", "cloudiness"))):
+                                continue
+                            unique.add(stamp.astimezone(timezone.utc))
+                        except (ValueError, TypeError, OverflowError):
+                            continue
+                    matched = sum(dt_util.as_local(t).date() == target_day for t in unique)
+                    source_audit.append({"entity_id": source_id, "valid_hourly_rows": len(unique),
+                                         "tomorrow_matched_hours": matched})
+                    score = (matched, len(unique))
+                    if best is None or score > best[0]:
+                        best = (score, source_id, raw)
+                except Exception as err:
+                    source_audit.append({"entity_id": source_id, "error": type(err).__name__})
+            diagnostics["auto_source_comparison"] = source_audit
+            if best is not None and best[0][0] > 0:
+                entity_id, preselected_rows = best[1], best[2]
+                diagnostics["entity_id"] = entity_id
+                diagnostics["auto_selected_target_date"] = target_day.isoformat()
+                diagnostics["auto_selection_reason"] = "best next-day hourly coverage"
+                if self.last.get("entity_id") != entity_id:
+                    state = self.hass.states.get(entity_id)
+                    self.last["entity_id"] = entity_id
+                    if state:
+                        self.last["condition"] = state.state
+                        self.last["temperature"] = state.attributes.get("temperature")
+                        self.last["cloud_coverage"] = state.attributes.get("cloud_coverage")
+                        self.last["solar_factor"] = self.factor_for(state.state, self.last.get("cloud_coverage"))
         kind = "hourly"
-        rows = await _request("hourly")
+        rows = preselected_rows if preselected_rows is not None else await _request("hourly")
+        if preselected_rows is not None:
+            diagnostics["hourly"]["status"] = "ok"
+            diagnostics["hourly"]["rows"] = len(rows)
+            diagnostics["hourly"]["sample"] = [
+                {"datetime": row.get("datetime") or row.get("time"),
+                 "condition": row.get("condition"), "cloud_coverage": row.get("cloud_coverage")}
+                for row in rows[:7] if isinstance(row, dict)
+            ]
+        if rows and not any(
+            isinstance(row, dict) and (
+                str(row.get("condition") or "").strip().lower() in self.CONDITION_FACTORS
+                or any(row.get(key) is not None for key in ("cloud_coverage", "cloud_cover", "cloudiness"))
+            ) for row in rows
+        ):
+            # A provider may return valid hourly temperatures but no solar
+            # condition/cloud evidence. Such rows cannot attenuate PV output.
+            diagnostics["hourly"]["status"] = "no_solar_weather_evidence"
+            rows = []
+        # Some providers return valid hourly rows only through the current
+        # evening, while daily forecast data covers tomorrow. A nonempty
+        # hourly response must not hide tomorrow's usable daily evidence.
+        # Never stretch today's hourly conditions across tomorrow.
+        def _tomorrow_solar_rows(items):
+            tomorrow = dt_util.as_local(dt_util.utcnow()).date() + timedelta(days=1)
+            count = 0
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    stamp = datetime.fromisoformat(str(item.get("datetime") or item.get("time") or "").replace("Z", "+00:00"))
+                    if stamp.tzinfo is None or stamp.utcoffset() is None:
+                        continue
+                    if dt_util.as_local(stamp).date() != tomorrow:
+                        continue
+                    condition = str(item.get("condition") or "").lower()
+                    if condition in self.CONDITION_FACTORS or any(item.get(k) is not None for k in ("cloud_coverage", "cloud_cover", "cloudiness")):
+                        count += 1
+                except (TypeError, ValueError, OverflowError):
+                    continue
+            return count
+
+        diagnostics["hourly_tomorrow_solar_rows"] = _tomorrow_solar_rows(rows) if kind == "hourly" else 0
+        if kind == "hourly" and rows and diagnostics["hourly_tomorrow_solar_rows"] == 0:
+            daily_rows = await _request("daily")
+            diagnostics["daily_tomorrow_solar_rows"] = _tomorrow_solar_rows(daily_rows)
+            if diagnostics["daily_tomorrow_solar_rows"]:
+                diagnostics["fallback_reason"] = "hourly_missing_tomorrow_using_daily"
+                kind, rows = "daily", daily_rows
+            else:
+                diagnostics["fallback_reason"] = "no_tomorrow_solar_evidence"
         if not rows:
             kind = "daily"
             rows = await _request("daily")
@@ -216,17 +338,50 @@ class WeatherEngine:
             self.last["forecast_diagnostics"] = diagnostics
             return self.last
 
-        normalized = []
-        limit = 168 if kind == "hourly" else 14
-        for row in rows[:limit]:
-            if not isinstance(row, dict):
-                continue
-            item = dict(row)
-            if item.get("cloud_coverage") is None:
-                item["cloud_coverage"] = item.get("cloud_cover", item.get("cloudiness"))
-            if item.get("precipitation") is None:
-                item["precipitation"] = item.get("precipitation_amount", item.get("rainfall"))
-            normalized.append(item)
+        def _normalize(source_rows, granularity):
+            # Preserve distinct UTC instants across a repeated local hour.
+            by_instant = {}
+            rejected = duplicates = 0
+            for source_row in source_rows:
+                if not isinstance(source_row, dict):
+                    continue
+                item = dict(source_row)
+                raw = item.get("datetime") or item.get("time")
+                try:
+                    stamp = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+                    if stamp.tzinfo is None or stamp.utcoffset() is None:
+                        raise ValueError("timezone missing")
+                    instant = stamp.astimezone(timezone.utc)
+                except (ValueError, TypeError, OverflowError):
+                    rejected += 1
+                    continue
+                if instant in by_instant:
+                    duplicates += 1
+                    continue
+                if item.get("cloud_coverage") is None:
+                    item["cloud_coverage"] = item.get("cloud_cover", item.get("cloudiness"))
+                if item.get("precipitation") is None:
+                    item["precipitation"] = item.get("precipitation_amount", item.get("rainfall"))
+                by_instant[instant] = item
+            limit = 169 if granularity == "hourly" else 14
+            return ([item for _, item in sorted(by_instant.items())[:limit]],
+                    rejected, duplicates)
+
+        normalized, rejected_timestamps, duplicate_timestamps = _normalize(rows, kind)
+        diagnostics[kind]["invalid_or_naive_timestamp_rows"] = rejected_timestamps
+        diagnostics[kind]["duplicate_timestamp_rows"] = duplicate_timestamps
+        diagnostics[kind]["normalized_rows"] = len(normalized)
+
+        # An hourly response can be nonempty but entirely unusable (e.g.
+        # timezone-naive timestamps). Try daily evidence rather than retain
+        # yesterday's forecast or report a successful hourly response.
+        if kind == "hourly" and not normalized:
+            kind = "daily"
+            rows = await _request("daily")
+            normalized, rejected_timestamps, duplicate_timestamps = _normalize(rows, kind)
+            diagnostics[kind]["invalid_or_naive_timestamp_rows"] = rejected_timestamps
+            diagnostics[kind]["duplicate_timestamp_rows"] = duplicate_timestamps
+            diagnostics[kind]["normalized_rows"] = len(normalized)
 
         if normalized:
             self.last["forecast"] = normalized
@@ -240,6 +395,13 @@ class WeatherEngine:
                 self.last["cloud_coverage"] = first.get("cloud_coverage")
             if self.last.get("precipitation") is None and first.get("precipitation") is not None:
                 self.last["precipitation"] = first.get("precipitation")
+        else:
+            # Never expose stale weather forecasts as current evidence.
+            self.last["forecast"] = []
+            self.last["forecast_available"] = False
+            self.last["forecast_granularity"] = None
+            diagnostics["selected_granularity"] = None
+            self.last["forecast_diagnostics"] = diagnostics
         return self.last
 
     def summary(self) -> dict[str, Any]:

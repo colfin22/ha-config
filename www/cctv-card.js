@@ -61,12 +61,24 @@ class CctvCard extends HTMLElement {
   getGridOptions() { return { columns: 'full', rows: 'auto' }; }
 
   connectedCallback() {
+    // publish_height: share this card's height as a CSS variable on the page (e.g. so a map card can match it)
+    if (this._config && this._config.publish_height && !this._ro) {
+      const name = '--' + String(this._config.publish_height).replace(/^-+/, '');
+      this._ro = new ResizeObserver(() => {
+        const h = Math.round(this.getBoundingClientRect().height);
+        if (h > 0) document.documentElement.style.setProperty(name, h + 'px');
+      });
+      this._ro.observe(this);
+    }
     this._timer = setInterval(() => this._tick(), 1000);
     this._dataTimer = setInterval(() => this._loadReviews(), 60000);
     this._motionTimer = setInterval(() => this._loadMotion(true), 300000);
   }
   disconnectedCallback() {
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
     clearInterval(this._timer); clearInterval(this._dataTimer); clearInterval(this._motionTimer);
+    // leaving the page: back to muted, so it never starts playing sound on its own
+    if (this._sound) { Object.keys(this._sound).forEach((k) => { if (this._sound[k]) this._toggleSound(Number(k)); }); }
   }
 
   async _build() {
@@ -97,6 +109,9 @@ class CctvCard extends HTMLElement {
   .dot.on{background:var(--cc-am);box-shadow:0 0 8px var(--cc-am)}
   .rec{position:absolute;right:8px;top:6px;z-index:3;font-size:11px;font-weight:600;color:#ffc94d;background:#000a;padding:2px 7px;border-radius:6px;display:none;pointer-events:none}
   .past .rec{display:block}
+  .snd{position:absolute;right:8px;bottom:8px;z-index:4;width:36px;height:36px;border:0;border-radius:50%;background:#000a;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;--mdc-icon-size:22px}
+  .snd.on{background:var(--cc-am);color:#000}
+  .strip .tile:not(.big) .snd{display:none}
   .nvr{aspect-ratio:16/9;background:var(--cc-deep);border-radius:8px;padding:4px 14px;overflow:hidden;display:flex;flex-direction:column;justify-content:center;box-sizing:border-box}
   .nvr .h{font-weight:600;font-size:12px;margin:0 0 1px}
   .nr{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--cc-bd);font-size:12px;color:var(--cc-sec)}
@@ -177,6 +192,15 @@ class CctvCard extends HTMLElement {
       const rec = document.createElement('div'); rec.className = 'rec';
       const ld = document.createElement('div'); ld.className = 'ld'; ld.textContent = 'Loading…';
       tile.append(live, ld, v, lbl, rec);
+      if (cam.audio) {
+        // Speaker button (cameras with `audio: true`): starts muted, a tap turns the
+        // sound on for this tile's live view and its playback video.
+        const snd = document.createElement('button');
+        snd.className = 'snd'; snd.title = 'Sound on/off';
+        snd.innerHTML = '<ha-icon icon="mdi:volume-off"></ha-icon>';
+        snd.onclick = (e) => { e.stopPropagation(); this._toggleSound(i); };
+        tile.appendChild(snd);
+      }
       this._cover(tile, live);
       tile.onclick = () => { this._order = [i, ...this._order.filter((x) => x !== i)]; this._layout(); };
       this._tiles.push(tile); this._liveCards.push(live); this._videos.push(v);
@@ -200,6 +224,40 @@ class CctvCard extends HTMLElement {
     live.classList.add('live');
     if (this._hass) live.hass = this._hass;
     return live;
+  }
+
+  _toggleSound(i) {
+    this._sound = this._sound || {};
+    this._sound[i] = !this._sound[i];
+    const btn = this._tiles[i].querySelector('.snd');
+    if (btn) {
+      btn.classList.toggle('on', !!this._sound[i]);
+      btn.innerHTML = `<ha-icon icon="mdi:${this._sound[i] ? 'volume-high' : 'volume-off'}"></ha-icon>`;
+    }
+    this._applySound(true);
+  }
+
+  // Every <video> inside a tile (the camera card's live player, through its shadow
+  // roots, plus our playback video). Re-applied every tick, because the camera card
+  // re-creates its player on a resize and may mute it again on its own.
+  _applySound(fromTap) {
+    if (!this._sound || !this._tiles) return;
+    Object.keys(this._sound).forEach((k) => {
+      const tile = this._tiles[k];
+      if (!tile) return;
+      const want = !!this._sound[k];
+      const stack = [this._liveCards[k], this._videos[k]];
+      while (stack.length) {
+        const n = stack.pop();
+        if (!n) continue;
+        if (n.tagName === 'VIDEO' && n.muted === want) {
+          n.muted = !want;
+          if (want && fromTap && n.paused) n.play().catch(() => {});
+        }
+        if (n.shadowRoot) stack.push(...n.shadowRoot.children);
+        if (n.children) stack.push(...n.children);
+      }
+    });
   }
 
   // Our own "Loading…" box over a tile until its camera shows a real picture
@@ -497,6 +555,7 @@ class CctvCard extends HTMLElement {
 
   _tick() {
     if (!this._built || !this.$) return;
+    this._applySound(false);
     if (this._mode === 'past' && this._chunkStart) {
       const v = this._videos[this._order[0]];
       const t = this._chunkStart + (v && !isNaN(v.currentTime) ? v.currentTime : 0);

@@ -38,6 +38,13 @@
         "has_date": true,
         "has_time": true,
         "icon": "mdi:clock-start"
+      },
+      {
+        "id": "weather_alert_time",
+        "name": "Weather Alert Time",
+        "icon": "mdi:weather-fog",
+        "has_date": false,
+        "has_time": true
       }
     ]
   }

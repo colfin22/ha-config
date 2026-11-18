@@ -17610,10 +17610,13 @@
           "calendar_title": "Calendar Title",
           "city": "City",
           "street": "Street",
-          "street_number": "Street Number"
+          "street_number": "Street number"
         },
         "data_description": {
-          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
+          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
+          "city": "Town served by CIDIU, e.g. Collegno",
+          "street": "Street name without the number",
+          "street_number": "Street number"
         }
       },
       "reconfigure_cidiu_it": {
@@ -17623,9 +17626,13 @@
           "calendar_title": "Calendar Title",
           "city": "City",
           "street": "Street",
-          "street_number": "Street Number"
+          "street_number": "Street number"
         },
-        "data_description": {}
+        "data_description": {
+          "city": "Town served by CIDIU, e.g. Collegno",
+          "street": "Street name without the number",
+          "street_number": "Street number"
+        }
       },
       "args_comune_digital_it": {
         "title": "Configure Source",
@@ -17992,7 +17999,7 @@
         },
         "data_description": {
           "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
-          "area_name": "Neighbourhood/chōme name from the app, e.g. `Aizumi-cho`.",
+          "area_name": "Area from the app, e.g. `Aizumi-cho`. Where the app asks for several levels, give every level, e.g. `Okubo / 1 chome`.",
           "language_code": "Language for municipality, area, and waste type labels from the API.",
           "municipality": "Municipality name or ID from the ThreeR app, e.g. `Shinjuku City` or `shinjukuku`."
         }
@@ -18007,7 +18014,7 @@
           "municipality": "Municipality"
         },
         "data_description": {
-          "area_name": "Neighbourhood/chōme name from the app, e.g. `Aizumi-cho`.",
+          "area_name": "Area from the app, e.g. `Aizumi-cho`. Where the app asks for several levels, give every level, e.g. `Okubo / 1 chome`.",
           "language_code": "Language for municipality, area, and waste type labels from the API.",
           "municipality": "Municipality name or ID from the ThreeR app, e.g. `Shinjuku City` or `shinjukuku`."
         }
@@ -20089,6 +20096,7 @@
           "g5": "Group 5",
           "house_number": "House number",
           "language": "Language",
+          "region": "Region",
           "street": "Street",
           "town": "Town"
         },
@@ -20104,6 +20112,7 @@
           "g5": "Select Collection group to limit results to a specific group within a waste type (e.g. 'Papier (1 x miesiąc)' for Paper collected once a month). Leave empty and only fill if it fails, you'll then see a list of available groups.",
           "house_number": "House number",
           "language": "Language for waste type names (pl, en, uk, ru)",
+          "region": "Sub-region within the town used to disambiguate streets that appear in multiple collection areas (e.g. 'Nowy Ramiszów' vs the rest of Ramiszów). Leave empty unless you get an error asking for it — a list of valid options will be shown.",
           "street": "Street",
           "town": "Town"
         }
@@ -20124,6 +20133,7 @@
           "g5": "Group 5",
           "house_number": "House number",
           "language": "Language",
+          "region": "Region",
           "street": "Street",
           "town": "Town"
         },
@@ -20138,6 +20148,7 @@
           "g5": "Select Collection group to limit results to a specific group within a waste type (e.g. 'Papier (1 x miesiąc)' for Paper collected once a month). Leave empty and only fill if it fails, you'll then see a list of available groups.",
           "house_number": "House number",
           "language": "Language for waste type names (pl, en, uk, ru)",
+          "region": "Sub-region within the town used to disambiguate streets that appear in multiple collection areas (e.g. 'Nowy Ramiszów' vs the rest of Ramiszów). Leave empty unless you get an error asking for it — a list of valid options will be shown.",
           "street": "Street",
           "town": "Town"
         }
@@ -24692,11 +24703,15 @@
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
           "calendar_title": "Calendar Title",
-          "uprn": "UPRN"
+          "address": "House number or name",
+          "postcode": "Postcode",
+          "uprn": "UPRN (no longer used)"
         },
         "data_description": {
           "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
-          "uprn": "An easy way to discover your Unique Property Reference Number (UPRN) is by going to {url_www_findmyaddress_co_uk} and entering in your address details."
+          "address": "House number or name, exactly as you would type it into the council's 'Property Number or Name' box, e.g. 12 or Rose Cottage",
+          "postcode": "Postcode of the property, e.g. DN1 3BU",
+          "uprn": "No longer used. Doncaster's new bin lookup does not accept a UPRN, use postcode and address instead."
         }
       },
       "reconfigure_doncaster_gov_uk": {
@@ -24704,10 +24719,14 @@
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
           "calendar_title": "Calendar Title",
-          "uprn": "UPRN"
+          "address": "House number or name",
+          "postcode": "Postcode",
+          "uprn": "UPRN (no longer used)"
         },
         "data_description": {
-          "uprn": "An easy way to discover your Unique Property Reference Number (UPRN) is by going to {url_www_findmyaddress_co_uk} and entering in your address details."
+          "address": "House number or name, exactly as you would type it into the council's 'Property Number or Name' box, e.g. 12 or Rose Cottage",
+          "postcode": "Postcode of the property, e.g. DN1 3BU",
+          "uprn": "No longer used. Doncaster's new bin lookup does not accept a UPRN, use postcode and address instead."
         }
       },
       "args_lincoln_gov_uk": {
@@ -25775,11 +25794,11 @@
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
           "calendar_title": "Calendar Title",
-          "uprn": "UPRN"
+          "uprn": "Unique Property Reference Number (UPRN)"
         },
         "data_description": {
           "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
-          "uprn": "An easy way to discover your Unique Property Reference Number (UPRN) is by going to {url_www_findmyaddress_co_uk} and entering in your address details."
+          "uprn": "Unique Property Reference Number (UPRN) of your property, e.g. 100040227486"
         }
       },
       "reconfigure_exeter_gov_uk": {
@@ -25787,10 +25806,10 @@
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
           "calendar_title": "Calendar Title",
-          "uprn": "UPRN"
+          "uprn": "Unique Property Reference Number (UPRN)"
         },
         "data_description": {
-          "uprn": "An easy way to discover your Unique Property Reference Number (UPRN) is by going to {url_www_findmyaddress_co_uk} and entering in your address details."
+          "uprn": "Unique Property Reference Number (UPRN) of your property, e.g. 100040227486"
         }
       },
       "args_ics_falkirk_gov_uk": {
@@ -29729,7 +29748,9 @@
           "postcode": "Postcode"
         },
         "data_description": {
-          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
+          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
+          "address": "The full address of the property.",
+          "postcode": "The postcode for the property."
         }
       },
       "reconfigure_sunderland_gov_uk": {
@@ -29740,7 +29761,10 @@
           "address": "Address",
           "postcode": "Postcode"
         },
-        "data_description": {}
+        "data_description": {
+          "address": "The full address of the property.",
+          "postcode": "The postcode for the property."
+        }
       },
       "args_sutton_gov_uk": {
         "title": "Configure Source",
@@ -29795,10 +29819,14 @@
         "data": {
           "calendar_title": "Calendar Title",
           "post_code": "Postcode",
-          "street_name": "Street Name"
+          "street_name": "Street name",
+          "uprn": "UPRN"
         },
         "data_description": {
-          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
+          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
+          "post_code": "Full postcode of the property",
+          "street_name": "Any part of the address (e.g. street name), used to pick an address in the postcode",
+          "uprn": "Unique Property Reference Number (UPRN) of the property"
         }
       },
       "reconfigure_swansea_gov_uk": {
@@ -29807,9 +29835,14 @@
         "data": {
           "calendar_title": "Calendar Title",
           "post_code": "Postcode",
-          "street_name": "Street Name"
+          "street_name": "Street name",
+          "uprn": "UPRN"
         },
-        "data_description": {}
+        "data_description": {
+          "post_code": "Full postcode of the property",
+          "street_name": "Any part of the address (e.g. street name), used to pick an address in the postcode",
+          "uprn": "Unique Property Reference Number (UPRN) of the property"
+        }
       },
       "args_swindon_gov_uk": {
         "title": "Configure Source",
@@ -30702,7 +30735,7 @@
           "usrn": "Unique Street Reference Number (USRN) for your street."
         }
       },
-      "args_ics_barrowbc_gov_uk": {
+      "args_ics_westmorlandandfurness_gov_uk": {
         "title": "Configure Source",
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
@@ -30725,51 +30758,7 @@
           "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
         }
       },
-      "reconfigure_ics_barrowbc_gov_uk": {
-        "title": "Reconfigure Source",
-        "description": "Configure your service provider. {howto}More details: {docs_url}.",
-        "data": {
-          "calendar_title": "Calendar Title",
-          "file": "File",
-          "headers": "Headers",
-          "impersonate": "Browser to impersonate (e.g. 'chrome') to pass TLS-fingerprinting WAFs",
-          "method": "Method",
-          "offset": "Offset",
-          "params": "Params",
-          "regex": "Regex",
-          "split_at": "Split At",
-          "title_template": "Title Template",
-          "url": "Url",
-          "verify_ssl": "Verify Ssl",
-          "version": "(Deprecated) Version, has no effect anymore",
-          "year_field": "Year Field"
-        },
-        "data_description": {}
-      },
-      "args_ics_southlakeland_gov_uk": {
-        "title": "Configure Source",
-        "description": "Configure your service provider. {howto}More details: {docs_url}.",
-        "data": {
-          "calendar_title": "Calendar Title",
-          "file": "File",
-          "headers": "Headers",
-          "impersonate": "Browser to impersonate (e.g. 'chrome') to pass TLS-fingerprinting WAFs",
-          "method": "Method",
-          "offset": "Offset",
-          "params": "Params",
-          "regex": "Regex",
-          "split_at": "Split At",
-          "title_template": "Title Template",
-          "url": "Url",
-          "verify_ssl": "Verify Ssl",
-          "version": "(Deprecated) Version, has no effect anymore",
-          "year_field": "Year Field"
-        },
-        "data_description": {
-          "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used."
-        }
-      },
-      "reconfigure_ics_southlakeland_gov_uk": {
+      "reconfigure_ics_westmorlandandfurness_gov_uk": {
         "title": "Reconfigure Source",
         "description": "Configure your service provider. {howto}More details: {docs_url}.",
         "data": {
@@ -30875,8 +30864,8 @@
         },
         "data_description": {
           "calendar_title": "A more readable, or user-friendly, name for the waste calendar. If nothing is provided, the name returned by the source will be used.",
-          "address_value": "The 12-digit address value from the dropdown on the Wirral bin calendar page.",
-          "postcode": "Your postcode, e.g. CH49 4NP."
+          "address_value": "The number at the end of the web address of your address on the Wirral bin collection dates page.",
+          "postcode": "Your postcode, e.g. CH49 4NP (no longer required)."
         }
       },
       "reconfigure_wirral_gov_uk": {
@@ -30888,8 +30877,8 @@
           "postcode": "Postcode"
         },
         "data_description": {
-          "address_value": "The 12-digit address value from the dropdown on the Wirral bin calendar page.",
-          "postcode": "Your postcode, e.g. CH49 4NP."
+          "address_value": "The number at the end of the web address of your address on the Wirral bin collection dates page.",
+          "postcode": "Your postcode, e.g. CH49 4NP (no longer required)."
         }
       },
       "args_wokingham_gov_uk": {

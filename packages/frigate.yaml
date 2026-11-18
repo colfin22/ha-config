@@ -67,3 +67,148 @@ command_line:
           {% endif %}
         {% endfor %}
         {{ ns.cams | length }}
+
+# CCTV tab (13-11-2026): last Frigate ALERT per camera, for the map on smart-home/cctv.
+# Fed by MQTT frigate/reviews (severity alert). cctv/seed only used once to fill them at build time.
+template:
+  - triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+      - trigger: mqtt
+        topic: cctv/seed
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.after is defined
+             and trigger.payload_json.after.camera == 'Front_Van'
+             and trigger.payload_json.after.severity == 'alert' }}
+    sensor:
+      - name: CCTV Last Alert Front Van
+        unique_id: cctv_last_alert_front_van
+        device_class: timestamp
+        icon: mdi:cctv
+        state: "{{ trigger.payload_json.after.start_time | as_datetime }}"
+        attributes:
+          review_id: "{{ trigger.payload_json.after.id }}"
+          camera: Front_Van
+          objects: "{{ trigger.payload_json.after.data.objects | join(', ') }}"
+          event_id: "{{ (trigger.payload_json.after.data.detections or [''])[0] }}"
+  - triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+      - trigger: mqtt
+        topic: cctv/seed
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.after is defined
+             and trigger.payload_json.after.camera == 'Doorbell'
+             and trigger.payload_json.after.severity == 'alert' }}
+    sensor:
+      - name: CCTV Last Alert Doorbell
+        unique_id: cctv_last_alert_doorbell
+        device_class: timestamp
+        icon: mdi:cctv
+        state: "{{ trigger.payload_json.after.start_time | as_datetime }}"
+        attributes:
+          review_id: "{{ trigger.payload_json.after.id }}"
+          camera: Doorbell
+          objects: "{{ trigger.payload_json.after.data.objects | join(', ') }}"
+          event_id: "{{ (trigger.payload_json.after.data.detections or [''])[0] }}"
+  - triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+      - trigger: mqtt
+        topic: cctv/seed
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.after is defined
+             and trigger.payload_json.after.camera == 'Front_Car'
+             and trigger.payload_json.after.severity == 'alert' }}
+    sensor:
+      - name: CCTV Last Alert Front Car
+        unique_id: cctv_last_alert_front_car
+        device_class: timestamp
+        icon: mdi:cctv
+        state: "{{ trigger.payload_json.after.start_time | as_datetime }}"
+        attributes:
+          review_id: "{{ trigger.payload_json.after.id }}"
+          camera: Front_Car
+          objects: "{{ trigger.payload_json.after.data.objects | join(', ') }}"
+          event_id: "{{ (trigger.payload_json.after.data.detections or [''])[0] }}"
+  - triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+      - trigger: mqtt
+        topic: cctv/seed
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.after is defined
+             and trigger.payload_json.after.camera == 'Rear_Door'
+             and trigger.payload_json.after.severity == 'alert' }}
+    sensor:
+      - name: CCTV Last Alert Rear Door
+        unique_id: cctv_last_alert_rear_door
+        device_class: timestamp
+        icon: mdi:cctv
+        state: "{{ trigger.payload_json.after.start_time | as_datetime }}"
+        attributes:
+          review_id: "{{ trigger.payload_json.after.id }}"
+          camera: Rear_Door
+          objects: "{{ trigger.payload_json.after.data.objects | join(', ') }}"
+          event_id: "{{ (trigger.payload_json.after.data.detections or [''])[0] }}"
+  - triggers:
+      - trigger: mqtt
+        topic: frigate/reviews
+      - trigger: mqtt
+        topic: cctv/seed
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json.after is defined
+             and trigger.payload_json.after.camera == 'Rear_Shed'
+             and trigger.payload_json.after.severity == 'alert' }}
+    sensor:
+      - name: CCTV Last Alert Rear Shed
+        unique_id: cctv_last_alert_rear_shed
+        device_class: timestamp
+        icon: mdi:cctv
+        state: "{{ trigger.payload_json.after.start_time | as_datetime }}"
+        attributes:
+          review_id: "{{ trigger.payload_json.after.id }}"
+          camera: Rear_Shed
+          objects: "{{ trigger.payload_json.after.data.objects | join(', ') }}"
+          event_id: "{{ (trigger.payload_json.after.data.detections or [''])[0] }}"
+  - image:
+      - name: CCTV Last Alert Front Van
+        unique_id: cctv_last_alert_front_van_image
+        url: >-
+          {% set r = state_attr('sensor.cctv_last_alert_front_van', 'review_id') %}
+          {{ 'http://127.0.0.1:8123/api/frigate/notifications/' ~ r ~ '/Front_Van/review_thumbnail.webp'
+             if r else 'http://127.0.0.1:8123/local/cctv_no_alert.png' }}
+      - name: CCTV Last Alert Doorbell
+        unique_id: cctv_last_alert_doorbell_image
+        url: >-
+          {% set r = state_attr('sensor.cctv_last_alert_doorbell', 'review_id') %}
+          {{ 'http://127.0.0.1:8123/api/frigate/notifications/' ~ r ~ '/Doorbell/review_thumbnail.webp'
+             if r else 'http://127.0.0.1:8123/local/cctv_no_alert.png' }}
+      - name: CCTV Last Alert Front Car
+        unique_id: cctv_last_alert_front_car_image
+        url: >-
+          {% set r = state_attr('sensor.cctv_last_alert_front_car', 'review_id') %}
+          {{ 'http://127.0.0.1:8123/api/frigate/notifications/' ~ r ~ '/Front_Car/review_thumbnail.webp'
+             if r else 'http://127.0.0.1:8123/local/cctv_no_alert.png' }}
+      - name: CCTV Last Alert Rear Door
+        unique_id: cctv_last_alert_rear_door_image
+        url: >-
+          {% set r = state_attr('sensor.cctv_last_alert_rear_door', 'review_id') %}
+          {{ 'http://127.0.0.1:8123/api/frigate/notifications/' ~ r ~ '/Rear_Door/review_thumbnail.webp'
+             if r else 'http://127.0.0.1:8123/local/cctv_no_alert.png' }}
+      - name: CCTV Last Alert Rear Shed
+        unique_id: cctv_last_alert_rear_shed_image
+        url: >-
+          {% set r = state_attr('sensor.cctv_last_alert_rear_shed', 'review_id') %}
+          {{ 'http://127.0.0.1:8123/api/frigate/notifications/' ~ r ~ '/Rear_Shed/review_thumbnail.webp'
+             if r else 'http://127.0.0.1:8123/local/cctv_no_alert.png' }}

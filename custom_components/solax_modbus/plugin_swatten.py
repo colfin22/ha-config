@@ -16,7 +16,7 @@ from homeassistant.helpers.entity import (  # type: ignore[attr-defined]
     EntityCategory,
 )
 
-from custom_components.solax_modbus.const import (  # type: ignore[attr-defined]
+from custom_components.solax_modbus.const import (
     CONF_READ_DCB,
     CONF_READ_EPS,
     DEFAULT_READ_DCB,
@@ -598,6 +598,7 @@ SENSOR_TYPES: list[SwattenModbusSensorEntityDescription] = [
         name="PV Power 1",
         key="pv_power_1",
         value_function=value_function_pv_power_1,
+        depends_on=["pv_voltage_1", "pv_current_1"],
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
@@ -608,6 +609,7 @@ SENSOR_TYPES: list[SwattenModbusSensorEntityDescription] = [
         name="PV Power 2",
         key="pv_power_2",
         value_function=value_function_pv_power_2,
+        depends_on=["pv_voltage_2", "pv_current_2"],
         native_unit_of_measurement=UnitOfPower.WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,

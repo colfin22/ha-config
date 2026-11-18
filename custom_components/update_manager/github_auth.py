@@ -56,7 +56,17 @@ STORAGE_KEY = f"{DOMAIN}_github_auth"
 _ISSUE_LINK_EXPIRED = "github_link_expired"
 
 
-def _async_create_link_expired_issue(hass: HomeAssistant) -> None:
+def _async_create_link_expired_issue(hass: HomeAssistant, config_entry_id: str) -> None:
+    # config_entry_id (HA 2026.11+) ties this issue to this integration's own
+    # config entry, so it's deleted automatically if the entry itself ever
+    # is, instead of potentially lingering for a removed integration
+    # forever. No manifest.json gate actually enforces this HA Core
+    # requirement, confirmed 2026-11-05: "homeassistant" isn't a real,
+    # hassfest-recognized manifest key for a custom integration at all
+    # (hacs.json's own key, read by HACS/Marketplace before install, is the
+    # only real version gate this project has, see semver.py's own
+    # min_ha_version_required). Reaching this call on an older Core would
+    # throw a plain TypeError, accepted as-is rather than guarded here.
     ir.async_create_issue(
         hass,
         DOMAIN,
@@ -64,6 +74,7 @@ def _async_create_link_expired_issue(hass: HomeAssistant) -> None:
         is_fixable=False,
         severity=ir.IssueSeverity.WARNING,
         translation_key=_ISSUE_LINK_EXPIRED,
+        config_entry_id=config_entry_id,
     )
 
 
@@ -87,6 +98,18 @@ _EXPIRY_SAFETY_MARGIN = timedelta(minutes=2)
 # See async_get_valid_access_token's own "error" branch for why this isn't 1.
 _MIN_CONSECUTIVE_REFRESH_FAILURES = 2
 
+# Found live, 2026-11-02: a batch of near-simultaneous callers (several
+# votes needing a token at once) each waited their turn on _refresh_lock,
+# then each immediately retried _async_refresh_token themselves (the
+# post-lock cache re-check in async_get_valid_access_token can't help,
+# since a *failed* refresh never updates access_token_expires_at), 13
+# identical "incorrect_client_credentials" responses within 15 seconds,
+# pure log noise and unnecessary load on GitHub's own token endpoint for
+# what's really one underlying problem, not 13 separate ones. This cooldown
+# makes every caller within it get an immediate None, with no new HTTP
+# request, instead of repeating a refresh that just failed.
+_REFRESH_FAILURE_COOLDOWN = timedelta(seconds=30)
+
 LinkStatus = Literal["idle", "pending", "linked", "failed", "expired"]
 
 
@@ -102,14 +125,34 @@ def _expiry_fields(payload: dict[str, Any], now: datetime) -> dict[str, str]:
 
 
 class GitHubAuthManager:
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, config_entry_id: str) -> None:
         self.hass = hass
+        self._config_entry_id = config_entry_id
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self._data: dict[str, Any] = {}
         # Not persisted: only meaningful for the lifetime of one in-progress
         # (or just-finished) linking attempt, reset to "idle" on every
         # fresh async_start_device_flow call.
         self._link_status: LinkStatus = "idle"
+        # Serializes the actual refresh call in async_get_valid_access_token
+        # below -- found live, 2026-10-09, direct user feedback ("af en toe
+        # moet ik opnieuw linken, dat kan niet aan inactiviteit liggen"):
+        # both tokens rotate on every refresh (see this module's own
+        # docstring), so two callers racing to refresh at the same moment
+        # (e.g. a vote being submitted while get_release_notes also needs a
+        # token) both read the same, still-current refresh_token, but only
+        # whichever one's request GitHub processes first actually succeeds
+        # -- the other gets a real "bad_refresh_token"-style error back for
+        # a token that was perfectly valid a moment ago, counted as a
+        # genuine refresh failure (_MIN_CONSECUTIVE_REFRESH_FAILURES) even
+        # though nothing was actually wrong with the link. A second caller
+        # now waits for whichever refresh is already in flight and reuses
+        # its result instead of starting a competing one.
+        self._refresh_lock = asyncio.Lock()
+        # Not persisted, same "meaningful only for the current process"
+        # reasoning as self._link_status above, see
+        # _REFRESH_FAILURE_COOLDOWN's own comment for why this exists.
+        self._last_refresh_failure_at: datetime | None = None
 
     async def async_load(self) -> None:
         self._data = await self._store.async_load() or {}
@@ -250,6 +293,17 @@ class GitHubAuthManager:
             _LOGGER.debug("Couldn't fetch the linked GitHub username", exc_info=True)
             return None
 
+    def _valid_cached_token(self) -> str | None:
+        """self._data's own access_token, but only if it isn't due to
+        expire within _EXPIRY_SAFETY_MARGIN -- shared between
+        async_get_valid_access_token's own fast path (before ever touching
+        self._refresh_lock) and its post-lock re-check (another caller may
+        have already refreshed while this one was waiting for the lock)."""
+        expires_at = dt_util.parse_datetime(self._data.get("access_token_expires_at", ""))
+        if expires_at is not None and dt_util.utcnow() < expires_at - _EXPIRY_SAFETY_MARGIN:
+            return self._data["access_token"]
+        return None
+
     async def async_get_valid_access_token(self) -> str | None:
         """A valid access token, refreshing first if needed, or None if
         there's no way to get one right now (never linked, or the refresh
@@ -265,15 +319,33 @@ class GitHubAuthManager:
         if not self.is_linked:
             return None
 
-        expires_at = dt_util.parse_datetime(self._data.get("access_token_expires_at", ""))
-        if expires_at is not None and dt_util.utcnow() < expires_at - _EXPIRY_SAFETY_MARGIN:
-            return self._data["access_token"]
+        token = self._valid_cached_token()
+        if token is not None:
+            return token
 
-        refresh_expires_at = dt_util.parse_datetime(self._data.get("refresh_token_expires_at", ""))
-        if refresh_expires_at is not None and dt_util.utcnow() >= refresh_expires_at:
-            await self._async_mark_broken()
-            return None
+        async with self._refresh_lock:
+            # Re-check: whoever held the lock just before us may have
+            # already refreshed while we were waiting for it -- see
+            # self._refresh_lock's own comment in __init__ for why this
+            # lock exists at all.
+            token = self._valid_cached_token()
+            if token is not None:
+                return token
 
+            if (
+                self._last_refresh_failure_at is not None
+                and dt_util.utcnow() - self._last_refresh_failure_at < _REFRESH_FAILURE_COOLDOWN
+            ):
+                return None
+
+            refresh_expires_at = dt_util.parse_datetime(self._data.get("refresh_token_expires_at", ""))
+            if refresh_expires_at is not None and dt_util.utcnow() >= refresh_expires_at:
+                await self._async_mark_broken()
+                return None
+
+            return await self._async_refresh_token()
+
+    async def _async_refresh_token(self) -> str | None:
         session = async_get_clientsession(self.hass)
         try:
             async with session.post(
@@ -289,6 +361,7 @@ class GitHubAuthManager:
                 payload = await response.json(content_type=None)
         except Exception:
             _LOGGER.debug("Couldn't refresh the GitHub access token", exc_info=True)
+            self._last_refresh_failure_at = dt_util.utcnow()
             return None
 
         if "error" in payload:
@@ -307,6 +380,7 @@ class GitHubAuthManager:
             streak = self._data.get("refresh_failure_streak", 0) + 1
             self._data["refresh_failure_streak"] = streak
             await self._store.async_save(self._data)
+            self._last_refresh_failure_at = dt_util.utcnow()
             if streak >= _MIN_CONSECUTIVE_REFRESH_FAILURES:
                 await self._async_mark_broken()
             return None
@@ -329,6 +403,7 @@ class GitHubAuthManager:
             "broken": False,
             "refresh_failure_streak": 0,
         }
+        self._last_refresh_failure_at = None
         await self._store.async_save(self._data)
         _async_clear_link_expired_issue(self.hass)
         return self._data["access_token"]
@@ -341,7 +416,7 @@ class GitHubAuthManager:
         async_get_valid_access_token above."""
         self._data["broken"] = True
         await self._store.async_save(self._data)
-        _async_create_link_expired_issue(self.hass)
+        _async_create_link_expired_issue(self.hass, self._config_entry_id)
 
     async def async_unlink(self) -> None:
         self._data = {}

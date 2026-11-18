@@ -1,10 +1,15 @@
 rules:
   # Bronze
   action-setup:
-    status: exempt
+    status: done
     comment: >-
-      No custom services/actions are registered. The panel talks to this integration
-      entirely over its own websocket commands, not HA service actions.
+      services.py's async_setup_services registers get_release_notes and
+      cancel_scheduled_install from async_setup_entry (not the module-level
+      async_setup this integration doesn't have), guarded by
+      hass.services.has_service for idempotency. The panel itself still
+      talks to this integration over its own websocket commands; these two
+      exist so an automation can react to update_manager_announced without
+      the panel involved at all (2026-09-27).
   appropriate-polling: done
   brands: done
   common-modules: done
@@ -18,11 +23,19 @@ rules:
   config-flow: done
   dependency-transparency: done
   docs-actions:
-    status: exempt
-    comment: No custom actions exist.
+    status: done
+    comment: >-
+      The Wiki's "Automating Update Manager" page documents both
+      get_release_notes and cancel_scheduled_install; services.yaml's own
+      fields plus strings.json's services section cover the rest
+      (names/descriptions shown in Settings > Tools > Actions).
   docs-triggers:
-    status: exempt
-    comment: No triggers exist.
+    status: done
+    comment: >-
+      Stale: trigger.py/triggers.yaml added the three native triggers
+      (scheduled_auto_install/installed/install_failed) after this was last
+      written. The Wiki's "Automating Update Manager" page now documents
+      them under "Native automation triggers (beta)", 2026-11-04.
   docs-conditions:
     status: exempt
     comment: No conditions exist.
@@ -57,8 +70,11 @@ rules:
 
   # Silver
   action-exceptions:
-    status: exempt
-    comment: No actions are registered.
+    status: done
+    comment: >-
+      Both services raise ServiceValidationError, translated (strings.json's
+      own exceptions section), for the two expected failure cases: not set
+      up yet, and an entity_id that isn't a currently tracked update entity.
   config-entry-unloading: done
   docs-configuration-parameters: done
   docs-installation-parameters:
@@ -113,19 +129,28 @@ rules:
   docs-examples:
     status: todo
     comment: >-
-      README used to have an "Automation examples" section (switch.turn_off/
-      state-trigger snippets for the master pause switch and summary sensor);
-      removed 2026-07-29 for conciseness (direct user feedback). Easy to add
-      back if ever wanted -- both entities are plain, automatable HA entities
-      with nothing special about them.
-  docs-known-limitations: done
+      Removed 2026-07-29 for conciseness: a switch.turn_off/state-trigger
+      example for the master pause switch and summary sensor. Easy to add
+      back if ever wanted, both entities are plain, automatable HA entities
+      with nothing special about them. The Wiki's "Automating Update Manager"
+      page does already cover the update_manager_announced event example.
+  docs-known-limitations:
+    status: done
+    comment: Moved from the README to the Wiki's own "Known limitations" page, 2026-11-04.
   docs-supported-devices:
     status: exempt
     comment: >-
       No physical devices involved -- covers whatever update. entities already
       exist on the system (HACS, Core/Supervisor/OS, Zigbee firmware, add-ons).
-  docs-supported-functions: done
-  docs-troubleshooting: done
+  docs-supported-functions:
+    status: done
+    comment: >-
+      README's own "Why you'll like it" section, plus the Wiki's "How
+      auto-install decides" and "Settings reference" pages for the full
+      detail.
+  docs-troubleshooting:
+    status: done
+    comment: Moved from the README to the Wiki's own "Troubleshooting" page, 2026-11-04.
   docs-use-cases: done
   dynamic-devices:
     status: exempt

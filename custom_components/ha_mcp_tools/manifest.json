@@ -1,13 +1,22 @@
 {
     "domain": "ha_mcp_tools",
-    "name": "HA-MCP Custom Component",
+    "name": "HA-MCP — Manage Home Assistant with AI",
     "after_dependencies": [
         "backup",
         "cloud",
+        "config",
+        "energy",
         "frontend",
         "http",
+        "logbook",
         "lovelace",
-        "network"
+        "network",
+        "recorder"
+    ],
+    "categories": [
+        "ai_voice",
+        "diy_makers",
+        "hubs_protocols"
     ],
     "codeowners": [
         "@homeassistant-ai"
@@ -22,7 +31,8 @@
     "requirements": [
         "mcp>=1.24.0",
         "ruamel.yaml>=0.18.0",
-        "voluptuous-openapi>=0.4.1"
+        "voluptuous-openapi>=0.4.1",
+        "ha-mcp==9.2.0"
     ],
-    "version": "2.2.0"
+    "version": "9.2.0"
 }

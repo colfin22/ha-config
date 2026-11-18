@@ -1649,7 +1649,7 @@
   "kolding_dk": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/source/kolding_dk.md",
     "howto": {
-      "en": "Go to https://kolding.infovision.dk/public/selectaddress and search for your address. Your ID is in the URL, e.g. `00007b8d-0002-0001-4164-647265737320`."
+      "en": "Go to https://kolding.infovision.dk/public/selectaddress and search for your address. Your ID is in the URL, e.g. `00007b8c-0002-0001-4164-647265737320`."
     },
     "urls": {}
   },
@@ -3826,15 +3826,15 @@
   "delight_system_com": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/source/delight_system_com.md",
     "howto": {
-      "en": "Enter your municipality and neighbourhood exactly as shown in the ThreeR garbage app (e.g. municipality `Shinjuku City`, area `Aizumi-cho`). If a value is not recognised, the setup form will offer matching options from the live API."
+      "en": "Enter your municipality and neighbourhood exactly as shown in the ThreeR garbage app (e.g. municipality `Shinjuku City`, area `Aizumi-cho`). Where the app asks for several levels, enter all of them, separated by ` / ` (e.g. `Okubo / 1 chome`). If a value is not recognised, the setup form will offer matching options from the live API."
     },
     "urls": {}
   },
   "abfalltransport_li": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/source/abfalltransport_li.md",
     "howto": {
-      "de": "Wählen Sie Ihre Gemeinde aus der Liste und den Abfalltyp ('kehricht', 'gruenabfuhr' oder 'all'). Besuchen Sie https://www.abfalltransport.li/abfallkalender für den Kalender.",
-      "en": "Select your municipality from the list and choose a waste type ('kehricht', 'gruenabfuhr', or 'all'). Visit https://www.abfalltransport.li/abfallkalender to see the schedule."
+      "de": "Wählen Sie Ihre Gemeinde aus der Liste und den Abfalltyp ('kehricht', 'gruenabfuhr' oder 'all'). Besuchen Sie https://www.ezv.li/abfallentsorgung/abfallkalender für den Kalender.",
+      "en": "Select your municipality from the list and choose a waste type ('kehricht', 'gruenabfuhr', or 'all'). Visit https://www.ezv.li/abfallentsorgung/abfallkalender to see the schedule."
     },
     "urls": {}
   },
@@ -4219,7 +4219,7 @@
   "rfd_no": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/source/rfd_no.md",
     "howto": {
-      "en": "Search for your address at rfd.no/avfallshenting. Use the address exactly as shown in the result list, for example 'Grønland 1, Drammen'."
+      "en": "Search for your address at rfd.no/avfallshenting. Use the address exactly as shown in the result list, for example 'Bragernes Torg 13, Drammen'."
     },
     "urls": {}
   },
@@ -5444,10 +5444,10 @@
   },
   "doncaster_gov_uk": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/source/doncaster_gov_uk.md",
-    "howto": {},
-    "urls": {
-      "url_www_findmyaddress_co_uk": "https://www.findmyaddress.co.uk/"
-    }
+    "howto": {
+      "en": "Open https://doncaster-wasterecycling.oncreate.app/w/webpage/bin-query and enter your postcode and, if you like, your house number or name. Use the same postcode and the house number or name of your property as the arguments. If several properties match, the error message lists the exact addresses to choose from."
+    },
+    "urls": {}
   },
   "lincoln_gov_uk": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/source/lincoln_gov_uk.md",
@@ -5750,10 +5750,10 @@
   },
   "exeter_gov_uk": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/source/exeter_gov_uk.md",
-    "howto": {},
-    "urls": {
-      "url_www_findmyaddress_co_uk": "https://www.findmyaddress.co.uk/"
-    }
+    "howto": {
+      "en": "Look up your address on the Exeter City Council 'When is my bin collected?' page; your UPRN is the number at the end of the resulting URL. Alternatively, search for your address on [Find My Address](https://www.findmyaddress.co.uk/)."
+    },
+    "urls": {}
   },
   "ics_falkirk_gov_uk": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/ics/falkirk_gov_uk.md",
@@ -7113,17 +7113,10 @@
     },
     "urls": {}
   },
-  "ics_barrowbc_gov_uk": {
-    "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/ics/barrowbc_gov_uk.md",
+  "ics_westmorlandandfurness_gov_uk": {
+    "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/ics/westmorlandandfurness_gov_uk.md",
     "howto": {
-      "en": "- Go to <https://ww.barrowbc.gov.uk/bins-recycling-and-street-cleaning/waste-collection-schedule> and select your location.  \n- Right click -> copy the url of the `Add to iCalendar` link.\n- Use this link as the `url` parameter. (If you know your UPRN, you can just replace the last part of the url with it.)\n- if you want to shorten your entry names use the `regex` line from the second example (`Grey lidded bins for General waste` will show up as `Grey`)\n"
-    },
-    "urls": {}
-  },
-  "ics_southlakeland_gov_uk": {
-    "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/ics/southlakeland_gov_uk.md",
-    "howto": {
-      "en": "- Go to <https://www.southlakeland.gov.uk/bins-and-recycling/collection-calendar/> and select your location.  \n- Rightclick -> copy the URL of the `Import these dates into your calendar` link.\n- Use this link as the `url` parameter.\n"
+      "en": "- Go to <https://www.westmorlandandfurness.gov.uk/bins-recycling-and-street-cleaning/waste-collection-schedule>, enter your postcode and select your address.\n- Right click -> copy the link address of the `Add to iCalendar` link. It looks like `https://www.westmorlandandfurness.gov.uk/bins-recycling-and-street-cleaning/waste-collection-schedule/download/<UPRN>`.\n- Use this link as the `url` parameter. (If you know your UPRN, you can just replace the last part of the url with it.)\n- This works for all former districts (Barrow-in-Furness, Eden and South Lakeland). The old `barrowbc.gov.uk` and `southlakeland.gov.uk` calendar links no longer work.\n- The calendar covers about one year and contains a reminder entry `Download your bin collection calendar` at its end.\n"
     },
     "urls": {}
   },
@@ -7151,7 +7144,7 @@
   "wirral_gov_uk": {
     "docs_url": "https://github.com/mampfes/hacs_waste_collection_schedule/blob/master/doc/source/wirral_gov_uk.md",
     "howto": {
-      "en": "Go to https://www.wirral.gov.uk/bincal_dev/ and enter your postcode. Right-click on your address in the dropdown and select 'Inspect' to find the 12-digit option value. Use that as the address_value parameter."
+      "en": "Go to https://www.wirral.gov.uk/bins-and-recycling/bin-collection-dates, enter your postcode and select your address. The number at the end of the resulting web address (.../view/42037487) is your address value. Use that as the address_value parameter."
     },
     "urls": {}
   },

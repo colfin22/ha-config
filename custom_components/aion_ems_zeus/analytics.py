@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+from .heat_pump_power import choose_circuit_power, is_whole_system_meter
+import math
+
+from .heat_pump_spf import circuit_efficiency
+from .heat_pump_recorder_reader import HeatPumpRecorderReader
+from .heat_pump_period_windows import completed_period_windows
 from .device_roles import is_consuming_load
 from .period_authority import canonical_period_windows, date_in_period
+from .forecast_v2_baseline import reconciled_hourly_baseline
 from .device_profiles import get_device_profile
 
 from datetime import datetime, timedelta, timezone
@@ -593,6 +600,14 @@ class HistoricalAnalyticsEngine:
                 value *= 1000.0
             elif unit not in {"kwh", "kilowatt-hour", "kilowatt-hours"}:
                 continue
+            if key == "solar_energy_kwh":
+                # Reuse the persisted local-day guard from DataLake. A sleeping
+                # inverter's zero must not erase daytime PV production in the
+                # canonical analytics / forecast-actual history.
+                today = dt_util.now().date().isoformat()
+                day_row = (self.data_lake.data.get("daily_summaries") or {}).get(today, {})
+                if str(day_row.get("solar_daily_guard_source") or "") == entity_id:
+                    value = max(value, float(day_row.get("solar_daily_guard_max_kwh", 0.0) or 0.0))
             out[key] = round(max(value, 0.0), 4)
             out[f"{key}_method"] = "mapped_daily_energy"
             out[f"{key}_source"] = entity_id
@@ -3099,7 +3114,9 @@ class ForecastEngine:
     def refresh(self) -> dict[str, Any]:
         snapshots = self.data_lake.data.get("snapshots", [])
         now = dt_util.now()
-        forecast_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        forecast_start = dt_util.start_of_local_day(now)
+        forecast_start_utc = dt_util.as_utc(forecast_start)
+        forecast_end_date = forecast_start.date() + timedelta(days=7)
         buckets: dict[tuple[int, int], dict[str, list[float]]] = {}
         hour_buckets: dict[int, dict[str, list[float]]] = {}
         for snap in snapshots[-30240:]:
@@ -3123,6 +3140,62 @@ class ForecastEngine:
                     if isinstance(value, (int, float)):
                         target[name].append(float(value))
 
+        # v16.0.268: read-only baseline sampling audit. The production
+        # snapshot-trimmed baseline above remains entirely unchanged.
+        # Per-day hourly means prevent a high-frequency day from dominating.
+        solar_by_day_hour = {}
+        for snap in snapshots[-30240:]:
+            try:
+                stamp = datetime.fromisoformat(str(snap["timestamp"]).replace("Z", "+00:00"))
+                if stamp.tzinfo is None:
+                    stamp = stamp.replace(tzinfo=timezone.utc)
+                local_stamp = dt_util.as_local(stamp)
+                value = (snap.get("flows") or {}).get("solar_power_w")
+                if not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                    continue
+                # Only completed historical days: partial current-day readings
+                # otherwise bias an equal-day baseline toward morning hours.
+                if local_stamp.date() >= now.date():
+                    continue
+                key = (local_stamp.date(), local_stamp.hour)
+                solar_by_day_hour.setdefault(key, []).append((local_stamp, float(value)))
+            except (KeyError, TypeError, ValueError, OverflowError):
+                continue
+
+        # Equal-day means and a capped, interval-weighted variant are both
+        # diagnostics. Never interpolate across long outages or across hours.
+        solar_day_means = {}
+        solar_day_weighted = {}
+        for key, samples in solar_by_day_hour.items():
+            samples.sort(key=lambda pair: pair[0])
+            solar_day_means[key] = sum(v for _, v in samples) / len(samples)
+            weights = []
+            for idx, (stamp, value) in enumerate(samples):
+                if idx + 1 < len(samples):
+                    duration = (samples[idx + 1][0] - stamp).total_seconds()
+                else:
+                    duration = 60.0
+                duration = max(1.0, min(duration, 900.0))
+                weights.append((value, duration))
+            solar_day_weighted[key] = sum(v * w for v, w in weights) / sum(w for _, w in weights)
+
+        def solar_baseline_audit(target_date, hour):
+            weekday = [(day, h) for day, h in solar_day_means
+                       if h == hour and day.weekday() == target_date.weekday()]
+            all_days = [(day, h) for day, h in solar_day_means if h == hour]
+            # A single matching weekday is not representative. Prefer at
+            # least three complete matching weekdays, otherwise all days.
+            chosen = weekday if len(weekday) >= 3 else all_days
+            if not chosen:
+                return None
+            equal = sum(solar_day_means[k] for k in chosen) / len(chosen)
+            weighted = sum(solar_day_weighted[k] for k in chosen) / len(chosen)
+            return {"equal_day_w": round(equal, 1),
+                    "interval_weighted_w": round(weighted, 1),
+                    "historical_days": len(chosen),
+                    "snapshots": sum(len(solar_by_day_hour[k]) for k in chosen),
+                    "weekday_only": bool(weekday)}
+
         weather = self.weather.summary() if self.weather else {}
         forecast_rows = weather.get("forecast", []) if isinstance(weather.get("forecast"), list) else []
         forecast_granularity = str(weather.get("forecast_granularity") or "hourly").lower()
@@ -3137,37 +3210,57 @@ class ForecastEngine:
             return round(sum(sample) / len(sample), 1)
 
         def weather_for(dt):
-            best = None
+            # A timestamp match alone does not prove usable cloud evidence.
+            # Exact hourly matching also prevents one provider row from being
+            # spread over multiple missing forecast hours.
             target_local = dt_util.as_local(dt)
+            target_utc = target_local.astimezone(timezone.utc)
+            best = None
             for row in forecast_rows:
+                if not isinstance(row, dict):
+                    continue
                 raw = row.get("datetime") or row.get("time")
                 try:
                     candidate = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
-                except (TypeError, ValueError):
+                except (TypeError, ValueError, OverflowError):
                     continue
-                if candidate.tzinfo is None:
-                    candidate = candidate.replace(tzinfo=timezone.utc)
+                # A naive provider timestamp has no identifiable UTC offset.
+                # Treat it as missing evidence rather than silently assuming
+                # UTC, especially around the repeated autumn 02:00 hour.
+                if candidate.tzinfo is None or candidate.utcoffset() is None:
+                    continue
                 candidate_local = dt_util.as_local(candidate)
 
+                condition = str(row.get("condition") or "").strip().lower()
+                cloud = row.get("cloud_coverage")
+                try:
+                    cloud_num = float(cloud) if cloud is not None else None
+                    if cloud_num is not None and (not math.isfinite(cloud_num) or not 0 <= cloud_num <= 100):
+                        cloud_num = None
+                except (TypeError, ValueError, OverflowError):
+                    cloud_num = None
+                # Temperature, precipitation and a timestamp alone do not
+                # determine solar attenuation. Unknown conditions are excluded.
+                known_conditions = getattr(self.weather, "CONDITION_FACTORS", {}) if self.weather else {}
+                has_condition = condition in known_conditions
+                if cloud_num is None and not has_condition:
+                    continue
                 if forecast_granularity == "daily":
                     if candidate_local.date() != target_local.date():
                         continue
-                    # A daily forecast represents the complete local day.
-                    row_factor = self.weather.factor_for(row.get("condition"), row.get("cloud_coverage")) if self.weather else 1.0
-                    return row_factor, row.get("condition"), row.get("cloud_coverage"), True
+                    factor = self.weather.factor_for(condition if has_condition else None, cloud_num) if self.weather else 1.0
+                    return factor, condition if has_condition else None, cloud_num, True
 
-                distance = abs((candidate_local - target_local).total_seconds())
+                distance = abs((candidate_local.astimezone(timezone.utc) - target_utc).total_seconds())
                 if best is None or distance < best[0]:
-                    best = (distance, row)
+                    best = (distance, condition if has_condition else None, cloud_num)
 
-            if best and best[0] <= 3 * 3600:
-                row = best[1]
-                factor = self.weather.factor_for(row.get("condition"), row.get("cloud_coverage")) if self.weather else 1.0
-                return factor, row.get("condition"), row.get("cloud_coverage"), True
+            if best and best[0] <= 30 * 60:
+                _, condition, cloud = best
+                factor = self.weather.factor_for(condition, cloud) if self.weather else 1.0
+                return factor, condition, cloud, True
 
-            # Historical solar profiles already contain normal weather variation.
-            # Current weather is never copied into future days when no timestamped
-            # future forecast row exists.
+            # No source-supported weather evidence at this hour: Legacy fallback.
             return 1.0, None, None, False
 
         flow_summary = self.energy_flow.summary() or {}
@@ -3180,7 +3273,7 @@ class ForecastEngine:
         battery_profile = home_settings.get("battery_profile") if isinstance(home_settings.get("battery_profile"), dict) else {}
         battery_capacity_kwh = self._number(battery_profile.get("capacity_kwh") or battery_profile.get("usable_capacity_kwh") or home_settings.get("battery_capacity_kwh"), 10.0)
         battery_capacity_kwh = max(1.0, battery_capacity_kwh)
-        reserve_percent = max(0.0, min(90.0, self._number(battery_profile.get("minimum_soc_percent"), 15.0)))
+        reserve_percent = max(0.0, min(90.0, self._number(battery_profile.get("minimum_soc_percent"), 20.0)))
         max_charge_power_w = max(100.0, self._number(battery_profile.get("max_charge_power_w"), 5000.0))
         max_discharge_power_w = max(100.0, self._number(battery_profile.get("max_discharge_power_w"), 5000.0))
         round_trip_efficiency = max(0.5, min(1.0, self._number(battery_profile.get("round_trip_efficiency"), 0.92)))
@@ -3241,6 +3334,22 @@ class ForecastEngine:
             measured_days.append((day_date, row))
         measured_days = measured_days[-60:]
 
+        # V2 must not learn its production magnitude from unverified power
+        # snapshots. Reconcile complete historical hourly shapes to the same
+        # authoritative daily PV totals used by Zeus Statistics.
+        canonical_solar_by_day = {
+            day: row.get("solar_energy_kwh") for day, row in measured_days
+        }
+        hourly_solar_by_day = {}
+        for (day, hour), power in solar_day_means.items():
+            hourly_solar_by_day.setdefault(day, {})[hour] = power
+
+        def v2_reconciled_baseline(target_date, hour):
+            return reconciled_hourly_baseline(
+                target_date, hour, hourly_solar_by_day, canonical_solar_by_day
+            )
+
+
         def robust_daily_value(target_date, field):
             weekday_values = []
             fallback_values = []
@@ -3264,10 +3373,75 @@ class ForecastEngine:
 
         canonical_today = dict(((analytics_summary.get("periods") or {}).get("today") or {}))
 
+        # v16.0.277 opt-in only. Legacy remains the default and is
+        # restored immediately by selecting legacy in Zeus Forecast.
+        forecast_mode = str(home_settings.get("solar_forecast_engine_mode") or "legacy")
+        if forecast_mode not in ("legacy", "v2"):
+            forecast_mode = "legacy"
+        pv_capacity_kwp = self._number(home_settings.get("pv_capacity_kwp") or home_settings.get("pv_capacity"), 0.0)
+        pv_capacity_w = pv_capacity_kwp * 1000.0 if pv_capacity_kwp > 0 else None
+
+        # Detect persistent overcast from timestamped hourly forecast evidence.
+        # Do not infer a whole-day condition from one fog/rain icon, and do not
+        # apply this guard to days without enough weather coverage.
+        persistent_overcast_days = set()
+        for day_offset in range(8):
+            day = forecast_start.date() + timedelta(days=day_offset)
+            observed = []
+            for hour in range(8, 18):
+                # Daytime cloud guard is evaluated on local calendar dates.
+                # Construct each day's wall time directly rather than shifting
+                # an aware datetime across a DST boundary.
+                sample = dt_util.as_local(
+                    dt_util.start_of_local_day(day) + timedelta(hours=hour)
+                )
+                _, sample_condition, sample_cloud, matched = weather_for(sample)
+                if not matched:
+                    continue
+                try:
+                    cloud_pct = float(sample_cloud)
+                except (TypeError, ValueError):
+                    continue
+                if math.isfinite(cloud_pct):
+                    observed.append((cloud_pct, str(sample_condition or '').lower()))
+            if len(observed) >= 8 and sum(cloud >= 80 for cloud, _ in observed) >= 8:
+                persistent_overcast_days.add(day)
+
+        # Shadow-only independent radiation: astronomical daylight boundaries
+        # are cached by local target date. Never infer daylight from a nonzero
+        # historical baseline, which can contain overnight measurement noise.
+        independent_daylight_cache = {}
+        def independent_daylight_fraction(local_hour):
+            day = local_hour.date()
+            if day not in independent_daylight_cache:
+                try:
+                    from astral import Observer
+                    from astral.sun import sun as astral_sun
+                    hass = self.core.hass if self.core is not None else None
+                    if hass is None:
+                        raise ValueError("forecast_core_unavailable")
+                    observer = Observer(latitude=float(hass.config.latitude),
+                                        longitude=float(hass.config.longitude),
+                                        elevation=float(hass.config.elevation or 0))
+                    events = astral_sun(observer, date=day, tzinfo=timezone.utc)
+                    independent_daylight_cache[day] = (events["sunrise"], events["sunset"])
+                except (ValueError, TypeError, KeyError, OverflowError, ImportError):
+                    independent_daylight_cache[day] = None
+            bounds = independent_daylight_cache[day]
+            if bounds is None:
+                return None
+            start = dt_util.as_utc(local_hour)
+            end = start + timedelta(hours=1)
+            sunrise, sunset = bounds
+            overlap = max(0.0, (min(end, sunset) - max(start, sunrise)).total_seconds())
+            return min(1.0, overlap / 3600.0)
+
         hourly = []
         projected_soc = soc if 0 <= soc <= 100 else None
-        for offset in range(168):
-            dt = forecast_start + timedelta(hours=offset)
+        for offset in range(170):
+            dt = dt_util.as_local(forecast_start_utc + timedelta(hours=offset))
+            if dt.date() >= forecast_end_date:
+                break
             weekday_sample = buckets.get((dt.weekday(), dt.hour), {})
             fallback = hour_buckets.get(dt.hour, {})
             solar_values = weekday_sample.get("solar") or fallback.get("solar", [])
@@ -3281,7 +3455,225 @@ class ForecastEngine:
             factor, condition, cloud, weather_forecast_applied = weather_for(dt)
             raw_solar = round(max((baseline_solar or 0) * factor, 0), 1) if baseline_solar is not None else None
             learned_factor, calibration_context, contextual_correction_percent, calibration_source = contextual_factor(condition)
+            if forecast_mode == "v2":
+                # V2 outcomes are not yet consistently tied to authoritative
+                # measured PV energy. Planning's Legacy-trained correction must
+                # not calibrate V2 until chronological forward trust is proven.
+                learned_factor = 1.0
+                contextual_correction_percent = 0.0
+                calibration_source = "v2_unverified_calibration_disabled"
             adjusted_solar = round(max((raw_solar or 0) * learned_factor, 0), 1) if raw_solar is not None else None
+            legacy_solar = adjusted_solar
+            v2_solar = None
+            v2_guard_reasons = []
+            v2_baseline_days = None
+            v2_cloud_factor = None
+            v2_baseline_power_w = None
+            v2_pre_guard_power_w = None
+            v2_after_cloud_before_condition_w = None
+            v2_after_condition_before_caps_w = None
+            v2_after_legacy_caps_w = None
+            v2_legacy_ceiling_counterfactual_w = None
+            v2_legacy_ceiling_counterfactual_guards = []
+            v2_fallback_reason = None
+            v21_without_persistent_w = None
+            v21_without_legacy_w = None
+            v230_reduced_cloud_w = None
+            v21_diffuse_candidate_w = None
+            v21_independent_radiation_w = None
+            if forecast_mode == "v2":
+                alternative = v2_reconciled_baseline(dt.date(), dt.hour)
+                if alternative is not None and alternative["historical_days"] >= 2:
+                    v2_baseline_days = alternative["historical_days"]
+                    v2_baseline_power_w = alternative["equal_day_w"]
+                    cloud_num = None
+                    try:
+                        cloud_num = float(cloud) if cloud is not None else None
+                        # A cloud percentage outside 0..100 is invalid
+                        # evidence, not an instruction to assume clear or
+                        # fully overcast sky. Use the Legacy fallback.
+                        if cloud_num is not None and (
+                            not math.isfinite(cloud_num) or
+                            cloud_num < 0.0 or cloud_num > 100.0
+                        ):
+                            cloud_num = None
+                    except (ValueError, TypeError):
+                        cloud_num = None
+                    if weather_forecast_applied and cloud_num is not None:
+                        v2_factor = max(0.08, 1.0 - max(0.0, min(100.0, cloud_num)) / 150.0)
+                    else:
+                        # A condition-only weather match does not provide a
+                        # measured cloud percentage. Do not reverse-engineer a
+                        # synthetic cloud fraction from Legacy's condition
+                        # factor and then apply a second V2 condition ceiling.
+                        # Retain Legacy for this hour until numeric cloud
+                        # evidence is available. Missing evidence is not zero.
+                        v2_factor = None
+                        v2_guard_reasons.append(
+                            "cloud_evidence_missing_legacy_fallback"
+                            if weather_forecast_applied else
+                            "weather_unavailable_legacy_fallback"
+                        )
+                    v2_cloud_factor = round(v2_factor, 4) if v2_factor is not None else None
+                    if v2_factor is not None:
+                        v2_after_cloud_before_condition_w = round(max(0.0, alternative["equal_day_w"] * v2_factor), 1)
+                    # Explicit fog/precipitation conditions provide information
+                    # about opacity beyond cloud percentage. Reuse existing
+                    # WeatherEngine condition factors as a ceiling for V2;
+                    # ordinary "cloudy" hours retain the numeric cloud model.
+                    condition_key = str(condition or "").strip().lower()
+                    adverse_condition_factors = {
+                        "fog": 0.28, "rainy": 0.22, "pouring": 0.12,
+                        "lightning-rainy": 0.10, "snowy": 0.18,
+                        "snowy-rainy": 0.12,
+                    }
+                    if v2_factor is not None and weather_forecast_applied and condition_key in adverse_condition_factors:
+                        if v2_factor > adverse_condition_factors[condition_key]:
+                            v2_guard_reasons.append("adverse_weather")
+                        v2_factor = min(v2_factor, adverse_condition_factors[condition_key])
+                    v2_solar = (max(0.0, alternative["equal_day_w"] * v2_factor * learned_factor)
+                                if v2_factor is not None else legacy_solar)
+                    v2_pre_guard_power_w = round(v2_solar, 1) if v2_solar is not None else None
+                    v2_after_condition_before_caps_w = v2_pre_guard_power_w
+                    # Shadow-only counterfactual: keep the adverse-weather factor,
+                    # but remove BOTH Legacy-relative ceilings.
+                    v21_without_legacy_w = max(0.0, v2_solar)
+                    # V2.1 shadow-only diffuse-light candidate: use the same
+                    # reconciled historical p80 baseline and frozen weather,
+                    # but avoid compounding Legacy ceilings. Cloud opacity is
+                    # not zero irradiance: test a modest diffuse transmission
+                    # floor under fog/clouds, lower under precipitation.
+                    # This is an empirical hypothesis, NOT calibrated irradiance.
+                    if v2_factor is not None and weather_forecast_applied and cloud_num is not None:
+                        diffuse_floor = (0.42 if condition_key in ("fog", "cloudy", "partlycloudy")
+                                         else 0.26 if condition_key in adverse_condition_factors
+                                         else 0.38)
+                        transmission = max(v2_factor, diffuse_floor * (cloud_num / 100.0))
+                        v21_diffuse_candidate_w = max(0.0, alternative["equal_day_w"] * transmission)
+                    else:
+                        # Missing numeric weather evidence: no invented diffuse correction.
+                        v21_diffuse_candidate_w = legacy_solar
+                    # V2.1 independent direct + diffuse radiation hypothesis.
+                    # Shadow only: no Legacy ceiling, no learned V2 multiplier,
+                    # and no effect on adjusted_solar, battery, grid or control.
+                    # The historical p80 shape is NOT clear-sky normalized;
+                    # accordingly this is an uncalibrated diagnostic, not a
+                    # deployable or validated irradiance forecast.
+                    if v2_factor is not None and weather_forecast_applied and cloud_num is not None:
+                        cloud_fraction = cloud_num / 100.0
+                        # Direct beam declines quickly under cloud, while a
+                        # nonzero diffuse component remains. These coefficients
+                        # are explicit hypotheses, not learned site parameters.
+                        direct_share = 0.70
+                        diffuse_share = 0.30
+                        direct_transmission = max(0.02, (1.0 - cloud_fraction) ** 1.6)
+                        diffuse_transmission = max(0.12, 1.0 - 0.70 * cloud_fraction)
+                        if condition_key in ("rainy", "pouring", "lightning-rainy", "snowy", "snowy-rainy"):
+                            direct_transmission *= 0.50
+                            diffuse_transmission *= 0.65
+                        elif condition_key == "fog":
+                            direct_transmission *= 0.35
+                            diffuse_transmission *= 0.85
+                        radiation_factor = direct_share * direct_transmission + diffuse_share * diffuse_transmission
+                        # A full-night hour must be exactly zero. Partial
+                        # sunrise/sunset buckets contribute only daylight share.
+                        # If astronomy is unavailable, leave this shadow value
+                        # missing rather than inventing nighttime production.
+                        daylight_share = independent_daylight_fraction(dt)
+                        v21_independent_radiation_w = (max(0.0, alternative["equal_day_w"] * radiation_factor) * daylight_share
+                                                      if daylight_share is not None else None)
+                    # Read-only reconstruction of v16.0.565 Legacy-relative
+                    # ceilings, using the SAME baseline and weather inputs as
+                    # the active v16.0.566 calculation. Never feed this value
+                    # into planning, frozen forecasts or controls.
+                    old_ceiling_w = max(0.0, v2_solar)
+                    if weather_forecast_applied and cloud_num is not None and legacy_solar is not None:
+                        if cloud_num >= 80.0:
+                            limit = max(0.0, legacy_solar) * 1.25
+                            if old_ceiling_w > limit:
+                                v2_legacy_ceiling_counterfactual_guards.append("heavy_cloud_legacy_ceiling")
+                            old_ceiling_w = min(old_ceiling_w, limit)
+                        elif cloud_num >= 60.0:
+                            limit = max(0.0, legacy_solar) * 1.50
+                            if old_ceiling_w > limit:
+                                v2_legacy_ceiling_counterfactual_guards.append("cloud_legacy_ceiling")
+                            old_ceiling_w = min(old_ceiling_w, limit)
+                    if v2_factor is not None and dt.date() in persistent_overcast_days and legacy_solar is not None:
+                        limit = max(0.0, legacy_solar)
+                        if old_ceiling_w > limit:
+                            v2_legacy_ceiling_counterfactual_guards.append("persistent_overcast_ceiling")
+                        old_ceiling_w = min(old_ceiling_w, limit)
+                    if pv_capacity_w is not None:
+                        old_ceiling_w = min(old_ceiling_w, pv_capacity_w)
+                    if independent_daylight_fraction(dt) == 0.0:
+                        old_ceiling_w = 0.0
+                    v2_legacy_ceiling_counterfactual_w = round(old_ceiling_w, 1)
+                    # v16.0.566 LOCAL: do not cap the reconciled V2 baseline
+                    # against Legacy's independently weather-attenuated value.
+                    # That cross-model ceiling double-constrains V2, and can
+                    # systematically suppress output when historical baselines
+                    # differ. The numeric cloud and adverse-condition guards
+                    # above remain in force. This is a LOCAL evaluation change.
+                    # Shadow-only B: weaker cloud attenuation, with all downstream
+                    # condition, Legacy and capacity guards recomputed independently.
+                    if v2_factor is not None and cloud_num is not None and weather_forecast_applied:
+                        shadow_factor = max(0.08, 1.0 - cloud_num / 300.0)
+                        if condition_key in adverse_condition_factors:
+                            shadow_factor = min(shadow_factor, adverse_condition_factors[condition_key])
+                        shadow_w = max(0.0, alternative["equal_day_w"] * shadow_factor * learned_factor)
+                        if legacy_solar is not None:
+                            if cloud_num >= 80.0:
+                                shadow_w = min(shadow_w, max(0.0, legacy_solar) * 1.25)
+                            elif cloud_num >= 60.0:
+                                shadow_w = min(shadow_w, max(0.0, legacy_solar) * 1.50)
+                            if dt.date() in persistent_overcast_days:
+                                shadow_w = min(shadow_w, max(0.0, legacy_solar))
+                        if pv_capacity_w is not None:
+                            shadow_w = min(shadow_w, pv_capacity_w)
+                        v230_reduced_cloud_w = round(shadow_w, 1)
+                    v2_after_legacy_caps_w = round(v2_solar, 1) if v2_solar is not None else None
+                    # Shadow-only: retain heavy-cloud ceiling, omit only
+                    # persistent-overcast ceiling. No production impact.
+                    v21_without_persistent_w = max(0.0, v2_solar)
+                    # v16.0.566 LOCAL: persistent-overcast Legacy-relative
+                    # ceiling removed from V2. Weather opacity and adverse
+                    # conditions remain applied before this point.
+                    if pv_capacity_w is not None:
+                        v2_solar = min(v2_solar, pv_capacity_w)
+                    # A physically dark hour cannot generate PV. The
+                    # reconciled baseline may retain recorder noise outside
+                    # astronomical daylight; never pass that noise to energy
+                    # planning. Preserve unknown astronomy as unknown rather
+                    # than guessing a sunrise/sunset time.
+                    daylight_fraction = independent_daylight_fraction(dt)
+                    if daylight_fraction == 0.0 and v2_solar > 0:
+                        v2_guard_reasons.append("astronomical_night_zero")
+                        v2_solar = 0.0
+                    v2_solar = round(v2_solar, 1)
+                    v21_without_persistent_w = round(min(v21_without_persistent_w, pv_capacity_w) if pv_capacity_w is not None else v21_without_persistent_w, 1)
+                    v21_without_legacy_w = round(min(v21_without_legacy_w, pv_capacity_w) if pv_capacity_w is not None else v21_without_legacy_w, 1)
+                    if v21_diffuse_candidate_w is not None:
+                        v21_diffuse_candidate_w = round(min(v21_diffuse_candidate_w, pv_capacity_w)
+                            if pv_capacity_w is not None else v21_diffuse_candidate_w, 1)
+                    if v21_independent_radiation_w is not None:
+                        v21_independent_radiation_w = round(min(v21_independent_radiation_w, pv_capacity_w)
+                            if pv_capacity_w is not None else v21_independent_radiation_w, 1)
+                    adjusted_solar = v2_solar
+                else:
+                    # A missing canonical hourly baseline is not zero PV.
+                    # Preserve the exact Legacy planning value and mark the
+                    # fallback explicitly in the same-hour V2 evidence.
+                    v2_guard_reasons.append("historical_baseline_missing_legacy_fallback")
+                    v2_fallback_reason = "historical_baseline_missing"
+                    v2_solar = legacy_solar
+                    v2_legacy_ceiling_counterfactual_w = legacy_solar
+                    v2_pre_guard_power_w = legacy_solar
+                    adjusted_solar = legacy_solar
+                    # Baseline fallback is not evidence for ceiling removal.
+                    # Preserve the identical fallback in both shadows.
+                    v21_without_persistent_w = legacy_solar
+                    v21_without_legacy_w = legacy_solar
+                    v21_diffuse_candidate_w = legacy_solar
             net_w = (adjusted_solar or 0) - (house or 0)
             charge_w = max(net_w, 0)
             discharge_w = max(-net_w, 0)
@@ -3312,9 +3704,29 @@ class ForecastEngine:
                 "baseline_solar_power_w": baseline_solar,
                 "raw_solar_power_w": raw_solar,
                 "solar_power_w": adjusted_solar,
+                "legacy_solar_power_w": legacy_solar,
+                "v2_solar_power_w": v2_solar,
+                "v2_legacy_ceiling_counterfactual_w": v2_legacy_ceiling_counterfactual_w,
+                "v2_legacy_ceiling_counterfactual_guards": v2_legacy_ceiling_counterfactual_guards,
+                "forecast_engine_mode": forecast_mode,
+                "v2_guard_reasons": v2_guard_reasons,
+                "v2_baseline_days": v2_baseline_days,
+                "v2_cloud_factor": v2_cloud_factor,
+                "v2_baseline_power_w": v2_baseline_power_w,
+                "v2_pre_guard_power_w": v2_pre_guard_power_w,
+                "v2_after_cloud_before_condition_w": v2_after_cloud_before_condition_w,
+                "v2_after_condition_before_caps_w": v2_after_condition_before_caps_w,
+                "v2_after_legacy_caps_w": v2_after_legacy_caps_w,
+                "v2_fallback_reason": v2_fallback_reason,
+                "v21_without_persistent_w": v21_without_persistent_w,
+                "v21_without_legacy_w": v21_without_legacy_w,
+                "v230_reduced_cloud_w": v230_reduced_cloud_w,
+                "v21_diffuse_candidate_w": v21_diffuse_candidate_w,
+                "v21_independent_radiation_w": v21_independent_radiation_w,
                 "adaptive_correction_percent": round(contextual_correction_percent, 1),
                 "calibration_context": calibration_context,
                 "calibration_source": calibration_source,
+                "shadow_calibration_multiplier": learned_factor,
                 "global_adaptive_correction_percent": adaptive.get("applied_correction_percent", 0.0),
                 "house_power_w": house,
                 "surplus_power_w": round(max(net_w, 0), 1) if adjusted_solar is not None and house is not None else None,
@@ -3352,8 +3764,8 @@ class ForecastEngine:
                 row_start = row_local_time(row)
                 if row_start is None:
                     continue
-                row_end = row_start + timedelta(hours=1)
-                if row_end > start and row_start < end:
+                row_end = dt_util.as_local(dt_util.as_utc(row_start) + timedelta(hours=1))
+                if dt_util.as_utc(row_end) > dt_util.as_utc(start) and dt_util.as_utc(row_start) < dt_util.as_utc(end):
                     selected.append(row)
             return selected
 
@@ -3367,15 +3779,15 @@ class ForecastEngine:
                 row_start = row_local_time(row)
                 if row_start is None:
                     continue
-                row_end = row_start + timedelta(hours=1)
-                overlap_start = max(start, row_start)
-                overlap_end = min(end, row_end)
-                overlap_hours = max(0.0, (overlap_end - overlap_start).total_seconds() / 3600.0)
+                row_end = dt_util.as_local(dt_util.as_utc(row_start) + timedelta(hours=1))
+                overlap_start = max((start, row_start), key=dt_util.as_utc)
+                overlap_end = min((end, row_end), key=dt_util.as_utc)
+                overlap_hours = max(0.0, (dt_util.as_utc(overlap_end) - dt_util.as_utc(overlap_start)).total_seconds() / 3600.0)
                 total_wh += (row.get(key) or 0) * overlap_hours
             return round(total_wh / 1000.0, 2)
 
-        rolling_24_end = now + timedelta(hours=24)
-        rolling_48_end = now + timedelta(hours=48)
+        rolling_24_end = dt_util.as_local(dt_util.as_utc(now) + timedelta(hours=24))
+        rolling_48_end = dt_util.as_local(dt_util.as_utc(now) + timedelta(hours=48))
         today_rows = rows_overlapping(now, rolling_24_end)
         tomorrow_rows = rows_overlapping(rolling_24_end, rolling_48_end)
         raw_today_solar = energy_between(now, rolling_24_end, "raw_solar_power_w")
@@ -3390,13 +3802,20 @@ class ForecastEngine:
         tomorrow_export = energy_between(rolling_24_end, rolling_48_end, "grid_export_power_w")
 
         rolling_valid = [h for h in rows_overlapping(now, rolling_24_end) if h.get("sample_count", 0) > 0]
-        future_window_rows = [h for h in rolling_valid if (row_local_time(h) is not None and row_local_time(h) >= now)]
+        # Compare absolute instants, not local wall times: at DST fall-back,
+        # the second 02:00 is later than the first even though both display 02:00.
+        future_window_rows = [
+            h for h in rolling_valid
+            if row_local_time(h) is not None
+            and dt_util.as_utc(row_local_time(h)) >= dt_util.as_utc(now)
+        ]
         best = max(future_window_rows, key=lambda h: h.get("surplus_power_w") or 0, default=None)
 
         daily_forecast = []
         for day_offset in range(7):
-            rows = hourly[day_offset * 24:(day_offset + 1) * 24]
-            target_date = (forecast_start + timedelta(days=day_offset)).date()
+            target_date = forecast_start.date() + timedelta(days=day_offset)
+            rows = [h for h in hourly if row_local_time(h) is not None
+                    and row_local_time(h).date() == target_date]
             peak = max(rows, key=lambda h: h.get("solar_power_w") or 0, default=None)
             conditions = [str(h.get("condition")) for h in rows if h.get("condition") and h.get("weather_forecast_applied")]
             weather_applied = any(bool(r.get("weather_forecast_applied")) for r in rows)
@@ -3429,7 +3848,7 @@ class ForecastEngine:
             # Home Assistant has already measured. Future calendar days retain the
             # existing weather-first / robust canonical-history fallback contract.
             if day_offset == 0 and canonical_today:
-                day_end = forecast_start + timedelta(days=1)
+                day_end = dt_util.start_of_local_day(forecast_start.date() + timedelta(days=1))
                 future_rows = rows_overlapping(now, day_end)
                 future_weather_applied = any(bool(r.get("weather_forecast_applied")) for r in future_rows)
 
@@ -3473,16 +3892,743 @@ class ForecastEngine:
                 }
                 for r in rows if r.get("weather_forecast_applied")
             ][:6]
+            # Read-only astronomical daylight evidence. Use Home Assistant's
+            # configured installation location and the target calendar date.
+            # The actual forecast pipeline and its hourly baselines are unchanged.
+            sunrise_utc = sunset_utc = None
+            daylight_failure = None
+            daylight_parsed_hours = 0
+            try:
+                # Compute from the configured installation coordinates directly.
+                # Some installations do not provide sunrise/sunset via the
+                # optional Home Assistant sun helper. Astral is an HA dependency.
+                from astral import Observer
+                from astral.sun import sun as astral_sun
+                # ForecastEngine does not own `hass`; its attached AionCore
+                # provides the canonical Home Assistant instance.
+                hass = self.core.hass if self.core is not None else None
+                if hass is None:
+                    raise ValueError("forecast_core_unavailable")
+                observer = Observer(
+                    latitude=float(hass.config.latitude),
+                    longitude=float(hass.config.longitude),
+                    elevation=float(hass.config.elevation or 0),
+                )
+                events = astral_sun(observer, date=target_date, tzinfo=timezone.utc)
+                sunrise_utc = events.get("sunrise")
+                sunset_utc = events.get("sunset")
+            except Exception as err:
+                # Never disclose location coordinates or exception arguments.
+                daylight_failure = "astronomy:" + type(err).__name__
+                sunrise_utc = sunset_utc = None
+            daylight_rows = []
+            if sunrise_utc is not None and sunset_utc is not None and sunset_utc > sunrise_utc:
+                for r in rows:
+                    try:
+                        at = dt_util.parse_datetime(str(r.get("time") or ""))
+                        if at is None:
+                            continue
+                        at = dt_util.as_utc(at)
+                        daylight_parsed_hours += 1
+                    except (TypeError, ValueError, OverflowError):
+                        continue
+                    # Include hourly buckets intersecting daylight. A boundary
+                    # bucket counts as one hour of weather coverage, not as one
+                    # full astronomical daylight hour.
+                    if at < sunset_utc and at + timedelta(hours=1) > sunrise_utc:
+                        daylight_rows.append(r)
+            matched_daylight = [r for r in daylight_rows if r.get("weather_forecast_applied")]
+            baseline_daylight_wh = sum(max(0.0, float(r.get("baseline_solar_power_w") or 0)) for r in daylight_rows)
+            matched_baseline_wh = sum(max(0.0, float(r.get("baseline_solar_power_w") or 0)) for r in matched_daylight)
+            daylight_available = sunrise_utc is not None and sunset_utc is not None and sunset_utc > sunrise_utc and daylight_parsed_hours > 0
+            if daylight_failure is None and not daylight_available:
+                daylight_failure = "invalid_sun_boundaries" if sunrise_utc is None or sunset_utc is None or sunset_utc <= sunrise_utc else "no_parseable_hourly_timestamps"
+            baseline_trace = energy(rows, "baseline_solar_power_w")
+            raw_trace = energy(rows, "raw_solar_power_w")
+            calibrated_trace = energy(rows, "solar_power_w")
+            # v16.0.243: diagnostic-only counterfactual cloud models.
+            # Preserve the production weather and calibration pipeline unchanged.
+            # Candidate outputs are not used for planning, control or sensor states.
+            # Read-only counterfactuals use exactly the weather factor that the
+            # production hourly forecast consumed. This is critical for weather
+            # providers that expose condition factors but no cloud percentage.
+            shadow_totals = {"moderate": 0.0, "lighter": 0.0}
+            shadow_numeric = shadow_condition = shadow_factor = 0
+            shadow_unmatched = shadow_invalid = 0
+            shadow_weather_hours = 0
+            for shadow_row in rows:
+                try:
+                    baseline = shadow_row.get("baseline_solar_power_w")
+                    if baseline is None:
+                        continue
+                    baseline = max(0.0, float(baseline))
+                    multiplier = float(shadow_row.get("shadow_calibration_multiplier") or 1.0)
+                    original_factor = float(shadow_row.get("weather_factor"))
+                    if not all(math.isfinite(x) for x in (baseline, multiplier, original_factor)):
+                        shadow_invalid += 1
+                        continue
+                    original_factor = max(0.0, min(1.0, original_factor))
+                except (ValueError, TypeError, OverflowError):
+                    shadow_invalid += 1
+                    continue
+                if shadow_row.get("weather_forecast_applied"):
+                    shadow_weather_hours += 1
+                    raw_cloud = shadow_row.get("cloud_coverage")
+                    try:
+                        cloud = float(raw_cloud) if raw_cloud is not None else None
+                        if cloud is not None and not math.isfinite(cloud):
+                            cloud = None
+                    except (ValueError, TypeError, OverflowError):
+                        cloud = None
+                    if cloud is not None:
+                        cloud = max(0.0, min(100.0, cloud))
+                        shadow_numeric += 1
+                        factors = (max(0.08, 1.0 - cloud / 150.0),
+                                   max(0.08, 1.0 - cloud / 200.0))
+                    else:
+                        # Re-scale the *actual applied attenuation*, not an
+                        # invented cloud-cover percentage. This also supports
+                        # HA providers that only expose weather conditions.
+                        if shadow_row.get("condition"):
+                            shadow_condition += 1
+                        else:
+                            shadow_factor += 1
+                        loss = max(0.0, 1.0 - original_factor)
+                        factors = (max(0.08, 1.0 - loss * 115.0 / 150.0),
+                                   max(0.08, 1.0 - loss * 115.0 / 200.0))
+                else:
+                    shadow_unmatched += 1
+                    factors = (1.0, 1.0)
+                shadow_totals["moderate"] += baseline * factors[0] * multiplier / 1000.0
+                shadow_totals["lighter"] += baseline * factors[1] * multiplier / 1000.0
+            shadow_ready = bool(shadow_weather_hours) and shadow_invalid == 0
+            shadow_diagnostics = {
+                "target_date": target_date.isoformat(),
+                "current_production_forecast_kwh": round(max(expected_solar, 0.0), 2),
+                "moderate_cloud_kwh": round(shadow_totals["moderate"], 2) if shadow_ready else None,
+                "lighter_cloud_kwh": round(shadow_totals["lighter"], 2) if shadow_ready else None,
+                "cloud_matched_sample_hours": shadow_numeric,
+                "cloud_estimated_sample_hours": shadow_condition,
+                "cloud_factor_derived_hours": shadow_factor,
+                "cloud_unknown_sample_hours": shadow_unmatched,
+                "cloud_invalid_sample_hours": shadow_invalid,
+                "cloud_comparison_status": "Available · factor-derived where needed" if shadow_ready else "Unavailable · no valid weather evidence",
+                "method": "read_only_counterfactual_from_applied_weather_factor",
+                "note": "Non-numeric weather uses applied production weather factor, not estimated cloud percentage. No production/control changes.",
+            }
+            # v16.0.267: read-only attenuation sensitivity test. These are
+            # counterfactuals, not new production forecasts. Reuse the exact
+            # existing hourly baselines and calibration multipliers. Historical
+            # solar samples already contain weather variability, so compare
+            # attenuation strengths without claiming a physical irradiance model.
+            sensitivity = {"production_factor": 0.0, "moderate_factor": 0.0,
+                           "lighter_factor": 0.0, "very_light_factor": 0.0,
+                           "unattenuated_baseline": 0.0}
+            sensitivity_hours = {"numeric_cloud": 0, "condition_only": 0,
+                                 "missing_weather": 0, "invalid_rows": 0}
+            sensitivity_daylight = []
+            for sr in rows:
+                try:
+                    base = float(sr.get("baseline_solar_power_w"))
+                    cal = float(sr.get("shadow_calibration_multiplier") or 1.0)
+                    original = float(sr.get("weather_factor"))
+                    if not all(math.isfinite(v) for v in (base, cal, original)):
+                        raise ValueError("nonfinite")
+                    base = max(0.0, base)
+                    original = max(0.0, min(1.0, original))
+                except (TypeError, ValueError, OverflowError):
+                    sensitivity_hours["invalid_rows"] += 1
+                    continue
+                cloud = None
+                if sr.get("weather_forecast_applied"):
+                    try:
+                        raw_cloud = sr.get("cloud_coverage")
+                        cloud = float(raw_cloud) if raw_cloud is not None else None
+                        if cloud is not None and not math.isfinite(cloud):
+                            cloud = None
+                    except (TypeError, ValueError, OverflowError):
+                        cloud = None
+                    if cloud is None:
+                        sensitivity_hours["condition_only"] += 1
+                    else:
+                        sensitivity_hours["numeric_cloud"] += 1
+                        cloud = max(0.0, min(100.0, cloud))
+                else:
+                    sensitivity_hours["missing_weather"] += 1
+                # No fabricated cloud values: rescale the observed applied
+                # factor for condition-only rows; missing weather stays neutral.
+                if cloud is not None:
+                    moderate = max(0.08, 1.0 - cloud / 150.0)
+                    lighter = max(0.08, 1.0 - cloud / 200.0)
+                    very_light = max(0.08, 1.0 - cloud / 250.0)
+                elif sr.get("weather_forecast_applied"):
+                    loss = max(0.0, 1.0 - original)
+                    moderate = max(0.08, 1.0 - loss * 115.0 / 150.0)
+                    lighter = max(0.08, 1.0 - loss * 115.0 / 200.0)
+                    very_light = max(0.08, 1.0 - loss * 115.0 / 250.0)
+                else:
+                    moderate = lighter = very_light = 1.0
+                values = {
+                    "production_factor": original,
+                    "moderate_factor": moderate,
+                    "lighter_factor": lighter,
+                    "very_light_factor": very_light,
+                    "unattenuated_baseline": 1.0,
+                }
+                for key, factor in values.items():
+                    sensitivity[key] += base * cal * factor / 1000.0
+                if base >= 100.0:
+                    sensitivity_daylight.append({
+                        "hour": sr.get("hour"),
+                        "cloud_percent": round(cloud, 1) if cloud is not None else None,
+                        "production_factor": round(original, 3),
+                        "moderate_factor": round(moderate, 3),
+                        "lighter_factor": round(lighter, 3),
+                        "very_light_factor": round(very_light, 3),
+                        "baseline_w": round(base, 1),
+                    })
+            attenuation_sensitivity = {
+                "target_date": target_date.isoformat(),
+                "status": "available" if sensitivity_hours["numeric_cloud"] or sensitivity_hours["condition_only"] else "no_weather_evidence",
+                "weather_factor_formula": "max(0.08, 1 - cloud_percent / 115)",
+                "method": "read_only_same_hourly_baseline_and_calibration",
+                "numeric_cloud_hours": sensitivity_hours["numeric_cloud"],
+                "condition_only_hours": sensitivity_hours["condition_only"],
+                "missing_weather_hours": sensitivity_hours["missing_weather"],
+                "invalid_rows": sensitivity_hours["invalid_rows"],
+                "production_pipeline_kwh": round(sensitivity["production_factor"], 2),
+                "moderate_kwh": round(sensitivity["moderate_factor"], 2),
+                "lighter_kwh": round(sensitivity["lighter_factor"], 2),
+                "very_light_kwh": round(sensitivity["very_light_factor"], 2),
+                "unattenuated_kwh": round(sensitivity["unattenuated_baseline"], 2),
+                "daylight_sample": sensitivity_daylight[:24],
+                "warning": "Sensitivity only, not validated against actual irradiance or future production; does not replace the production forecast.",
+                "production_applied": False,
+                "control_permission": False,
+            }
+            # v16.0.269: compare alternate baselines using EXACTLY the
+            # same target-hour weather factors and calibration as production.
+            # Diagnostic only; no production forecast or control changes.
+            baseline_counterfactual_rows = []
+            baseline_counterfactual_totals = {
+                "current_kwh": 0.0, "equal_day_kwh": 0.0,
+                "interval_weighted_kwh": 0.0,
+            }
+            missing_alternative_hours = []
+            invalid_pipeline_hours = []
+            for forecast_row in rows:
+                hour = forecast_row.get("hour")
+                try:
+                    hour = int(hour)
+                    baseline = float(forecast_row["baseline_solar_power_w"])
+                    weather_factor = float(forecast_row["weather_factor"])
+                    cal_value = forecast_row.get("shadow_calibration_multiplier")
+                    calibration = float(cal_value) if cal_value is not None else 1.0
+                    if not all(math.isfinite(v) for v in (baseline, weather_factor, calibration)):
+                        raise ValueError("nonfinite forecast inputs")
+                except (TypeError, ValueError, OverflowError, KeyError):
+                    invalid_pipeline_hours.append(hour)
+                    continue
+                audit = solar_baseline_audit(target_date, hour)
+                if audit is None:
+                    missing_alternative_hours.append(hour)
+                current = max(0.0, baseline) * weather_factor * calibration / 1000.0
+                equal = (max(0.0, float(audit["equal_day_w"])) * weather_factor * calibration / 1000.0
+                         if audit is not None else None)
+                weighted = (max(0.0, float(audit["interval_weighted_w"])) * weather_factor * calibration / 1000.0
+                            if audit is not None else None)
+                baseline_counterfactual_totals["current_kwh"] += current
+                if equal is not None:
+                    baseline_counterfactual_totals["equal_day_kwh"] += equal
+                if weighted is not None:
+                    baseline_counterfactual_totals["interval_weighted_kwh"] += weighted
+                baseline_counterfactual_rows.append({
+                    "hour": hour,
+                    "weather_factor": round(weather_factor, 3),
+                    "calibration_multiplier": round(calibration, 3),
+                    "current_kwh": round(current, 4),
+                    "equal_day_kwh": round(equal, 4) if equal is not None else None,
+                    "interval_weighted_kwh": round(weighted, 4) if weighted is not None else None,
+                    "historical_days": audit["historical_days"] if audit else 0,
+                    "snapshots": audit["snapshots"] if audit else 0,
+                })
+            baseline_counterfactual = {
+                "target_date": target_date.isoformat(),
+                "status": ("available" if len(baseline_counterfactual_rows) == len(rows)
+                           and not missing_alternative_hours and not invalid_pipeline_hours
+                           else "incomplete_evidence"),
+                "method": "same_hourly_weather_and_calibration_read_only",
+                "current_kwh": round(baseline_counterfactual_totals["current_kwh"], 3)
+                    if len(baseline_counterfactual_rows) == len(rows) else None,
+                "equal_day_kwh": round(baseline_counterfactual_totals["equal_day_kwh"], 3)
+                    if not missing_alternative_hours and not invalid_pipeline_hours
+                    and len(baseline_counterfactual_rows) == len(rows) else None,
+                "interval_weighted_kwh": round(baseline_counterfactual_totals["interval_weighted_kwh"], 3)
+                    if not missing_alternative_hours and not invalid_pipeline_hours
+                    and len(baseline_counterfactual_rows) == len(rows) else None,
+                "missing_alternative_hours": missing_alternative_hours,
+                "invalid_pipeline_hours": invalid_pipeline_hours,
+                "hourly": baseline_counterfactual_rows,
+                "warning": ("Sensitivity to historical sample weighting only. Not a validated "
+                            "production forecast. Same hourly weather and calibration; "
+                            "interval weighting caps gaps at 15 minutes."),
+                "production_applied": False,
+                "control_permission": False,
+            }
+            # v16.0.270: read-only cross-product of historical baseline methods
+            # and observed cloud attenuation scenarios. Production untouched.
+            combined_models = ("current_snapshot", "equal_day", "interval_weighted")
+            combined_scenarios = ("current_weather", "moderate_150", "lighter_200", "very_light_250")
+            combined_totals = {model: {scenario: 0.0 for scenario in combined_scenarios}
+                               for model in combined_models}
+            combined_hours = []
+            combined_missing = []
+            combined_invalid = []
+            for cr in rows:
+                hour = cr.get("hour")
+                try:
+                    hour = int(hour)
+                    base = float(cr["baseline_solar_power_w"])
+                    applied = float(cr["weather_factor"])
+                    cal_raw = cr.get("shadow_calibration_multiplier")
+                    cal = float(cal_raw) if cal_raw is not None else 1.0
+                    if not all(math.isfinite(v) for v in (base, applied, cal)):
+                        raise ValueError("nonfinite")
+                    if base < 0 or not 0 <= applied <= 1 or cal < 0:
+                        raise ValueError("invalid range")
+                except (ValueError, TypeError, OverflowError, KeyError):
+                    combined_invalid.append(hour)
+                    continue
+                audit = solar_baseline_audit(target_date, hour)
+                if audit is None:
+                    combined_missing.append(hour)
+                    continue
+                cloud = None
+                if cr.get("weather_forecast_applied"):
+                    try:
+                        raw_cloud = cr.get("cloud_coverage")
+                        if raw_cloud is not None:
+                            cloud = float(raw_cloud)
+                            if not math.isfinite(cloud):
+                                cloud = None
+                    except (TypeError, ValueError, OverflowError):
+                        cloud = None
+                if cloud is not None:
+                    cloud = max(0.0, min(100.0, cloud))
+                    factors = {"current_weather": applied,
+                               "moderate_150": max(0.08, 1.0-cloud/150.0),
+                               "lighter_200": max(0.08, 1.0-cloud/200.0),
+                               "very_light_250": max(0.08, 1.0-cloud/250.0)}
+                elif cr.get("weather_forecast_applied"):
+                    loss = max(0.0, 1.0-applied)
+                    factors = {"current_weather": applied,
+                               "moderate_150": max(0.08, 1.0-loss*115.0/150.0),
+                               "lighter_200": max(0.08, 1.0-loss*115.0/200.0),
+                               "very_light_250": max(0.08, 1.0-loss*115.0/250.0)}
+                else:
+                    factors = {scenario: 1.0 for scenario in combined_scenarios}
+                baselines = {"current_snapshot": base,
+                             "equal_day": float(audit["equal_day_w"]),
+                             "interval_weighted": float(audit["interval_weighted_w"])}
+                if not all(math.isfinite(v) and v >= 0 for v in baselines.values()):
+                    combined_invalid.append(hour)
+                    continue
+                for model, power in baselines.items():
+                    for scenario, factor in factors.items():
+                        combined_totals[model][scenario] += power*factor*cal/1000.0
+                combined_hours.append({"hour": hour,
+                                       "cloud_percent": round(cloud,1) if cloud is not None else None,
+                                       "weather_matched": bool(cr.get("weather_forecast_applied")),
+                                       "historical_days": audit["historical_days"],
+                                       "snapshots": audit["snapshots"]})
+            combined_day_hours = int((
+                dt_util.as_utc(dt_util.start_of_local_day(target_date + timedelta(days=1))) -
+                dt_util.as_utc(dt_util.start_of_local_day(target_date))
+            ).total_seconds() / 3600)
+            combined_complete = (combined_day_hours == 24 and len(combined_hours) == 24
+                                 and not combined_missing and not combined_invalid)
+            combined_baseline_weather = {
+                "status": "available" if combined_complete else "incomplete_evidence",
+                "target_date": target_date.isoformat(),
+                "method": "same_hourly_inputs_and_calibration_cross_product_read_only",
+                "matrix_kwh": ({model: {scenario: round(value,3) for scenario,value in scenarios.items()}
+                                for model,scenarios in combined_totals.items()} if combined_complete else None),
+                "missing_baseline_hours": combined_missing,
+                "invalid_hours": combined_invalid,
+                "hours_evaluated": len(combined_hours),
+                "numeric_cloud_hours": sum(row["cloud_percent"] is not None for row in combined_hours),
+                "condition_only_hours": sum(row["weather_matched"] and row["cloud_percent"] is None for row in combined_hours),
+                "missing_weather_hours": sum(not row["weather_matched"] for row in combined_hours),
+                "production_applied": False,
+                "control_permission": False,
+                "warning": "Sensitivity comparison, not validated irradiance or a recommended production forecast."
+            }
+            # v16.0.271: one coherent experimental forecast candidate.
+            # Equal historical day means + moderate cloud attenuation (÷200).
+            # Do not apply historical adaptive bias without verified training
+            # outcomes; retain it separately as a shadow diagnostic.
+            candidate_energy = None
+            candidate_source = "unavailable"
+            candidate_rows = [r for r in hourly if row_local_time(r) is not None
+                              and row_local_time(r).date() == target_date]
+            # Compare the two forecast paths on the same complete local calendar
+            # day, which can contain 23, 24, or 25 physical hours.
+            target_start_utc = dt_util.as_utc(dt_util.start_of_local_day(target_date))
+            target_end_utc = dt_util.as_utc(dt_util.start_of_local_day(target_date + timedelta(days=1)))
+            expected_target_hours = int((target_end_utc - target_start_utc).total_seconds() / 3600)
+            candidate_hours_complete = (
+                len(candidate_rows) == expected_target_hours
+                and len({dt_util.as_utc(row_local_time(r)) for r in candidate_rows}) == expected_target_hours
+            )
+            # The historical cross-product's current_snapshot total is a
+            # separate counterfactual and must not be labelled current pipeline.
+            legacy_comparison_kwh = None
+            if candidate_hours_complete and all(r.get("legacy_solar_power_w") is not None for r in candidate_rows):
+                legacy_comparison_kwh = round(sum(r["legacy_solar_power_w"] for r in candidate_rows) / 1000.0, 3)
+            if forecast_mode == "v2" and candidate_hours_complete and all(r.get("v2_solar_power_w") is not None for r in candidate_rows):
+                candidate_energy = round(sum(r["v2_solar_power_w"] for r in candidate_rows) / 1000.0, 3)
+                candidate_source = "active_v2_hourly"
+            # A complete historical baseline is not a weather-qualified
+            # forecast. Do not advertise it as a validated V2 candidate when
+            # tomorrow has no matched weather hours. Production is untouched.
+            matched_candidate_weather = sum(bool(r.get("weather_forecast_applied")) for r in candidate_rows)
+            if candidate_source == "active_v2_hourly" and matched_candidate_weather == 0:
+                candidate_energy = None
+                candidate_source = "missing_weather_evidence"
+            # Never substitute a read-only sensitivity counterfactual for
+            # the active V2 forecast. Incomplete evidence remains unavailable.
+            guard_counts = {}
+            for forecast_hour in candidate_rows:
+                for reason in forecast_hour.get("v2_guard_reasons") or []:
+                    guard_counts[reason] = guard_counts.get(reason, 0) + 1
+            baseline_fallback_hours = sum(
+                1 for forecast_hour in candidate_rows
+                if forecast_hour.get("v2_baseline_days") is None
+            )
+            # Explain the production-path gap using only already-calculated
+            # hourly rows. No new weather queries or calibration passes.
+            # This is an accounting decomposition, not an accuracy claim.
+            path_audit = {
+                "legacy_kwh": legacy_comparison_kwh,
+                "v2_kwh": candidate_energy if candidate_source == "active_v2_hourly" else None,
+                "baseline_fallback_hours": baseline_fallback_hours,
+                "local_day_hours_expected": expected_target_hours,
+                "local_day_hours_observed": len(candidate_rows),
+                "complete_local_day": candidate_hours_complete,
+                "guard_hours_by_reason": guard_counts,
+                "hourly_evidence": [],
+            }
+            for forecast_hour in candidate_rows:
+                legacy_w = forecast_hour.get("legacy_solar_power_w")
+                v2_w = forecast_hour.get("v2_solar_power_w")
+                effective_w = v2_w if v2_w is not None else legacy_w
+                path_audit["hourly_evidence"].append({
+                    "hour": forecast_hour.get("hour"),
+                    "legacy_w": legacy_w,
+                    "v2_w": v2_w,
+                    "old_v2_with_legacy_ceilings_w": forecast_hour.get("v2_legacy_ceiling_counterfactual_w"),
+                    "old_ceiling_guards": forecast_hour.get("v2_legacy_ceiling_counterfactual_guards") or [],
+                    "effective_w": effective_w,
+                    "baseline_days": forecast_hour.get("v2_baseline_days"),
+                    "baseline_w": forecast_hour.get("v2_baseline_power_w"),
+                    "pre_guard_w": forecast_hour.get("v2_pre_guard_power_w"),
+                    "cloud_factor": forecast_hour.get("v2_cloud_factor"),
+                    "weather_factor": forecast_hour.get("weather_factor"),
+                    "cloud_coverage": forecast_hour.get("cloud_coverage"),
+                    "condition": forecast_hour.get("condition"),
+                    "guards": forecast_hour.get("v2_guard_reasons") or [],
+                })
+            def _audit_kwh(field):
+                values = [r.get(field) for r in candidate_rows]
+                if not candidate_hours_complete or any(v is None for v in values):
+                    return None
+                return round(sum(values) / 1000.0, 3)
+
+            old_v2_kwh = _audit_kwh("v2_legacy_ceiling_counterfactual_w")
+            new_v2_kwh = path_audit["v2_kwh"]
+            path_audit["legacy_ceiling_removal_comparison"] = {
+                "status": "available_read_only" if old_v2_kwh is not None and new_v2_kwh is not None else "incomplete_evidence",
+                "target_date": target_date.isoformat(),
+                "old_v2_with_legacy_ceilings_kwh": old_v2_kwh,
+                "new_v2_without_legacy_ceilings_kwh": new_v2_kwh,
+                "difference_kwh": round(new_v2_kwh - old_v2_kwh, 3) if old_v2_kwh is not None and new_v2_kwh is not None else None,
+                "same_hourly_baseline_and_weather": True,
+                "read_only_old_model": True,
+                "production_applied": False,
+                "note": "Current live input counterfactual; not a frozen pre-day accuracy comparison",
+            }
+            path_audit["baseline_kwh"] = _audit_kwh("v2_baseline_power_w")
+            path_audit["pre_guard_kwh"] = _audit_kwh("v2_pre_guard_power_w")
+            path_audit["weather_change_kwh"] = (
+                round(path_audit["pre_guard_kwh"] - path_audit["baseline_kwh"], 3)
+                if path_audit["pre_guard_kwh"] is not None and path_audit["baseline_kwh"] is not None else None
+            )
+            path_audit["guard_change_kwh"] = (
+                round(path_audit["v2_kwh"] - path_audit["pre_guard_kwh"], 3)
+                if path_audit["v2_kwh"] is not None and path_audit["pre_guard_kwh"] is not None else None
+            )
+            # Read-only cloud attenuation comparison on the same V2 hourly baseline.
+            cloud_test = {"status": "incomplete_evidence", "target_date": target_date.isoformat(),
+                          "baseline_kwh": path_audit["baseline_kwh"], "current_v2_kwh": path_audit["v2_kwh"],
+                          "candidate_a_kwh": None, "candidate_b_kwh": None,
+                          "method": "same_v2_baseline_numeric_cloud_guard_ratio",
+                          "candidate_a_divisor": 170, "candidate_b_divisor": 200,
+                          "hours": [], "production_applied": False, "control_permission": False,
+                          "note": "Read-only current snapshot, not frozen validation."}
+            if forecast_mode == "v2" and candidate_hours_complete:
+                sums = [0.0, 0.0]
+                complete = True
+                for hour in candidate_rows:
+                    try:
+                        if not hour.get("weather_forecast_applied"):
+                            raise ValueError("missing weather")
+                        vals = [hour.get(k) for k in ("v2_baseline_power_w", "v2_pre_guard_power_w",
+                            "v2_solar_power_w", "cloud_coverage")]
+                        if any(v is None for v in vals):
+                            raise ValueError("missing numeric evidence")
+                        base, pre, final, cloud = map(float, vals)
+                        if not all(math.isfinite(v) for v in (base, pre, final, cloud)) or not 0 <= cloud <= 100:
+                            raise ValueError("invalid numeric evidence")
+                        original = max(0.08, 1.0-cloud/150.0)
+                        condition_ratio = min(1.0,max(0.0,pre/(base*original))) if base*original>0 else 1.0
+                        guard_ratio = min(1.0,max(0.0,final/pre)) if pre>0 else 1.0
+                        estimates = [round(base*max(0.08,1.0-cloud/d)*condition_ratio*guard_ratio,1) for d in (170.,200.)]
+                        for i in range(2): sums[i] += estimates[i]/1000.0
+                        cloud_test["hours"].append({"time":hour.get("time"), "cloud_percent":cloud,
+                            "baseline_w":base,"current_w":final,"candidate_a_w":estimates[0],
+                            "candidate_b_w":estimates[1],"guard_ratio":round(guard_ratio,4)})
+                    except (TypeError,ValueError,OverflowError):
+                        complete = False
+                if complete:
+                    cloud_test["candidate_a_kwh"] = round(sums[0],3)
+                    cloud_test["candidate_b_kwh"] = round(sums[1],3)
+                    cloud_test["status"] = "available_read_only"
+            path_audit["v21_cloud_sensitivity"] = cloud_test
+            forecast_correction_candidate = {
+                "status": "production_candidate_opt_in" if candidate_source == "active_v2_hourly" else "incomplete_evidence",
+                "target_date": target_date.isoformat(),
+                "candidate_kwh": candidate_energy,
+                "candidate_source": candidate_source,
+                "current_pipeline_kwh": legacy_comparison_kwh,
+                "current_pipeline_source": "same_local_day_legacy_path" if legacy_comparison_kwh is not None else "unavailable",
+                "v2_guard_hours_by_reason": guard_counts,
+                "v2_baseline_fallback_hours": baseline_fallback_hours,
+                "v2_calculation_path_audit": path_audit,
+                "read_only_current_snapshot_kwh": (
+                    round(combined_totals["current_snapshot"]["current_weather"], 3)
+                    if combined_complete else None
+                ),
+                "historical_baseline_method": "canonical_energy_reconciled_recent_p80_hourly_envelope",
+                "cloud_attenuation_method": "numeric_cloud_150_with_adverse_weather_without_legacy_relative_ceilings",
+                "site_bias_multiplier": 1.0,
+                "bias_calibration_status": "disabled_pending_verified_out_of_sample_evidence",
+                "historical_days_minimum": min(
+                    (h["historical_days"] for h in combined_hours), default=0
+                ),
+                "active_engine_mode": forecast_mode,
+                # Use the same physical local-day rows as the V2/Legacy
+                # comparison. A DST transition can have 23 or 25 hours.
+                "weather_hours": sum(bool(h.get("weather_forecast_applied")) for h in candidate_rows),
+                "weather_hours_expected": expected_target_hours,
+                "numeric_cloud_hours": sum(
+                    bool(h.get("weather_forecast_applied")) and h.get("cloud_coverage") is not None
+                    for h in candidate_rows
+                ),
+                "warning": ("No matched weather for the target day: the legacy number is a historical fallback, not a reliable weather-adjusted forecast. Do not use for automated planning without review." if matched_candidate_weather == 0 else "V2 is unvalidated; heavy-cloud guard limits upward divergence from Legacy. Explicit opt-in only."),
+                "production_applied": False,
+                "control_permission": False,
+            }
+            # v16.0.256: read-only hourly forecast pipeline evidence. This is
+            # derived from the existing rows; no second forecast is calculated.
+            hourly_pipeline_audit = []
+            for audit_row in rows:
+                def audit_number(value):
+                    try:
+                        number = float(value)
+                        return round(number, 3) if math.isfinite(number) else None
+                    except (ValueError, TypeError, OverflowError):
+                        return None
+                # Read-only local/UTC and astronomical boundary evidence.
+                # Never change or filter the forecast power values here.
+                hour_utc = hour_local = daylight_overlap = None
+                daylight_fraction = guarded_candidate_w = removed_w = None
+                try:
+                    parsed_hour = dt_util.parse_datetime(str(audit_row.get("time") or ""))
+                    if parsed_hour is not None:
+                        utc_hour = dt_util.as_utc(parsed_hour)
+                        hour_utc = utc_hour.isoformat()
+                        hour_local = dt_util.as_local(utc_hour).isoformat()
+                        if sunrise_utc is not None and sunset_utc is not None:
+                            daylight_overlap = bool(utc_hour < sunset_utc and utc_hour + timedelta(hours=1) > sunrise_utc)
+                            # Read-only counterfactual: overlap of the hourly
+                            # average-power bucket with astronomical daylight.
+                            # This is NOT a physical irradiance model and is
+                            # deliberately never used for production/control.
+                            overlap_seconds = max(0.0, (min(utc_hour + timedelta(hours=1), sunset_utc) - max(utc_hour, sunrise_utc)).total_seconds())
+                            daylight_fraction = min(1.0, overlap_seconds / 3600.0)
+                            original = audit_number(audit_row.get("solar_power_w"))
+                            if original is not None:
+                                guarded_candidate_w = round(max(0.0, original) * daylight_fraction, 3)
+                                removed_w = round(max(0.0, original) - guarded_candidate_w, 3)
+                except (ValueError, TypeError, OverflowError):
+                    pass
+                hourly_pipeline_audit.append({
+                    "time": audit_row.get("time"),
+                    "time_utc": hour_utc,
+                    "time_local": hour_local,
+                    "intersects_astronomical_daylight": daylight_overlap,
+                    "daylight_fraction": audit_number(daylight_fraction),
+                    "daylight_guard_candidate_w": guarded_candidate_w,
+                    "daylight_guard_removed_w": removed_w,
+                    "baseline_w": audit_number(audit_row.get("baseline_solar_power_w")),
+                    "weather_factor": audit_number(audit_row.get("weather_factor")),
+                    "weather_adjusted_w": audit_number(audit_row.get("raw_solar_power_w")),
+                    "calibration_multiplier": audit_number(audit_row.get("shadow_calibration_multiplier")),
+                    "calibration_source": audit_row.get("calibration_source"),
+                    "final_w": audit_number(audit_row.get("solar_power_w")),
+                    "v21_without_persistent_w": audit_number(audit_row.get("v21_without_persistent_w")),
+                    "v21_without_legacy_w": audit_number(audit_row.get("v21_without_legacy_w")),
+                    "v21_diffuse_candidate_w": audit_number(audit_row.get("v21_diffuse_candidate_w")),
+                    "v21_independent_radiation_w": audit_number(audit_row.get("v21_independent_radiation_w")),
+                    "weather_matched": bool(audit_row.get("weather_forecast_applied")),
+                    "cloud_percent": audit_number(audit_row.get("cloud_coverage")),
+                    "sample_count": audit_row.get("sample_count"),
+                })
+            hourly_pipeline_evidence = {
+                "target_date": target_date.isoformat(),
+                "hours": hourly_pipeline_audit,
+                "sunrise_utc": sunrise_utc.isoformat() if sunrise_utc is not None else None,
+                "sunset_utc": sunset_utc.isoformat() if sunset_utc is not None else None,
+                "sunrise_local": dt_util.as_local(sunrise_utc).isoformat() if sunrise_utc is not None else None,
+                "sunset_local": dt_util.as_local(sunset_utc).isoformat() if sunset_utc is not None else None,
+                "astronomy_failure": daylight_failure,
+                "source": "existing_forecast_hourly_rows",
+                "daylight_guard_status": "read_only_counterfactual_not_production",
+                "daylight_guard_method": "hourly_daylight_overlap_fraction_not_irradiance",
+                "daylight_guard_original_kwh": round(sum(float(r["final_w"]) for r in hourly_pipeline_audit if r.get("final_w") is not None) / 1000, 3),
+                "daylight_guard_candidate_kwh": round(sum(float(r["daylight_guard_candidate_w"]) for r in hourly_pipeline_audit if r.get("daylight_guard_candidate_w") is not None) / 1000, 3),
+                "daylight_guard_missing_hours": sum(r.get("daylight_guard_candidate_w") is None for r in hourly_pipeline_audit),
+                "historical_power_source": "historical_hourly_recorder_power_samples",
+                "historical_entity_id": None,
+                "source_note": "The model uses historical solar power samples; the originating entity is not proven by this diagnostic. Do not infer it from daily energy mappings.",
+                "method": evidence_method,
+                "read_only": True,
+            }
+            # v16.0.418: evidence-gated hourly accuracy audit.  Tomorrow's
+            # mutable hourly forecast is NOT a frozen day-ahead prediction,
+            # and daily actuals cannot establish hourly accuracy.  Never
+            # manufacture a comparison from either source.
+            hourly_pipeline_evidence["hourly_accuracy_validation"] = {
+                "status": "awaiting_frozen_hourly_pairs",
+                "target_date": target_date.isoformat(),
+                "frozen_forecast_hours": 0,
+                "paired_measured_hours": 0,
+                "original_mae_w": None,
+                "guarded_mae_w": None,
+                "original_daily_error_kwh": None,
+                "guarded_daily_error_kwh": None,
+                "production_applied": False,
+                "control_permission": False,
+                "reason": "The existing tomorrow-hourly audit is a live forecast, not a persisted pre-day hourly snapshot. Daily measured totals are not hourly observations. No defensible out-of-sample hourly error can be calculated yet.",
+                "required_evidence": [
+                    "Immutable hourly forecast captured before the target local day",
+                    "Immutable daylight-guard candidate for those same hour buckets",
+                    "Recorder measured PV energy for the same local hourly intervals",
+                    "Matching entity provenance and UTC timestamps, including DST days",
+                ],
+            }
+            # Calendar-day automation values. Keep these on the daily row so
+            # Home Assistant entities can expose the exact same Forecast Engine
+            # evidence without creating a second forecast path.
+            remaining_solar = None
+            if day_offset == 0:
+                remaining_end = dt_util.start_of_local_day(target_date + timedelta(days=1))
+                # Remaining PV is physically limited to daylight. Use the same
+                # astronomical evidence already computed for this target day;
+                # do not change the hourly production forecast or frozen evidence.
+                if daylight_available:
+                    if dt_util.as_utc(now) >= sunset_utc:
+                        remaining_solar = 0.0
+                    else:
+                        daylight_start = max(
+                            (now, dt_util.as_local(sunrise_utc)), key=dt_util.as_utc
+                        )
+                        remaining_solar = energy_between(
+                            daylight_start, dt_util.as_local(sunset_utc), "solar_power_w"
+                        )
+                else:
+                    # Preserve the existing behavior if sun events are unavailable.
+                    remaining_solar = energy_between(
+                        now, remaining_end, "solar_power_w"
+                    )
+            energy_balance = round(float(expected_solar) - float(expected_load), 2)
+
             daily_forecast.append({
                 "date": target_date.isoformat(),
                 "label": "Today" if day_offset == 0 else "Tomorrow" if day_offset == 1 else target_date.strftime("%A"),
+                # Diagnostic trace of the *actual* model stages, not a second forecast.
+                # None means that Zeus has no explicit evidence for that field.
+                "solar_forecast_diagnostics": {
+                    "shadow_cloud_comparison": shadow_diagnostics,
+                    "attenuation_sensitivity": attenuation_sensitivity,
+                    "baseline_counterfactual": baseline_counterfactual,
+                    "combined_baseline_weather": combined_baseline_weather,
+                    "forecast_correction_candidate": forecast_correction_candidate,
+                    "baseline_sampling_audit": {
+                        "method": "read_only_equal_day_and_capped_interval_weights",
+                        "current_snapshot_trimmed_kwh": baseline_trace,
+                        "equal_day_kwh": round(sum((solar_baseline_audit(target_date, h) or {}).get("equal_day_w", 0) for h in range(24)) / 1000.0, 3),
+                        "interval_weighted_kwh": round(sum((solar_baseline_audit(target_date, h) or {}).get("interval_weighted_w", 0) for h in range(24)) / 1000.0, 3),
+                        "hourly": [
+                            {"hour": h,
+                             "current_w": next((r.get("baseline_solar_power_w") for r in rows if r.get("hour") == h), None),
+                             **(solar_baseline_audit(target_date, h) or {"equal_day_w": None, "interval_weighted_w": None, "historical_days": 0, "snapshots": 0, "weekday_only": False})}
+                            for h in range(24)
+                        ],
+                        "notes": "Read-only; capped 15-minute interval weighting, not full Recorder time integration. No change to production.",
+                    },
+                    "hourly_pipeline_audit": hourly_pipeline_evidence,
+                    "historical_baseline_kwh": energy(rows, "baseline_solar_power_w"),
+                    "weather_adjusted_raw_kwh": energy(rows, "raw_solar_power_w"),
+                    "calibrated_hourly_kwh": energy(rows, "solar_power_w"),
+                    "final_calendar_day_kwh": round(max(expected_solar, 0.0), 2),
+                    "weather_applied": bool(weather_applied),
+                    "weather_granularity": forecast_granularity if weather_applied else None,
+                    "weather_hour_count": sum(1 for r in rows if r.get("weather_forecast_applied")),
+                    "average_weather_factor": round(sum(float(r.get("weather_factor") or 1.0) for r in rows if r.get("weather_forecast_applied")) / max(1, sum(1 for r in rows if r.get("weather_forecast_applied"))), 3) if weather_applied else None,
+                    "calibration_source": "contextual" if any(r.get("calibration_source") == "weather_context" for r in rows) else "global",
+                    "global_calibration_percent": adaptive.get("applied_correction_percent"),
+                    "hourly_sampled_count": sum(1 for r in rows if r.get("baseline_solar_power_w") is not None),
+                    "historical_completed_day_median_kwh": measured_solar_baseline,
+                    "daylight_baseline_hours": len(daylight_rows) if daylight_available else None,
+                    "daylight_weather_matched_hours": len(matched_daylight) if daylight_available else None,
+                    "daylight_energy_coverage_percent": round(100 * matched_baseline_wh / baseline_daylight_wh, 1) if daylight_available and baseline_daylight_wh > 0 else None,
+                    "unmatched_daylight_hours": [str(r.get("hour")) for r in daylight_rows if not r.get("weather_forecast_applied")] if daylight_available else None,
+                    "daylight_method": "astronomical_sunrise_sunset_hourly_overlap" if daylight_available else "unavailable_sunrise_sunset",
+                    "daylight_failure_stage": daylight_failure,
+                    "daylight_parsed_hour_count": daylight_parsed_hours,
+                    "daylight_target_date": target_date.isoformat(),
+                    "daylight_astronomy_available": sunrise_utc is not None and sunset_utc is not None,
+                    "effective_weather_energy_ratio": round(raw_trace / baseline_trace, 3) if baseline_trace > 0 else None,
+                    "weather_energy_change_kwh": round(raw_trace - baseline_trace, 2),
+                    "hourly_calibration_change_kwh": round(calibrated_trace - raw_trace, 2),
+                    "calibration_scope": "Hourly model; not necessarily the same horizon as day-ahead comparisons",
+
+                    "evidence_method": evidence_method,
+                    "pv_array_capacity_kwp": None,
+                    "inverter_ac_limit_kw": None,
+                    "panel_geometry": None,
+                    "note": "Capacity, inverter and array geometry are not used by this historical hourly solar model; unavailable here, not inferred from entity names.",
+                },
                 "raw_expected_solar_kwh": energy(rows, "raw_solar_power_w"),
                 "expected_solar_kwh": round(max(expected_solar, 0.0), 2),
-                "adaptive_correction_percent": adaptive.get("applied_correction_percent", 0.0),
-                "adaptive_correction_applied": bool(adaptive.get("applied")),
+                "adaptive_correction_percent": (0.0 if forecast_mode == "v2" else adaptive.get("applied_correction_percent", 0.0)),
+                "adaptive_correction_applied": bool(adaptive.get("applied")) and forecast_mode != "v2",
                 "expected_consumption_kwh": round(max(expected_load, 0.0), 2),
                 "expected_grid_import_kwh": round(max(expected_import, 0.0), 2),
                 "expected_grid_export_kwh": round(max(expected_export, 0.0), 2),
+                "expected_solar_remaining_kwh": round(max(remaining_solar, 0.0), 2) if remaining_solar is not None else None,
+                "expected_energy_balance_kwh": energy_balance,
                 "battery_soc_end_percent": end_soc,
                 "peak_hour": peak.get("hour") if peak else None,
                 "peak_power_w": peak.get("solar_power_w") if peak else None,
@@ -3492,6 +4638,7 @@ class ForecastEngine:
                 "weather_match_diagnostics": {
                     "forecast_granularity": forecast_granularity,
                     "matched_rows": len([r for r in rows if r.get("weather_forecast_applied")]),
+                    "expected_rows": len(rows),
                     "average_weather_factor": round(
                         sum(float(r.get("weather_factor") or 1.0) for r in rows if r.get("weather_forecast_applied"))
                         / max(1, len([r for r in rows if r.get("weather_forecast_applied")])),
@@ -3602,7 +4749,20 @@ class ForecastEngine:
             if len(pair) < 2:
                 continue
             start_time = row_local_time(pair[0])
-            if start_time is None:
+            second_time = row_local_time(pair[1])
+            if start_time is None or second_time is None:
+                continue
+            # A recommendation must cover two complete, consecutive future
+            # physical hours, not a partly elapsed first hour or a DST gap.
+            start_utc = dt_util.as_utc(start_time)
+            second_utc = dt_util.as_utc(second_time)
+            now_utc = dt_util.as_utc(now)
+            if start_utc < now_utc or second_utc - start_utc != timedelta(hours=1):
+                continue
+            # A "verified solar-surplus" window needs hourly forecast
+            # weather evidence for both hours; Legacy fallback is not
+            # equivalent to verified weather coverage.
+            if not all(r.get("weather_forecast_applied") for r in pair):
                 continue
             avg_surplus = sum(float(r.get("flexible_surplus_power_w") or 0.0) for r in pair) / 2.0
             energy_kwh = sum(float(r.get("flexible_surplus_power_w") or 0.0) for r in pair) / 1000.0
@@ -3610,22 +4770,29 @@ class ForecastEngine:
             battery_avg = sum(float(r.get("expected_battery_charge_power_w") or 0.0) for r in pair) / 2.0
             candidate_windows.append({
                 "start": start_time.isoformat(),
-                "end": (start_time + timedelta(hours=2)).isoformat(),
-                "label": f"{start_time:%H:%M}–{(start_time + timedelta(hours=2)):%H:%M}",
+                "end": dt_util.as_local(start_utc + timedelta(hours=2)).isoformat(),
+                "label": f"{start_time:%H:%M}–{dt_util.as_local(start_utc + timedelta(hours=2)):%H:%M}",
                 "expected_surplus_power_w": round(avg_surplus, 1),
                 "expected_surplus_energy_kwh": round(energy_kwh, 2),
                 "gross_solar_surplus_power_w": round(gross_avg_surplus, 1),
                 "expected_battery_charge_power_w": round(battery_avg, 1),
+                "hourly_weather_evidence_hours": 2,
+                "window_duration_hours": 2,
+                "recommendation_basis": "forecast_flexible_solar_surplus",
             })
         candidate_windows.sort(key=lambda x: x["expected_surplus_power_w"], reverse=True)
         surplus_windows = []
         occupied = []
         for window in candidate_windows:
             start_time = datetime.fromisoformat(window["start"])
-            if any(abs((start_time - used).total_seconds()) < 2 * 3600 for used in occupied):
+            # Compare absolute instants, not local wall-clock datetimes:
+            # the repeated 02:00 at the autumn DST transition has two
+            # different UTC instants.
+            start_instant = dt_util.as_utc(start_time)
+            if any(abs((start_instant - used).total_seconds()) < 2 * 3600 for used in occupied):
                 continue
             surplus_windows.append(window)
-            occupied.append(start_time)
+            occupied.append(start_instant)
             if len(surplus_windows) >= 3:
                 break
 
@@ -3812,8 +4979,21 @@ class ForecastEngine:
         for day in daily_forecast:
             diagnostics = day.get("weather_match_diagnostics") if isinstance(day.get("weather_match_diagnostics"), dict) else {}
             matched = int(diagnostics.get("matched_rows") or 0)
-            day_weather_coverage = round(min(100.0, matched / 24.0 * 100.0), 1)
+            # A local calendar day may contain 23, 24, or 25 physical
+            # hours. Coverage must use the day's actual row count.
+            day_hours = int(diagnostics.get("expected_rows") or 0)
+            day_weather_coverage = round(min(100.0, matched / day_hours * 100.0), 1) if day_hours else 0.0
             day_quality = max(20.0, min(100.0, forecast_quality_score - max(0.0, 60.0 - day_weather_coverage) * 0.18))
+            # Missing/partial weather must not be described as high-confidence.
+            # This changes only quality metadata, never forecast energy values.
+            if day_weather_coverage == 0:
+                day_quality = min(day_quality, 35.0)
+                day["weather_evidence_status"] = "missing_hourly_weather_fallback"
+            elif day_weather_coverage < 80:
+                day_quality = min(day_quality, 54.0)
+                day["weather_evidence_status"] = "partial_hourly_weather"
+            else:
+                day["weather_evidence_status"] = "hourly_weather_available"
             day_spread = max(12.0, min(48.0, uncertainty_percent + max(0.0, 60.0 - day_weather_coverage) * 0.10))
             expected_day_solar = max(0.0, float(day.get("expected_solar_kwh") or 0.0))
             day["quality_percent"] = round(day_quality, 1)
@@ -3823,14 +5003,9 @@ class ForecastEngine:
             day["solar_range_high_kwh"] = round(expected_day_solar * (1.0 + day_spread / 100.0), 2)
 
         best_window = None
-        if best:
-            start = datetime.fromisoformat(best["time"])
-            best_window = {
-                "start": start.isoformat(),
-                "end": (start + timedelta(hours=2)).isoformat(),
-                "label": f"{start:%H:%M}–{(start + timedelta(hours=2)):%H:%M}",
-                "expected_surplus_power_w": best.get("surplus_power_w"),
-            }
+        # Only complete, weather-supported two-hour candidates are eligible
+        # for a "best surplus window". A generic single-hour peak is not a
+        # verified two-hour recommendation.
         if surplus_windows:
             best_window = dict(surplus_windows[0])
         recommendations = []
@@ -3898,7 +5073,7 @@ class ForecastEngine:
             "rolling_horizon": True,
             "rolling_horizon_started_at": now.isoformat(),
             "daily_forecast": daily_forecast,
-            "forecast_horizon_hours": 168,
+            "forecast_horizon_hours": len(hourly),
             # Backend planning evidence handoff. These are the exact hourly rows
             # already calculated above; no second forecast is created. Keep 72
             # hours so Scheduler can build a true rolling 48-hour horizon even
@@ -4870,8 +6045,102 @@ class DeviceAnalyticsEngine:
         self._cop_statistics: dict[str, dict[str, Any]] = {}
         self._cop_statistics_status: dict[str, Any] = {"status": "Not loaded", "entity_count": 0, "row_count": 0}
         self._compressor_history: dict[str, dict[str, Any]] = {}
+        self._compressor_counters: dict[str, dict[str, Any]] = {}
+        self._compressor_power_evidence: dict[str, dict[str, Any]] = {}
+        self._compressor_power_debug: dict[str, dict[str, Any]] = {}
         self._compressor_history_status: dict[str, Any] = {"status": "Not loaded", "entity_count": 0, "row_count": 0}
+        self._hp_total_input_reader = HeatPumpRecorderReader(hass)
+        self._hp_total_input_evidence: dict[str, dict[str, Any]] = {}
+        self._hp_total_input_last_refresh_at: datetime | None = None
+        self._hp_total_input_last_error: str | None = None
 
+
+    async def async_refresh_total_input_efficiency(self, start, end) -> dict[str, dict[str, Any]]:
+        """Optional, explicitly scheduled read-only Recorder evidence refresh.
+
+        Never call this from the high-frequency synchronous refresh(). A future
+        scheduler should provide aligned, completed hourly boundaries, and
+        period-specific windows. This method does not alter energy totals.
+        """
+        results: dict[str, dict[str, Any]] = {}
+        for device in self.registry.data.get("devices", []):
+            if str(device.get("type") or "") != "heat_pump":
+                continue
+            device_id = str(device.get("id") or "").strip()
+            if not device_id:
+                continue
+            results[device_id] = await self._hp_total_input_reader.get(device, start, end)
+        self._hp_total_input_evidence = results
+        return results
+
+    async def async_refresh_total_input_periods(self, now, tz_name: str, periods=("day", "week", "month", "year"), *, device_id: str | None = None) -> dict[str, dict[str, Any]]:
+        """Collect independent period evidence without publishing stale concurrent results."""
+        windows = completed_period_windows(now, tz_name)
+        allowed = {"day", "week", "month", "year"}
+        if any(period not in allowed for period in periods):
+            raise ValueError("Unknown efficiency reporting period")
+        devices = [device for device in self.registry.data.get("devices", [])
+                   if str(device.get("type") or "") == "heat_pump" and device.get("id")]
+        if device_id is not None:
+            devices = [device for device in devices if str(device["id"]) == device_id]
+            if not devices:
+                raise ValueError("Unknown registered heat pump device")
+        # Reserve a monotonically increasing request token before the first await.
+        # Tokens are scoped to each device and period; independent periods cannot
+        # suppress each other. A failed newer request does not destroy valid evidence.
+        tokens = getattr(self, "_hp_total_input_request_tokens", None)
+        if tokens is None:
+            tokens = {}
+            self._hp_total_input_request_tokens = tokens
+        requests = []
+        for device in devices:
+            device_id = str(device["id"])
+            for period in periods:
+                key = (device_id, period)
+                token = tokens.get(key, 0) + 1
+                tokens[key] = token
+                requests.append((device, device_id, period, token))
+        for device, device_id, period, token in requests:
+            start, end = windows[period]
+            if start >= end:
+                candidate = {"status": "no_completed_hours", "value": None}
+            else:
+                candidate = await self._hp_total_input_reader.get(device, start, end, allow_partial_year=(period == "year"))
+            # A newer request for the same device/period has started. Its result
+            # takes precedence, regardless of completion order.
+            if tokens.get((device_id, period)) != token:
+                continue
+            existing = getattr(self, "_hp_total_input_evidence", None) or {}
+            current = existing.get(device_id, {}).get(period)
+            if (isinstance(candidate, dict)
+                    and candidate.get("status") in {"error", "recorder_error", "service_error"}
+                    and isinstance(current, dict) and current.get("status") == "ready"):
+                continue
+            merged = {key: dict(values) for key, values in existing.items()}
+            merged.setdefault(device_id, {})[period] = candidate
+            self._hp_total_input_evidence = merged
+        return getattr(self, "_hp_total_input_evidence", {}) or {}
+
+    async def async_refresh_total_input_if_due(self, now=None, *, min_interval_seconds=900, periods=("day", "week", "month")) -> bool:
+        """Explicit low-frequency entry point; caller invokes from a safe async lifecycle.
+
+        Annual history is deliberately excluded from automatic refresh. This
+        method never changes existing energy or compressor measurements.
+        """
+        now = now or dt_util.now()
+        if self._hp_total_input_last_refresh_at is not None:
+            elapsed = (now - self._hp_total_input_last_refresh_at).total_seconds()
+            if 0 <= elapsed < min_interval_seconds:
+                return False
+        self._hp_total_input_last_refresh_at = now
+        try:
+            tz_name = str(getattr(self.hass.config, "time_zone", "UTC") or "UTC")
+            await self.async_refresh_total_input_periods(now, tz_name, periods=periods)
+            self._hp_total_input_last_error = None
+        except Exception as exc:
+            self._hp_total_input_last_error = type(exc).__name__
+            # Keep the last valid evidence rather than replacing it with zero.
+        return True
 
     async def async_refresh_recorder_energy(self) -> None:
         """Load authoritative daily energy for every registered device.
@@ -4905,6 +6174,8 @@ class DeviceAnalyticsEngine:
             self._recorder_status = {"status": "No mapped device energy entities", "entity_count": 0, "row_count": 0}
             await self._async_refresh_cop_statistics()
             await self._async_refresh_compressor_history()
+            await self._async_refresh_compressor_counters()
+            await self._async_refresh_compressor_power_evidence()
             return
         try:
             now = dt_util.now()
@@ -5048,6 +6319,8 @@ class DeviceAnalyticsEngine:
 
         await self._async_refresh_cop_statistics()
         await self._async_refresh_compressor_history()
+        await self._async_refresh_compressor_counters()
+        await self._async_refresh_compressor_power_evidence()
 
     async def _async_refresh_cop_statistics(self) -> None:
         """Load direct Heat Pump COP statistics from Home Assistant Recorder."""
@@ -5231,6 +6504,286 @@ class DeviceAnalyticsEngine:
             return "Reported mode", "Mapped operating-mode text is preserved as evidence but does not match a normalized Heating/DHW/Cooling token."
         return "Unavailable", "No mapped operating-mode evidence is available."
 
+
+    async def _async_refresh_compressor_counters(self) -> None:
+        """Load mapped compressor runtime/start counters for today's delta.
+
+        These optional mappings are authoritative when present. Zeus derives only
+        the change since the local day boundary; it does not infer compressor
+        activity from arbitrary power thresholds.
+        """
+        devices = [d for d in self.registry.data.get("devices", []) if str(d.get("type") or "") == "heat_pump"]
+        ids = []
+        for d in devices:
+            for key in ("compressor_runtime_entity", "compressor_starts_entity"):
+                eid = str(d.get(key) or "").strip()
+                if eid:
+                    ids.append(eid)
+        ids = list(dict.fromkeys(ids))
+        if not ids:
+            self._compressor_counters = {}
+            return
+        now = dt_util.now()
+        start_utc = dt_util.as_utc(dt_util.start_of_local_day(now))
+        end_utc = dt_util.as_utc(now + timedelta(minutes=1))
+        def _query():
+            with session_scope(hass=self.hass, read_only=True) as session:
+                # Request the complete state-change stream explicitly.  Starts and
+                # completed cycles must be derived from the same raw compressor-power
+                # evidence as runtime; do not rely on Recorder's default
+                # significant-change filtering for transition accounting.
+                return history.get_significant_states_with_session(
+                    self.hass,
+                    session,
+                    start_utc,
+                    end_utc,
+                    ids,
+                    filters=None,
+                    include_start_time_state=True,
+                    significant_changes_only=False,
+                    minimal_response=False,
+                    no_attributes=True,
+                )
+        try:
+            raw = await get_instance(self.hass).async_add_executor_job(_query)
+        except Exception:
+            self._compressor_counters = {}
+            return
+        out = {}
+        def delta(eid):
+            rows = list((raw or {}).get(eid, []) or [])
+            vals=[]
+            for row in rows:
+                try: vals.append(float(getattr(row, "state", "")))
+                except (TypeError, ValueError): pass
+            if len(vals) < 2 or vals[-1] < vals[0]:
+                return None
+            return vals[-1]-vals[0]
+        for d in devices:
+            item={}
+            rid=str(d.get("compressor_runtime_entity") or "").strip()
+            sid=str(d.get("compressor_starts_entity") or "").strip()
+            if rid:
+                value=delta(rid)
+                st=self.hass.states.get(rid)
+                unit=str((st.attributes.get("unit_of_measurement") if st else "") or "").strip().lower()
+                if value is not None:
+                    if unit in {"h","hr","hrs","hour","hours"}: value*=60.0
+                    elif unit in {"s","sec","secs","second","seconds"}: value/=60.0
+                    elif unit in {"d","day","days"}: value*=1440.0
+                    # blank/minute units are already minutes; unknown units stay unavailable.
+                    elif unit not in {"", "min", "mins", "minute", "minutes"}: value=None
+                item["runtime_today_minutes"] = round(value,1) if value is not None else None
+                item["runtime_entity"] = rid
+            if sid:
+                value=delta(sid)
+                item["starts_today"] = int(round(value)) if value is not None else None
+                item["starts_entity"] = sid
+            out[str(d.get("id") or d.get("name") or "")] = item
+        self._compressor_counters = out
+
+    async def _async_refresh_compressor_power_evidence(self) -> None:
+        """Derive today's compressor operation from an explicitly compressor-named power entity.
+
+        This is a fallback only when no authoritative compressor-state transition
+        stream is available. The ON threshold is learned from the entity's own
+        Recorder distribution (standby cluster versus active cluster); Zeus does
+        not apply a fixed manufacturer-independent watt threshold.
+        """
+        devices = [d for d in self.registry.data.get("devices", []) if str(d.get("type") or "") == "heat_pump"]
+        candidates = []
+        for d in devices:
+            eid = str(d.get("power_entity") or "").strip()
+            st = self.hass.states.get(eid) if eid else None
+            friendly = str((st.attributes.get("friendly_name") if st else "") or "").lower()
+            if eid and ("compressor" in eid.lower() or "compressor" in friendly or "verdichter" in friendly):
+                candidates.append((d, eid))
+        debug = {}
+        for d in devices:
+            key=str(d.get("id") or d.get("name") or "")
+            eid=str(d.get("power_entity") or "").strip()
+            st=self.hass.states.get(eid) if eid else None
+            debug[key]={"device_key":key or None,"device_type":d.get("type"),"mapped_power_entity":eid or None,"entity_exists":bool(st),"candidate":bool(eid and ("compressor" in eid.lower() or "compressor" in str((st.attributes.get("friendly_name") if st else "") or "").lower() or "verdichter" in str((st.attributes.get("friendly_name") if st else "") or "").lower())),"status":"candidate" if eid else "no_power_entity","reason":None}
+        # Publish mapping diagnostics immediately. If a later Recorder/history
+        # processing step raises unexpectedly, the frontend must still show the
+        # exact registry handoff rather than an empty diagnostic payload.
+        self._compressor_power_debug = dict(debug)
+        if not candidates:
+            self._compressor_power_evidence = {}
+            for item in debug.values(): item["reason"]="No explicitly compressor-named mapped power entity qualified."
+            self._compressor_power_debug=debug
+            return
+        now = dt_util.now()
+        today_start = dt_util.start_of_local_day(now)
+        start_utc = dt_util.as_utc(today_start - timedelta(hours=6))
+        today_start_utc = dt_util.as_utc(today_start)
+        end_utc = dt_util.as_utc(now + timedelta(minutes=1))
+        ids = list(dict.fromkeys(eid for _, eid in candidates))
+        def _query():
+            with session_scope(hass=self.hass, read_only=True) as session:
+                return history.get_significant_states_with_session(
+                    self.hass, session, start_utc, end_utc, ids, None, True, False, False, True
+                )
+        try:
+            raw = await get_instance(self.hass).async_add_executor_job(_query)
+        except Exception as err:
+            self._compressor_power_evidence = {}
+            for item in debug.values(): item.update({"status":"query_error","reason":f"{type(err).__name__}: {err}"})
+            self._compressor_power_debug=debug
+            return
+        out = {}
+        for device, eid in candidates:
+            st = self.hass.states.get(eid)
+            unit = str((st.attributes.get("unit_of_measurement") if st else "") or "W").strip().lower()
+            rows=[]
+            raw_rows=list((raw or {}).get(eid, []) or [])
+            dbg=debug.setdefault(str(device.get("id") or device.get("name") or ""),{})
+            dbg.update({"status":"processing","raw_row_count":len(raw_rows),"raw_keys":sorted(list((raw or {}).keys()))[:20],"unit":unit})
+            self._compressor_power_debug = dict(debug)
+            for row in raw_rows:
+                try:
+                    value=float(getattr(row,"state",""))
+                except (TypeError,ValueError):
+                    continue
+                if unit == "kw": value *= 1000.0
+                elif unit not in {"w","watt","watts"}: continue
+                stamp=getattr(row,"last_changed",None) or getattr(row,"last_updated",None)
+                if isinstance(stamp, str):
+                    stamp = dt_util.parse_datetime(stamp)
+                if stamp is not None:
+                    try:
+                        rows.append((dt_util.as_utc(stamp), max(0.0,value)))
+                    except (TypeError, ValueError, AttributeError) as err:
+                        dbg.setdefault("timestamp_errors", []).append(f"{type(err).__name__}: {err}")
+            # Recorder normally returns chronological rows, but transition
+            # accounting must not depend on backend ordering (MariaDB/PostgreSQL).
+            rows.sort(key=lambda item: item[0])
+            dbg["numeric_timestamped_rows"]=len(rows)
+            if rows:
+                dbg["first_timestamp"]=rows[0][0].isoformat(); dbg["last_timestamp"]=rows[-1][0].isoformat(); dbg["min_w"]=round(min(v for _,v in rows),1); dbg["max_w"]=round(max(v for _,v in rows),1)
+            if len(rows) < 8:
+                dbg.update({"status":"rejected","reason":"Fewer than 8 numeric timestamped Recorder rows."})
+                continue
+            # Recorder stores state *changes*, not uniformly sampled power. A simple
+            # percentile over row count therefore over-weights a modulating compressor
+            # (many changing active values) and under-weights long, flat standby periods.
+            # Learn the standby/active clusters from *time-weighted* evidence instead.
+            weighted=[]
+            for i,(stamp,value) in enumerate(rows):
+                nxt=rows[i+1][0] if i+1 < len(rows) else end_utc
+                seconds=max(0.0,(nxt-stamp).total_seconds())
+                if seconds > 0:
+                    weighted.append((value,seconds))
+            if not weighted:
+                dbg.update({"status":"rejected","reason":"No positive time-weighted Recorder intervals."})
+                continue
+            weighted.sort(key=lambda item:item[0])
+            total_weight=sum(weight for _,weight in weighted)
+            def weighted_pct(q):
+                target=total_weight*q
+                acc=0.0
+                for value,weight in weighted:
+                    acc += weight
+                    if acc >= target:
+                        return value
+                return weighted[-1][0]
+            # Learn two power regimes directly from the compressor entity's own
+            # recorded values.  Do not let the amount of elapsed OFF time later in
+            # the day erase the active regime: Recorder stores state changes, so the
+            # distribution of recorded power values is the stable evidence for the
+            # two operating clusters, while elapsed time is used only for runtime.
+            # Separate standby from compressor operation in log-power space.
+            # Linear two-cluster k-means can split a modulating compressor into
+            # "normal" and "high" power and incorrectly treat normal ~400 W
+            # operation as OFF. log1p keeps the low standby regime distinct while
+            # remaining fully self-calibrated to this entity.
+            import math
+            row_values=sorted(value for _,value in rows)
+            log_values=[math.log1p(value) for value in row_values]
+            low=float(log_values[0]); high=float(log_values[-1])
+            if high <= low:
+                dbg.update({"status":"rejected","reason":"Compressor power history contains only one observed level."})
+                continue
+            c0, c1 = low, high
+            for _ in range(32):
+                g0=[]; g1=[]
+                for value in log_values:
+                    (g0 if abs(value-c0) <= abs(value-c1) else g1).append(value)
+                if not g0 or not g1:
+                    break
+                n0=sum(g0)/len(g0); n1=sum(g1)/len(g1)
+                if abs(n0-c0) < 0.0001 and abs(n1-c1) < 0.0001:
+                    c0, c1 = n0, n1
+                    break
+                c0, c1 = n0, n1
+            standby_log, active_log = sorted((float(c0), float(c1)))
+            standby=max(0.0, math.expm1(standby_log))
+            active=max(0.0, math.expm1(active_log))
+            if active <= standby:
+                dbg.update({"status":"rejected","reason":"Compressor power history did not produce two distinct operating regimes."})
+                continue
+            threshold=max(0.0, math.expm1((standby_log+active_log)/2.0))
+            dbg.update({"standby_cluster_w":round(standby,1),"active_cluster_w":round(active,1),"total_weight_seconds":round(total_weight,1),"classifier":"two_cluster_log_power"})
+
+            # Build raw state segments first, then suppress only short opposite-state
+            # glitches. The persistence window is derived from the Recorder cadence
+            # (two median update intervals), not from a manufacturer watt threshold.
+            raw_states=[]
+            for stamp,value in rows:
+                state="on" if value >= threshold else "off"
+                if raw_states and raw_states[-1][1] == state:
+                    continue
+                raw_states.append((stamp,state,value))
+            deltas=sorted((rows[i+1][0]-rows[i][0]).total_seconds() for i in range(len(rows)-1) if rows[i+1][0] > rows[i][0])
+            median_delta=deltas[len(deltas)//2] if deltas else 30.0
+            persistence=max(5.0, min(180.0, median_delta*2.0))
+            states=list(raw_states)
+            changed=True
+            while changed and len(states) >= 3:
+                changed=False
+                cleaned=[states[0]]
+                i=1
+                while i < len(states)-1:
+                    prev=cleaned[-1]; cur=states[i]; nxt=states[i+1]
+                    duration=(nxt[0]-cur[0]).total_seconds()
+                    if prev[1] == nxt[1] and cur[1] != prev[1] and duration < persistence:
+                        # Momentary 0 W / telemetry dip inside one continuous run.
+                        # Remove only the glitch; process the following
+                        # transition on the next iteration.
+                        changed=True
+                        i += 1
+                        continue
+                    cleaned.append(cur); i += 1
+                if i == len(states)-1:
+                    cleaned.append(states[-1])
+                states=cleaned
+            dbg["transition_persistence_seconds"]=round(persistence,1)
+            # Runtime integrates the state carried by each Recorder sample. A
+            # run already active at midnight contributes runtime today but not a start today.
+            runtime_s=0.0
+            for i,(stamp,state,value) in enumerate(states):
+                nxt=states[i+1][0] if i+1 < len(states) else end_utc
+                if state == "on" and nxt > today_start_utc:
+                    a=max(stamp,today_start_utc); b=min(nxt,end_utc)
+                    if b>a: runtime_s += (b-a).total_seconds()
+            transitions=[]
+            for i in range(1,len(states)):
+                if states[i][1] != states[i-1][1]: transitions.append((states[i][0],states[i][1]))
+            starts=sum(1 for stamp,state in transitions if state=="on" and stamp>=today_start_utc)
+            stops=sum(1 for stamp,state in transitions if state=="off" and stamp>=today_start_utc)
+            key=str(device.get("id") or device.get("name") or "")
+            dbg.update({"status":"ready","reason":"Recorder compressor-power evidence accepted.","learned_threshold_w":round(threshold,1),"transition_count":len(transitions),"runtime_today_minutes":round(runtime_s/60.0,1),"starts_today":starts,"stops_today":stops})
+            out[key]={
+                "status":"Ready", "source":eid, "runtime_today_minutes":round(runtime_s/60.0,1),
+                "starts_today":starts, "stops_today":stops, "completed_cycles_today":stops,
+                "today_transitions":[{"at":stamp.isoformat(),"state":state} for stamp,state in transitions if stamp>=today_start_utc],
+                "standby_cluster_w":round(standby,1), "active_cluster_w":round(active,1),
+                "learned_threshold_w":round(threshold,1), "sample_count":len(rows),
+                "policy":"Self-calibrated from Recorder compressor-power evidence; no fixed watt threshold."
+            }
+        self._compressor_power_evidence=out
+        self._compressor_power_debug=debug
+
     async def _async_refresh_compressor_history(self) -> None:
         """Load timestamped Heat Pump compressor transitions from HA Recorder.
 
@@ -5258,7 +6811,7 @@ class DeviceAnalyticsEngine:
         start_local = dt_util.start_of_local_day(now - timedelta(days=7))
         today_start = dt_util.start_of_local_day(now)
         start_utc = dt_util.as_utc(start_local)
-        end_utc = dt_util.as_utc(now + timedelta(minutes=1))
+        end_utc = dt_util.as_utc(now)
 
         def _query():
             with session_scope(hass=self.hass, read_only=True) as session:
@@ -5283,10 +6836,15 @@ class DeviceAnalyticsEngine:
                 for state in raw_states:
                     value = self._normalize_compressor_state(getattr(state, "state", None), compressor_state_map)
                     changed = getattr(state, "last_changed", None) or getattr(state, "last_updated", None)
-                    if value is None or changed is None:
+                    if changed is None:
                         ignored += 1
                         continue
                     stamp = dt_util.as_utc(changed)
+                    # Preserve unavailable/unknown as a break in evidence. A
+                    # later ON is not proof the compressor stayed ON across it.
+                    if value is None:
+                        ignored += 1
+                        value = "unknown"
                     if normalized and normalized[-1][1] == value:
                         continue
                     normalized.append((stamp, value))
@@ -5296,6 +6854,8 @@ class DeviceAnalyticsEngine:
                 active_start: datetime | None = None
                 last_observed_stop: datetime | None = None
                 completed_runs: list[tuple[datetime, datetime, float]] = []
+                left_censored_runs: list[tuple[datetime, datetime, float]] = []
+                active_start_left_censored = False
                 observed_off_intervals: list[tuple[datetime, datetime, float]] = []
                 for stamp, value in normalized:
                     if previous is None:
@@ -5303,8 +6863,19 @@ class DeviceAnalyticsEngine:
                         # boundary. It is not evidence of an observed start or
                         # a known OFF interval beginning at the query boundary.
                         previous = value
+                        if value == "on":
+                            # A carried ON state at the query boundary is
+                            # observed runtime, but NOT an observed start.
+                            active_start = stamp
+                            active_start_left_censored = True
                         continue
                     if value == previous:
+                        continue
+                    if value == "unknown" or previous == "unknown":
+                        active_start = None
+                        active_start_left_censored = False
+                        last_observed_stop = None
+                        previous = value
                         continue
                     transitions.append((stamp, value))
                     if value == "on":
@@ -5313,14 +6884,37 @@ class DeviceAnalyticsEngine:
                                 (last_observed_stop, stamp, (stamp - last_observed_stop).total_seconds() / 60.0)
                             )
                         active_start = stamp
+                        active_start_left_censored = False
                     elif value == "off":
                         if active_start is not None and stamp > active_start:
-                            completed_runs.append((active_start, stamp, (stamp - active_start).total_seconds() / 60.0))
-                            active_start = None
+                            run = (active_start, stamp, (stamp - active_start).total_seconds() / 60.0)
+                            if active_start_left_censored:
+                                left_censored_runs.append(run)
+                            else:
+                                completed_runs.append(run)
+                        active_start = None
+                        active_start_left_censored = False
                         last_observed_stop = stamp
                     previous = value
 
                 today_start_utc = dt_util.as_utc(today_start)
+                # Integrate only observed ON intervals, stopping at unknown /
+                # unavailable. Clamp to the actual query time (never +1 min).
+                runtime_today_seconds = 0.0
+                observed_today_seconds = 0.0
+                if normalized:
+                    for index, (stamp, value) in enumerate(normalized):
+                        next_stamp = normalized[index + 1][0] if index + 1 < len(normalized) else end_utc
+                        left = max(stamp, today_start_utc)
+                        right = min(next_stamp, end_utc)
+                        seconds = max(0.0, (right - left).total_seconds())
+                        if value in {"on", "off"}:
+                            observed_today_seconds += seconds
+                        if value == "on":
+                            runtime_today_seconds += seconds
+                # A first row after midnight leaves the earlier interval unknown.
+                runtime_today_minutes = round(runtime_today_seconds / 60.0, 1) if normalized else None
+                runtime_today_coverage = round(observed_today_seconds / max(1.0, (end_utc - today_start_utc).total_seconds()), 4)
                 starts_today = sum(1 for stamp, value in transitions if value == "on" and stamp >= today_start_utc)
                 stops_today = sum(1 for stamp, value in transitions if value == "off" and stamp >= today_start_utc)
                 completed_today = [run for run in completed_runs if run[1] >= today_start_utc]
@@ -5469,7 +7063,7 @@ class DeviceAnalyticsEngine:
                     current_state_age_min = max(0.0, (end_utc - state_anchor).total_seconds() / 60.0)
 
                 result[entity_id] = {
-                    "status": "Ready" if normalized else "No usable Recorder states",
+                    "status": "Ready" if normalized and runtime_today_coverage >= 0.999 else ("Partial Recorder history" if normalized else "No usable Recorder states"),
                     "source": "Home Assistant Recorder significant states",
                     "window_days": 7,
                     "raw_state_count": len(raw_states),
@@ -5481,9 +7075,13 @@ class DeviceAnalyticsEngine:
                         for stamp, value in transitions if stamp >= today_start_utc
                     ],
                     "starts_today": starts_today,
+                    "runtime_today_minutes": runtime_today_minutes,
+                    "runtime_today_coverage": runtime_today_coverage,
+                    "runtime_today_source": "Home Assistant Recorder significant states",
                     "stops_today": stops_today,
                     "completed_cycles_today": len(completed_today),
                     "completed_cycles_7d": len(completed_runs),
+                    "left_censored_runs_7d": len(left_censored_runs),
                     "average_runtime_minutes_7d": round(sum(durations) / len(durations), 1) if durations else None,
                     "shortest_runtime_minutes_7d": round(min(durations), 1) if durations else None,
                     "longest_runtime_minutes_7d": round(max(durations), 1) if durations else None,
@@ -6000,11 +7598,15 @@ class DeviceAnalyticsEngine:
                 dhw_power_e = str(device.get("dhw_electrical_power_entity") or "").strip()
                 cooling_power_e = (str(device.get("cooling_electrical_power_entity") or "").strip()
                                    if bool(device.get("cooling_measurements_enabled", False)) else "")
-                hp_power_entities = [heating_power_e, dhw_power_e] + ([cooling_power_e] if cooling_power_e else [])
+                hp_power_entities = list(dict.fromkeys([heating_power_e, dhw_power_e] + ([cooling_power_e] if cooling_power_e else [])))
                 if heating_power_e and dhw_power_e:
-                    hp_power_values = [live_electrical_power_w(eid) for eid in hp_power_entities]
-                    if all(value is not None for value in hp_power_values):
-                        current_power_w = sum(float(value) for value in hp_power_values)
+                    heating_w = live_electrical_power_w(heating_power_e)
+                    dhw_w = live_electrical_power_w(dhw_power_e)
+                    cooling_w = live_electrical_power_w(cooling_power_e) if cooling_power_e else None
+                    if heating_w is not None and dhw_w is not None and (not cooling_power_e or cooling_w is not None):
+                        selected_w, _, _ = choose_circuit_power(heating_w, dhw_w, cooling_w, cooling_power_e)
+                        if selected_w is not None:
+                            current_power_w = selected_w
             stored_peak_w = max(0.0, float(row.get("peak_power_w", 0) or 0))
             effective_peak_w = max(stored_peak_w, current_power_w)
 
@@ -6112,29 +7714,65 @@ class DeviceAnalyticsEngine:
                 # 0 W DHW is Standby, not a compressor START. Whole-unit power
                 # remains the compatibility fallback when no classified live
                 # electrical circuit is available.
-                classified_live_power_w = []
-                for _key in (
-                    "heating_electrical_power_entity",
-                    "dhw_electrical_power_entity",
-                    "cooling_electrical_power_entity",
-                ):
-                    _value = hp_number(_key)
-                    _unit = str(hp_unit(_key) or "").strip()
-                    if _value is None:
-                        continue
-                    if _unit == "kW":
-                        _value *= 1000.0
-                    elif _unit == "MW":
-                        _value *= 1000000.0
-                    classified_live_power_w.append(max(0.0, float(_value)))
-                if classified_live_power_w:
-                    electrical_power_w = sum(classified_live_power_w)
+                heating_w = live_electrical_power_w(device.get("heating_electrical_power_entity"))
+                dhw_w = live_electrical_power_w(device.get("dhw_electrical_power_entity"))
+                cooling_eid = (device.get("cooling_electrical_power_entity")
+                               if device.get("cooling_measurements_enabled") else None)
+                cooling_w = live_electrical_power_w(cooling_eid)
+                selected_w, hp_source_policy, hp_mapping_warning = choose_circuit_power(
+                    heating_w, dhw_w, cooling_w, cooling_eid)
+                if selected_w is not None:
+                    electrical_power_w = selected_w
+                # Read-only source provenance: do not change power accounting
+                # until the split circuit sensors are confirmed independent.
+                hp_electrical_power_audit = {
+                    "primary_entity": power_entity,
+                    "primary_w": round(primary_power_w, 1) if primary_power_w is not None else None,
+                    "heating_entity": device.get("heating_electrical_power_entity"),
+                    "heating_w": live_electrical_power_w(device.get("heating_electrical_power_entity")),
+                    "dhw_entity": device.get("dhw_electrical_power_entity"),
+                    "dhw_w": live_electrical_power_w(device.get("dhw_electrical_power_entity")),
+                    "cooling_entity": device.get("cooling_electrical_power_entity") if device.get("cooling_measurements_enabled") else None,
+                    "cooling_w": live_electrical_power_w(device.get("cooling_electrical_power_entity")) if device.get("cooling_measurements_enabled") else None,
+                    "displayed_total_w": round(current_power_w, 1),
+                    "cop_denominator_w": round(electrical_power_w, 1),
+                    "source_policy": hp_source_policy if selected_w is not None else ("primary" if primary_power_w is not None else "unavailable"),
+                    "mapping_warning": hp_mapping_warning,
+                    "cooling_whole_system_overlap_suspected": bool(cooling_eid and is_whole_system_meter(cooling_eid)),
+                }
                 thermal_power_w = None
+                thermal_power_source = "unavailable"
                 if thermal_power is not None:
                     if str(thermal_power_unit or "") == "kW":
                         thermal_power_w = thermal_power * 1000.0
                     elif str(thermal_power_unit or "") == "W":
                         thermal_power_w = thermal_power
+                    if thermal_power_w is not None:
+                        thermal_power_source = "mapped_combined_thermal_power"
+
+                # v16.0.266: a split Heating/DHW configuration is a valid
+                # alternative to the optional combined thermal-power mapping.
+                # Sum only valid measured W/kW channels, never energy counters,
+                # and never add these channels to an already mapped whole-unit
+                # thermal measurement (which would double count output).
+                if thermal_power_w is None and bool(device.get("separate_heating_dhw_measurements", False)):
+                    split_thermal_w = []
+                    split_missing = []
+                    for _key in ("heating_thermal_power_entity", "dhw_thermal_power_entity"):
+                        if not str(device.get(_key) or "").strip():
+                            continue
+                        _value = hp_number(_key)
+                        _unit = str(hp_unit(_key) or "").strip()
+                        if _value is None or _unit not in ("W", "kW"):
+                            split_missing.append(_key)
+                            continue
+                        split_thermal_w.append(float(_value) * (1000.0 if _unit == "kW" else 1.0))
+                    if split_thermal_w and not split_missing:
+                        thermal_power_w = sum(split_thermal_w)
+                        thermal_power_source = "measured_heating_plus_dhw"
+                    elif split_missing:
+                        thermal_power_source = "split_thermal_measurement_unavailable"
+
 
                 derived_live_cop = None
                 derived_live_cop_reason = "Mapped thermal power and electrical power are required."
@@ -6143,7 +7781,7 @@ class DeviceAnalyticsEngine:
                 # Treat that proven inactive state as COP 0.00 rather than
                 # "Unavailable". Unavailable remains reserved for missing or
                 # invalid measurement evidence.
-                if thermal_power_w is not None and power_entity and thermal_power_w >= 0.0:
+                if thermal_power_w is not None and thermal_power_w >= 0.0:
                     if electrical_power_w > 50.0:
                         derived_live_cop = round(thermal_power_w / electrical_power_w, 3)
                         derived_live_cop_reason = "Thermal power ÷ measured electrical power; both are live mapped measurements."
@@ -6429,6 +8067,28 @@ class DeviceAnalyticsEngine:
 
                 compressor_entity = str(device.get("compressor_state_entity") or "").strip()
                 cycle_evidence = dict(self._compressor_history.get(compressor_entity) or {}) if compressor_entity else {}
+                device_evidence_key = str(device.get("id") or device.get("name") or "")
+                compressor_counter_evidence = dict(self._compressor_counters.get(device_evidence_key) or {})
+                compressor_power_evidence = dict(self._compressor_power_evidence.get(device_evidence_key) or {})
+                # Preserve independent seven-day binary Recorder evidence even
+                # when today's coverage is incomplete. Only daily values may
+                # fall back to power inference; never replace the profile.
+                binary_today_ready = str(cycle_evidence.get("status") or "") == "Ready"
+                power_today_ready = compressor_power_evidence.get("status") == "Ready"
+                if not cycle_evidence and power_today_ready:
+                    cycle_evidence = {
+                        "status": "Power fallback only",
+                        "source": compressor_power_evidence.get("source"),
+                        "cycle_pattern_status": "Insufficient pattern evidence",
+                        "cycle_pattern_reason": "No usable binary Recorder profile; power estimates are daily-only.",
+                        "cycle_profile_status": "Insufficient evidence",
+                        "cycle_profile_reason": "Power estimates do not create a seven-day binary Recorder profile.",
+                    }
+                daily_cycle_evidence = cycle_evidence if binary_today_ready else (
+                    compressor_power_evidence if power_today_ready else {}
+                )
+                daily_cycle_source = (cycle_evidence.get("source") if binary_today_ready else
+                                      compressor_power_evidence.get("source") if power_today_ready else None)
                 cycle_evidence_status = str(cycle_evidence.get("status") or "Unavailable")
                 if cycle_evidence_status == "Ready":
                     cycle_pattern_status = str(cycle_evidence.get("cycle_pattern_status") or "Insufficient pattern evidence")
@@ -6468,7 +8128,9 @@ class DeviceAnalyticsEngine:
                     "derived_live_cop": derived_live_cop,
                     "derived_live_cop_reason": derived_live_cop_reason,
                     "thermal_power_w": round(thermal_power_w, 1) if thermal_power_w is not None else None,
+                    "thermal_power_source": thermal_power_source,
                     "electrical_power_w": round(electrical_power_w, 1),
+                    "electrical_power_source_audit": hp_electrical_power_audit,
                     "compressor_state": compressor_state,
                     "compressor_state_normalized": compressor_binary,
                     "compressor_state_normalization_reason": compressor_state_normalization_reason,
@@ -6519,10 +8181,28 @@ class DeviceAnalyticsEngine:
                     "cycle_raw_state_count": cycle_evidence.get("raw_state_count"),
                     "cycle_transition_count": cycle_evidence.get("transition_count"),
                     "cycle_today_transitions": cycle_evidence.get("today_transitions") or [],
-                    "cycle_starts_today": cycle_evidence.get("starts_today"),
-                    "cycle_stops_today": cycle_evidence.get("stops_today"),
-                    "cycle_completed_today": cycle_evidence.get("completed_cycles_today"),
+                    # Prefer the mapped binary compressor-state Recorder timeline.
+                    # Power-based inference is retained only as fallback and
+                    # separately exposed for diagnostic comparison.
+                    "cycle_starts_today": daily_cycle_evidence.get("starts_today") if daily_cycle_evidence else compressor_counter_evidence.get("starts_today"),
+                    "compressor_runtime_today_minutes": daily_cycle_evidence.get("runtime_today_minutes") if daily_cycle_evidence.get("runtime_today_minutes") is not None else compressor_counter_evidence.get("runtime_today_minutes"),
+                    "compressor_runtime_today_source": daily_cycle_source if daily_cycle_evidence.get("runtime_today_minutes") is not None else compressor_counter_evidence.get("runtime_entity"),
+                    "compressor_runtime_power_minutes": compressor_power_evidence.get("runtime_today_minutes") if compressor_power_evidence.get("status") == "Ready" else None,
+                    "compressor_runtime_counter_minutes": compressor_counter_evidence.get("runtime_today_minutes"),
+                    "compressor_runtime_counter_source": compressor_counter_evidence.get("runtime_entity"),
+                    "compressor_runtime_disagreement_minutes": (
+                        round(abs(float(compressor_power_evidence["runtime_today_minutes"]) -
+                                  float(compressor_counter_evidence["runtime_today_minutes"])), 1)
+                        if compressor_power_evidence.get("status") == "Ready"
+                        and compressor_power_evidence.get("runtime_today_minutes") is not None
+                        and compressor_counter_evidence.get("runtime_today_minutes") is not None else None
+                    ),
+                    "compressor_starts_today_source": daily_cycle_source or compressor_counter_evidence.get("starts_entity"),
+                    "compressor_power_diagnostic": dict(self._compressor_power_debug.get(device_evidence_key) or {}),
+                    "cycle_stops_today": daily_cycle_evidence.get("stops_today"),
+                    "cycle_completed_today": daily_cycle_evidence.get("completed_cycles_today"),
                     "cycle_completed_7d": cycle_evidence.get("completed_cycles_7d"),
+                    "cycle_left_censored_runs_7d": cycle_evidence.get("left_censored_runs_7d"),
                     "cycle_average_runtime_minutes_7d": cycle_evidence.get("average_runtime_minutes_7d"),
                     "cycle_shortest_runtime_minutes_7d": cycle_evidence.get("shortest_runtime_minutes_7d"),
                     "cycle_longest_runtime_minutes_7d": cycle_evidence.get("longest_runtime_minutes_7d"),
@@ -6636,6 +8316,32 @@ class DeviceAnalyticsEngine:
                         "ha_recorder_statistics_delta" if _period is not None else None
                     )
 
+            # v16.0.434: independent, read-only circuit efficiency diagnostics.
+            # Do not modify existing consumption totals or infer heating/DHW splits.
+            if heat_pump_intelligence is not None:
+                heat_pump_intelligence["circuit_efficiency"] = circuit_efficiency(
+                    device, heat_pump_intelligence
+                )
+
+            # v16.0.272: ratio-of-energy COP from classified circuit
+            # Recorder deltas, never an average of inactive hourly COP=0.
+            hp_energy_cop = {}
+            if heat_pump_intelligence is not None:
+                for _period_name in ("month", "year"):
+                    _vals = []
+                    for _key in ("heating_electrical", "dhw_electrical",
+                                 "heating_thermal", "dhw_thermal"):
+                        _value = heat_pump_intelligence.get(f"{_key}_energy_{_period_name}_kwh")
+                        _vals.append(_value if isinstance(_value, (int, float))
+                                     and math.isfinite(_value) and _value >= 0 else None)
+                    if all(v is not None for v in _vals) and (_vals[0] + _vals[1]) > 0:
+                        hp_energy_cop[_period_name] = round((_vals[2] + _vals[3]) / (_vals[0] + _vals[1]), 3)
+                    else:
+                        hp_energy_cop[_period_name] = None
+                heat_pump_intelligence["energy_cop_month"] = hp_energy_cop["month"]
+                heat_pump_intelligence["energy_cop_year"] = hp_energy_cop["year"]
+                heat_pump_intelligence["energy_cop_method"] = "classified_split_recorder_energy_ratio"
+                heat_pump_intelligence["energy_cop_warning"] = "Requires complete heating and DHW electrical/thermal period statistics."
             hp_dhw_period = None
             hp_dhw_energy_entity = ""
             if str(device.get("type") or "") == "heat_pump":
@@ -6661,6 +8367,8 @@ class DeviceAnalyticsEngine:
                 "cop_history_status": dict(self._cop_statistics_status) if cop_entity else None,
                 "cop_today_average": ((self._cop_statistics.get(cop_entity) or {}).get("today") or {}).get("average") if cop_entity else None,
                 "cop_week_average": ((self._cop_statistics.get(cop_entity) or {}).get("week") or {}).get("average") if cop_entity else None,
+                "cop_month_energy_ratio": hp_energy_cop.get("month"),
+                "cop_year_energy_ratio": hp_energy_cop.get("year"),
                 "cop_month_average": ((self._cop_statistics.get(cop_entity) or {}).get("month") or {}).get("average") if cop_entity else None,
                 "cop_year_average": ((self._cop_statistics.get(cop_entity) or {}).get("year") or {}).get("average") if cop_entity else None,
                 "cop_today_bucket_count": ((self._cop_statistics.get(cop_entity) or {}).get("today") or {}).get("bucket_count") if cop_entity else 0,
@@ -6698,6 +8406,10 @@ class DeviceAnalyticsEngine:
                 "historical_planning_profile": historical_profile,
                 "planning_evidence_sources": source_diagnostics,
             })
+        # Read-only experimental evidence: never substitute for existing COP.
+        for item in devices:
+            if item.get("device_type") == "heat_pump" or item.get("type") == "heat_pump":
+                item["total_input_efficiency"] = dict(self._hp_total_input_evidence.get(str(item.get("device_id") or item.get("id") or ""), {}))
         devices.sort(key=lambda d: d["energy_today_kwh"], reverse=True)
         self.last = {
             "status": "Ready" if devices else "Waiting",
@@ -6710,6 +8422,9 @@ class DeviceAnalyticsEngine:
             "summary": (f"Tracked {len(devices)} devices; {total_energy:.2f} kWh today." if devices else "No enabled registered devices to track."),
             "method_note": "Today, calendar week (Monday-to-today), month and year prefer Home Assistant Recorder statistics for each mapped device energy entity. Total uses the lifetime meter reading when available.",
             "recorder_energy_source": dict(self._recorder_status),
+            "heat_pump_total_input_evidence": {key: dict(value) for key, value in self._hp_total_input_evidence.items()},
+            "heat_pump_total_input_last_refresh_at": (self._hp_total_input_last_refresh_at.isoformat() if self._hp_total_input_last_refresh_at else None),
+            "heat_pump_total_input_last_error": self._hp_total_input_last_error,
             "safety": "Read-only device analytics.",
         }
         self.event_bus.publish("DeviceAnalyticsUpdated", "DeviceAnalyticsEngine", {"device_count": len(devices)})

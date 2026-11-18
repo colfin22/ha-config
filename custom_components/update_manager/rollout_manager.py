@@ -35,7 +35,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Literal
@@ -52,6 +52,7 @@ from .const import DOMAIN, localized_strings
 from .coordinator import UpdateManagerCoordinator
 from .entity_rename import relabel_key
 from .install_tiers import FIRST_GATED_RANK, TIER_RANK, tier_for_entity
+from .semver import min_ha_version_required
 from .zigbee import device_for_entity, is_zigbee_entity, zigbee_network_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ RequestResult = Literal["dispatch", "queued"]
 
 _PANEL_UPDATES_URL = "/update-manager/updates"
 
-_STALLED_NOTIFICATION_ID_PREFIX = f"{DOMAIN}_stalled_install_"
+_STALLED_NOTIFICATION_ID = f"{DOMAIN}_stalled_installs"
 
 # Public (no leading underscore): repairs.py imports this directly instead
 # of keeping its own independently-defined copy -- found by code review,
@@ -84,14 +85,23 @@ def stuck_issue_id(entity_id: str) -> str:
 # nothing telling the user that happened at all -- found live, testing an
 # actual Zigbee2MQTT device that sat at 0% for a couple of minutes before
 # giving up. Deliberately a distinct notification from install_manager.py's
-# own "Update failed" one
-# (_FAILURE_NOTIFICATION_STRINGS): that's for a dispatch call that raised
-# outright (a real error), this is for an install that started normally and
-# simply never completed -- a different, much more common situation, not
-# obviously a fault, especially for a battery-powered Zigbee end device.
+# own "Failed updates" one (_FAILED_NOTIFICATION_STRINGS): that's for a
+# dispatch call that raised outright (a real error), this is for an install
+# that started normally and simply never completed -- a different, much
+# more common situation, not obviously a fault, especially for a
+# battery-powered Zigbee end device.
+#
+# One notification_id total for every currently stalled entity, not one
+# each -- same one-notification-total reasoning as install_manager.py's own
+# _NOTIFICATION_STRINGS, direct user feedback, 2026-09-12. Rebuilt from
+# self._stalled's own current contents by _refresh_stalled_notification.
 _STALLED_NOTIFICATION_STRINGS = {
     "en": {
-        "title": "Update didn't finish",
+        "title": "Updates that didn't finish",
+        "body": (
+            "{count} update{plural} didn't install successfully:\n\n{items}\n\n"
+            "Try installing again from the [Update Manager page]({url})."
+        ),
         # No mention of "the rest of the queue" here at all -- found live:
         # every Zigbee dispatch, even a lone one with no siblings, creates a
         # 1-entry bookkeeping "queue" internally (see
@@ -100,29 +110,17 @@ _STALLED_NOTIFICATION_STRINGS = {
         # own, with nothing ever actually queued behind it. What matters to
         # the user is simply that this one didn't install and what to do
         # about it, not this module's own internal queue bookkeeping.
-        "body_zigbee": (
-            "**{name}** didn't install successfully. Is this a battery-powered Zigbee device? It may "
-            "need to be woken up first (for example by pressing a button on the device) before the "
-            "update can actually start. Try that, then install it again from the "
-            "[Update Manager page]({url})."
-        ),
-        "body_neutral": (
-            "**{name}** didn't install successfully. Try installing it again from the "
-            "[Update Manager page]({url})."
-        ),
+        "item_zigbee": "* **{name}** (a battery-powered Zigbee device? It may need waking up first)",
+        "item_neutral": "* **{name}**",
     },
     "nl": {
-        "title": "Update niet gelukt",
-        "body_zigbee": (
-            "De installatie van **{name}** is niet gelukt. Is dit een batterij-gevoed Zigbee-apparaat? "
-            "Dan moet het misschien eerst wakker gemaakt worden (bijvoorbeeld door op een knopje op "
-            "het apparaat te drukken) voordat de update daadwerkelijk kan starten. Probeer dat, en "
-            "installeer daarna opnieuw via de [Update Manager-pagina]({url})."
+        "title": "Updates die niet zijn gelukt",
+        "body": (
+            "{count} update{plural} is niet gelukt:\n\n{items}\n\n"
+            "Probeer opnieuw te installeren via de [Update Manager-pagina]({url})."
         ),
-        "body_neutral": (
-            "De installatie van **{name}** is niet gelukt. Installeer opnieuw via de "
-            "[Update Manager-pagina]({url})."
-        ),
+        "item_zigbee": "* **{name}** (een batterij-gevoed Zigbee-apparaat? Die moet misschien eerst wakker gemaakt worden)",
+        "item_neutral": "* **{name}**",
     },
 }
 
@@ -334,9 +332,10 @@ class _QueuedEntry:
 
 
 class RolloutManager:
-    def __init__(self, hass: HomeAssistant, coordinator: UpdateManagerCoordinator) -> None:
+    def __init__(self, hass: HomeAssistant, coordinator: UpdateManagerCoordinator, config_entry_id: str) -> None:
         self.hass = hass
         self._coordinator = coordinator
+        self._config_entry_id = config_entry_id
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         # group_key -> ordered list of not-yet-confirmed-complete entries.
         # The first entry in each list is the one currently dispatched
@@ -366,14 +365,52 @@ class RolloutManager:
         # behind it is the same "one-off I've decided" behavior this
         # already had before consolidating.
         self._in_flight: dict[str, _InFlightInstall] = {}
+        # entity_id currently showing a "didn't finish" notification --
+        # purely to rebuild _refresh_stalled_notification's own single
+        # notification from the current, complete picture. Not persisted,
+        # same reasoning as self._in_flight above: a stall is a fact about
+        # the current runtime session, and _on_install_completed already
+        # clears this the moment a later attempt (auto or manual) actually
+        # succeeds, restart or not.
+        self._stalled: set[str] = set()
         # Told about by __init__.py so a queue-dispatched auto-install still
         # gets correctly attributed in install_log.py, see
         # set_recently_executed_setter's own docstring.
         self._mark_recently_executed: Callable[[str, AutoInstallContext], None] | None = None
         # Same reasoning/wiring as _mark_recently_executed above, see
         # set_failure_handler's own docstring: a queued entry's install can
-        # fail too, once this module is the one dispatching it.
+        # fail too, once this module is the one dispatching it. Two
+        # separate handlers, not one: a queued entry can be either
+        # auto-install's own doing or a manual click that simply had to
+        # wait its turn (see entry.is_auto), and the two need different
+        # treatment on failure -- install_manager.py's own
+        # handle_install_failure schedules a backoff retry, its
+        # handle_manual_install_failure deliberately doesn't (a one-off
+        # manual click shouldn't silently turn into an ongoing automatic
+        # retry loop).
         self._handle_install_failure: Callable[[str, str], None] | None = None
+        self._handle_manual_install_failure: Callable[[str, str], None] | None = None
+        # Same wiring pattern as the two above, see set_postponed_handler's
+        # own docstring: a queued install can also fail with "needs a newer
+        # HA Core", same as the two non-queued paths (install_manager.py's
+        # own auto-install path, websocket_api.py's manual one) already
+        # handle. One handler, not two, unlike the failure handlers above:
+        # install_manager.py's own async_mark_postponed already treats a
+        # postponement the same regardless of which path discovered it, no
+        # auto-vs-manual distinction needed here either.
+        self._mark_postponed: Callable[[str, str, str], Awaitable[None]] | None = None
+        # install_manager.py's own async_dispatch_install, which serializes
+        # the actual update.install call against every other one this
+        # module or install_manager.py's own _async_run_install dispatches
+        # at the same time (see that method's own docstring for the shared
+        # /tmp/hacs_backup-directory race it exists to prevent). Same
+        # wiring pattern as the handlers above; falls back to a bare,
+        # unserialized hass.services.async_call below whenever this is
+        # still None (not expected in practice, __init__.py always wires it
+        # before this module's own dispatch loop can run, but a queued
+        # install shouldn't simply never happen if that assumption is ever
+        # wrong).
+        self._dispatch_install: Callable[[dict[str, Any], Context | None], Awaitable[None]] | None = None
         self._unsub_install_listener: Callable[[], None] | None = None
         self._unsub_periodic_recheck: Callable[[], None] | None = None
         # Fired by _async_save below, the one place every real mutation of
@@ -451,8 +488,39 @@ class RolloutManager:
         entry's install (dispatched by this module, not install_manager.py's
         own _async_execute) had no failure path at all before this. Same
         setter pattern, same import-cycle reasoning, as
-        set_recently_executed_setter above."""
+        set_recently_executed_setter above. For an auto-install entry
+        (entry.is_auto) -- see set_manual_failure_handler for the other
+        half."""
         self._handle_install_failure = handler
+
+    def set_manual_failure_handler(self, handler: Callable[[str, str], None]) -> None:
+        """Same as set_failure_handler above, for a queued entry that was a
+        manual click (not entry.is_auto) rather than auto-install's own
+        doing -- install_manager.py's own handle_manual_install_failure,
+        which marks the same failure without scheduling a backoff retry of
+        its own."""
+        self._handle_manual_install_failure = handler
+
+    def set_postponed_handler(self, handler: Callable[[str, str, str], Awaitable[None]]) -> None:
+        """install_manager.py's own async_mark_postponed, same setter
+        pattern and import-cycle reasoning as set_recently_executed_setter/
+        set_failure_handler above. Consulted in the dispatch loop's own
+        except-branch, before falling back to set_failure_handler/
+        set_manual_failure_handler, same classify-first-then-act structure
+        install_manager.py's own _async_run_install and websocket_api.py's
+        _async_run_manual_install already use."""
+        self._mark_postponed = handler
+
+    def set_install_dispatcher(self, dispatcher: Callable[[dict[str, Any], Context | None], Awaitable[None]]) -> None:
+        """install_manager.py's own async_dispatch_install, same setter
+        pattern and import-cycle reasoning as the handlers above. Found
+        live, 2026-11-04: this module's own dispatch loop called hass.
+        services.async_call directly, same as websocket_api.py's manual-
+        install path did before it got this exact same fix, so a batch of
+        several queued installs from different Zigbee networks (or
+        different tiers) dispatched at the same moment could still hit the
+        same HACS shared-backup-directory race the lock exists for."""
+        self._dispatch_install = dispatcher
 
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
@@ -519,6 +587,29 @@ class RolloutManager:
 
     def async_start(self) -> None:
         self._unsub_install_listener = self._coordinator.async_add_install_listener(self._on_install_completed)
+        # Every persisted queue's own front marked in-flight *synchronously*,
+        # right here, before anything else runs at all -- found live,
+        # 2026-11-08: self._in_flight is never persisted (see its own
+        # comment, unlike self._queues), so right after a restart it starts
+        # empty regardless of what was genuinely installing before.
+        # install_manager.py's own async_start() (called just before this
+        # one, see __init__.py) already schedules its own first evaluation
+        # tick the same way _async_recover_after_restart below is scheduled
+        # -- an independent task, not awaited -- and reliably wins that
+        # race, since it's scheduled first. An entity genuinely still the
+        # front of its own queue had nothing protecting it at that point
+        # (is_queued() never did, and not being auto-install's own doing
+        # never populated install_manager.py's own self._recently_executed
+        # either) and got a fresh, spurious re-announce the instant HA
+        # restarted. Scheduling _async_recover_after_restart first instead
+        # wouldn't reliably close this: it still has real `await`s of its
+        # own before actually re-marking anything, the same kind of gap this
+        # project's own recent rollout_manager.py fixes already closed
+        # elsewhere -- only something synchronous, before either task gets
+        # a chance to run at all, closes it for certain.
+        for entries in self._queues.values():
+            if entries:
+                self._in_flight_entry(entries[0].entity_id).front_since = dt_util.utcnow()
         # Restart recovery: for every persisted queue, check whether its
         # front entry actually finished (or is still genuinely mid-install):
         # neither can just be assumed after a restart, since no task or
@@ -615,21 +706,24 @@ class RolloutManager:
             return None
         return record
 
-    def was_manually_requested(self, entity_id: str, to_version: str) -> str | None:
+    def was_manually_requested(self, entity_id: str, to_version: str) -> tuple[bool, str | None]:
         """Consumed once by __init__.py's install-listener callback, the
         manual-attribution counterpart to install_manager.py's own
-        was_auto_installed. Returns the user_id that requested this exact
-        (entity_id, to_version) install, or None if this wasn't a manual
-        request this module knows about, or it was for a different
-        version. Only pops the record on an actual match, same reasoning
-        as was_auto_installed's own docstring: a still-pending record for a
-        different, later request must survive an unrelated version change
-        on the same entity landing first."""
+        was_auto_installed. Returns (True, user_id) once a matching record
+        for this exact (entity_id, to_version) install is found, or
+        (False, None) otherwise. user_id can still be None on a real match:
+        note_external_install_request below records a match whenever a real
+        update.install call is observed, whether or not it carried an
+        attributable user, and the caller needs to tell that apart from no
+        match at all. Only pops the record on an actual match, same
+        reasoning as was_auto_installed's own docstring: a still-pending
+        record for a different, later request must survive an unrelated
+        version change on the same entity landing first."""
         record = self._matching_manual_record(entity_id, to_version)
         if record is None:
-            return None
+            return False, None
         del self._recently_manual[entity_id]
-        return record[1]
+        return True, record[1]
 
     def note_external_install_request(self, entity_id: str, user_id: str | None) -> None:
         """Called by __init__.py's own global EVENT_CALL_SERVICE listener
@@ -826,11 +920,6 @@ class RolloutManager:
         # already accounted for (see blocking_rank's update below) by the
         # time a higher-tier entry in the same pass is considered.
         ordered = sorted(ranks, key=lambda e: ranks[e])
-        # Saved once for the whole batch below, not once per cleared entry.
-        # Found by code review, 2026-08-10: several requests clearing in
-        # the same tick (e.g. right after a blocking Core install finishes)
-        # used to each trigger their own full Store write.
-        cleared_any = False
         for entity_id in ordered:
             entry = self._tier_blocked.get(entity_id)
             if entry is None:
@@ -839,7 +928,44 @@ class RolloutManager:
             if blocking_rank is not None and blocking_rank < my_rank:
                 continue
             del self._tier_blocked[entity_id]
-            cleared_any = True
+            # Same race as _async_advance's own (see that method's own
+            # comment): once removed from self._tier_blocked, nothing
+            # protects this entry again until _async_request_past_tier_gate
+            # below marks it -- and the await self._async_save() right here
+            # is a real gap before that even runs. Only pre-marked for the
+            # common case this can actually predict safely, synchronously,
+            # before any of that: no Zigbee-network queue at all for it yet
+            # (self._group_key_for is a pure, no-I/O lookup -- same call
+            # _async_request_past_tier_gate itself makes right after this),
+            # which is exactly the condition under which that method is
+            # guaranteed to resolve to "dispatch" a few lines down. Left
+            # alone otherwise (already front of an existing network queue
+            # with a stale/mismatched to_version, a genuinely rare edge
+            # case -- see that method's own 2026-08-10 comment): pre-
+            # marking there risks recording the wrong to_version's context
+            # against this entity_id, which was_auto_installed's own
+            # to_version check would then quietly refuse to match once the
+            # *real* in-flight install actually completes.
+            group_key = self._group_key_for(entity_id)
+            if not self._queues.get(group_key):
+                self._mark_entry_dispatching(entry)
+            # Persisted right away, not batched until this whole loop ends
+            # (as it used to be, found by code review 2026-08-10, to avoid
+            # one Store write per entry when several clear in the same
+            # tick) -- Core/OS's own update.install restarts Home Assistant
+            # itself, so the awaited dispatch below can end the process
+            # before ever returning, and a save deferred until after the
+            # loop would then never run at all. Confirmed live, 2026-09-30:
+            # Core cleared here and installed successfully, but the on-disk
+            # tier_blocked still listed it (the batched save never got its
+            # turn), so the next restart's own _async_recover_after_restart
+            # read that stale entry and tried to dispatch Core again, now
+            # with nothing left to install -- see _async_dispatch's own
+            # guard for what that produced. Still one write per cleared
+            # entry in the rarer multi-entry-clearing case, but correctness
+            # for the entries that can end the process outright matters
+            # more than that batching ever saved.
+            await self._async_save()
             if await self._async_request_past_tier_gate(entry) == "dispatch":
                 await self._async_dispatch(entry)
             # This entry is now itself either dispatched or freshly queued
@@ -849,8 +975,6 @@ class RolloutManager:
             # shown up as in_progress in the snapshot above.
             if blocking_rank is None or my_rank < blocking_rank:
                 blocking_rank = my_rank
-        if cleared_any:
-            await self._async_save()
 
     def _min_blocking_tier_rank(self) -> int | None:
         """The lowest tier rank among every update entity currently
@@ -915,6 +1039,12 @@ class RolloutManager:
 
         relabel_key(self._in_flight, old_entity_id, new_entity_id)
         relabel_key(self._recently_manual, old_entity_id, new_entity_id)
+        # self._stalled is a plain set, not a dict -- relabel_key's own
+        # pop/reinsert shape doesn't apply, same "different shape, not
+        # something this helper can absorb" reasoning as self._queues above.
+        if old_entity_id in self._stalled:
+            self._stalled.discard(old_entity_id)
+            self._stalled.add(new_entity_id)
         self._async_clear_stuck_issue(old_entity_id)
 
     async def async_cancel_queued(self, entity_id: str) -> bool:
@@ -1015,11 +1145,13 @@ class RolloutManager:
         self._async_clear_stuck_issue(entity_id)
         # A later retry (a manual click, or another auto-install cycle
         # picking the now-standalone entity back up) just genuinely
-        # succeeded -- clears any "didn't finish" notification
-        # _async_notify_stalled raised for an earlier attempt, same
-        # "harmless no-op if nothing's raised" reasoning as the Repair
-        # issue's own clear above.
-        persistent_notification.async_dismiss(self.hass, f"{_STALLED_NOTIFICATION_ID_PREFIX}{entity_id}")
+        # succeeded -- clears this entity out of the "didn't finish"
+        # notification if _async_notify_stalled raised it for an earlier
+        # attempt, same "harmless no-op if nothing's raised" reasoning as
+        # the Repair issue's own clear above.
+        if entity_id in self._stalled:
+            self._stalled.discard(entity_id)
+            self._refresh_stalled_notification()
         self.hass.async_create_task(self._async_retry_tier_blocked())
         group_key = self._group_key_with_front(entity_id)
         if group_key is not None:
@@ -1027,11 +1159,16 @@ class RolloutManager:
             if entries and entries[0].to_version == new_version:
                 self.hass.async_create_task(self._async_advance(group_key))
 
-    async def _async_advance(self, group_key: str) -> None:
+    async def _async_advance(self, group_key: str, *, dispatch: bool = True) -> None:
         """The front entry of this group just finished (or, per
         _async_advance_past_stalled_front below, gave up on its own without
         ever actually finishing), drop it, and if anything's still waiting
-        behind it, dispatch that one now."""
+        behind it, dispatch that one now. `dispatch=False` is only for
+        _async_pop_finished_fronts's own loop below, which needs to keep
+        popping consecutively already-finished fronts without dispatching
+        each one in turn -- it would otherwise call update.install on an
+        entry about to be popped again right after, a real, if normally
+        harmless, redundant call."""
         entries = self._queues.get(group_key)
         if not entries:
             return
@@ -1041,6 +1178,21 @@ class RolloutManager:
             del self._queues[group_key]
             await self._async_save()
             return
+        # Marked *before* the save below, not left to _async_dispatch's own
+        # call to this -- found live, 2026-11-08: popping the finished
+        # entry here already makes is_queued() stop protecting the new
+        # front entry (it's no longer "waiting behind someone" per that
+        # function's own definition), and install_manager.py's own
+        # _recently_executed guard is the only other thing that protects
+        # it. await self._async_save() right below is a real yield point
+        # (Store I/O), long enough for install_manager.py's own coordinator-
+        # triggered tick to run in between and find this entity in neither
+        # self._pending (already cleared when its own announce_wait first
+        # elapsed) nor is_queued() nor _recently_executed -- indistinguishable
+        # from a brand-new, never-announced update, so it got a fresh
+        # announce (and EVENT_ANNOUNCED) every single time a sibling ahead
+        # of it in the queue finished installing.
+        self._mark_entry_dispatching(entries[0])
         # info, not warning -- direct user feedback, 2026-08-12: this is the
         # queue working exactly as designed (one finished, the next one's
         # own turn came), not something that needs attention. Warning made
@@ -1053,7 +1205,36 @@ class RolloutManager:
             entries[0].entity_id,
         )
         await self._async_save()
-        await self._async_dispatch(entries[0])
+        if dispatch:
+            await self._async_dispatch(entries[0])
+
+    async def _async_pop_finished_fronts(self, group_key: str) -> _QueuedEntry | None:
+        """Pops every front entry of this group that's already, confirmably
+        finished (installed_version already matches to_version) in a row,
+        without dispatching anything in between -- a long HA restart, or
+        several Zigbee devices completing between one periodic recheck and
+        the next, can each leave more than one front like this at once, not
+        just the very first one. Found live, 2026-11-08: both
+        _async_recover_one and _async_recheck_queue_fronts used to check and
+        pop only once, so only the first already-finished entry in a row
+        ever actually caught up -- anything behind the *second* one stayed
+        showing a stale "Waiting for X" for an X that had already finished,
+        for as many more restart-recovery passes or 30-second recheck ticks
+        as there were already-finished entries still ahead of it. Returns
+        the group's new, not-confirmably-finished front for the caller's own
+        existing dispatch-or-skip decision (_async_recover_one always
+        re-dispatches it, _async_recheck_queue_fronts re-checks in_progress
+        first), or None once the whole group emptied out this way."""
+        while True:
+            entries = self._queues.get(group_key)
+            if not entries:
+                return None
+            front = entries[0]
+            state = self.hass.states.get(front.entity_id)
+            installed = state.attributes.get("installed_version") if state else None
+            if installed != front.to_version:
+                return front
+            await self._async_advance(group_key, dispatch=False)
 
     def _group_key_with_front(self, entity_id: str) -> str | None:
         for group_key, entries in self._queues.items():
@@ -1134,28 +1315,52 @@ class RolloutManager:
         await self._async_advance(group_key)
 
     def _async_notify_stalled(self, entity_id: str) -> None:
-        """Nudges someone to wake a battery-powered Zigbee device so its
-        stalled install can actually proceed. Every entity that ever
-        reaches here is a genuine Zigbee device by construction
+        """Adds entity_id to the current "didn't finish" picture and
+        rebuilds the one shared notification from it. Every entity that
+        ever reaches here is a genuine Zigbee device by construction
         (_group_key_with_front only ever matches something that entered
         self._queues in the first place, which only happens for a real
-        Zigbee network_id, see _group_key_for), so is_zigbee_entity below
-        is a defensive check, not expected to ever actually be False --
-        same "check it anyway" precedent _async_maybe_raise_stuck_issue
-        already sets for its own, near-identical choice of wording."""
-        state = self.hass.states.get(entity_id)
-        name = state.name if state else entity_id
+        Zigbee network_id, see _group_key_for), so is_zigbee_entity in
+        _refresh_stalled_notification below is a defensive check, not
+        expected to ever actually be False -- same "check it anyway"
+        precedent _async_maybe_raise_stuck_issue already sets for its own,
+        near-identical choice of wording."""
+        self._stalled.add(entity_id)
+        self._refresh_stalled_notification()
+
+    @callback
+    def _refresh_stalled_notification(self) -> None:
+        """Rebuilds the single "didn't finish" notification from
+        self._stalled's own complete, current contents, same
+        one-notification-total reasoning as install_manager.py's own
+        _refresh_pending_notification. Dismissed entirely once nothing is
+        left stalled."""
+        if not self._stalled:
+            persistent_notification.async_dismiss(self.hass, _STALLED_NOTIFICATION_ID)
+            return
         strings = localized_strings(self.hass, _STALLED_NOTIFICATION_STRINGS)
-        body_key = "body_zigbee" if is_zigbee_entity(self.hass, entity_id) else "body_neutral"
+        items = "\n".join(
+            strings["item_zigbee" if is_zigbee_entity(self.hass, entity_id) else "item_neutral"].format(
+                name=(self.hass.states.get(entity_id).name if self.hass.states.get(entity_id) else entity_id)
+            )
+            for entity_id in self._stalled
+        )
         persistent_notification.async_create(
             self.hass,
-            strings[body_key].format(name=name, url=_PANEL_UPDATES_URL),
+            strings["body"].format(
+                count=len(self._stalled), plural="" if len(self._stalled) == 1 else "s", items=items, url=_PANEL_UPDATES_URL
+            ),
             title=strings["title"],
-            notification_id=f"{_STALLED_NOTIFICATION_ID_PREFIX}{entity_id}",
+            notification_id=_STALLED_NOTIFICATION_ID,
         )
 
-    async def _async_dispatch(self, entry: _QueuedEntry) -> None:
-        self._in_flight_entry(entry.entity_id).front_since = dt_util.utcnow()
+    def _mark_entry_dispatching(self, entry: _QueuedEntry) -> None:
+        """Pure in-memory bookkeeping (self._mark_recently_executed is
+        never persisted), so this is always safe to call as early as
+        possible, before any `await` -- see _async_advance's own comment
+        for why that matters. Idempotent: callable more than once for the
+        same entry with no harmful effect, just reassigning the same dict
+        entry."""
         if entry.is_auto and self._mark_recently_executed is not None:
             # entry.context is only ever None for an is_auto=True entry
             # that was queued (and persisted) before this session's
@@ -1171,11 +1376,52 @@ class RolloutManager:
                 to_version=entry.to_version, reason="rules", trusted_voter_usernames=[], announced_at=None
             )
             self._mark_recently_executed(entry.entity_id, context)
+
+    async def _async_dispatch(self, entry: _QueuedEntry) -> None:
+        # Already installed by some other route while this request sat
+        # waiting its turn here. Confirmed live, 2026-09-30: the main way
+        # this actually happens is Core/OS's own update.install restarting
+        # Home Assistant mid-dispatch, which used to leave a stale entry in
+        # the on-disk tier_blocked behind (see _async_retry_tier_blocked's
+        # own comment on saving per-entry, now fixed) -- the next restart's
+        # _async_recover_after_restart then read that stale entry and tried
+        # to dispatch an entity that had, by definition, just successfully
+        # installed to become that stale entry in the first place. Also a
+        # real, if rarer, possibility for any entity clicked through Home
+        # Assistant's own native more-info dialog while queued here,
+        # entirely outside this queue/tier-gate's own awareness (a known,
+        # so-far-parked gap, see TODO-CLAUDE.md). Either way, dispatching
+        # anyway calls update.install with no explicit version on an entity
+        # that already has nothing left to install, which Home Assistant
+        # rejects outright ("No update available"), misreporting a real,
+        # already-successful install as a failure of this queue's own.
+        # coordinator.py's own install-listener already picked up that
+        # real completion when it happened (regardless of who triggered
+        # it) and advanced past this entry via _on_install_completed below
+        # -- if this method still got called for it anyway (a race between
+        # that and this same retry), there's nothing left to do here but
+        # skip the now-redundant call silently, not report a failure for
+        # an install that already succeeded.
+        state = self.hass.states.get(entry.entity_id)
+        if state is not None and state.attributes.get("installed_version") == entry.to_version:
+            return
+        self._in_flight_entry(entry.entity_id).front_since = dt_util.utcnow()
+        # Already marked by _async_advance/_async_retry_tier_blocked's own
+        # earlier call to this same method if this entry got here through
+        # either of those (see _async_advance's own comment for why it
+        # can't wait until here) -- calling it again is a harmless no-op in
+        # that case, just reassigning the same dict entry. Still needed
+        # here outright for async_start's own restart-recovery path, the
+        # one remaining caller that never marks ahead of this.
+        self._mark_entry_dispatching(entry)
         try:
-            await self.hass.services.async_call(
-                "update", "install", entry.service_data, blocking=True, context=entry.ha_context
-            )
-        except Exception:
+            if self._dispatch_install is not None:
+                await self._dispatch_install(entry.service_data, entry.ha_context)
+            else:
+                await self.hass.services.async_call(
+                    "update", "install", entry.service_data, blocking=True, context=entry.ha_context
+                )
+        except Exception as exception:
             # Found by review: previously unguarded, a real install failure
             # here left the entry stuck at the front of its queue forever
             # (the only thing that ever advances a queue is the install-
@@ -1183,15 +1429,38 @@ class RolloutManager:
             # every sibling device queued behind it blocked too and no
             # failure notification anywhere, unlike a plain, non-queued
             # auto-install's own path.
-            _LOGGER.exception("Update Manager's queued install failed for %s", entry.entity_id)
-            if self._handle_install_failure is not None:
-                self._handle_install_failure(entry.entity_id, entry.to_version)
+            #
+            # Classified before logging/handling, same as install_manager.py's
+            # own _async_run_install and websocket_api.py's
+            # _async_run_manual_install: found by code review, 2026-11-03,
+            # this queued path was the one place that still didn't check
+            # for a too-old-HA-Core failure at all, so it retried forever
+            # on the generic backoff schedule instead of being postponed
+            # until HA Core itself updates, repeating this entry's real
+            # install cost (e.g. a Marketplace backup/restore cycle) every
+            # single retry.
+            required_version = min_ha_version_required(exception)
+            if required_version is not None and self._mark_postponed is not None:
+                _LOGGER.debug(
+                    "Update Manager postponed queued install for %s: needs Home Assistant %s or newer",
+                    entry.entity_id,
+                    required_version,
+                )
+                await self._mark_postponed(entry.entity_id, entry.to_version, required_version)
+            else:
+                _LOGGER.exception("Update Manager's queued install failed for %s", entry.entity_id)
+                failure_handler = (
+                    self._handle_install_failure if entry.is_auto else self._handle_manual_install_failure
+                )
+                if failure_handler is not None:
+                    failure_handler(entry.entity_id, entry.to_version)
             # Advances past it immediately if it was a Zigbee queue's own
             # front entry -- a no-op for anything else (never entered
-            # self._queues at all). notify=False: _handle_install_failure
-            # just above already raised its own notification for this
-            # exact case. See _async_advance_past_stalled_front's own
-            # docstring for the reasoning behind this.
+            # self._queues at all). notify=False: the branch above already
+            # raised its own notification (a failure) or deliberately
+            # didn't need to (a quiet postponement, same as the two
+            # non-queued paths). See _async_advance_past_stalled_front's
+            # own docstring for the reasoning behind this.
             await self._async_advance_past_stalled_front(entry.entity_id, notify=False)
 
     @callback
@@ -1243,8 +1512,19 @@ class RolloutManager:
                 # listener) specifically for the case this function's own
                 # docstring describes: nothing else ever asked to install
                 # this network again, so nothing else was listening either.
-                await self._async_advance(group_key)
-                continue
+                # _async_pop_finished_fronts, not a single _async_advance:
+                # more than one front in a row can have quietly finished
+                # between recheck ticks, see that method's own docstring.
+                front = await self._async_pop_finished_fronts(group_key)
+                if front is None:
+                    continue
+                # The new front may already be a normal, currently-
+                # installing one (not another stale leftover) -- re-check
+                # before falling through to the stalled-front path below,
+                # same in_progress skip as the one at the top of this loop.
+                state = self.hass.states.get(front.entity_id)
+                if state is not None and state.attributes.get("in_progress"):
+                    continue
             # Not confirmed complete -- unavailable, no longer pending, or
             # genuinely stalled while still pending are all handled the
             # same way from here, via the same grace-respecting,
@@ -1373,6 +1653,12 @@ class RolloutManager:
         if ir.async_get(self.hass).async_get_issue(DOMAIN, stuck_issue_id(entity_id)) is not None:
             return
         minutes = max(1, int((dt_util.utcnow() - since).total_seconds() // 60))
+        # config_entry_id (HA 2026.11+) ties this issue to this integration's
+        # own config entry, so it's deleted automatically if the entry
+        # itself ever is, instead of potentially lingering for a removed
+        # integration forever. See github_auth.py's own matching comment
+        # (_async_create_link_expired_issue) for why no manifest.json gate
+        # actually enforces this.
         ir.async_create_issue(
             self.hass,
             DOMAIN,
@@ -1382,6 +1668,7 @@ class RolloutManager:
             translation_key="install_stuck_zigbee" if is_zigbee_entity(self.hass, entity_id) else "install_stuck",
             translation_placeholders={"entity_id": entity_id, "minutes": str(minutes)},
             data={"entity_id": entity_id},
+            config_entry_id=self._config_entry_id,
         )
 
     def _async_clear_stuck_issue(self, entity_id: str) -> None:
@@ -1409,29 +1696,25 @@ class RolloutManager:
         callback survives one, and the install-listener event that would
         normally tell us either already fired while nothing was listening,
         or never got the chance to. Check the entity's real, current state
-        against what it was queued for instead of guessing."""
-        entries = self._queues.get(group_key)
-        if not entries:
+        against what it was queued for instead of guessing. More than one
+        front in a row can have actually finished during the same downtime
+        (several Zigbee devices completing while HA was down, or a restart
+        that itself took a while) -- see _async_pop_finished_fronts's own
+        docstring for why a single check here isn't enough to catch that."""
+        front = await self._async_pop_finished_fronts(group_key)
+        if front is None:
             return
-        front = entries[0]
-        state = self.hass.states.get(front.entity_id)
-        installed = state.attributes.get("installed_version") if state else None
-        if installed == front.to_version:
-            # Actually finished while HA was down (or in the gap between
-            # dispatch and this restart), advance now instead of waiting
-            # for an event that already happened.
-            await self._async_advance(group_key)
-        else:
-            # The previous restart interrupted the in-flight install
-            # itself. Re-dispatch rather than leaving the group stuck
-            # waiting forever for a completion that will never come:
-            # calling update.install again is expected to be a safe no-op
-            # in the (rarer) case it turns out the install did finish
-            # right at the restart boundary, same "calling it again is
-            # harmless" reasoning staging_skip.py already relies on for
-            # update.skip/clear_skipped, though worth a real live check
-            # during testing, not just assumed.
-            await self._async_dispatch(front)
+        # The previous restart interrupted the in-flight install itself (or
+        # nothing was dispatched for it at all after catching up past
+        # already-finished entries above). Re-dispatch rather than leaving
+        # the group stuck waiting forever for a completion that will never
+        # come: calling update.install again is expected to be a safe no-op
+        # in the (rarer) case it turns out the install did finish right at
+        # the restart boundary, same "calling it again is harmless"
+        # reasoning staging_skip.py already relies on for update.skip/
+        # clear_skipped, though worth a real live check during testing, not
+        # just assumed.
+        await self._async_dispatch(front)
 
     def rollout_groups_snapshot(self) -> list[dict[str, Any]]:
         """Read by websocket_api.py's own _handle_updates to show the
@@ -1478,6 +1761,28 @@ class RolloutManager:
             if any(e.entity_id == entity_id for e in entries[1:]):
                 return True
         return False
+
+    def is_in_flight(self, entity_id: str) -> bool:
+        """True for an entity this module itself is currently the one
+        dispatching (or waiting out a grace period/recheck for) -- the
+        front of a Zigbee rollout queue, or a standalone immediate dispatch
+        that hasn't resolved yet either way. self._in_flight is populated
+        the same way regardless of entry.is_auto (see
+        _async_request_past_tier_gate's and _async_dispatch's own
+        front_since assignment), unlike install_manager.py's own
+        self._recently_executed, which only ever covers an auto-install
+        dispatch -- see this method's own call site in install_manager.py's
+        _async_evaluate_one for why a manually-dispatched (Update All)
+        queue entry needs this broader check too, not just that
+        narrower one. Direct user feedback, 2026-11-08: a manually-
+        dispatched Zigbee queue's own next entry, promoted to front the
+        moment its predecessor finished, had nothing at all protecting it
+        once is_queued() above stopped counting it as queued -- is_auto was
+        False, so install_manager.py's own _recently_executed guard never
+        applied either, and it got a fresh, spurious auto-install announce
+        cycle layered on top of the manual install already running for
+        it."""
+        return entity_id in self._in_flight
 
     def tier_blocked_entity_ids(self) -> list[str]:
         """Read by websocket_api.py's own _handle_updates, alongside

@@ -151,8 +151,11 @@ def validate_register_data(descr: Any, value: Any, datadict: dict[str, Any]) -> 
 
         # Handle U32 overflow pattern
         if value >= 0xFFFFFF00:
-            last_value = pm_last_known_values.get(descr.key, 0)
-            _LOGGER.warning("PM U32 overflow %s: 0x%08X -> using last: %sW", descr.key, value, last_value)
+            last_value = pm_last_known_values.get(descr.key)
+            if last_value is None:
+                _LOGGER.warning("PM U32 overflow %s: 0x%08X -> no previously known value. Setting to 0.", descr.key, value)
+                return 0
+            _LOGGER.debug("PM U32 overflow %s: 0x%08X -> keeping last value: %s", descr.key, value, last_value)
             return last_value
 
         # Store valid values for future use
@@ -2206,6 +2209,7 @@ SENSOR_TYPES_MAIN: list[SolaXModbusSensorEntityDescription] = [
         name="Battery Voltage Cell Difference",
         key="battery_voltage_cell_difference",
         value_function=value_function_battery_voltage_cell_difference,
+        depends_on=["cell_voltage_high", "cell_voltage_low"],
         native_unit_of_measurement=UnitOfElectricPotential.VOLT,
         device_class=SensorDeviceClass.VOLTAGE,
         state_class=SensorStateClass.MEASUREMENT,
