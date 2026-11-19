@@ -777,10 +777,10 @@
 - id: '1778234345312'
   alias: Doorbell - Hello Olivia TTS
   description: 'When Olivia is face-detected at the doorbell between 1-2pm on weekdays:
-    takes a doorbell snapshot, asks LLM Vision (Gemini 2.5-flash) for a short witty
-    compliment about how she looks today, then greets her with it on the kitchen +
-    sitting-room speakers after a 2-min delay (volume boosted then restored). Falls
-    back to a generic greeting if vision fails.'
+    takes a doorbell snapshot, asks LLM Vision (OpenRouter, anthropic/claude-sonnet-5.5)
+    for a short witty compliment about how she looks today, then greets her with it
+    on the kitchen + sitting-room speakers after a 2-min delay (volume boosted then
+    restored). Falls back to a generic greeting if vision fails.'
   triggers:
   - platform: state
     entity_id: sensor.frigate_olivia_last_camera
@@ -798,8 +798,8 @@
   actions:
   - action: llmvision.image_analyzer
     data:
-      provider: 01K4FMFEXK56935CBS3A6F8R34
-      model: gemini-2.5-flash
+      provider: 01M7SX96ZKDDA560ZR3WES8P7N
+      model: anthropic/claude-sonnet-5.5
       image_entity:
       - camera.doorbell
       message: You are a charming, playful home assistant greeting Olivia, the lady
