@@ -12,7 +12,7 @@ class InfraFrameCard extends HTMLElement {
     this._cfg = Object.assign({
       path: '/api/infra_private/infra.html',
       height: 'calc(100vh - var(--header-height, 56px))',
-      refresh: 60,
+      refresh: 0,          // seconds between automatic reloads; 0 = never (his ask 20-11-2026, page has a Refresh button)
       expires: 900,
       maintenance_entity: 'input_boolean.maintenance_mode',
       updone_automation: null,
@@ -39,7 +39,7 @@ class InfraFrameCard extends HTMLElement {
     this._frame = f;
     this._onMsg = (e) => this._message(e);
     window.addEventListener('message', this._onMsg);
-    this._timer = setInterval(() => this._load(), this._cfg.refresh * 1000);
+    if (this._cfg.refresh > 0) this._timer = setInterval(() => this._load(), this._cfg.refresh * 1000);
     this._load();
   }
   async _load() {
