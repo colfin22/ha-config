@@ -46,7 +46,7 @@
       },
       {
         "id": "4dcbaa4eccd541648fcc310578468c68",
-        "url": "/local/cctv-card.js?v=35",
+        "url": "/local/cctv-card.js?v=36",
         "type": "module"
       },
       {
@@ -101,7 +101,7 @@
       },
       {
         "id": "8b3cd6ee846d40f7aacf38098d6adcf8",
-        "url": "/local/live-house-card.js?v=21",
+        "url": "/local/live-house-card.js?v=23",
         "type": "module"
       },
       {
