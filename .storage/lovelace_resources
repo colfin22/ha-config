@@ -5,16 +5,6 @@
   "data": {
     "items": [
       {
-        "id": "9fa6ccd1a9394be7a918de5abe7ddc39",
-        "url": "/local/community/ha-floorplan/floorplan.js?v=188323494113",
-        "type": "module"
-      },
-      {
-        "id": "bafd971413ea41ceb00ab13b3698c91a",
-        "url": "/local/community/my-cards/my-cards.js?v=399108901231",
-        "type": "module"
-      },
-      {
         "id": "06354bb8e733487e9d0ce2fe98d96af5",
         "url": "/local/community/button-card/button-card.js?v=146194325430",
         "type": "module"
@@ -25,63 +15,8 @@
         "type": "module"
       },
       {
-        "id": "96111904be4b427cb59379af5ab865d3",
-        "url": "/local/community/lovelace-layout-card/layout-card.js?v=156434866245",
-        "type": "module"
-      },
-      {
-        "id": "9741b9a0ad3043daa24897125a9cf4e7",
-        "url": "/webrtc/webrtc-camera.js?v=v3.6.1",
-        "type": "module"
-      },
-      {
-        "id": "942d3da1788e465cafd6363295bc860e",
-        "url": "/local/community/mushroom-strategy/mushroom-strategy.js?v=619284862320",
-        "type": "module"
-      },
-      {
-        "id": "4a86e0ee53f44ae78f91455ec1200527",
-        "url": "/local/community/lovelace-mushroom/mushroom.js?v=444350375-v5.3.0",
-        "type": "module"
-      },
-      {
-        "id": "6aefe0bb890b46efbc5903953d2e6d4a",
-        "url": "/local/community/mini-graph-card/mini-graph-card-bundle.js?v=1512800620130",
-        "type": "module"
-      },
-      {
-        "id": "9fdab41b23ca40bfb76637ec2d5120bc",
-        "url": "/local/community/energy-sankey/energy-sankey.js?v=8757988630027",
-        "type": "css"
-      },
-      {
-        "id": "1de5bc6ac6914a6f9fda0ad35bba7d6d",
-        "url": "/local/community/Bubble-Card/bubble-card.js?v=680112919-v3.4.3",
-        "type": "module"
-      },
-      {
-        "id": "be3e797adf164098b8114a6a8a16e6b9",
-        "url": "/local/community/lovelace-state-switch/state-switch.js?v=158756598196",
-        "type": "module"
-      },
-      {
-        "id": "9374bc294b944309b89f4d3a0dd2993d",
-        "url": "/local/strategy-pack.es.js",
-        "type": "module"
-      },
-      {
         "id": "080924d3819948b3a3acf2e02ab774a4",
         "url": "/browser_mod.js?automatically-added&3.4.2",
-        "type": "module"
-      },
-      {
-        "id": "9ad886b2398c425cb7c0276425d8591d",
-        "url": "/local/community/apexcharts-card/apexcharts-card.js",
-        "type": "module"
-      },
-      {
-        "id": "a280e483fbcf47baaf26b5df4532e982",
-        "url": "/local/community/swipe-card/swipe-card.js?v=192732887500",
         "type": "module"
       },
       {
@@ -90,58 +25,13 @@
         "type": "module"
       },
       {
-        "id": "c8ae491804204e1c88904ce7813e2e45",
-        "url": "/local/community/clock-weather-card/clock-weather-card.js?v=522634019-v3.1.0",
-        "type": "module"
-      },
-      {
-        "id": "6ea4bce91a564b8f8ef8afd04351251b",
-        "url": "/local/community/mini-media-player/mini-media-player-bundle.js?v=14852083811612",
-        "type": "module"
-      },
-      {
-        "id": "1ff8fec70dca4a128dcc393efc97256c",
-        "url": "/local/community/alarmo-card/alarmo-card.js?v=391372854169",
-        "type": "module"
-      },
-      {
-        "id": "9e9fa7fe7e8a4a7b87b82a90f50901b4",
-        "url": "/local/heating-boost-card.js?v=13",
-        "type": "module"
-      },
-      {
-        "id": "0cfc9773a0f44b0bbc06a5c64fa4a14c",
-        "url": "/local/heating-activity-card.js?v=6",
-        "type": "module"
-      },
-      {
-        "id": "8f305ea9ac1f4cfdbbd70fbcf4899fbc",
-        "url": "/local/alarm-activity-card.js?v=2",
-        "type": "module"
-      },
-      {
         "id": "4237ba80f5e34a53a3897c57d6efb4a4",
         "url": "/local/community/HA-Firemote/HA-Firemote.js?v=536329656419",
         "type": "module"
       },
       {
-        "id": "57a0e1cfb68e412a92c75227c453f6b1",
-        "url": "/local/community/helios/helios.js?v=1",
-        "type": "module"
-      },
-      {
         "id": "0ea13e852b4645518275efaa6f3751d5",
         "url": "/local/community/advanced-camera-card/advanced-camera-card.js?v=394082552-v8.2.0",
-        "type": "module"
-      },
-      {
-        "id": "fa01b2f6bda848b5a1a5d600d9e1b654",
-        "url": "/local/community/energy-custom-graph/energycustomgraph.js?v=1082381944-1.3.1",
-        "type": "module"
-      },
-      {
-        "id": "b8f408e3e5854b42b24ef12647ad8fe6",
-        "url": "/local/community/sun-weather-card/sun-weather-card.js?v=1297690428-v1.14.1",
         "type": "module"
       },
       {
@@ -151,42 +41,37 @@
       },
       {
         "id": "9fbb36ab094f4389a7f432a540c09735",
-        "url": "/local/infra-frame-card.js?v=1",
-        "type": "module"
-      },
-      {
-        "id": "0650819edbc24b5f9159de19834f0303",
-        "url": "/local/private-picture-card.js?v=1",
+        "url": "/local/infra-frame-card.js?v=2",
         "type": "module"
       },
       {
         "id": "4dcbaa4eccd541648fcc310578468c68",
-        "url": "/local/cctv-card.js?v=34",
+        "url": "/local/cctv-card.js?v=35",
         "type": "module"
       },
       {
         "id": "d9cfb2aa2826419481121c12f6b25a8c",
-        "url": "/local/security-card.js?v=5",
+        "url": "/local/security-card.js?v=6",
         "type": "module"
       },
       {
         "id": "bb6fe73b5dfa41c0841d950e52316a41",
-        "url": "/local/home-card.js?v=1",
+        "url": "/local/home-card.js?v=15",
         "type": "module"
       },
       {
         "id": "a5b00f99a4064df1a0f8882e75cb1569",
-        "url": "/local/room-card.js?v=2",
+        "url": "/local/room-card.js?v=8",
         "type": "module"
       },
       {
         "id": "f3395ba2401a4413b6d39abef92d4b8a",
-        "url": "/local/solar-card.js?v=2",
+        "url": "/local/solar-card.js?v=5",
         "type": "module"
       },
       {
         "id": "83a9ba261e054cd1a580cd4288a73f70",
-        "url": "/local/climate-card.js?v=7",
+        "url": "/local/climate-card.js?v=15",
         "type": "module"
       },
       {
@@ -196,17 +81,47 @@
       },
       {
         "id": "63ad839d5fa14d0b9d17efaf09b34043",
-        "url": "/local/cars-card.js?v=5",
+        "url": "/local/cars-card.js?v=6",
         "type": "module"
       },
       {
         "id": "12787fbd92c6420588e7e69cf3e6215a",
-        "url": "/local/cctv-where-card.js?v=17",
+        "url": "/local/cctv-where-card.js?v=23",
         "type": "module"
       },
       {
         "id": "acae53dfde9b4d88bba570b5caaf5cf7",
-        "url": "/local/cctv-strip-card.js?v=1",
+        "url": "/local/cctv-strip-card.js?v=4",
+        "type": "module"
+      },
+      {
+        "id": "9c1b2399e99c4030ba700ce80be44e4a",
+        "url": "/local/weather-card.js?v=4",
+        "type": "module"
+      },
+      {
+        "id": "8b3cd6ee846d40f7aacf38098d6adcf8",
+        "url": "/local/live-house-card.js?v=21",
+        "type": "module"
+      },
+      {
+        "id": "8941520a517f4038b6cdf6be8abad2d9",
+        "url": "/flightradar24/flightradar24-card.js?v=v2.6.0",
+        "type": "module"
+      },
+      {
+        "id": "eb03bfe0b42b4ad58c50c20b1632d330",
+        "url": "/flightradar24/flightradar24-tracking-card.js?v=v2.6.0",
+        "type": "module"
+      },
+      {
+        "id": "d776b0bf9e584580a94b7ad61131f1ed",
+        "url": "/airtrail/airtrail-card.js?v=87d8b4c00004",
+        "type": "module"
+      },
+      {
+        "id": "a7ba116213004df087dc6e0077df92e9",
+        "url": "/local/away-card.js?v=4",
         "type": "module"
       }
     ]

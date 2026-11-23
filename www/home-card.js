@@ -2,9 +2,10 @@
  * Source: ~/homelab/home-mock/card/home-card.js -> /config/www/home-card.js (resource /local/home-card.js?v=N, bump on every edit)
  * Live data only. Controls: House mode (input_select), Guest toggle, heating Boost/Cancel (same input_buttons as heating-boost-card).
  * Storm + Maintenance are display-only, as on the old Home tab (card-mod blocked taps there).
+ * Phone: house mode + Guest sit behind one pill (tap pill -> panel -> pick), v2 19-11-2026, so a stray tap while scrolling changes nothing.
  * Every tile links to its tab. Config: layout: desktop | phone (everything else has defaults below, override any key).
  */
-const HC_VERSION = "1";
+const HC_VERSION = "15";
 const HC_DEF = {
   people: [{ e: "person.colm_finn", n: "Colm" }, { e: "person.olivia_finn", n: "Olivia" }, { e: "person.cian_finn", n: "Cian" }, { e: "person.daire_finn", n: "Daire" }],
   rooms: [
@@ -41,7 +42,12 @@ const HC_DEF = {
   lists: [["todo.travel", "Travel"], ["todo.shopping_list", "Shopping list"], ["todo.tasks", "Tasks"]],
   energy: { solar: "sensor.solarcost_today_solar_generation", solar_fc: "sensor.solcast_pv_forecast_forecast_today", battery: "sensor.solis_battery_soc", house: "sensor.solis_house_load",
     cost: "sensor.solarcost_today_estimated_bill", imp: "sensor.solarcost_today_grid_import", exp: "sensor.solarcost_today_grid_export", rate: "sensor.solarcost_current_import_rate" },
-  calendars: [{ e: "calendar.home_assistant_family_planner", k: "fam" }, { e: "calendar.panda_waste", k: "bin" }],
+  // every calendar.* entity is shown; these two keep their own colour / bin merging
+  metOutlook: "https://www.met.ie/Open_Data/json/National.json", // Met Éireann written forecast (CORS open)
+  calendars: { fam: "calendar.home_assistant_family_planner", bin: "calendar.panda_waste" },
+  calendars_exclude: ["calendar.clocks_moon"], // calendars kept off the Home tab (his word 19-11-2026)
+  // his colours 20-11-2026, same hex as each calendar's HA colour setting (month page + Calendar panel)
+  calendar_colors: { "calendar.elphin_community_college": "#43A047", "calendar.home_assistant_family_planner": "#E53935", "calendar.irish_holidays": "#1E88E5", "calendar.panda_waste": "#FB8C00" },
   nav: { security: "/smart-home/security", cctv: "/smart-home/cctv", climate: "/smart-home/climate", energy: "/smart-home/energy", weather: "/smart-home/weather-detail", appliances: "/smart-home/appliances", calendar: "/calendar", todo: "/todo" },
 };
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -55,11 +61,13 @@ const WX = { sunny: "☀️", "clear-night": "🌙", partlycloudy: "⛅", cloudy
 const WXT = { sunny: "Sunny", "clear-night": "Clear", partlycloudy: "Partly cloudy", cloudy: "Cloudy", rainy: "Rain", pouring: "Heavy rain", fog: "Fog", windy: "Windy", "windy-variant": "Windy", snowy: "Snow", "snowy-rainy": "Sleet", hail: "Hail", lightning: "Lightning", "lightning-rainy": "Thunderstorms", exceptional: "Exceptional" };
 
 const HC_CSS = `
+.awl{margin-top:10px;padding-top:8px;border-top:1px solid var(--hc-bd,var(--divider-color,#1d2740));color:var(--hc-cy,#35c9e6);font-size:13px;cursor:pointer}
 :host{--hc-card:var(--ha-card-background,var(--card-background-color,#121826));--hc-deep:var(--secondary-background-color,#0e1420);
  --hc-ink:var(--primary-text-color,#e8eef7);--hc-sec:var(--secondary-text-color,#7d8aa6);--hc-bd:var(--divider-color,#1d2740);
  --hc-cy:#35c9e6;--hc-gr:#3ddc84;--hc-am:#ffc94d;--hc-rd:#ff5a5a;--hc-pu:#a880ff;--hc-or:#ff8100;display:block;color:var(--hc-ink)}
 *{box-sizing:border-box}button{font:inherit;color:inherit}
 .lt{--hc-am:#b26b00;--hc-gr:#18864b;--hc-pu:#6f42e0;--hc-cy:#0a7fa0;--hc-or:#c25e00;--hc-rd:#d32f2f}
+.lt .go{font-weight:700!important;font-size:13px!important}
 .lt .seg button.on,.lt .mon .d.td{color:#fff}
 .head{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:16px}
 .hello .t{font-size:30px;font-weight:300}.hello .d{color:var(--hc-sec)}
@@ -94,7 +102,13 @@ const HC_CSS = `
 .note{margin-top:8px;font-size:12px;border-radius:8px;padding:6px 9px}
 .note.r{background:rgba(255,90,90,.1);border:1px solid rgba(255,90,90,.35);color:var(--hc-rd)}
 .note.a{background:rgba(255,201,77,.08);border:1px solid rgba(255,201,77,.35);color:var(--hc-am)}
-.sp2{grid-column:span 2}.tall{grid-row:span 2}
+.sp2{grid-column:span 2}
+.metov{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--hc-deep);border:1px solid var(--hc-bd);font-size:13.5px;line-height:1.4;cursor:pointer}
+.metov .metl{color:var(--hc-sec);font-size:11.5px;margin-bottom:3px}.metov .go{display:inline-block;margin-top:4px;font-size:12px;color:var(--hc-cy)}
+.metbg{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.metbox{background:var(--hc-card);border:1px solid var(--hc-bd);border-radius:14px;max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:16px 18px;color:var(--hc-ink);font-size:14px;line-height:1.45}
+.metth{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}.metx{cursor:pointer;font-size:18px;color:var(--hc-sec);padding:2px 6px}
+.metov2{font-weight:500;margin-bottom:6px}.metp{padding:8px 0;border-top:1px solid var(--hc-bd)}.metp b{display:block;font-weight:600;margin-bottom:2px}.tall{grid-row:span 2}
 .lastal{position:relative;border-radius:10px;overflow:hidden;margin-top:10px;aspect-ratio:16/9;background:#000}.lastal img{width:100%;height:100%;object-fit:cover;display:block}
 .lastal .lb{position:absolute;left:8px;bottom:7px;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:3px 8px;font-size:12px}.lastal .lb b{color:var(--hc-am)}
 .thumbs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
@@ -103,16 +117,19 @@ const HC_CSS = `
 .temp{display:flex;align-items:baseline;gap:8px}.temp .v{font-size:34px;font-weight:300}
 .rt{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}.rt div{background:var(--hc-deep);border-radius:8px;padding:6px 8px}.rt b{display:block;font-weight:400;font-size:15px}.rt span{font-size:11px;color:var(--hc-sec)}
 .btn{background:var(--hc-deep);border:1px solid var(--hc-bd);border-radius:9px;padding:7px 12px;font-size:13px;cursor:pointer}.btn.or{border-color:rgba(255,129,0,.6);color:var(--hc-or)}.btn.or.on{background:var(--hc-or);color:#fff}.btn.rd{border-color:rgba(255,90,90,.6);color:var(--hc-rd)}
-.photot{padding:0;overflow:hidden;min-height:200px;background:#000}
+.photot{padding:0;overflow:hidden;min-height:200px;background:#000;transition:box-shadow 1.5s ease,border-color 1.5s ease}
+.pw{position:absolute;inset:0}.pl{position:absolute;inset:0;opacity:0;transition:opacity 1.6s ease}.pl.show{opacity:1}.pk{position:absolute;inset:0;will-change:transform}
+.pcap{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);color:#fff;border-radius:8px;padding:4px 10px;font-size:12.5px;opacity:0;transform:translateY(6px);transition:opacity 1s ease .8s,transform 1s ease .8s}.pcap b{font-weight:600}
+.pl.show .pcap{opacity:1;transform:none}
 .photobg{position:absolute;inset:-20px;width:calc(100% + 40px);height:calc(100% + 40px);object-fit:cover;filter:blur(18px) brightness(.45)}.photo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
 .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .kpi{background:var(--hc-deep);border-radius:10px;padding:9px 10px}.kpi .v{font-size:19px}.kpi .v small{font-size:13px}.kpi .k{font-size:11.5px;color:var(--hc-sec)}
 .batt{height:6px;border-radius:3px;background:rgba(127,140,170,.25);margin-top:6px;overflow:hidden}.batt i{display:block;height:100%;background:var(--hc-gr)}
 .fc{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.fd{background:var(--hc-deep);border-radius:10px;padding:10px;text-align:center}.fd .dn{font-size:12.5px;color:var(--hc-sec)}.fd .ic{font-size:24px;margin:4px 0}.fd .hi{font-size:16px}.fd .lo{color:var(--hc-sec);font-size:13px}.fd .rn{font-size:11.5px;color:#5aa9e6;margin-top:2px}
-.calw{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start}
-.mon{display:grid;grid-template-columns:repeat(7,28px);gap:2px;font-size:12px;text-align:center}.mon .mh{grid-column:span 7;text-align:left;font-size:13px;margin-bottom:4px}.mon .dw{color:var(--hc-sec);font-size:10.5px}
-.mon .d{height:26px;line-height:26px;border-radius:6px;position:relative}.mon .d.td{background:var(--hc-cy);color:#04202a;font-weight:600}.mon .d.o{opacity:.55}.mon .d.x{opacity:.3}
-.mon .d i{position:absolute;bottom:2px;left:50%;width:4px;height:4px;border-radius:50%;transform:translateX(-50%)}
+.calw{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px;align-items:start}
+.mon{display:grid;grid-template-columns:repeat(7,40px);gap:3px;font-size:13px;text-align:center}.mon .mh{grid-column:span 7;text-align:left;font-size:13.5px;margin-bottom:5px}.mon .dw{color:var(--hc-sec);font-size:11.5px;padding-bottom:2px}
+.mon .d{height:30px;line-height:28px;border-radius:7px;position:relative}.mon .d.td{background:var(--hc-cy);color:#04202a;font-weight:600}.mon .d.o{opacity:.55}.mon .d.x{opacity:.3}
+.mon .d i{position:absolute;bottom:3px;left:50%;width:5px;height:5px;border-radius:50%;transform:translateX(-50%)}
 .ag{display:grid;grid-template-columns:62px 1fr;gap:8px;padding:5px 0;border-bottom:1px solid var(--hc-bd);font-size:13px}.ag:last-child{border-bottom:0}.ag .dt{color:var(--hc-sec);font-size:12px}.ag .dt b{display:block;color:var(--hc-ink);font-weight:500;font-size:13px}.ag .tm{color:var(--hc-sec);font-size:12px}.ag .k{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
 .empty{color:var(--hc-sec);font-size:13px}
 /* phone */
@@ -121,7 +138,14 @@ const HC_CSS = `
 .ph .pp{flex-direction:column;gap:3px;padding:6px 2px;border-radius:12px;text-align:center}.ph .pp img,.ph .pp .av{width:38px;height:38px}.ph .pp .n{font-size:12.5px}
 .ph .pp .st{font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px}
 .ph .rooms{grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;height:auto}.ph .room{aspect-ratio:3/2}.ph .room span{font-size:12.5px;left:8px;bottom:5px}
-.ph .runs{margin-left:0}
+.ph .runs{margin-left:0;flex-basis:100%}
+.ph .mode{flex-wrap:wrap;gap:8px}
+.mpill{flex:1;min-width:0;justify-content:space-between;display:flex;align-items:center;gap:8px;background:var(--hc-deep);border:1px solid var(--hc-bd);border-radius:999px;padding:7px 14px;cursor:pointer}
+.mpill .mv{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}.ph .tg.ic{padding:7px 10px;font-size:15px}
+.mpill b{font-weight:500;color:var(--hc-cy)}.mpill .car{color:var(--hc-sec);font-size:11px;transition:transform .15s}.mpill.open .car{transform:rotate(180deg)}
+.msheet{flex-basis:100%;display:flex;flex-direction:column;gap:10px;padding-top:4px}
+.msheet .seg{width:100%}.msheet .seg button{flex:1;padding:12px 4px;font-size:15px}
+.msheet .gr{display:flex;align-items:center;gap:12px}.msheet .tg{flex:none;padding:9px 14px}.msheet .hint{color:var(--hc-sec);font-size:11.5px;text-align:right;flex:1}
 .ph .grid{grid-template-columns:1fr 1fr;gap:10px}.ph .tile{grid-column:span 2;grid-row:auto}
 .ph .photot{display:none}
 .ph .heatt{display:grid;grid-template-columns:1fr 1fr;column-gap:14px;grid-template-areas:"h h" "t r" "s r" "b r"}
@@ -153,15 +177,41 @@ class HomeCard extends HTMLElement {
     if (sig !== this._sig) { this._sig = sig; this._render(); }
   }
   connectedCallback() {
+    if (!this._awL) this._awL = (e) => { this._aw = e.detail; this._sig = ""; this._render(); };
+    window.addEventListener("away-summary", this._awL); this._aw = window.__awaySummary || null;
+    window.dispatchEvent(new CustomEvent("away-summary-ask"));
     this._tick = setInterval(() => this._render(true), 30000);
     this._slow = setInterval(() => this._loadAll(), 10 * 60000);
     if (this._hass && !this._fcUnsub) this._subForecast();
   }
-  disconnectedCallback() { clearInterval(this._tick); clearInterval(this._slow); if (this._fcUnsub) { this._fcUnsub.then((u) => u && u()).catch(() => {}); this._fcUnsub = null; } }
+  disconnectedCallback() { if (this._awL) window.removeEventListener("away-summary", this._awL); if (this._mDoc) { document.removeEventListener("pointerdown", this._mDoc, true); this._mDoc = null; } clearTimeout(this._mT); this._mOpen = false; clearInterval(this._tick); clearInterval(this._slow); if (this._fcUnsub) { this._fcUnsub.then((u) => u && u()).catch(() => {}); this._fcUnsub = null; } }
 
   /* ---------- data that isn't in hass.states ---------- */
   _loadLater() { clearTimeout(this._lt); this._lt = setTimeout(() => { this._loadReviews(); this._loadTrig(); }, 1500); }
-  _loadAll() { this._loadReviews(); this._loadTrig(); this._loadCal(); if (!this._fcUnsub) this._subForecast(); }
+  _loadAll() { this._loadReviews(); this._loadTrig(); this._loadCal(); this._loadMet(); if (!this._fcUnsub) this._subForecast(); }
+  async _loadMet() { // Met Éireann national outlook: "Overview: …  Friday night: …  Saturday: …" (sections split by 2+ spaces)
+    try {
+      const r = await fetch(this._c.metOutlook, { cache: "no-cache" }); if (!r.ok) return;
+      const regs = ((await r.json()).forecasts || [])[0]?.regions || [], get = (k) => (regs.find((x) => x[k] != null) || {})[k];
+      const out = (get("outlook") || "").trim(); if (!out) return;
+      const parts = out.split(/\s{2,}/).map((x) => { const m = x.match(/^([^:]{2,30}):\s*(.*)$/s); return m ? { l: m[1].trim(), t: m[2].trim() } : { l: "", t: x.trim() }; }).filter((x) => x.t);
+      const ov = parts.find((x) => /^overview$/i.test(x.l));
+      const met = { issued: get("issued") ? new Date(get("issued")) : null, overview: (ov || parts[0]).t, parts: parts.filter((x) => x !== ov) };
+      const sig = JSON.stringify(met); if (sig === this._metSig) return; this._metSig = sig; this._met = met;
+      this._render(); this._renderMet();
+    } catch (e) { /* no outlook = the tile just shows the 5 days as before */ }
+  }
+  _renderMet() {
+    const o = this._root && this._root.getElementById("ov"); if (!o) return;
+    const m = this._met;
+    if (!this._metOpen || !m) { o.innerHTML = ""; return; }
+    const iss = m.issued ? `issued ${DN[m.issued.getDay()]} ${pad2(m.issued.getDate())}-${pad2(m.issued.getMonth() + 1)} ${hT(m.issued)}` : "";
+    o.innerHTML = `<div class="metbg" data-act="metclose"><div class="metbox" data-act="metstay">
+      <div class="metth"><div><div class="h" style="margin:0">🌤 Met Éireann outlook</div><div class="sub">Ireland · ${iss}</div></div><span class="metx" data-act="metclose">✕</span></div>
+      <div class="metov2">${hEsc(m.overview)}</div>
+      ${m.parts.map((x) => `<div class="metp">${x.l ? `<b>${hEsc(x.l)}</b>` : ""}<div>${hEsc(x.t)}</div></div>`).join("")}
+      <div class="sub" style="margin-top:10px">Source: met.ie</div></div></div>`;
+  }
   async _loadReviews() {
     const d0 = new Date(); d0.setHours(0, 0, 0, 0);
     try {
@@ -182,7 +232,20 @@ class HomeCard extends HTMLElement {
   async _loadCal() {
     const now = new Date(), s = new Date(now.getFullYear(), now.getMonth() - 1, 20), e = new Date(now.getFullYear(), now.getMonth() + 3, 1);
     const out = [];
-    await Promise.all(this._c.calendars.map(async (cal) => {
+    const cc = this._c.calendars, kOf = (id) => (id === cc.bin ? "bin" : id === cc.fam ? "fam" : id);
+    const ex = this._c.calendars_exclude || [];
+    const cals = Object.keys(this._hass.states).filter((id) => id.startsWith("calendar.") && !ex.includes(id)).sort().map((id) => ({ e: id, k: kOf(id) }));
+    const PAL = ["var(--hc-cy)", "var(--hc-am)", "var(--hc-or)", "var(--hc-rd)"];
+    this._calCol = { fam: "var(--hc-pu)", bin: "var(--hc-gr)" };
+    cals.filter((c) => c.k === c.e).forEach((c, i) => { this._calCol[c.k] = PAL[i % PAL.length]; });
+    const CC = this._c.calendar_colors || {}; cals.forEach((c) => { if (CC[c.e]) this._calCol[c.k] = CC[c.e]; });
+    // colour picked in HA (entity settings → Color) wins; HA stores a name ("cyan", "light-blue") or a hex
+    const cssCol = (v) => (/^(#|var\(|rgb|hsl)/.test(v) ? v : `var(--${v}-color)`);
+    await Promise.all(cals.map(async (c) => {
+      try { const r = await this._hass.callWS({ type: "config/entity_registry/get", entity_id: c.e });
+        const v = r && r.options && r.options.calendar && r.options.calendar.color; if (v) this._calCol[c.k] = cssCol(String(v)); } catch (err) { /* not admin / no entry: keep the fallback */ }
+    }));
+    await Promise.all(cals.map(async (cal) => {
       try {
         const ev = await this._hass.callApi("GET", `calendars/${cal.e}?start=${encodeURIComponent(s.toISOString())}&end=${encodeURIComponent(e.toISOString())}`);
         (ev || []).forEach((x) => { const allday = !!(x.start && x.start.date); const st = allday ? new Date(x.start.date + "T00:00:00") : new Date(x.start.dateTime);
@@ -209,18 +272,38 @@ class HomeCard extends HTMLElement {
 
   _build() {
     const ph = this._c.layout === "phone";
-    this._root.innerHTML = `<style>${HC_CSS}</style><div class="${ph ? "ph" : "dk"}" id="w"></div>`;
+    this._root.innerHTML = `<style>${HC_CSS}</style><div class="${ph ? "ph" : "dk"}" id="w"></div><div id="ov"></div>`;
     this._root.addEventListener("click", (ev) => {
-      const t = ev.composedPath().find((n) => n.dataset && (n.dataset.go || n.dataset.act || n.dataset.more)); if (!t) return;
-      const d = t.dataset, h = this._hass, c = this._c;
-      if (d.act === "mode") return h.callService("input_select", "select_option", { entity_id: c.mode, option: d.v });
-      if (d.act === "guest") return h.callService("input_boolean", "toggle", { entity_id: c.guest });
+      const path = ev.composedPath(), t = path.find((n) => n.dataset && (n.dataset.go || n.dataset.act || n.dataset.more));
+      const d = t ? t.dataset : {}, h = this._hass, c = this._c;
+      if (this._mOpen && !path.some((n) => n.classList && (n.classList.contains("msheet") || n.classList.contains("mpill")))) return this._mSet(false); // tap elsewhere = close, nothing else happens
+      if (!t) return;
+      if (d.act === "away") { window.dispatchEvent(new CustomEvent("away-summary-open")); return; }
+      if (d.act === "met") { this._metOpen = true; return this._renderMet(); }
+      if (d.act === "metclose") { this._metOpen = false; return this._renderMet(); }
+      if (d.act === "metstay") return;
+      if (d.act === "mopen") return this._mSet(!this._mOpen);
+      if (d.act === "mode") { this._mSet(false); return h.callService("input_select", "select_option", { entity_id: c.mode, option: d.v }); }
+      if (d.act === "guest") { this._mSet(false); return h.callService("input_boolean", "toggle", { entity_id: c.guest }); }
       if (d.act === "boost") return h.callService("input_button", "press", { entity_id: c.boost });
       if (d.act === "cancel") return h.callService("input_button", "press", { entity_id: c.cancel });
       if (d.more) return this._more(d.more);
       if (d.go) return this._go(d.go);
     });
     this._sig = ""; if (this._hass) this._render();
+  }
+  _awLine() { // link to the While you were away card (away-card), shown once there's an Away in the last 7 days
+    const a = this._aw; if (!a || !a.start) return "";
+    const ms = (a.end || Date.now()) - a.start, m = Math.round(ms / 60000), h = Math.floor(m / 60), dd = Math.floor(h / 24);
+    const dur = a.clipped ? "7+ days" : dd >= 1 ? dd + (dd === 1 ? " day" : " days") : h >= 1 ? h + " h" : m + " min";
+    const v = a.visits ? ", " + a.visits + (a.visits === 1 ? " visitor" : " visitors") : ", all quiet";
+    return `<div class="awl" data-act="away">🏡 While you were away · ${a.end ? "" : "now · "}${dur}${v} ›</div>`;
+  }
+  _mSet(open) { // phone house-mode panel; closes itself after 15 s or on any tap outside it
+    this._mOpen = open; clearTimeout(this._mT);
+    if (open) { this._mT = setTimeout(() => this._mSet(false), 15000);
+      if (!this._mDoc) { this._mDoc = (ev) => { if (this._mOpen && !ev.composedPath().includes(this)) this._mSet(false); }; document.addEventListener("pointerdown", this._mDoc, true); } }
+    this._render();
   }
 
   _render(timeOnly) {
@@ -247,7 +330,14 @@ class HomeCard extends HTMLElement {
     const on = (e) => { const s = this._s(e); return s && s.state === "on"; };
     const runs = c.appliances.map((a) => { const s = this._s(a.e); if (!s || s.state === c.done_state || s.state === "unknown" || s.state === "unavailable") return "";
       return `<span class="run" data-go="${N.appliances}">${a.i} ${hEsc(a.n)} running · since ${hT(new Date(s.last_changed))} <span style="color:var(--hc-cy)">›</span></span>`; }).join("");
-    const modeBar = `<div class="mode"><span class="l">House mode</span><div class="seg">${mopts.map((m) => `<button data-act="mode" data-v="${hEsc(m)}" class="${mode.state === m ? "on" : ""}">${hEsc(m)}</button>`).join("")}</div>
+    const tags = `<span class="tg ${on(c.storm) ? "on" : ""}">⛈ Storm</span><span class="tg ${on(c.maintenance) ? "on" : ""}">🔧 Maintenance</span>`;
+    const modeBar = ph ? `<div class="mode ${this._mOpen ? "op" : ""}"><button class="mpill ${this._mOpen ? "open" : ""}" data-act="mopen"><span class="mv"><span class="l">House mode</span><b>${hEsc(mode ? mode.state : "–")}</b></span><span class="car">▼</span></button>
+      ${this._mOpen ? "" : `<span class="tg ic ${on(c.guest) ? "on" : ""}" title="Guest">👥</span><span class="tg ic ${on(c.storm) ? "on" : ""}" title="Storm">⛈</span><span class="tg ic ${on(c.maintenance) ? "on" : ""}" title="Maintenance">🔧</span>`}
+      ${this._mOpen ? `<div class="msheet"><div class="seg">${mopts.map((m) => `<button data-act="mode" data-v="${hEsc(m)}" class="${mode.state === m ? "on" : ""}">${hEsc(m)}</button>`).join("")}</div>
+        <div class="gr"><span class="tg click ${on(c.guest) ? "on" : ""}" data-act="guest">👥 Guest ${on(c.guest) ? "on" : "off"}</span><div class="hint">Tap outside to close without changing anything</div></div>
+        <div class="gr" style="gap:8px">${tags}</div></div>` : ""}
+      ${runs ? `<div class="runs">${runs}</div>` : ""}</div>`
+    : `<div class="mode"><span class="l">House mode</span><div class="seg">${mopts.map((m) => `<button data-act="mode" data-v="${hEsc(m)}" class="${mode.state === m ? "on" : ""}">${hEsc(m)}</button>`).join("")}</div>
       <span class="tg click ${on(c.guest) ? "on" : ""}" data-act="guest">👥 Guest</span><span class="tg ${on(c.storm) ? "on" : ""}">⛈ Storm</span><span class="tg ${on(c.maintenance) ? "on" : ""}">🔧 Maintenance</span>
       ${runs ? `<div class="runs">${runs}</div>` : ""}</div>`;
     // ---- security ----
@@ -263,7 +353,7 @@ class HomeCard extends HTMLElement {
     const trigT = (this._lbTrig || []).map((x) => `<div class="note r">${hEsc((c.alarms.find((a) => a.e === x.e) || {}).n || x.e)} alarm triggered today ${hT(new Date(x.t))}</div>`).join("");
     const sec = `<div class="tile" data-go="${N.security}"><div class="h">🛡 Security <span class="go">Security ›</span></div>${secBig}<div class="sub">${secSub}</div>
       ${al.map((a, i) => `<div class="row" ${i ? "" : 'style="margin-top:8px"'}><span>${hEsc(a.n)}</span><span class="v ${a.s.startsWith("armed") ? "pu" : a.s === "triggered" ? "al" : ""}">${ST[a.s] || a.s}</span></div>`).join("")}
-      ${trigT}${low.map(([n, v]) => `<div class="note a">🔋 ${hEsc(n)} sensor ${v} %</div>`).join("")}</div>`;
+      ${trigT}${low.map(([n, v]) => `<div class="note a">🔋 ${hEsc(n)} sensor ${v} %</div>`).join("")}${this._awLine()}</div>`;
     // ---- cctv ----
     let cctv;
     const d0 = new Date(); d0.setHours(0, 0, 0, 0);
@@ -293,7 +383,7 @@ class HomeCard extends HTMLElement {
       <div class="bb" style="display:flex;gap:8px;margin-top:12px"><button class="btn or ${boosting ? "on" : ""}" data-act="boost">🔥 Boost 2 h${bt !== null && !ph ? " · " + bt.toFixed(1) + "°" : ""}</button>${boosting ? `<button class="btn rd" data-act="cancel">Cancel</button>` : ""}</div></div>`;
     // ---- photo ----
     const pe = this._s(c.photo), pu = pe && pe.attributes.entity_picture ? hEsc(this._url(pe.attributes.entity_picture)) : "";
-    const photo = ph ? "" : `<div class="tile photot tall" data-more="${c.photo}">${pu ? `<img class="photobg" src="${pu}"><img class="photo" src="${pu}">` : ""}</div>`;
+    const photo = ph ? "" : `<div class="tile photot tall" id="pslot" data-more="${c.photo}"></div>`; // photo layers live in this._pw (survive re-renders), see _photoMount
     // ---- bins & lists ----
     const bs = this._s(c.bins); let binsH = `<div class="empty">No bin dates</div>`;
     if (bs) { const dates = Object.keys(bs.attributes).filter((k) => /^\d{4}-\d\d-\d\d$/.test(k)).sort(); const t0 = new Date(); t0.setHours(0, 0, 0, 0);
@@ -316,11 +406,12 @@ class HomeCard extends HTMLElement {
     const fcH = this._fc === null ? `<div class="empty">Loading…</div>` : `<div class="fc">${this._fc.slice(0, 5).map((f) => { const d = new Date(f.datetime);
       return `<div class="fd"><div class="dn">${DN[d.getDay()]}${ph ? "<br>" : " "}${pad2(d.getDate())}-${pad2(d.getMonth() + 1)}</div><div class="ic">${WX[f.condition] || "☁️"}</div><div class="hi">${Math.round(f.temperature)}°</div><div class="lo">${f.templow != null ? Math.round(f.templow) + "°" : ""}</div><div class="rn">${f.precipitation ? f.precipitation + " mm" : "&nbsp;"}</div></div>`; }).join("")}</div>`;
     const forecast = `<div class="tile sp2" data-go="${N.weather}"><div class="h">🌤 Forecast <span class="go">Weather ›</span></div>${fcH}
-      ${sun ? `<div class="sub" style="margin-top:8px">Sunrise ${hT(new Date(sun.attributes.next_rising))} · Sunset ${hT(new Date(sun.attributes.next_setting))}</div>` : ""}</div>`;
+      ${sun ? `<div class="sub" style="margin-top:8px">Sunrise ${hT(new Date(sun.attributes.next_rising))} · Sunset ${hT(new Date(sun.attributes.next_setting))}</div>` : ""}
+      ${this._met ? `<div class="metov" data-act="met"><div class="metl">Met Éireann outlook${this._met.issued ? " · issued " + hT(this._met.issued) : ""}</div><div>${hEsc(this._met.overview)}</div><span class="go">Full outlook ›</span></div>` : ""}</div>`;
     // ---- calendar ----
     let calH = `<div class="empty">Loading…</div>`;
     if (this._cal !== null) {
-      const COL = { fam: "var(--hc-pu)", bin: "var(--hc-gr)" }, key = (d) => d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+      const COL = this._calCol || {}, key = (d) => d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
       const byDay = {}; this._cal.forEach((e) => { (byDay[key(e.s)] = byDay[key(e.s)] || []).push(e); });
       const y = now.getFullYear(), m = now.getMonth(), off = (new Date(y, m, 1).getDay() + 6) % 7, days = new Date(y, m + 1, 0).getDate();
       const cell = (d, cls) => { const ev = byDay[key(d)]; return `<div class="d ${cls}">${d.getDate()}${ev ? `<i style="background:${COL[ev[0].k]}"></i>` : ""}</div>`; };
@@ -332,8 +423,8 @@ class HomeCard extends HTMLElement {
       Object.keys(byDay).sort().forEach((k) => { const dt = new Date(k + "T00:00:00"); if (dt < t0) return;
         const ev = byDay[k], binsE = ev.filter((e) => e.k === "bin"), fam = ev.filter((e) => e.k !== "bin");
         const lab = `<b>${DN[dt.getDay()]}</b>${pad2(dt.getDate())}-${pad2(dt.getMonth() + 1)}`;
-        if (binsE.length) rows.push(`<div class="ag"><div class="dt">${lab}</div><div><span class="k" style="background:var(--hc-gr)"></span>Bins: ${hEsc(binsE.map((b) => b.t).join(", "))}</div></div>`);
-        fam.forEach((f) => rows.push(`<div class="ag"><div class="dt">${lab}</div><div><span class="k" style="background:var(--hc-pu)"></span>${hEsc(f.t)}${f.allday ? "" : ` <span class="tm">${hT(f.s)}</span>`}</div></div>`)); });
+        if (binsE.length) rows.push(`<div class="ag"><div class="dt">${lab}</div><div><span class="k" style="background:${COL.bin || "var(--hc-gr)"}"></span>Bins: ${hEsc(binsE.map((b) => b.t).join(", "))}</div></div>`);
+        fam.forEach((f) => rows.push(`<div class="ag"><div class="dt">${lab}</div><div><span class="k" style="background:${COL[f.k] || "var(--hc-pu)"}"></span>${hEsc(f.t)}${f.allday ? "" : ` <span class="tm">${hT(f.s)}</span>`}</div></div>`)); });
       calH = `<div class="calw"><div class="mon">${mon}</div><div>${rows.slice(0, 6).join("") || '<div class="empty">Nothing coming up</div>'}</div></div>`;
     }
     const calendar = `<div class="tile sp2" data-go="${N.calendar}"><div class="h">📅 Calendar <span class="go">Calendar ›</span></div>${calH}</div>`;
@@ -341,6 +432,47 @@ class HomeCard extends HTMLElement {
     const grid = ph ? sec + cctv + heat + bins + energy + forecast + calendar
       : sec + cctv + heat + photo + bins + energy + forecast + calendar;
     w.innerHTML = head + rooms + modeBar + `<div class="grid">${grid}</div>`;
+    if (!ph) this._photoMount(pu, pe);
+  }
+  /* ---------- Photos tile (desktop): fade, slow zoom, glow, caption (v8, 19-11-2026) ---------- */
+  _photoMount(pu, pe) {
+    const slot = this._root.getElementById("pslot"); if (!slot) return;
+    if (!this._pw) { this._pw = document.createElement("div"); this._pw.className = "pw"; this._pn = 0; }
+    slot.appendChild(this._pw);
+    if (this._glow) { slot.style.boxShadow = `0 0 22px 2px rgba(${this._glow},.45), inset 0 0 0 1px rgba(${this._glow},.55)`; slot.style.borderColor = `rgba(${this._glow},.6)`; }
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const DUR = 65000, // photo changes every 1 min (refresh automation /1 since 19-11)
+      DR = [[-5, -3], [5, -3], [-5, 3], [5, 3], [0, -5], [0, 5]];
+    const zoom = (L) => { if (reduce || !L._k) return; const a = L._a; if (a && a.playState !== "idle" && a.playState !== "finished") return;
+      L._a = L._k.animate([{ transform: "scale(1) translate(0,0)" }, { transform: `scale(1.25) translate(${L._d[0]}%,${L._d[1]}%)` }], { duration: DUR, easing: "linear", fill: "forwards" });
+      L._a.currentTime = Math.min(DUR, Date.now() - L._t0); };
+    const key = pe ? pe.state : ""; // image timestamp: changes only when the photo itself changes (the URL token rotates on its own)
+    if (pu && key !== this._pkey) {
+      this._pkey = key;
+      const x = (pe && pe.attributes) || {}, ex = x.media_exif || {}, ds = String(x.media_localdatetime || ex.dateTimeOriginal || "").slice(0, 10);
+      const dt = /^\d{4}-\d\d-\d\d$/.test(ds) ? ds.split("-").reverse().join("-") : "";
+      const place = [ex.city, ex.country && ex.country !== "Ireland" ? ex.country : ""].filter(Boolean).join(", ");
+      const cap = dt || place ? `<div class="pcap">${dt ? `<b>${dt}</b>` : ""}${dt && place ? " · " : ""}${hEsc(place)}</div>` : "";
+      const L = document.createElement("div"); L.className = "pl";
+      const src = pu + (pu.includes("?") ? "&" : "?") + "_=" + encodeURIComponent(key); // same URL for a new photo = browser shows the cached old one
+      L.innerHTML = `<div class="pk"><img class="photobg" src="${src}"><img class="photo" src="${src}"></div>${cap}`;
+      L._k = L.querySelector(".pk"); L._t0 = Date.now(); L._d = DR[this._pn++ % DR.length];
+      const old = [...this._pw.children]; this._pw.appendChild(L);
+      const im = L.querySelector(".photo");
+      const go = () => { requestAnimationFrame(() => requestAnimationFrame(() => L.classList.add("show"))); zoom(L);
+        setTimeout(() => old.forEach((o) => o.remove()), 1800); this._photoGlow(im); };
+      if (im.complete) go(); else { im.onload = go; im.onerror = go; }
+    }
+    [...this._pw.children].forEach(zoom);
+  }
+  _photoGlow(im) {
+    try { const c = document.createElement("canvas"); c.width = c.height = 24; const g = c.getContext("2d"); g.drawImage(im, 0, 0, 24, 24);
+      const d = g.getImageData(0, 0, 24, 24).data; let r = 0, gg = 0, b = 0; for (let k = 0; k < d.length; k += 4) { r += d[k]; gg += d[k + 1]; b += d[k + 2]; }
+      const n = d.length / 4, m = Math.max(r, gg, b) / n || 1, s = 200 / m;
+      this._glow = [r, gg, b].map((v) => Math.min(255, (v / n) * s) | 0).join(",");
+    } catch (e) { this._glow = null; }
+    const slot = this._root.getElementById("pslot");
+    if (slot) { slot.style.boxShadow = this._glow ? `0 0 22px 2px rgba(${this._glow},.45), inset 0 0 0 1px rgba(${this._glow},.55)` : ""; slot.style.borderColor = this._glow ? `rgba(${this._glow},.6)` : ""; }
   }
 }
 customElements.define("home-card", HomeCard);
