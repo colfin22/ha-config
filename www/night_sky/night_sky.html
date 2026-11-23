@@ -303,7 +303,7 @@ const cv = $("fx"), ctx = cv.getContext("2d");
 const layer = $("sky"), lctx = layer.getContext("2d");
 let W = 0, H = 0, DPR = 1, CX = 0, CY = 0, R = 0, Z = 1;
 function resize() {
-  DPR = 1;                                        // the A7 can't afford retina canvases
+  DPR = Math.min(window.devicePixelRatio || 1, 3);                                        // the A7 can't afford retina canvases
   W = cv.clientWidth; H = cv.clientHeight;
   for (const c of [cv, layer]) { c.width = W * DPR; c.height = H * DPR; }
   bg.width = innerWidth * DPR; bg.height = innerHeight * DPR;
