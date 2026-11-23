@@ -1,0 +1,87 @@
+# Driveway cars (21-11-2026): is each car parked in its usual spot?
+# Source: Frigate zones Driveway_181 (Front_Van, Colm's spot) / Driveway_162 (Front_Car, Olivia's spot), car only.
+# Phase 1 = spot = owner (swapping spots shows the wrong car).
+# Frigate publishes zone counts NON-RETAINED, so after an HA restart / Frigate entry reload the
+# raw occupancy sensors read 'off' until a car moves. These sensors therefore:
+#   - ignore changes coming from unavailable/unknown and keep their last state (restored on restart)
+#   - go Away only after 2 min of 'off' (rides out tracking blips)
+#   - can be set by hand: fire event driveway_cars_set with data {colms_car: on|off, olivias_car: on|off}
+# RESYNC (23-11-2026, after HA missed Olivia's car leaving 22-11 13:23 because of the restart gap):
+#   sensor.frigate_driveway_cars asks Frigate's API every minute which spots have a car it is tracking now
+#   ("on,off" = Colm's, Olivia's). Both car sensors follow it (Away again only after 2 min), so a restart or
+#   entry reload can no longer leave a car stuck Home/Away. Unavailable if Frigate can't be read (ignored).
+command_line:
+  - sensor:
+      name: "Frigate Driveway Cars"
+      unique_id: frigate_driveway_cars
+      icon: mdi:car-multiple
+      scan_interval: 60
+      command_timeout: 25
+      command: !secret frigate_ssh_driveway_command
+      availability: "{{ value_json is defined and value_json.colms_car is defined }}"
+      value_template: "{{ value_json.colms_car }},{{ value_json.olivias_car }}"
+template:
+  - triggers:
+      - trigger: state
+        entity_id: binary_sensor.driveway_181_car_occupancy
+        to: "on"
+        not_from: ["unavailable", "unknown"]
+        id: "on"
+      - trigger: state
+        entity_id: binary_sensor.driveway_181_car_occupancy
+        to: "off"
+        not_from: ["unavailable", "unknown"]
+        for: "00:02:00"
+        id: "off"
+      - trigger: template
+        value_template: "{{ (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[0] == 'on' }}"
+        id: "on"
+      - trigger: template
+        value_template: "{{ (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[0] == 'off' }}"
+        for: "00:02:00"
+        id: "off"
+      - trigger: event
+        event_type: driveway_cars_set
+        id: "set"
+    binary_sensor:
+      - name: "Colm's Car In Driveway"
+        unique_id: colms_car_in_driveway
+        device_class: presence
+        icon: >
+          {% set on = (trigger.event.data.get('colms_car', this.state) == 'on') if trigger.id == 'set' else (trigger.id == 'on') %}
+          {{ 'mdi:car' if on else 'mdi:car-off' }}
+        state: >
+          {% if trigger.id == 'set' %}{{ trigger.event.data.get('colms_car', this.state) == 'on' }}
+          {% else %}{{ trigger.id == 'on' }}{% endif %}
+  - triggers:
+      - trigger: state
+        entity_id: binary_sensor.driveway_162_car_occupancy
+        to: "on"
+        not_from: ["unavailable", "unknown"]
+        id: "on"
+      - trigger: state
+        entity_id: binary_sensor.driveway_162_car_occupancy
+        to: "off"
+        not_from: ["unavailable", "unknown"]
+        for: "00:02:00"
+        id: "off"
+      - trigger: template
+        value_template: "{{ (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[1] == 'on' }}"
+        id: "on"
+      - trigger: template
+        value_template: "{{ (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[1] == 'off' }}"
+        for: "00:02:00"
+        id: "off"
+      - trigger: event
+        event_type: driveway_cars_set
+        id: "set"
+    binary_sensor:
+      - name: "Olivia's Car In Driveway"
+        unique_id: olivias_car_in_driveway
+        device_class: presence
+        icon: >
+          {% set on = (trigger.event.data.get('olivias_car', this.state) == 'on') if trigger.id == 'set' else (trigger.id == 'on') %}
+          {{ 'mdi:car' if on else 'mdi:car-off' }}
+        state: >
+          {% if trigger.id == 'set' %}{{ trigger.event.data.get('olivias_car', this.state) == 'on' }}
+          {% else %}{{ trigger.id == 'on' }}{% endif %}
