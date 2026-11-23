@@ -106,6 +106,8 @@ class CctvCard extends HTMLElement {
   .past .tile .ld{display:none}
   .lbl{position:absolute;left:8px;top:6px;background:#000a;color:#fff;padding:3px 8px;border-radius:6px;font-size:12px;z-index:3;pointer-events:none}
   .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cc-gr);margin-right:6px}
+  .dot.mo{background:#9aa3b5}
+  .dot.det{background:var(--cc-pu);box-shadow:0 0 8px var(--cc-pu)}
   .dot.on{background:var(--cc-am);box-shadow:0 0 8px var(--cc-am)}
   .rec{position:absolute;right:8px;top:6px;z-index:3;font-size:11px;font-weight:600;color:#ffc94d;background:#000a;padding:2px 7px;border-radius:6px;display:none;pointer-events:none}
   .past .rec{display:block}
@@ -323,12 +325,24 @@ class CctvCard extends HTMLElement {
     this._renderDots();
   }
 
+  // Tile dot: green = quiet, grey = motion, purple = detection, amber = alert (same key as the timeline).
+  // Reads Frigate's sensor.<cam>_review_status (NONE/DETECTION/ALERT) + binary_sensor.<cam>_motion,
+  // named from the camera's `frigate` name unless `review_status:` / `motion:` are set.
+  // Neither entity found: falls back to the old `occupancy:` sensor (amber while on).
   _renderDots() {
-    const s = (e) => (this._hass.states[e] ? this._hass.states[e].state : '?');
+    const st = (e) => (e && this._hass.states[e] ? this._hass.states[e].state : null);
     this._config.cameras.forEach((cam, i) => {
-      const on = cam.occupancy && s(cam.occupancy) === 'on';
-      const d = this._tiles && this._tiles[i].querySelector('.dot');
-      if (d) d.classList.toggle('on', on);
+      const d = this._tiles && this._tiles[i] && this._tiles[i].querySelector('.dot');
+      if (!d) return;
+      const base = String(cam.frigate || '').toLowerCase();
+      const rv = st(cam.review_status || (base && `sensor.${base}_review_status`));
+      const mo = st(cam.motion || (base && `binary_sensor.${base}_motion`));
+      let lvl = '';
+      if (rv == null && mo == null) lvl = st(cam.occupancy) === 'on' ? 'on' : '';
+      else if (rv === 'ALERT') lvl = 'on';
+      else if (rv === 'DETECTION') lvl = 'det';
+      else if (mo === 'on') lvl = 'mo';
+      d.classList.toggle('on', lvl === 'on'); d.classList.toggle('det', lvl === 'det'); d.classList.toggle('mo', lvl === 'mo');
     });
   }
 
@@ -339,7 +353,7 @@ class CctvCard extends HTMLElement {
     try {
       let r = await this._hass.callWS({ type: 'frigate/reviews/get', instance_id: this._config.instance_id || 'frigate', after: d0, limit: 2000 });
       if (typeof r === 'string') r = JSON.parse(r);
-      this._reviews = (Array.isArray(r) ? r : []).map((x) => ({ id: x.id, cam: x.camera, start: x.start_time, end: x.end_time || x.start_time + 10, sev: x.severity, objects: (x.data && x.data.objects) || [], zones: (x.data && x.data.zones) || [] }))
+      this._reviews = (Array.isArray(r) ? r : []).map((x) => ({ id: x.id, cam: x.camera, start: x.start_time, end: x.end_time || x.start_time + 10, sev: x.severity, objects: ((x.data && x.data.objects) || []).map((o) => String(o).replace(/_/g, ' ')), zones: (x.data && x.data.zones) || [] }))
         .sort((a, b) => b.start - a.start);
     } catch (e) { this._reviews = []; }
     const sig = this._reviews.map((r) => r.id + ':' + Math.round(r.end)).join('|');
