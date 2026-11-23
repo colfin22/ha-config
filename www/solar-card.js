@@ -3,7 +3,8 @@
  * (resource /local/solar-card.js?v=N — bump on every edit). Read-only: nothing here controls anything.
  * Config: layout: desktop | phone. Tariff times/rates below = his automations (peak 17–19, night 23–08); rate NOW comes from SolarCost.
  */
-const SO_VERSION = "2";
+const SO_VERSION = "5";
+const SO_OLD = ["sensor.myenergi_eddi_generated_today", "sensor.myenergi_eddi_grid_import_today"];   // pre-08-2026 solar + grid import (myenergi)
 const SO = {
   pvE: "sensor.solis_pv_power_east", pvW: "sensor.solis_pv_power_west", pv: "sensor.solis_pv_total_power", soc: "sensor.solis_battery_soc", socMin: "sensor.solis_battery_minimum_soc",
   bOut: "sensor.solis_battery_output_energy", bIn: "sensor.solis_battery_input_energy", imp: "sensor.grid_import_power", exp: "sensor.grid_export_power", house: "sensor.solis_house_load",
@@ -51,6 +52,10 @@ h3 .r{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:400}
 .tabs{display:flex;gap:4px;background:var(--c-deep);border-radius:10px;padding:3px;margin-left:auto}
 .tabs button{background:none;border:0;color:var(--c-sec);padding:5px 12px;border-radius:8px;font-size:12.5px;cursor:pointer}.tabs button.on{background:rgba(127,140,170,.3);color:var(--c-ink)}
 .hist{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px}.ph .hist{grid-template-columns:1fr}
+/* phone: History folded by default behind its heading (his 21-11, same as Climate Rooms) */
+.ph .hc h3.fh{cursor:pointer;margin:0}.ph .hc h3.fh .ch{font-size:16px;letter-spacing:0;transition:transform .2s}
+.ph .hc.open h3.fh .ch{transform:rotate(90deg)}.ph .hc.open h3.fh{margin-bottom:12px}
+.ph .hc:not(.open) .hist,.ph .hc:not(.open) .tabs{display:none}.ph .hc:not(.open) h3.fh .ch{margin-left:auto}
 .bill .v{font-size:34px;font-weight:300}.bill .k{color:var(--c-sec);font-size:12.5px}
 .hrow{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--c-bd);font-size:13px}.hrow:last-child{border-bottom:0}
 .rec{margin-top:10px;font-size:12.5px;color:var(--c-sec)}.rec b{color:var(--am);font-weight:500}
@@ -83,9 +88,10 @@ class SolarCard extends HTMLElement {
         <div class="lg"><span><i style="background:var(--sol)"></i>Solar</span><span><i style="background:transparent;border-top:2px dashed var(--c-sec)"></i>Solcast forecast</span><span><i style="background:var(--house)"></i>House</span><span><i style="background:rgba(255,107,107,.5)"></i>From grid</span><span><i style="background:var(--bat)"></i>Battery %</span><span><i style="background:linear-gradient(90deg,#24456b,#3a4560,#6b3a1a)"></i>Night / day / peak rate</span></div>
         <div class="kpis" id="kpis"></div></div>
       <div class="card span2"><h3>🧭 Next</h3><div class="next" id="next"></div></div>
-      <div class="card span2"><h3>📅 History <div class="tabs" id="tabs"></div></h3><div class="hist" id="hist"><div class="empty">Loading history…</div></div></div>
+      <div class="card span2 hc${ph && this._histOpen ? " open" : ""}"><h3${ph ? ' class="fh" data-fold="hist"' : ""}>📅 History <div class="tabs" id="tabs"></div>${ph ? '<span class="ch">›</span>' : ""}</h3><div class="hist" id="hist"><div class="empty">Loading history…</div></div></div>
     </div></div>`;
-    this._root.addEventListener("click", (ev) => { const t = ev.composedPath().find((n) => n.dataset && n.dataset.tab); if (t) { this._tab = t.dataset.tab; this._renderHist(); } });
+    this._root.addEventListener("click", (ev) => { const path = ev.composedPath(), t = path.find((n) => n.dataset && n.dataset.tab); if (t) { this._tab = t.dataset.tab; this._renderHist(); return; }
+      if (path.find((n) => n.dataset && n.dataset.fold === "hist")) { this._histOpen = !this._histOpen; this._root.querySelector(".hc").classList.toggle("open", this._histOpen); if (this._histOpen) this._renderHist(); } });
     this._sig = "";
   }
   _theme() {
@@ -99,7 +105,9 @@ class SolarCard extends HTMLElement {
     this._theme();
     const n = (e) => this._n(e) || 0;
     const pvE = n(SO.pvE), pvW = n(SO.pvW), pv = pvE + pvW, soc = Math.round(n(SO.soc)), socMin = this._n(SO.socMin) || 20;
-    const bOut = n(SO.bOut), bIn = n(SO.bIn), imp = n(SO.imp), exp = n(SO.exp), house = Math.round(n(SO.house));
+    // at/below the minimum SoC the inverter draws ~30-36 W standby from the battery (measured 22-11);
+    // that is not the battery supplying the house, so treat it as idle (his ask 23-11)
+    const bOutRaw = n(SO.bOut), bOut = soc <= socMin && bOutRaw < 100 ? 0 : bOutRaw, bIn = n(SO.bIn), imp = n(SO.imp), exp = n(SO.exp), house = Math.round(n(SO.house));
     const eddi = this._v(SO.eddi) || "", hw = this._v(SO.hw) === "on";
     const day = pv > 20, now = new Date();
     this._root.getElementById("nowr").textContent = day ? "solar producing" : "no solar · " + so2(now.getHours()) + ":" + so2(now.getMinutes());
@@ -224,8 +232,12 @@ class SolarCard extends HTMLElement {
     try {
       const [day, mon] = await Promise.all([
         this._hass.callWS({ type: "recorder/statistics_during_period", start_time: new Date(d0.getTime() - 30 * 86400000).toISOString(), period: "day", statistic_ids: ids, types: ["change"] }),
-        this._hass.callWS({ type: "recorder/statistics_during_period", start_time: new Date(d0.getFullYear() - 1, d0.getMonth() + 1, 1).toISOString(), period: "month", statistic_ids: ids, types: ["change"] }),
+        this._hass.callWS({ type: "recorder/statistics_during_period", start_time: new Date(d0.getFullYear() - 1, d0.getMonth() + 1, 1).toISOString(), period: "month", statistic_ids: [...ids, ...SO_OLD], types: ["change"] }),
       ]);
+      // Year: Solis statistics only exist from 08-2026 → months before that come from the myenergi eddi (his 20-11 'year is not showing a year')
+      const fill = (id, old) => { const have = new Set((mon[id] || []).map((p) => p.start));
+        mon[id] = [...(mon[old] || []).filter((p) => !have.has(p.start)), ...(mon[id] || [])].sort((a, b) => a.start - b.start); };
+      fill(SO.solT, SO_OLD[0]); fill(SO.impT, SO_OLD[1]);
       this._stats = { day, mon };
     } catch (e) { this._stats = { day: {}, mon: {} }; }
     this._renderHist();
