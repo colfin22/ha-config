@@ -10,6 +10,12 @@
 #   sensor.frigate_driveway_cars asks Frigate's API every minute which spots have a car it is tracking now
 #   ("on,off" = Colm's, Olivia's). Both car sensors follow it (Away again only after 2 min), so a restart or
 #   entry reload can no longer leave a car stuck Home/Away. Unavailable if Frigate can't be read (ignored).
+# BOTH-OFF (23-11-2026): after a Frigate CONTAINER restart Frigate re-sends the zone counts but makes no
+#   in-progress event for a car that was already parked, so the poll read 'off' and Colm's car went Away
+#   while parked. Now a car goes Away only when the zone sensor AND the poll both say empty for 2 min.
+#   Either one seeing the car keeps it Home.
+# ARRIVAL HOLD (23-11-2026): a car counts as arrived only after 10 s. About 30 s after every Frigate
+#   restart Frigate counted a car in Driveway_162 for under 1 s, which put Olivia's car Home for 2 min.
 command_line:
   - sensor:
       name: "Frigate Driveway Cars"
@@ -26,18 +32,16 @@ template:
         entity_id: binary_sensor.driveway_181_car_occupancy
         to: "on"
         not_from: ["unavailable", "unknown"]
+        for: "00:00:10"
         id: "on"
-      - trigger: state
-        entity_id: binary_sensor.driveway_181_car_occupancy
-        to: "off"
-        not_from: ["unavailable", "unknown"]
-        for: "00:02:00"
-        id: "off"
       - trigger: template
         value_template: "{{ (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[0] == 'on' }}"
+        for: "00:00:10"
         id: "on"
       - trigger: template
-        value_template: "{{ (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[0] == 'off' }}"
+        value_template: >
+          {{ is_state('binary_sensor.driveway_181_car_occupancy', 'off')
+             and (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[0] == 'off' }}
         for: "00:02:00"
         id: "off"
       - trigger: event
@@ -58,18 +62,16 @@ template:
         entity_id: binary_sensor.driveway_162_car_occupancy
         to: "on"
         not_from: ["unavailable", "unknown"]
+        for: "00:00:10"
         id: "on"
-      - trigger: state
-        entity_id: binary_sensor.driveway_162_car_occupancy
-        to: "off"
-        not_from: ["unavailable", "unknown"]
-        for: "00:02:00"
-        id: "off"
       - trigger: template
         value_template: "{{ (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[1] == 'on' }}"
+        for: "00:00:10"
         id: "on"
       - trigger: template
-        value_template: "{{ (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[1] == 'off' }}"
+        value_template: >
+          {{ is_state('binary_sensor.driveway_162_car_occupancy', 'off')
+             and (states('sensor.frigate_driveway_cars') ~ ',,').split(',')[1] == 'off' }}
         for: "00:02:00"
         id: "off"
       - trigger: event
