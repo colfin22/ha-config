@@ -1,5 +1,5 @@
 /* cctv-strip-card — across the bottom of the CCTV tab: "Today" (alerts/detections, busiest hour, per-camera 24 h bars, seen today, this week)
- * + "Deliveries" (Frigate courier labels; one visit = same couriers within 10 min across cameras). Built 18-11-2026 from the accepted mock.
+ * + "Deliveries & collections" (Frigate courier labels + garbage_truck; one visit = same couriers within 10 min across cameras). Built 18-11-2026 from the accepted mock.
  * Source ~/homelab/cctv-bottom-mock/card/cctv-strip-card.js -> /config/www/cctv-strip-card.js (resource ?v=N, bump on edit).
  * Data: frigate/reviews/get (7 days), refreshed every 5 min and when a camera's last-alert image changes. Tap a delivery = its Frigate clip.
  */
@@ -45,7 +45,7 @@ class CctvStripCard extends HTMLElement {
   _build() {
     this._root.innerHTML = `<style>${CS_CSS}</style><div class="${this._c.layout === "phone" ? "ph" : "dk"}"><div class="strip">
       <div class="card"><h3>📊 Today <span class="r" id="tr"></span></h3><div class="hd" id="hd"></div><div class="cams" id="cams"></div><div class="seen" id="seen"></div><h3 style="margin:14px 0 6px">📅 This week <span class="r">alerts per day</span></h3><div id="week"></div></div>
-      <div class="card dl"><h3>📦 Deliveries <span class="r">last 7 days</span></h3><div id="dl"><div class="pat">Loading…</div></div></div></div></div>`;
+      <div class="card dl"><h3>📦 Deliveries &amp; collections <span class="r">last 7 days</span></h3><div id="dl"><div class="pat">Loading…</div></div></div></div></div>`;
     this._root.addEventListener("click", (ev) => { const t = ev.composedPath().find((n) => n.dataset && n.dataset.ev !== undefined && n.dataset.cam); if (t) this._clip(t.dataset.ev, t.dataset.cam, t.dataset.lab); });
   }
   async _load() {
@@ -67,6 +67,7 @@ class CctvStripCard extends HTMLElement {
 const p2=n=>String(n).padStart(2,'0'),hm=d=>p2(d.getHours())+':'+p2(d.getMinutes()),dm=d=>p2(d.getDate())+'-'+p2(d.getMonth()+1),DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const CAMS=[['Doorbell','Doorbell'],['Front_Van','Front Van'],['Front_Car','Front Car'],['Rear_Door','Rear Door'],['Rear_Shed','Rear Shed']];
 const COUR={an_post:'An Post',dpd:'DPD',dhl:'DHL',ups:'UPS',amazon:'Amazon',fedex:'FedEx',gls:'GLS',package:'Package'};
+const DC={...COUR,garbage_truck:'Garbage truck'}; // deliveries & collections (his 19-11: include the garbage truck)
 const d0=new Date(NOW);d0.setHours(0,0,0,0);
 const today=R.filter(x=>x.start_time*1000>=d0.getTime());
 const al=today.filter(x=>x.severity==='alert'),de=today.filter(x=>x.severity==='detection');
@@ -84,9 +85,8 @@ root.getElementById('cams').innerHTML=CAMS.map(([k,n])=>{const a=today.filter(x=
 const oc={};today.forEach(x=>(x.data.objects||[]).forEach(o=>{o=o.replace('-verified','');if(COUR[o])return;oc[o]=(oc[o]||0)+1}));
 const sl={};today.forEach(x=>(x.data.sub_labels||[]).forEach(s=>sl[s]=(sl[s]||0)+1));
 const FACES=['Olivia','Colm','Cian','Daire','Aoife'];const IC={person:'🧍',car:'🚗',cat:'🐈',bird:'🐦',dog:'🐕',fox:'🦊'};
-root.getElementById('seen').innerHTML=Object.entries(oc).sort((a,b)=>b[1]-a[1]).map(([o,c])=>`<span class="chip">${IC[o]||'•'} ${o==='person'?(c>1?'People':'Person'):o[0].toUpperCase()+o.slice(1)+(c>1?'s':'')} <b>${c}</b></span>`).join('')+
-  Object.entries(sl).filter(([s])=>FACES.includes(s)).map(([s,c])=>`<span class="chip f">🙂 <b>${s}</b> ${c}×</span>`).join('')+
-  Object.entries(sl).filter(([s])=>!FACES.includes(s)).slice(0,4).map(([s,c])=>`<span class="chip">🐦 ${s} <b>${c}</b></span>`).join('')||'<span class="chip">Nothing yet today</span>';
+root.getElementById('seen').innerHTML=Object.entries(oc).sort((a,b)=>b[1]-a[1]).map(([o,c])=>`<span class="chip">${IC[o]||'•'} ${o==='person'?(c>1?'People':'Person'):o[0].toUpperCase()+o.slice(1).replace(/_/g,' ')+(c>1?'s':'')} <b>${c}</b></span>`).join('')+
+  Object.entries(sl).filter(([s])=>FACES.includes(s)).map(([s,c])=>`<span class="chip f">🙂 <b>${s}</b> ${c}×</span>`).join('')/* v5: bird species chips removed (his 24-11 'stop it showing bird types') */||'<span class="chip">Nothing yet today</span>';
 // this week: alerts per day, stacked by camera
 {const W=900,H=96,L=6,days=[];for(let k=6;k>=0;k--){const t=new Date(d0);t.setDate(d0.getDate()-k);days.push(t)}
  const COL={Doorbell:'#ffc94d',Front_Van:'#35c9e6',Front_Car:'#4c9be8',Rear_Door:'#3ddc84',Rear_Shed:'#a880ff'};
@@ -96,15 +96,15 @@ root.getElementById('seen').innerHTML=Object.entries(oc).sort((a,b)=>b[1]-a[1]).
   const tot=c.reduce((a,b)=>a+b,0);s+=`<text x="${L+i*bw+bw/2}" y="${y-4}" text-anchor="middle" font-size="11" fill="#e8eef7">${tot}</text><text x="${L+i*bw+bw/2}" y="${H-3}" text-anchor="middle" font-size="11" fill="#7d8aa6">${i===6?'Today':DN[days[i].getDay()]+' '+dm(days[i])}</text>`});
  root.getElementById('week').innerHTML=s+'</svg><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11.5px;color:#7d8aa6">'+CAMS.map(([k,n])=>`<span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${COL[k]};margin-right:5px"></i>${n}</span>`).join('')+'</div>'}
 // deliveries: courier objects, one visit = within 10 min across cameras
-const dv=R.filter(x=>(x.data.objects||[]).some(o=>COUR[o])).sort((p,q)=>q.start_time-p.start_time);const visits=[];
-dv.forEach(x=>{const c=(x.data.objects||[]).filter(o=>COUR[o]).map(o=>COUR[o]);const v=visits.find(v=>Math.abs(v.t-x.start_time)<600&&v.c.join()===c.join());if(v){v.cams.add(x.camera);return}visits.push({t:x.start_time,c,cams:new Set([x.camera]),id:x.id,cam:x.camera,ev:((x.data.detections||[])[0])||''})});
+const dv=R.filter(x=>(x.data.objects||[]).some(o=>DC[o])).sort((p,q)=>q.start_time-p.start_time);const visits=[];
+dv.forEach(x=>{const c=(x.data.objects||[]).filter(o=>DC[o]).map(o=>DC[o]);const v=visits.find(v=>Math.abs(v.t-x.start_time)<600&&v.c.join()===c.join());if(v){v.cams.add(x.camera);return}visits.push({t:x.start_time,c,cams:new Set([x.camera]),id:x.id,cam:x.camera,ev:((x.data.detections||[])[0])||''})});
 const cn=k=>(CAMS.find(c=>c[0]===k)||[k,k])[1],when=t=>{const d=new Date(t*1000);return (d>=d0?'today':DN[d.getDay()]+' '+dm(d))+' '+hm(d)};
 if(visits.length){const L=visits[0];
  const ap=visits.filter(v=>v.c.includes('An Post'));const avg=ap.length>1?ap.reduce((s,v)=>{const d=new Date(v.t*1000);return s+d.getHours()*60+d.getMinutes()},0)/ap.length:null;
  root.getElementById('dl').innerHTML=`<div class="last"><img src="/api/frigate/notifications/${L.id}/${L.cam}/review_thumbnail.webp" data-ev="${L.ev}" data-cam="${L.cam}" data-lab="${L.c.join(', ')} · ${when(L.t)}"><div><div class="t">${L.c.join(', ')}</div><div class="s">${when(L.t)} · ${[...L.cams].map(cn).join(' + ')}</div></div></div>
   <div class="rows">${visits.slice(1,6).map(v=>`<div class="row"><img src="/api/frigate/notifications/${v.id}/${v.cam}/review_thumbnail.webp" data-ev="${v.ev}" data-cam="${v.cam}" data-lab="${v.c.join(', ')} · ${when(v.t)}"><div>${v.c.join(', ')}<div style="color:var(--sec);font-size:11.5px">${[...v.cams].map(cn).join(' + ')}</div></div><div class="d">${when(v.t)}</div></div>`).join('')}</div>
-  ${avg!=null?`<div class="pat">An Post came ${ap.length} times this week, usually around ${p2(Math.floor(avg/60))}:${p2(Math.round(avg%60))}.</div>`:''}`}
-else root.getElementById('dl').innerHTML='<div class="pat">No deliveries spotted in the last 7 days.</div>';
+  ${avg!=null?`<div class="pat">An Post came ${ap.length} times this week, usually around ${p2(Math.floor(Math.round(avg)/60))}:${p2(Math.round(avg)%60)}.</div>`:''}`}
+else root.getElementById('dl').innerHTML='<div class="pat">No deliveries or collections spotted in the last 7 days.</div>';
 
   }
 }
