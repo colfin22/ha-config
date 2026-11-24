@@ -1,8 +1,9 @@
 // away-card — "While you were away" (23-11-2026). Source: ~/homelab/away-mock/card/away-card.js
-// Shows while input_select.house_mode = Away; after you're back it stays until Dismiss
+// Shows while input_select.house_mode = Away; after you're back it stays until Dismiss. Only shows what happened
+// during the Away (v5, 24-11: "Right now" live tiles removed). Security-tile link stays 6 h after Dismiss.
 // (shared via input_datetime.away_summary_dismissed). Looks back 7 days at most (recorder keeps 7).
 // Home card's Security tile listens for the "away-summary" window event and fires "away-summary-open".
-const AW_VER = 4;
+const AW_VER = 5;
 const AW_DEF = {
   mode: "input_select.house_mode",
   dismissed: "input_datetime.away_summary_dismissed",
@@ -21,6 +22,7 @@ const AW_DEF = {
   camera_names: { Doorbell: "Doorbell", Front_Car: "Front Car", Front_Van: "Front Van", Rear_Door: "Rear Door", Rear_Shed: "Rear Shed" },
   person_place: { Doorbell: "at the door", Rear_Door: "at the back door", Rear_Shed: "in the yard", Front_Car: "on the drive", Front_Van: "on the drive" },
   max_days: 7,
+  link_hours: 6, // Home card Security-tile line stays this long after Dismiss
 };
 const AW_ST = { disarmed: "Disarmed", armed_away: "Away", armed_night: "Night", armed_home: "Home", arming: "Arming…", pending: "Entry delay…", triggered: "TRIGGERED" };
 const awEsc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -174,8 +176,9 @@ class AwayCard extends HTMLElement {
     for (const k in nm) chips.push([nm[k], k]);
     const nc = cnt((e) => e.label === "car"), cats = cnt((e) => e.label === "cat");
     if (nc) chips.push([nc, nc === 1 ? "Car" : "Cars"]); if (cats) chips.push([cats, cats === 1 ? "Cat" : "Cats"]);
+    const heat = d.tmin !== null && d.tmin !== undefined ? [d.tmin === d.tmax ? d.tmin + " °C" : d.tmin + "–" + d.tmax + " °C", "Heating"] : null;
     const hid = [cats && cats + (cats === 1 ? " cat" : " cats"), (nc - named.length) && (nc - named.length) + " passing car" + (nc - named.length === 1 ? "" : "s")].filter(Boolean);
-    return { rows, chips, visits: visits.length, hidden: hid.length ? "+ " + hid.join(", ") + " (counted, not listed)" : "" };
+    return { rows, chips, heat, visits: visits.length, hidden: hid.length ? "+ " + hid.join(", ") + " (counted, not listed)" : "" };
   }
   _visible() {
     const h = this._hass, d = this._data; if (!h) return false;
@@ -184,13 +187,18 @@ class AwayCard extends HTMLElement {
     const ds = h.states[this._c.dismissed], dt = ds && ds.attributes.timestamp != null ? ds.attributes.timestamp * 1000 : 0;
     return dt < d.start;
   }
+  _linkOn() { // Security-tile line: while the card shows, then link_hours after Dismiss
+    if (this._visible()) return true;
+    const d = this._data, ds = this._hass.states[this._c.dismissed], dt = ds && ds.attributes.timestamp != null ? ds.attributes.timestamp * 1000 : 0;
+    return !!d && !d.none && dt >= d.start && Date.now() - dt < this._c.link_hours * 3600000;
+  }
   _setHidden(hide) {
     if (this._hid === hide) return; this._hid = hide; this.hidden = hide;
     this.dispatchEvent(new CustomEvent("card-visibility-changed", { detail: { value: !hide }, bubbles: true, composed: true }));
   }
   _publish() { // tell the Home card's Security tile what to show
     const d = this._data, s = d && !d.none ? this._build() : null;
-    window.__awaySummary = d && !d.none ? { start: d.start, end: d.end, clipped: d.clipped, visible: this._visible(), visits: s.visits, events: s.rows.length } : null;
+    window.__awaySummary = d && !d.none ? { start: d.start, end: d.end, clipped: d.clipped, visible: this._visible(), link: this._linkOn(), visits: s.visits, events: s.rows.length } : null;
     window.dispatchEvent(new CustomEvent("away-summary", { detail: window.__awaySummary }));
   }
   _render() {
@@ -208,19 +216,6 @@ class AwayCard extends HTMLElement {
     const left = (d.clipped ? "more than " + c.max_days + " days ago" : awDay(st0) + " " + awDM(st0) + " " + awT(st0));
     const dur = d.clipped ? c.max_days + "+ days · showing the last " + c.max_days : awDur(endT - d.start);
     const sub = away ? "Since you left " + left + " · " + dur : "Welcome back · left " + left + " · away " + dur;
-    const S = (e) => h.states[e];
-    const tiles = [];
-    for (const [e, n, i] of c.alarms) { const s = S(e); if (!s) continue; const v = s.state, lc = new Date(s.last_changed);
-      tiles.push([i, n, AW_ST[v] || v, "since " + (Date.now() - lc < 86400000 ? awT(lc) : awDM(lc) + " " + awT(lc)), v === "triggered" ? "rd" : v.startsWith("armed") ? "pu" : ""]); }
-    const all = [...c.doors, ...c.windows], open = all.filter(([e]) => S(e)?.state === "on");
-    tiles.push(["🚪", "Doors & windows", open.length ? open.length + " open" : "All closed", open.length ? open.map((x) => x[1]).join(", ") : c.doors.length + " doors · " + c.windows.length + " windows", open.length ? "am" : "gr"]);
-    const cl = S(c.climate);
-    if (cl) { const a = cl.attributes; tiles.push(["🔥", "Heating", (a.current_temperature ?? "–") + " °C",
-      "set " + (a.temperature ?? "–") + " · " + (a.hvac_action || cl.state) + (d.tmin !== null ? " · " + d.tmin + "–" + d.tmax : ""), ""]); }
-    const hw = S(c.hot_water);
-    if (hw) tiles.push(["💧", "Hot water", hw.state === "on" ? "Ready" : "Not yet today", hw.state === "on" ? "ready since " + awT(new Date(hw.last_changed)) : "", hw.state === "on" ? "gr" : "am"]);
-    const cams = c.cameras.map((e) => S(e)).filter(Boolean), up = cams.filter((s) => !["unavailable", "unknown"].includes(s.state));
-    tiles.push(["📷", "Cameras", up.length + " of " + cams.length, up.length === cams.length ? "recording" : cams.filter((s) => !up.includes(s)).map((s) => s.attributes.friendly_name).join(", ") + " offline", up.length === cams.length ? "gr" : "rd"]);
     const b = this._build();
     const narrow = this.getBoundingClientRect().width && this.getBoundingClientRect().width <= 600;
     const lim = this._all ? b.rows.length : narrow ? 4 : 8, shown = b.rows.slice(0, lim);
@@ -228,13 +223,14 @@ class AwayCard extends HTMLElement {
       return `<div class="ev${r.clip ? " clk" : ""}" ${r.clip ? `data-clip="${awEsc(r.clip)}"` : ""}><div class="et"><b>${awT(dt)}</b><span>${today ? "Today" : awDay(dt) + " " + awDM(dt)}</span></div><div class="ed ${r.col}"></div>`
         + (r.img ? `<img loading="lazy" src="/api/frigate/notifications/${encodeURIComponent(r.img)}/thumbnail.jpg" alt="">` : `<div class="ni">${r.icon || "🚪"}</div>`)
         + `<div class="ex"><div class="en">${awEsc(r.title)}</div><div class="ee">${awEsc(r.sub)}</div></div></div>`; };
+    const chip = ([v, l]) => `<span class="chip"><b>${awEsc(v)}</b> ${awEsc(l)}</span>`;
     const body = !b.rows.length && !b.chips.length
       ? `<div class="quiet">✅ All quiet — no doors or windows opened, nobody on camera${this._ferr ? " (camera events couldn't be read)" : ""}</div>`
-      : `<div class="chips">${b.chips.map(([v, l]) => `<span class="chip"><b>${awEsc(v)}</b> ${awEsc(l)}</span>`).join("")}</div>`
+        + (b.heat ? `<div class="chips" style="margin-top:8px">${chip(b.heat)}</div>` : "")
+      : `<div class="chips">${[...b.chips, ...(b.heat ? [b.heat] : [])].map(([v, l]) => `<span class="chip"><b>${awEsc(v)}</b> ${awEsc(l)}</span>`).join("")}</div>`
         + (shown.length ? `<div class="evs">${shown.map(row).join("")}</div>` : "")
         + `<div class="more">${awEsc(b.hidden)}${b.rows.length > lim ? (b.hidden ? " · " : "") + `<u data-act="all">Show all ${b.rows.length}</u>` : this._all && b.rows.length > (narrow ? 4 : 8) ? (b.hidden ? " · " : "") + `<u data-act="less">Show less</u>` : ""}</div>`;
     hc.innerHTML = `<div class="hd"><div><div class="tt">🏡 While you were away</div><div class="sb">${awEsc(sub)}</div></div><span class="mode${away ? "" : " home"}">${away ? "Away" : "Home"}</span></div>
-      <div class="h2">Right now</div><div class="sts">${tiles.map(([i, l, v, s, k]) => `<div class="st ${k}"><div class="si">${i}</div><div style="min-width:0"><div class="sl">${awEsc(l)}</div><div class="sv">${awEsc(v)}</div><div class="ss">${awEsc(s)}</div></div></div>`).join("")}</div>
       <div class="h2">Since you left</div>${body}
       <div class="ft"><button class="lnk" data-act="sec">🛡️ Security tab ›</button>${away ? "" : `<button class="dis" data-act="dismiss">✓ Dismiss</button>`}</div>`;
   }

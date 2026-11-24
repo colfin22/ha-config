@@ -5,7 +5,7 @@
  * Phone: house mode + Guest sit behind one pill (tap pill -> panel -> pick), v2 19-11-2026, so a stray tap while scrolling changes nothing.
  * Every tile links to its tab. Config: layout: desktop | phone (everything else has defaults below, override any key).
  */
-const HC_VERSION = "15";
+const HC_VERSION = "16";
 const HC_DEF = {
   people: [{ e: "person.colm_finn", n: "Colm" }, { e: "person.olivia_finn", n: "Olivia" }, { e: "person.cian_finn", n: "Cian" }, { e: "person.daire_finn", n: "Daire" }],
   rooms: [
@@ -292,8 +292,8 @@ class HomeCard extends HTMLElement {
     });
     this._sig = ""; if (this._hass) this._render();
   }
-  _awLine() { // link to the While you were away card (away-card), shown once there's an Away in the last 7 days
-    const a = this._aw; if (!a || !a.start) return "";
+  _awLine() { // link to the While you were away card (away-card): while it shows, then 6 h after Dismiss (away-card decides: a.link)
+    const a = this._aw; if (!a || !a.start || a.link === false) return "";
     const ms = (a.end || Date.now()) - a.start, m = Math.round(ms / 60000), h = Math.floor(m / 60), dd = Math.floor(h / 24);
     const dur = a.clipped ? "7+ days" : dd >= 1 ? dd + (dd === 1 ? " day" : " days") : h >= 1 ? h + " h" : m + " min";
     const v = a.visits ? ", " + a.visits + (a.visits === 1 ? " visitor" : " visitors") : ", all quiet";
