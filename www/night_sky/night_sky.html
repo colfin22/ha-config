@@ -84,6 +84,10 @@
     #title { font-size: 20px; } #when .t { font-size: 22px; }
     #legend { display: none; }
     #chips { bottom: 6px; } .chip { padding: 6px 10px; font-size: 12px; }
+    #chips { left: auto; right: 8px; bottom: 8px; transform: none; flex-direction: column; align-items: flex-end; z-index: 3; }
+    #chips .chip { white-space: nowrap; font-size: 13px; padding: 7px 12px; background: rgba(10, 18, 40, 0.92); }
+    #chips:not(.open) .chip:not(.on) { display: none; }
+    #chips .chip.on::after { content: " \25BE"; }  #chips.open .chip.on::after { content: " \25B4"; }
     #side { padding: 4px 10px 16px; overflow: visible; }
     #fill { display: none; }
   }
@@ -295,6 +299,14 @@ function setMode(m, user) {
   drawStatic(); updatePanels();
 }
 document.querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => setMode(c.dataset.m, true)));
+const PHONE = matchMedia("(max-width: 760px)");
+$("chips").addEventListener("click", e => {          // phone: first tap opens the folded list
+  if (!PHONE.matches) return;
+  const ch = $("chips");
+  if (!ch.classList.contains("open")) { ch.classList.add("open"); e.stopPropagation(); return; }
+  setTimeout(() => ch.classList.remove("open"), 0);
+}, true);
+document.addEventListener("pointerdown", e => { if (!$("chips").contains(e.target)) $("chips").classList.remove("open"); });
 
 // ---------------------------------------------------------------- canvases
 const bg = $("bg"), bctx = bg.getContext("2d");
