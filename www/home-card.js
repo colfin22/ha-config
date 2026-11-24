@@ -5,7 +5,7 @@
  * Phone: house mode + Guest sit behind one pill (tap pill -> panel -> pick), v2 19-11-2026, so a stray tap while scrolling changes nothing.
  * Every tile links to its tab. Config: layout: desktop | phone (everything else has defaults below, override any key).
  */
-const HC_VERSION = "16";
+const HC_VERSION = "17";
 const HC_DEF = {
   people: [{ e: "person.colm_finn", n: "Colm" }, { e: "person.olivia_finn", n: "Olivia" }, { e: "person.cian_finn", n: "Cian" }, { e: "person.daire_finn", n: "Daire" }],
   rooms: [
@@ -31,6 +31,8 @@ const HC_DEF = {
     ["sensor.sitting_room_window_battery", "Sitting Room window"], ["sensor.back_window_battery", "Back window"], ["sensor.colm_window_battery", "Colm's Room window"], ["sensor.cian_window_battery", "Cian's Room window"],
     ["sensor.aoife_window_battery", "Aoife's Room window"], ["sensor.office_window_battery", "Office window"], ["sensor.hallway_motion_sensor_battery", "Hallway motion"], ["sensor.landing_motion_sensor_battery", "Landing motion"]],
   low_battery: 30,
+  // parcel box (his 24-11): waiting = last delivery later than last collection (both stamped by automation.smart_mailbox)
+  parcel: { delivered: "input_datetime.parcel_box_last_delivery", collected: "input_datetime.parcel_box_last_collection" },
   frigate_instance: "frigate",
   cameras: [{ f: "Doorbell", n: "Doorbell", img: "image.cctv_last_alert_doorbell" }, { f: "Front_Van", n: "Front Van", img: "image.cctv_last_alert_front_van" },
     { f: "Front_Car", n: "Front Car", img: "image.cctv_last_alert_front_car" }, { f: "Rear_Door", n: "Rear Door", img: "image.cctv_last_alert_rear_door" }, { f: "Rear_Shed", n: "Rear Shed", img: "image.cctv_last_alert_rear_shed" }],
@@ -170,7 +172,7 @@ class HomeCard extends HTMLElement {
     if (first) this._loadAll();
     const c = this._c, ids = [c.weather, c.mode, c.guest, c.storm, c.maintenance, c.climate, c.heating_status, c.heating_hours, c.photo, c.bins,
       ...c.people.map((p) => p.e), ...c.appliances.map((a) => a.e), ...c.alarms.map((a) => a.e), ...c.doors.map((d) => d[0]), ...c.windows.map((d) => d[0]),
-      ...c.batteries.map((b) => b[0]), ...c.cameras.map((x) => x.img), ...c.temps.map((t) => t[0]), ...c.lists.map((l) => l[0]), ...Object.values(c.energy)];
+      ...c.batteries.map((b) => b[0]), ...c.cameras.map((x) => x.img), ...c.temps.map((t) => t[0]), ...c.lists.map((l) => l[0]), ...Object.values(c.energy), ...Object.values(c.parcel || {})];
     const sig = ids.map((e) => { const s = h.states[e]; return s ? s.state + (e.startsWith("image.") ? s.attributes.access_token : "") + (e.startsWith("weather.") ? s.attributes.temperature : "") : "-"; }).join("|");
     const alSig = c.alarms.map((a) => (h.states[a.e] || {}).state).join("|") + "|" + c.cameras.map((x) => (h.states[x.img] || {}).state).join("|");
     if (alSig !== this._alSig) { this._alSig = alSig; this._loadLater(); }
@@ -351,9 +353,13 @@ class HomeCard extends HTMLElement {
     const secBig = trig ? `<div class="big al">Alarm triggered</div>` : !opn.length ? `<div class="big ok">All secure</div>` : `<div class="big wa">${opn.length === 1 ? hEsc(openNames[0]) + " is open" : opn.length + " doors and windows open"}</div>`;
     const secSub = !opn.length ? `All ${nAll} doors and windows closed` : opn.length === 1 ? "Everything else is closed" : opn.length <= 3 ? hEsc(openNames.join(", ")) : "";
     const trigT = (this._lbTrig || []).map((x) => `<div class="note r">${hEsc((c.alarms.find((a) => a.e === x.e) || {}).n || x.e)} alarm triggered today ${hT(new Date(x.t))}</div>`).join("");
+    const pcl = (() => { if (!c.parcel) return ""; const d = (this._s(c.parcel.delivered) || {}).state || "", k = (this._s(c.parcel.collected) || {}).state || "", ok = (v) => /^\d{4}-\d\d-\d\d \d\d:\d\d/.test(v);
+      if (!ok(d) || (ok(k) && k >= d)) return "";   // nothing waiting
+      const dt = new Date(d.replace(" ", "T")), p2 = (n) => String(n).padStart(2, "0"), today = dt.toDateString() === new Date().toDateString();
+      return `<div class="note a">📦 Parcel waiting · delivered ${today ? "" : p2(dt.getDate()) + "-" + p2(dt.getMonth() + 1) + " "}${p2(dt.getHours())}:${p2(dt.getMinutes())}</div>`; })();
     const sec = `<div class="tile" data-go="${N.security}"><div class="h">🛡 Security <span class="go">Security ›</span></div>${secBig}<div class="sub">${secSub}</div>
       ${al.map((a, i) => `<div class="row" ${i ? "" : 'style="margin-top:8px"'}><span>${hEsc(a.n)}</span><span class="v ${a.s.startsWith("armed") ? "pu" : a.s === "triggered" ? "al" : ""}">${ST[a.s] || a.s}</span></div>`).join("")}
-      ${trigT}${low.map(([n, v]) => `<div class="note a">🔋 ${hEsc(n)} sensor ${v} %</div>`).join("")}${this._awLine()}</div>`;
+      ${trigT}${pcl}${low.map(([n, v]) => `<div class="note a">🔋 ${hEsc(n)} sensor ${v} %</div>`).join("")}${this._awLine()}</div>`;
     // ---- cctv ----
     let cctv;
     const d0 = new Date(); d0.setHours(0, 0, 0, 0);
