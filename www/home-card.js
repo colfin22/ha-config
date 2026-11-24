@@ -5,7 +5,7 @@
  * Phone: house mode + Guest sit behind one pill (tap pill -> panel -> pick), v2 19-11-2026, so a stray tap while scrolling changes nothing.
  * Every tile links to its tab. Config: layout: desktop | phone (everything else has defaults below, override any key).
  */
-const HC_VERSION = "17";
+const HC_VERSION = "18";
 const HC_DEF = {
   people: [{ e: "person.colm_finn", n: "Colm" }, { e: "person.olivia_finn", n: "Olivia" }, { e: "person.cian_finn", n: "Cian" }, { e: "person.daire_finn", n: "Daire" }],
   rooms: [
@@ -38,10 +38,12 @@ const HC_DEF = {
     { f: "Front_Car", n: "Front Car", img: "image.cctv_last_alert_front_car" }, { f: "Rear_Door", n: "Rear Door", img: "image.cctv_last_alert_rear_door" }, { f: "Rear_Shed", n: "Rear Shed", img: "image.cctv_last_alert_rear_shed" }],
   climate: "climate.netatmo_smart_thermostat", heating_status: "input_text.heating_status", heating_hours: "sensor.heating_hours_today",
   boost: "input_button.heating_boost_start", cancel: "input_button.heating_boost_cancel", boost_temp: "input_number.heating_boost_temperature",
-  temps: [["sensor.kitchen_temperature_temperature", "Kitchen"], ["sensor.hallway_motion_sensor_temperature", "Hallway"], ["sensor.landing_motion_sensor_temperature", "Landing"]],
+  temps: [["sensor.kitchen_temperature_temperature", "Kitchen"], ["climate.netatmo_smart_thermostat", "Hallway"], ["sensor.landing_motion_sensor_temperature", "Landing"]],
   photo: "image.immich_pics_for_display",
   bins: "sensor.panda_waste",
+  // every todo.* list in HA is shown (his 24-11 "needs to be dynamic"): these first in this order, the rest by name after them
   lists: [["todo.travel", "Travel"], ["todo.shopping_list", "Shopping list"], ["todo.tasks", "Tasks"]],
+  lists_exclude: [],
   energy: { solar: "sensor.solarcost_today_solar_generation", solar_fc: "sensor.solcast_pv_forecast_forecast_today", battery: "sensor.solis_battery_soc", house: "sensor.solis_house_load",
     cost: "sensor.solarcost_today_estimated_bill", imp: "sensor.solarcost_today_grid_import", exp: "sensor.solarcost_today_grid_export", rate: "sensor.solarcost_current_import_rate" },
   // every calendar.* entity is shown; these two keep their own colour / bin merging
@@ -172,8 +174,8 @@ class HomeCard extends HTMLElement {
     if (first) this._loadAll();
     const c = this._c, ids = [c.weather, c.mode, c.guest, c.storm, c.maintenance, c.climate, c.heating_status, c.heating_hours, c.photo, c.bins,
       ...c.people.map((p) => p.e), ...c.appliances.map((a) => a.e), ...c.alarms.map((a) => a.e), ...c.doors.map((d) => d[0]), ...c.windows.map((d) => d[0]),
-      ...c.batteries.map((b) => b[0]), ...c.cameras.map((x) => x.img), ...c.temps.map((t) => t[0]), ...c.lists.map((l) => l[0]), ...Object.values(c.energy), ...Object.values(c.parcel || {})];
-    const sig = ids.map((e) => { const s = h.states[e]; return s ? s.state + (e.startsWith("image.") ? s.attributes.access_token : "") + (e.startsWith("weather.") ? s.attributes.temperature : "") : "-"; }).join("|");
+      ...c.batteries.map((b) => b[0]), ...c.cameras.map((x) => x.img), ...c.temps.map((t) => t[0]), ...this._lists().map((l) => l[0]), ...Object.values(c.energy), ...Object.values(c.parcel || {})];
+    const sig = ids.map((e) => { const s = h.states[e]; return s ? s.state + (e.startsWith("image.") ? s.attributes.access_token : "") + (e.startsWith("weather.") || e.startsWith("climate.") ? (s.attributes.temperature ?? "") + "/" + (s.attributes.current_temperature ?? "") : "") : "-"; }).join("|");
     const alSig = c.alarms.map((a) => (h.states[a.e] || {}).state).join("|") + "|" + c.cameras.map((x) => (h.states[x.img] || {}).state).join("|");
     if (alSig !== this._alSig) { this._alSig = alSig; this._loadLater(); }
     if (sig !== this._sig) { this._sig = sig; this._render(); }
@@ -267,6 +269,14 @@ class HomeCard extends HTMLElement {
 
   /* ---------- helpers ---------- */
   _s(e) { return this._hass.states[e]; }
+  _lists() { // configured lists first (their order + names), then any other todo.* in HA by name; hidden: lists_exclude
+    const c = this._c, st = (this._hass && this._hass.states) || {}, ex = c.lists_exclude || [], seen = new Set();
+    const out = c.lists.filter(([e]) => st[e] && !ex.includes(e)).map((l) => (seen.add(l[0]), l));
+    const rest = Object.keys(st).filter((e) => e.startsWith("todo.") && !seen.has(e) && !ex.includes(e))
+      .map((e) => [e, st[e].attributes.friendly_name || e.slice(5)]).sort((a, b) => a[1].localeCompare(b[1]));
+    return [...out, ...rest];
+  }
+  _t(e) { const s = this._s(e); if (s && e.startsWith("climate.")) { const v = parseFloat(s.attributes.current_temperature); return isNaN(v) ? null : v; } return this._n(e); }
   _n(e, dp) { const s = this._s(e); const v = s ? parseFloat(s.state) : NaN; return isNaN(v) ? null : dp === undefined ? v : Number(v.toFixed(dp)); }
   _url(u) { return u ? this._hass.hassUrl(u) : ""; }
   _go(path) { if (!path) return; history.pushState(null, "", path); window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } })); }
@@ -385,7 +395,7 @@ class HomeCard extends HTMLElement {
     const heat = `<div class="tile heatt" data-go="${N.climate}"><div class="h">🌡 Heating <span class="go">Climate ›</span></div>
       <div class="temp"><span class="v">${cur != null ? Number(cur).toFixed(1) + "°" : "–"}</span><span class="sub">inside</span></div>
       <div class="sub">${boosting ? `<span style="color:var(--hc-or)">${hEsc(hs.state)}</span>` : `Target ${tgt != null ? Number(tgt).toFixed(1) + "°" : "–"} · ${act ? act[0].toUpperCase() + act.slice(1) : ""}`}${hh !== null ? ` · on for ${hh.toFixed(1)} h today` : ""}</div>
-      <div class="rt">${c.temps.map(([e, n]) => { const v = this._n(e); return `<div><b>${v !== null ? v.toFixed(1) + "°" : "–"}</b><span>${hEsc(n)}</span></div>`; }).join("")}</div>
+      <div class="rt">${c.temps.map(([e, n]) => { const v = this._t(e); return `<div><b>${v !== null ? v.toFixed(1) + "°" : "–"}</b><span>${hEsc(n)}</span></div>`; }).join("")}</div>
       <div class="bb" style="display:flex;gap:8px;margin-top:12px"><button class="btn or ${boosting ? "on" : ""}" data-act="boost">🔥 Boost 2 h${bt !== null && !ph ? " · " + bt.toFixed(1) + "°" : ""}</button>${boosting ? `<button class="btn rd" data-act="cancel">Cancel</button>` : ""}</div></div>`;
     // ---- photo ----
     const pe = this._s(c.photo), pu = pe && pe.attributes.entity_picture ? hEsc(this._url(pe.attributes.entity_picture)) : "";
@@ -397,7 +407,7 @@ class HomeCard extends HTMLElement {
       if (fut.length) { const dt = new Date(fut[0] + "T00:00:00"), days = Math.round((dt - t0) / 86400000);
         binsH = `<div class="big">${days === 0 ? "Today" : days === 1 ? "Tomorrow" : DAYS[dt.getDay()]}</div><div class="sub">${hEsc(bs.attributes[fut[0]])}${days > 1 ? " · in " + days + " days" : ""}</div>${fut[1] ? `<div class="sub">Then ${hD(new Date(fut[1] + "T00:00:00"))}</div>` : ""}`; } }
     const bins = `<div class="tile" data-go="${N.todo}"><div class="h">🗑 Bins &amp; lists <span class="go">Lists ›</span></div>${binsH}
-      ${c.lists.map(([e, n], i) => `<div class="row" ${i ? "" : 'style="margin-top:8px"'}><span>${hEsc(n)}</span><span class="v">${this._s(e) ? hEsc(this._s(e).state) : "–"}</span></div>`).join("")}</div>`;
+      ${this._lists().map(([e, n], i) => `<div class="row" ${i ? "" : 'style="margin-top:8px"'}><span>${hEsc(n)}</span><span class="v">${this._s(e) ? hEsc(this._s(e).state) : "–"}</span></div>`).join("")}</div>`;
     // ---- energy ----
     const E = c.energy, f1 = (e) => { const v = this._n(e); return v === null ? "–" : v.toFixed(1); };
     const soc = this._n(E.battery), house = this._n(E.house), cost = this._n(E.cost), rate = this._n(E.rate), fcs = this._n(E.solar_fc);
