@@ -311,6 +311,7 @@ function resize() {
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); lctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   Z = parseFloat(getComputedStyle($("side")).zoom) || 1;
   R = Math.min(W / 2 - 40 * Z, H / 2 - 44 * Z); CX = W / 2; CY = H / 2 + 6;
+  if (innerWidth > 760) { const ct = $("chips").getBoundingClientRect().top - cv.getBoundingClientRect().top; R = Math.min(R, ct - CY - 36 * Z); }
   drawStatic();
 }
 // stereographic projection, zenith in the middle, N up, E left (as you see it looking up)
