@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace.house_sky",
+  "data": {
+    "config": {
+      "views": [
+        {
+          "title": "Night sky",
+          "path": "sky",
+          "icon": "mdi:weather-night",
+          "type": "panel",
+          "cards": [
+            {
+              "type": "iframe",
+              "url": "/local/night_sky/night_sky.html?v=20261124b"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

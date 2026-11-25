@@ -1,0 +1,1196 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace.house_map",
+  "data": {
+    "config": {
+      "kiosk_mode": {
+        "hide_header": true
+      },
+      "views": [
+        {
+          "title": "Map",
+          "path": "floorplan",
+          "icon": "mdi:floor-plan",
+          "type": "sections",
+          "max_columns": 3,
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:live-house-card",
+                  "layout": "desktop",
+                  "height": "78vh",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(min-width: 768px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "dashboard": "house-map"
+                },
+                {
+                  "type": "custom:live-house-card",
+                  "layout": "phone",
+                  "height": "calc(100svh - 140px)",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(max-width: 767px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "dashboard": "house-map"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Rooms",
+          "path": "rooms",
+          "icon": "mdi:sofa",
+          "type": "sections",
+          "max_columns": 3,
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:oaks-rooms-card",
+                  "grid_options": {
+                    "columns": "full"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "Kitchen",
+          "path": "kitchen",
+          "icon": "mdi:stove",
+          "type": "sections",
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:room-card",
+                  "name": "Kitchen",
+                  "photo": "/api/image/serve/f3d6a395b6d142180c75d66206ea77fb/512x512",
+                  "lights": [
+                    {
+                      "e": "light.kitchen",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.kitchen_1",
+                      "n": "Kitchen 1"
+                    },
+                    {
+                      "e": "light.kitchen_2",
+                      "n": "Kitchen 2"
+                    },
+                    {
+                      "e": "light.kitchen_3",
+                      "n": "Kitchen 3"
+                    },
+                    {
+                      "e": "light.kitchen_tv_lightstrip",
+                      "n": "TV Lightstrip"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.kitchen_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.kitchen_dimmed",
+                      "n": "Dimmed"
+                    },
+                    {
+                      "e": "scene.kitchen_night",
+                      "n": "Night"
+                    },
+                    {
+                      "e": "scene.kitchen_1_and_2",
+                      "n": "Kitchen 1 & 2"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.kitchen_display_ma",
+                      "n": "Kitchen Display"
+                    },
+                    {
+                      "e": "media_player.technics_ma",
+                      "n": "Technics"
+                    },
+                    {
+                      "e": "media_player.mi_box_ma",
+                      "n": "Kitchen MiBox"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.lg_tv_online",
+                      "n": "LG TV"
+                    },
+                    {
+                      "e": "binary_sensor.kitchen_mibox_online",
+                      "n": "Kitchen MiBox"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.back_door_contact",
+                      "n": "Back Door"
+                    },
+                    {
+                      "e": "binary_sensor.patio_door_contact",
+                      "n": "Patio Door"
+                    }
+                  ],
+                  "sensors": [
+                    {
+                      "e": "sensor.kitchen_temperature_temperature",
+                      "n": "Temperature"
+                    },
+                    {
+                      "e": "sensor.kitchen_temperature_humidity",
+                      "n": "Humidity"
+                    }
+                  ],
+                  "remote": {
+                    "type": "custom:firemote-card",
+                    "entity": "media_player.android_tv_10_0_20_210",
+                    "device_family": "xiaomi",
+                    "device_type": "mi-box-s",
+                    "compatibility_mode": "default",
+                    "app_launch_1": "tivimate",
+                    "app_launch_2": "stremio",
+                    "visible_name_text": "Kitchen Mi Box",
+                    "android_tv_remote_entity": "remote.mi_box"
+                  },
+                  "remote_name": "Mi Box",
+                  "layout": "desktop",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(min-width: 768px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "harmony": {
+                    "entity": "remote.kitchenhub"
+                  },
+                  "tv": {
+                    "entity": "media_player.android_tv_10_0_20_210",
+                    "n": "Mi Box"
+                  }
+                },
+                {
+                  "type": "custom:room-card",
+                  "name": "Kitchen",
+                  "photo": "/api/image/serve/f3d6a395b6d142180c75d66206ea77fb/512x512",
+                  "lights": [
+                    {
+                      "e": "light.kitchen",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.kitchen_1",
+                      "n": "Kitchen 1"
+                    },
+                    {
+                      "e": "light.kitchen_2",
+                      "n": "Kitchen 2"
+                    },
+                    {
+                      "e": "light.kitchen_3",
+                      "n": "Kitchen 3"
+                    },
+                    {
+                      "e": "light.kitchen_tv_lightstrip",
+                      "n": "TV Lightstrip"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.kitchen_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.kitchen_dimmed",
+                      "n": "Dimmed"
+                    },
+                    {
+                      "e": "scene.kitchen_night",
+                      "n": "Night"
+                    },
+                    {
+                      "e": "scene.kitchen_1_and_2",
+                      "n": "Kitchen 1 & 2"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.kitchen_display_ma",
+                      "n": "Kitchen Display"
+                    },
+                    {
+                      "e": "media_player.technics_ma",
+                      "n": "Technics"
+                    },
+                    {
+                      "e": "media_player.mi_box_ma",
+                      "n": "Kitchen MiBox"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.lg_tv_online",
+                      "n": "LG TV"
+                    },
+                    {
+                      "e": "binary_sensor.kitchen_mibox_online",
+                      "n": "Kitchen MiBox"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.back_door_contact",
+                      "n": "Back Door"
+                    },
+                    {
+                      "e": "binary_sensor.patio_door_contact",
+                      "n": "Patio Door"
+                    }
+                  ],
+                  "sensors": [
+                    {
+                      "e": "sensor.kitchen_temperature_temperature",
+                      "n": "Temperature"
+                    },
+                    {
+                      "e": "sensor.kitchen_temperature_humidity",
+                      "n": "Humidity"
+                    }
+                  ],
+                  "remote": {
+                    "type": "custom:firemote-card",
+                    "entity": "media_player.android_tv_10_0_20_210",
+                    "device_family": "xiaomi",
+                    "device_type": "mi-box-s",
+                    "compatibility_mode": "default",
+                    "app_launch_1": "tivimate",
+                    "app_launch_2": "stremio",
+                    "visible_name_text": "Kitchen Mi Box",
+                    "android_tv_remote_entity": "remote.mi_box"
+                  },
+                  "remote_name": "Mi Box",
+                  "layout": "phone",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(max-width: 767px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "harmony": {
+                    "entity": "remote.kitchenhub"
+                  },
+                  "tv": {
+                    "entity": "media_player.android_tv_10_0_20_210",
+                    "n": "Mi Box"
+                  }
+                }
+              ]
+            }
+          ],
+          "max_columns": 3,
+          "visible": false
+        },
+        {
+          "title": "Sitting Room",
+          "path": "sitting-room",
+          "icon": "mdi:sofa-outline",
+          "type": "sections",
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:room-card",
+                  "name": "Sitting Room",
+                  "photo": "/api/image/serve/71dee4784c3ec84c9d06a85e37eb5515/512x512",
+                  "lights": [
+                    {
+                      "e": "light.sitting_room",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.sitting_room_lamp",
+                      "n": "Lamp"
+                    },
+                    {
+                      "e": "light.sitting_room_stand",
+                      "n": "Floor Stand"
+                    },
+                    {
+                      "e": "light.sitting_room_tv_lightstrip",
+                      "n": "TV Lightstrip"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.sitting_room_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.sitting_room_movie",
+                      "n": "Movie"
+                    },
+                    {
+                      "e": "scene.sitting_room_tropical_butterfly",
+                      "n": "Tropical"
+                    },
+                    {
+                      "e": "scene.sitting_room_lake_placid",
+                      "n": "Lake Placid"
+                    },
+                    {
+                      "e": "scene.sitting_room_baltic_sunset",
+                      "n": "Sunset"
+                    },
+                    {
+                      "e": "scene.sitting_room_rolling_hills",
+                      "n": "Rolling Hills"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.logitech_ma",
+                      "n": "Logitech"
+                    },
+                    {
+                      "e": "media_player.shield_android_tv_ma",
+                      "n": "Shield TV"
+                    },
+                    {
+                      "e": "media_player.sitting_room_speaker_ma",
+                      "n": "Sitting Room Speaker"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.samsung_tv_online",
+                      "n": "Samsung TV"
+                    },
+                    {
+                      "e": "binary_sensor.shield_tv_online",
+                      "n": "Shield"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.sitting_room_window_contact",
+                      "n": "Window"
+                    },
+                    {
+                      "e": "binary_sensor.sitting_room_presence_occupancy",
+                      "n": "Presence"
+                    }
+                  ],
+                  "sensors": [],
+                  "remote": {
+                    "type": "custom:firemote-card",
+                    "entity": "media_player.android_tv_10_0_20_218",
+                    "device_family": "nvidia-shield",
+                    "device_type": "shield-tv-2019",
+                    "compatibility_mode": "default",
+                    "android_tv_remote_entity": "remote.shield_android_tv",
+                    "app_launch_1": "tivimate",
+                    "app_launch_2": "stremio",
+                    "app_launch_3": ""
+                  },
+                  "remote_name": "Shield",
+                  "layout": "desktop",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(min-width: 768px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "harmony": {
+                    "entity": "remote.sittingrmhub"
+                  },
+                  "tv": {
+                    "entity": "media_player.android_tv_10_0_20_218",
+                    "n": "Shield"
+                  }
+                },
+                {
+                  "type": "custom:room-card",
+                  "name": "Sitting Room",
+                  "photo": "/api/image/serve/71dee4784c3ec84c9d06a85e37eb5515/512x512",
+                  "lights": [
+                    {
+                      "e": "light.sitting_room",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.sitting_room_lamp",
+                      "n": "Lamp"
+                    },
+                    {
+                      "e": "light.sitting_room_stand",
+                      "n": "Floor Stand"
+                    },
+                    {
+                      "e": "light.sitting_room_tv_lightstrip",
+                      "n": "TV Lightstrip"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.sitting_room_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.sitting_room_movie",
+                      "n": "Movie"
+                    },
+                    {
+                      "e": "scene.sitting_room_tropical_butterfly",
+                      "n": "Tropical"
+                    },
+                    {
+                      "e": "scene.sitting_room_lake_placid",
+                      "n": "Lake Placid"
+                    },
+                    {
+                      "e": "scene.sitting_room_baltic_sunset",
+                      "n": "Sunset"
+                    },
+                    {
+                      "e": "scene.sitting_room_rolling_hills",
+                      "n": "Rolling Hills"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.logitech_ma",
+                      "n": "Logitech"
+                    },
+                    {
+                      "e": "media_player.shield_android_tv_ma",
+                      "n": "Shield TV"
+                    },
+                    {
+                      "e": "media_player.sitting_room_speaker_ma",
+                      "n": "Sitting Room Speaker"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.samsung_tv_online",
+                      "n": "Samsung TV"
+                    },
+                    {
+                      "e": "binary_sensor.shield_tv_online",
+                      "n": "Shield"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.sitting_room_window_contact",
+                      "n": "Window"
+                    },
+                    {
+                      "e": "binary_sensor.sitting_room_presence_occupancy",
+                      "n": "Presence"
+                    }
+                  ],
+                  "sensors": [],
+                  "remote": {
+                    "type": "custom:firemote-card",
+                    "entity": "media_player.android_tv_10_0_20_218",
+                    "device_family": "nvidia-shield",
+                    "device_type": "shield-tv-2019",
+                    "compatibility_mode": "default",
+                    "android_tv_remote_entity": "remote.shield_android_tv",
+                    "app_launch_1": "tivimate",
+                    "app_launch_2": "stremio",
+                    "app_launch_3": ""
+                  },
+                  "remote_name": "Shield",
+                  "layout": "phone",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(max-width: 767px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "harmony": {
+                    "entity": "remote.sittingrmhub"
+                  },
+                  "tv": {
+                    "entity": "media_player.android_tv_10_0_20_218",
+                    "n": "Shield"
+                  }
+                }
+              ]
+            }
+          ],
+          "max_columns": 3,
+          "visible": false
+        },
+        {
+          "title": "Colm",
+          "path": "colm-bedroom",
+          "icon": "mdi:bed-outline",
+          "type": "sections",
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:room-card",
+                  "name": "Colm",
+                  "photo": "/api/image/serve/afc9d2275c1e294c23313ddfe2c0235c/512x512",
+                  "lights": [
+                    {
+                      "e": "light.colm_bedroom",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.colm_ceiling",
+                      "n": "Ceiling"
+                    },
+                    {
+                      "e": "light.colm_bedside",
+                      "n": "Colm Bedside"
+                    },
+                    {
+                      "e": "light.olivia_bedside",
+                      "n": "Olivia Bedside"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.colm_bedroom_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.colm_bedroom_dimmed",
+                      "n": "Dimmed"
+                    },
+                    {
+                      "e": "scene.colm_bedroom_ceiling",
+                      "n": "Ceiling Only"
+                    },
+                    {
+                      "e": "scene.colm_bedroom_bedside",
+                      "n": "Bedside"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.colm_bedroom_speaker_ma",
+                      "n": "Colm Speaker"
+                    }
+                  ],
+                  "devices": [],
+                  "security": [
+                    {
+                      "e": "binary_sensor.colm_window_contact",
+                      "n": "Window"
+                    }
+                  ],
+                  "sensors": [],
+                  "layout": "desktop",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(min-width: 768px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  }
+                },
+                {
+                  "type": "custom:room-card",
+                  "name": "Colm",
+                  "photo": "/api/image/serve/afc9d2275c1e294c23313ddfe2c0235c/512x512",
+                  "lights": [
+                    {
+                      "e": "light.colm_bedroom",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.colm_ceiling",
+                      "n": "Ceiling"
+                    },
+                    {
+                      "e": "light.colm_bedside",
+                      "n": "Colm Bedside"
+                    },
+                    {
+                      "e": "light.olivia_bedside",
+                      "n": "Olivia Bedside"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.colm_bedroom_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.colm_bedroom_dimmed",
+                      "n": "Dimmed"
+                    },
+                    {
+                      "e": "scene.colm_bedroom_ceiling",
+                      "n": "Ceiling Only"
+                    },
+                    {
+                      "e": "scene.colm_bedroom_bedside",
+                      "n": "Bedside"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.colm_bedroom_speaker_ma",
+                      "n": "Colm Speaker"
+                    }
+                  ],
+                  "devices": [],
+                  "security": [
+                    {
+                      "e": "binary_sensor.colm_window_contact",
+                      "n": "Window"
+                    }
+                  ],
+                  "sensors": [],
+                  "layout": "phone",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(max-width: 767px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  }
+                }
+              ]
+            }
+          ],
+          "max_columns": 3,
+          "visible": false
+        },
+        {
+          "title": "Cian",
+          "path": "cian-bedroom",
+          "icon": "mdi:bed-outline",
+          "type": "sections",
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:room-card",
+                  "name": "Cian",
+                  "photo": "/api/image/serve/8e775435348fac8aacb27c2b9e2a5755/512x512",
+                  "lights": [
+                    {
+                      "e": "light.cian_bedroom",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.cian_ceiling",
+                      "n": "Ceiling"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.cian_bedroom_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.cian_bedroom_dimmed",
+                      "n": "Dimmed"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.cian_mitv_ma",
+                      "n": "Cian MiTV"
+                    },
+                    {
+                      "e": "media_player.cian_mitv_remote",
+                      "n": "Cian MiTV remote"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.cian_mitv_online",
+                      "n": "Cian MiTV"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.cian_window_contact",
+                      "n": "Window"
+                    }
+                  ],
+                  "sensors": [],
+                  "remote": {
+                    "type": "custom:firemote-card",
+                    "entity": "media_player.android_tv_10_0_20_214",
+                    "device_family": "xiaomi",
+                    "device_type": "xiaomi-tv-stick-4k",
+                    "compatibility_mode": "default",
+                    "android_tv_remote_entity": "remote.cian_mitv",
+                    "app_launch_1": "youtube",
+                    "app_launch_2": "tivimate",
+                    "visible_name_text": "Cian MiTV"
+                  },
+                  "remote_name": "Cian MiTV",
+                  "layout": "desktop",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(min-width: 768px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "tv": {
+                    "entity": "media_player.android_tv_10_0_20_214",
+                    "n": "Cian MiTV"
+                  }
+                },
+                {
+                  "type": "custom:room-card",
+                  "name": "Cian",
+                  "photo": "/api/image/serve/8e775435348fac8aacb27c2b9e2a5755/512x512",
+                  "lights": [
+                    {
+                      "e": "light.cian_bedroom",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.cian_ceiling",
+                      "n": "Ceiling"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.cian_bedroom_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.cian_bedroom_dimmed",
+                      "n": "Dimmed"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.cian_mitv_ma",
+                      "n": "Cian MiTV"
+                    },
+                    {
+                      "e": "media_player.cian_mitv_remote",
+                      "n": "Cian MiTV remote"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.cian_mitv_online",
+                      "n": "Cian MiTV"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.cian_window_contact",
+                      "n": "Window"
+                    }
+                  ],
+                  "sensors": [],
+                  "remote": {
+                    "type": "custom:firemote-card",
+                    "entity": "media_player.android_tv_10_0_20_214",
+                    "device_family": "xiaomi",
+                    "device_type": "xiaomi-tv-stick-4k",
+                    "compatibility_mode": "default",
+                    "android_tv_remote_entity": "remote.cian_mitv",
+                    "app_launch_1": "youtube",
+                    "app_launch_2": "tivimate",
+                    "visible_name_text": "Cian MiTV"
+                  },
+                  "remote_name": "Cian MiTV",
+                  "layout": "phone",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(max-width: 767px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "tv": {
+                    "entity": "media_player.android_tv_10_0_20_214",
+                    "n": "Cian MiTV"
+                  }
+                }
+              ]
+            }
+          ],
+          "max_columns": 3,
+          "visible": false
+        },
+        {
+          "title": "Aoife",
+          "path": "aoife-bedroom",
+          "icon": "mdi:bed-outline",
+          "type": "sections",
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:room-card",
+                  "name": "Aoife",
+                  "photo": "/api/image/serve/5f84ea7ec0f15b59bcceb8cbb2149b3a/512x512",
+                  "lights": [
+                    {
+                      "e": "light.aoife_bedroom",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.aoife_ceiling",
+                      "n": "Ceiling"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.aoife_bedroom_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.aoife_bedroom_dimmed",
+                      "n": "Dimmed"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.aoife_mibox_s_ma",
+                      "n": "Aoife MiBox S"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.aoife_mibox_s_online",
+                      "n": "Aoife MiBox S"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.aoife_window_contact",
+                      "n": "Window"
+                    }
+                  ],
+                  "sensors": [],
+                  "remote": {
+                    "type": "custom:firemote-card",
+                    "entity": "media_player.android_tv_10_0_20_213",
+                    "device_family": "xiaomi",
+                    "device_type": "mi-box-s",
+                    "compatibility_mode": "default",
+                    "app_launch_1": "tivimate",
+                    "app_launch_2": "stremio",
+                    "visible_name_text": "Aoife MiBox S",
+                    "android_tv_remote_entity": "remote.aoife_mibox_s"
+                  },
+                  "remote_name": "Aoife MiBox S",
+                  "layout": "desktop",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(min-width: 768px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "tv": {
+                    "entity": "media_player.android_tv_10_0_20_213",
+                    "n": "Aoife MiBox S"
+                  }
+                },
+                {
+                  "type": "custom:room-card",
+                  "name": "Aoife",
+                  "photo": "/api/image/serve/5f84ea7ec0f15b59bcceb8cbb2149b3a/512x512",
+                  "lights": [
+                    {
+                      "e": "light.aoife_bedroom",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.aoife_ceiling",
+                      "n": "Ceiling"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.aoife_bedroom_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.aoife_bedroom_dimmed",
+                      "n": "Dimmed"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.aoife_mibox_s_ma",
+                      "n": "Aoife MiBox S"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.aoife_mibox_s_online",
+                      "n": "Aoife MiBox S"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.aoife_window_contact",
+                      "n": "Window"
+                    }
+                  ],
+                  "sensors": [],
+                  "remote": {
+                    "type": "custom:firemote-card",
+                    "entity": "media_player.android_tv_10_0_20_213",
+                    "device_family": "xiaomi",
+                    "device_type": "mi-box-s",
+                    "compatibility_mode": "default",
+                    "app_launch_1": "tivimate",
+                    "app_launch_2": "stremio",
+                    "visible_name_text": "Aoife MiBox S",
+                    "android_tv_remote_entity": "remote.aoife_mibox_s"
+                  },
+                  "remote_name": "Aoife MiBox S",
+                  "layout": "phone",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(max-width: 767px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "tv": {
+                    "entity": "media_player.android_tv_10_0_20_213",
+                    "n": "Aoife MiBox S"
+                  }
+                }
+              ]
+            }
+          ],
+          "max_columns": 3,
+          "visible": false
+        },
+        {
+          "title": "Office",
+          "path": "office",
+          "icon": "mdi:chair-rolling",
+          "type": "sections",
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:room-card",
+                  "name": "Office",
+                  "photo": "/api/image/serve/ae67b6d971687053d31fa9fb19b16966/512x512",
+                  "lights": [
+                    {
+                      "e": "light.office",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.office_ceiling",
+                      "n": "Ceiling"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.office_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.office_dimmed",
+                      "n": "Dimmed"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.office_speaker_ma",
+                      "n": "Office Speaker"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.colm_pc",
+                      "n": "PC"
+                    },
+                    {
+                      "e": "switch.colm_pc_socket",
+                      "n": "PC Socket"
+                    },
+                    {
+                      "e": "sensor.colm_pc_socket_power",
+                      "n": "PC Power"
+                    },
+                    {
+                      "e": "switch.colm_sim_rig_socket",
+                      "n": "Sim Rig Socket"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.office_window_contact",
+                      "n": "Window"
+                    },
+                    {
+                      "e": "binary_sensor.office_presence_occupancy",
+                      "n": "Presence"
+                    }
+                  ],
+                  "sensors": [],
+                  "layout": "desktop",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(min-width: 768px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  }
+                },
+                {
+                  "type": "custom:room-card",
+                  "name": "Office",
+                  "photo": "/api/image/serve/ae67b6d971687053d31fa9fb19b16966/512x512",
+                  "lights": [
+                    {
+                      "e": "light.office",
+                      "n": "All Lights"
+                    },
+                    {
+                      "e": "light.office_ceiling",
+                      "n": "Ceiling"
+                    }
+                  ],
+                  "scenes": [
+                    {
+                      "e": "scene.office_bright",
+                      "n": "Bright"
+                    },
+                    {
+                      "e": "scene.office_dimmed",
+                      "n": "Dimmed"
+                    }
+                  ],
+                  "media": [
+                    {
+                      "e": "media_player.office_speaker_ma",
+                      "n": "Office Speaker"
+                    }
+                  ],
+                  "devices": [
+                    {
+                      "e": "binary_sensor.colm_pc",
+                      "n": "PC"
+                    },
+                    {
+                      "e": "switch.colm_pc_socket",
+                      "n": "PC Socket"
+                    },
+                    {
+                      "e": "sensor.colm_pc_socket_power",
+                      "n": "PC Power"
+                    },
+                    {
+                      "e": "switch.colm_sim_rig_socket",
+                      "n": "Sim Rig Socket"
+                    }
+                  ],
+                  "security": [
+                    {
+                      "e": "binary_sensor.office_window_contact",
+                      "n": "Window"
+                    },
+                    {
+                      "e": "binary_sensor.office_presence_occupancy",
+                      "n": "Presence"
+                    }
+                  ],
+                  "sensors": [],
+                  "layout": "phone",
+                  "visibility": [
+                    {
+                      "condition": "screen",
+                      "media_query": "(max-width: 767px)"
+                    }
+                  ],
+                  "grid_options": {
+                    "columns": "full"
+                  }
+                }
+              ]
+            }
+          ],
+          "max_columns": 3,
+          "visible": false
+        }
+      ]
+    }
+  }
+}

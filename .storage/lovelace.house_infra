@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "minor_version": 1,
+  "key": "lovelace.house_infra",
+  "data": {
+    "config": {
+      "kiosk_mode": {
+        "hide_header": true
+      },
+      "views": [
+        {
+          "title": "Network",
+          "path": "network",
+          "icon": "mdi:network",
+          "type": "sections",
+          "max_columns": 3,
+          "sections": [
+            {
+              "type": "grid",
+              "column_span": 3,
+              "cards": [
+                {
+                  "type": "custom:infra-frame-card",
+                  "updone_automation": "automation.infra_dashboard_update_tuesday_mark_done",
+                  "ipref_automation": "automation.infra_dashboard_refresh_ip_inventory",
+                  "grid_options": {
+                    "columns": "full"
+                  },
+                  "height": "calc(100vh - var(--header-height, 56px) - 40px)"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
