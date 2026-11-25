@@ -15,6 +15,8 @@
   body:has(.page:target) .idx { display:none; }
   .page { display:none; min-height:100%; padding:20px 16px 90px; max-width:760px; margin:0 auto; }
   .page:target { display:block; }
+  /* phone: room for the app's floating menu bar (25-11-2026) */
+  @media (max-width:870px) { .page, .idx { padding-bottom:140px; } }
   h1 { font-size:1.7em; margin:8px 0 2px; }
   .sub { color:var(--soft); margin:0 0 20px; }
   h2 { font-size:1.3em; color:var(--accent); margin:6px 0 12px; }
@@ -74,23 +76,29 @@
 
 <div class="page" id="p0">
   <h2>Start here: finding your way</h2>
-  <p>The app is split into a few <b>sections</b>. Open the <b>menu</b> to move between them: on a phone tap <b>&#9776;</b>, on a computer it&rsquo;s down the left.</p>
-  <img class="shot" src="guide-nav-menu.png?v=20261125" alt="The menu: Home, Map, Rooms, Energy, Security, then Music Assistant, AudioMuse and How it Works" style="max-width:220px">
-  <p class="cap">The menu.</p>
+  <p>The app has five <b>sections</b>: Home, Map, Rooms, Energy and Security. On a phone they sit in the <b>bar at the bottom</b> of the screen &mdash; tap one to go there.</p>
+  <p>If a section has more than one page, they show <b>just above</b> it in the same bar &mdash; tap one to switch.</p>
+  <img class="shot" src="guide-nav-bar.png?v=20261125b" alt="The bar at the bottom: Solar and battery, Power, Appliances, Cars and fuel above Home, Map, Rooms, Energy, Security and More">
+  <p class="cap">Energy is open, with its four pages above.</p>
   <table>
     <tr><th>Section</th><th>What&rsquo;s in it</th></tr>
     <tr><td><b>Home</b></td><td>Everything at a glance &mdash; one page</td></tr>
     <tr><td><b>Map</b></td><td>House (the 3D house) &middot; People &middot; Night sky</td></tr>
     <tr><td><b>Rooms</b></td><td>Rooms (tap a room) &middot; Heating</td></tr>
     <tr><td><b>Energy</b></td><td>Solar &amp; battery &middot; Power &middot; Appliances &middot; Cars &amp; fuel</td></tr>
-    <tr><td><b>Security</b></td><td>Overview (the alarm) &middot; CCTV &middot; Doorbell</td></tr>
+    <tr><td><b>Security</b></td><td>CCTV &middot; Alarm &middot; Doorbell</td></tr>
   </table>
-  <p>Each section has its <b>tabs</b> along the top &mdash; tap one to switch. On a phone the &#9776; sits at the left of the tabs.</p>
-  <img class="shot" src="guide-nav-tabs.png?v=20261125" alt="The Energy section: the top line, then the tabs Solar and battery, Power, Appliances, Cars and fuel">
-  <p class="cap">Energy, with its tabs under the top line.</p>
+  <h3>More</h3>
+  <p>Tap <b>More</b> (the &bull;&bull;&bull; at the end of the bar) for the rest: <b>Music Assistant</b>, <b>AudioMuse</b> and this guide.</p>
+  <img class="shot" src="guide-nav-more.png?v=20261125b" alt="More: Music Assistant, AudioMuse, How it Works">
+  <p class="cap">More.</p>
+  <ul>
+    <li>Music Assistant and AudioMuse have their own screens. To get back: in <b>AudioMuse</b> tap <b>&#9776;</b> at the top; in <b>Music Assistant</b> tap its <b>&#9776;</b> (bottom left), then <b>Home Assistant</b>.</li>
+    <li>On a computer the sections are <b>down the left</b>, with More at the bottom.</li>
+  </ul>
   <h3>The line at the top</h3>
   <p>Every page starts with a line showing what matters most right now: the <b>house mode</b>, the <b>alarm</b> for the house and the shed, and the <b>weather</b> outside. On Home a second line adds the <b>solar</b>, what the <b>house</b> is using, the <b>battery</b> and the <b>grid</b>.</p>
-  <img class="shot" src="guide-nav-home.png?v=20261125" alt="The top of Home: house mode, alarm, shed, outside temperature, then solar, house, battery and grid">
+  <img class="shot" src="guide-nav-home2.png?v=20261125b" alt="The top of Home: house mode, alarm, shed, outside temperature, then solar, house, battery and grid">
   <p class="cap">The top of Home on a phone.</p>
   <ul>
     <li><b>Tap any of them</b> to jump to that part of the app &mdash; the temperature opens the weather.</li>
@@ -124,7 +132,7 @@
 
 <div class="page" id="p2">
   <h2>2. Rooms</h2>
-  <p>Every room has its <b>own page</b>. Open <b>Rooms</b> in the menu and tap a room, or tap its picture on Home.</p>
+  <p>Every room has its <b>own page</b>. Tap <b>Rooms</b> in the bar and tap a room, or tap its picture on Home.</p>
   <img class="shot" src="guide-rooms-tiles.png?v=20261125" alt="Rooms: a picture of each room with its temperature and lights" style="max-width:340px">
   <p class="cap">Rooms &mdash; each room shows its temperature and how many lights are on.</p>
   <ul>
@@ -239,14 +247,14 @@
     <li><b>If it triggers:</b> every light strobes, everyone's phones alert, and it announces on the
         speakers. Disarm from the app or the front-door tag; the lights return to normal.</li>
   </ul>
-  <img class="shot" src="guide-alarm.png?v=20261119" alt="Security, Overview: House and Shed alarms">
-  <p class="cap"><b>Security &rarr; Overview</b>: <b>Disarmed / Away / Night</b> for the house, <b>Disarm / Away</b> for the shed.
+  <img class="shot" src="guide-alarm.png?v=20261119" alt="Security, Alarm: House and Shed alarms">
+  <p class="cap"><b>Security &rarr; Alarm</b>: <b>Disarmed / Away / Night</b> for the house, <b>Disarm / Away</b> for the shed.
   Normally you never need them (it follows House Mode), but they're there for manual arming or disarming.</p>
-  <p><b>Was a door opened earlier?</b> Tap any door, window or motion sensor in <b>Security &rarr; Overview</b> to see its last 7 days. Tapping never switches anything.</p>
+  <p><b>Was a door opened earlier?</b> Tap any door, window or motion sensor in <b>Security &rarr; Alarm</b> to see its last 7 days. Tapping never switches anything.</p>
   <div class="card"><b>Reading the colours:</b> <b style="color:#a880ff">purple</b> = armed, on guard ·
   <b style="color:#7d8aa6">grey</b> = disarmed · <b style="color:#ff5a5a">red</b> = going off right now.</div>
-  <img class="shot" src="guide-security-activity.png?v=20261119" alt="The activity list in Security, Overview">
-  <p class="cap">The activity list in Security &rarr; Overview &mdash; doors, windows and the alarm, newest first. A person&rsquo;s photo means they did it; the red Node-RED icon means the house did it itself. Tap <b>Show all</b> for the rest of the day.</p>
+  <img class="shot" src="guide-security-activity.png?v=20261119" alt="The activity list in Security, Alarm">
+  <p class="cap">The activity list in Security &rarr; Alarm &mdash; doors, windows and the alarm, newest first. A person&rsquo;s photo means they did it; the red Node-RED icon means the house did it itself. Tap <b>Show all</b> for the rest of the day.</p>
   <div class="nav"><a class="ix" href="#index">&#9776; Index</a><a class="nx" href="#p7">Next: Solar &amp; hot water &rsaquo;</a></div>
 </div>
 
@@ -362,7 +370,7 @@
   choose the device first.</div>
   <table>
     <tr><th>Step</th><th>What to do</th></tr>
-    <tr><td><b>1</b></td><td>Open <b>Music Assistant</b> (in the menu)</td></tr>
+    <tr><td><b>1</b></td><td>Open <b>Music Assistant</b> (under <b>More</b>)</td></tr>
     <tr><td><b>2</b></td><td><b>Choose where it plays</b> &mdash; tap the speaker picker and pick a speaker,
         or <b>Home Music Group</b> to play everywhere at once. <b>This is the step people forget</b> &mdash;
         without it, nothing plays</td></tr>
@@ -388,7 +396,7 @@
   you&rsquo;re in the mood for and it makes a playlist from our own music, then plays it on any speaker.</p>
   <table>
     <tr><th>Step</th><th>What to do</th></tr>
-    <tr><td><b>1</b></td><td>Open <b>AudioMuse</b> (in the menu)</td></tr>
+    <tr><td><b>1</b></td><td>Open <b>AudioMuse</b> (under <b>More</b>)</td></tr>
     <tr><td><b>2</b></td><td>Type what you want under <b>Make a playlist</b>. Or use the <b>Suggestions</b> under the box: tap one to fill the request box, then edit it</td></tr>
     <tr><td><b>3</b></td><td>Press <b>Make playlist</b> and look over the songs it picked</td></tr>
     <tr><td><b>4</b></td><td><b>Choose the speaker</b>, then press <b>Save &amp; play</b></td></tr>
@@ -464,7 +472,7 @@
   <h2>14. Quick &ldquo;how do I&hellip;&rdquo;</h2>
   <table>
     <tr><th>I want to…</th><th>Do this</th></tr>
-    <tr><td>Find a page</td><td>Open the menu (&#9776; on a phone) &mdash; see <a href="#p0">Finding your way</a></td></tr>
+    <tr><td>Find a page</td><td>The bar at the bottom (on a computer, down the left) &mdash; see <a href="#p0">Finding your way</a></td></tr>
     <tr><td>Make it warmer for a while</td><td>Home → <b>Boost 2 h</b> (Rooms → Heating to choose the temperature), or dial up</td></tr>
     <tr><td>Stop a boost</td><td><b>Cancel</b> on the card, or turn the dial down</td></tr>
     <tr><td>Change the lights</td><td>The wall dimmer — top for on/moods, up/down for brightness</td></tr>
@@ -475,12 +483,12 @@
     <tr><td>See the solar, battery and eddi status</td><td><b>Energy</b> → Solar &amp; battery</td></tr>
     <tr><td>Find the cheapest time for electricity</td><td><b>Energy</b> → Solar &amp; battery → Next</td></tr>
     <tr><td>Answer the door</td><td>Tap the doorbell notification, then green</td></tr>
-    <tr><td>See if a door was opened earlier</td><td><b>Security</b> → Overview → tap the door</td></tr>
+    <tr><td>See if a door was opened earlier</td><td><b>Security</b> → Alarm → tap the door</td></tr>
     <tr><td>Check the weather and rain radar</td><td>Tap the <b>temperature</b> at the top</td></tr>
     <tr><td>See the washer, dryer or dishwasher</td><td><b>Energy</b> → Appliances</td></tr>
     <tr><td>Check fuel prices or when a car is due</td><td><b>Energy</b> → Cars &amp; fuel</td></tr>
     <tr><td>See what&rsquo;s in the sky tonight</td><td><b>Map</b> → Night sky &mdash; tap anything for its name</td></tr>
-    <tr><td>Make a playlist for a mood</td><td><b>AudioMuse</b> in the menu &mdash; type what you want</td></tr>
+    <tr><td>Make a playlist for a mood</td><td><b>More</b> → <b>AudioMuse</b> &mdash; type what you want</td></tr>
     <tr><td>Know why the <b>heating</b> changed</td><td>Rooms → Heating → <b>Recent activity</b> — every change says why</td></tr>
     <tr><td>Know why it did something else</td><td>Ask Colm — it's all logged 😄</td></tr>
   </table>
