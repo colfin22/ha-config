@@ -75,6 +75,10 @@ const CSS = `
 .menu{display:none;align-items:center;gap:20px;height:52px;padding:0 14px;font-size:18px;color:var(--primary-text-color)}
 .menu ha-icon{color:var(--secondary-text-color);cursor:pointer;--mdc-icon-size:24px}
 .btop{padding:10px 0}
+.wxw{display:flex;align-items:center;gap:8px;margin:6px auto 0;padding:7px 12px;border-radius:10px;font-size:13px;line-height:1.3;text-decoration:none;cursor:pointer;box-sizing:border-box;background:#ffd23f;color:#2b2100}
+.wxw[hidden]{display:none}.wxw ha-icon{--mdc-icon-size:18px;flex:none}.wxw .wt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wxw .go{flex:none;font-weight:500;opacity:.8}
+.wxw.orange{background:#ff8c1a;color:#2b1300}.wxw.red{background:#d32f2f;color:#fff}
+:host(.phone) .wxw{margin-top:4px;padding:6px 10px;font-size:12px}
 .banner{margin:0 auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:12px;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;box-sizing:border-box}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--divider-color);border-radius:999px;background:var(--secondary-background-color);color:var(--secondary-text-color);font-size:13px;white-space:nowrap;cursor:pointer;text-decoration:none}
 .chip b{color:var(--primary-text-color);font-weight:500}
@@ -135,7 +139,7 @@ const CSS = `
 class OaksNav extends HTMLElement {
   constructor() {
     super();
-    this.attachShadow({ mode: "open" }).innerHTML = `<style>${CSS}</style><div class="wrap"><div class="menu"><ha-icon icon="mdi:menu"></ha-icon><span class="title"></span></div><div class="btop"><div class="banner"></div></div><div class="tabs"></div></div>`;
+    this.attachShadow({ mode: "open" }).innerHTML = `<style>${CSS}</style><div class="wrap"><div class="menu"><ha-icon icon="mdi:menu"></ha-icon><span class="title"></span></div><div class="btop"><div class="banner"></div><a class="wxw" hidden></a></div><div class="tabs"></div></div>`;
     this._q = (s) => this.shadowRoot.querySelector(s);
     this._q(".menu ha-icon").addEventListener("click", () => { const r = this._root(); (r || this).dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true })); });
     this.shadowRoot.addEventListener("click", (e) => {
@@ -199,7 +203,7 @@ class OaksNav extends HTMLElement {
     w = w || this._where(); if (!w) return; phone = phone ?? this.classList.contains("phone");
     const ha = this._ha(), hass = ha && ha.hass; if (!hass) return;
     const S = (e) => hass.states[e];
-    const sig = [w.sec.id, w.view, phone, this._inner, innerWidth, ...Object.values(BANNER).map((e) => { const s = S(e); return s ? s.state + (s.attributes.temperature ?? "") : "-"; })].join("|");
+    const sig = [hass.states["sensor.met_eireann_warning_level"] && hass.states["sensor.met_eireann_warning_level"].state, hass.states["sensor.met_eireann_warning_headline"] && hass.states["sensor.met_eireann_warning_headline"].state, w.sec.id, w.view, phone, this._inner, innerWidth, ...Object.values(BANNER).map((e) => { const s = S(e); return s ? s.state + (s.attributes.temperature ?? "") : "-"; })].join("|");
     if (!force && sig === this._sig) return; this._sig = sig;
     // banner (same pills + order as the accepted mock)
     const st = (e) => (S(e) ? S(e).state : "unavailable");
@@ -224,6 +228,15 @@ class OaksNav extends HTMLElement {
       c("var(--info-color)", "Grid", (exp > imp ? "export " + kw(exp) : "import " + kw(imp)), url("energy", "solar"), "", "en", "", "mdi:transmission-tower");
     // banner width = your 3-column card width on every page (phone: full width)
     const b = this._q(".banner"); b.style.width = phone ? "" : Math.min(this.getBoundingClientRect().width - 32, COL_MAX) + "px";
+    // Met Eireann warning strip under the banner, only while a warning is active (his 25-11 mock -> "make it live")
+    { const ww = this._q(".wxw"), lv = st("sensor.met_eireann_warning_level"), hl = st("sensor.met_eireann_warning_headline"), ex = st("sensor.met_eireann_warning_expiry");
+      const on = /^(yellow|orange|red)$/i.test(lv); ww.hidden = !on;
+      if (on) { const m = /-\s*(.+?)\s+for\s+(.+)$/i.exec(hl) || [], kind = (m[1] || "Weather warning"), areas = (m[2] || "").split(/\s*,\s*/).filter(Boolean);
+        const d = new Date(ex), now = new Date(), t = d.toTimeString().slice(0, 5), dd = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+        const day = isNaN(d) ? "" : dd(d) === dd(now) ? "today" : dd(d) - dd(now) === 864e5 ? "tomorrow" : String(d.getDate()).padStart(2, "0") + "-" + String(d.getMonth() + 1).padStart(2, "0");
+        const where = areas.length ? (phone ? "" : " · " + areas[0] + (areas.length > 1 ? " + " + (areas.length - 1) + " more" : "")) : "";
+        ww.className = "wxw " + lv.toLowerCase(); ww.dataset.go = url("home", "weather-detail"); ww.href = ww.dataset.go; ww.style.width = b.style.width;
+        ww.innerHTML = `<ha-icon icon="mdi:alert"></ha-icon><span class="wt"><b>${esc(lv[0].toUpperCase() + lv.slice(1).toLowerCase())} ${esc(kind.toLowerCase())}</b>${esc(where)}${day ? " · until " + t + " " + day : ""}</span><span class="go">Details ›</span>`; } }
     // tabs
     const vis = w.sec.tabs.filter((t) => !t.hidden);
     const cur = w.sec.tabs.find((t) => t.p === w.view);
