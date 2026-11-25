@@ -118,3 +118,6 @@ scripts/update_tuesday_hosts.json
 
 # 3D house card: full floor plan + security sensor layout - kept out of the public repo (25-11-2026)
 www/live-house-card.js
+
+# 2D floor plan image behind the CCTV map - kept out of the public repo (25-11-2026)
+www/cctv_map_plan.png
