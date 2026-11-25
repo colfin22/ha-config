@@ -1557,8 +1557,8 @@
 
           '
         data:
-          url: /smart-home/network
-          clickAction: /smart-home/network
+          url: /house-infra/network
+          clickAction: /house-infra/network
           notification_icon: mdi:package-up
         people:
         - person.colm_finn
@@ -2808,18 +2808,18 @@
     the old fixed 0.5 peak-ratio threshold (set from 01-03 Aug data) fired on healthy
     panels on 14-11. At 23:30 a template computes clear-sky energy and peak power
     for both planes (East 3.6 kWp 118 deg / West 4.5 kWp 298 deg, both 35 deg, site
-    = HA home location (zone.home), 10-min steps, Meinel-type beam with transmittance 0.8 / air-mass
-    exponent 0.5 plus isotropic diffuse 0.12, PR 0.84; constants calibrated on 7 clear
-    days Aug-Nov so the clear-day index sits 0.82-0.97 in every month). A day QUALIFIES
-    when the stronger string peaks over 500 W and at least one string makes 75% of
-    its clear-sky energy (sensor.solis_pv_energy_east_today / _west_today, Riemann
-    + daily utility meter). Rel = (West peak / East peak) / (model West peak / model
-    East peak). Measured on 22 qualifying days 01-08 to 14-11-2026: rel 0.48 to 1.13,
-    zero alerts. West weak if rel < 0.45, East weak if rel > 2.2; alert after 3 qualifying
-    days running (counter input_number.solis_string_imbalance_days), once per streak.
-    Replay with simulated faults catches a dead string or a 60%+ loss on either roof;
-    a 50% loss is NOT reliably caught. Peaks still sampled every 5 min into input_number.solis_pv_peak_east_today
-    / _west_today, reset 00:01.'
+    = HA home location (zone.home), 10-min steps, Meinel-type beam with transmittance
+    0.8 / air-mass exponent 0.5 plus isotropic diffuse 0.12, PR 0.84; constants calibrated
+    on 7 clear days Aug-Nov so the clear-day index sits 0.82-0.97 in every month).
+    A day QUALIFIES when the stronger string peaks over 500 W and at least one string
+    makes 75% of its clear-sky energy (sensor.solis_pv_energy_east_today / _west_today,
+    Riemann + daily utility meter). Rel = (West peak / East peak) / (model West peak
+    / model East peak). Measured on 22 qualifying days 01-08 to 14-11-2026: rel 0.48
+    to 1.13, zero alerts. West weak if rel < 0.45, East weak if rel > 2.2; alert after
+    3 qualifying days running (counter input_number.solis_string_imbalance_days),
+    once per streak. Replay with simulated faults catches a dead string or a 60%+
+    loss on either roof; a 50% loss is NOT reliably caught. Peaks still sampled every
+    5 min into input_number.solis_pv_peak_east_today / _west_today, reset 00:01.'
   triggers:
   - platform: time_pattern
     minutes: /5
@@ -2872,9 +2872,11 @@
           ew: '{{ states(''sensor.solis_pv_energy_west_today'') | float(0) }}'
           doy: '{{ now().strftime(''%j'') | int }}'
       - variables:
-          model: '{%- set ns = namespace(E=0, W=0, pe=0, pw=0) -%}{%- set la = (state_attr(''zone.home'', ''latitude'') | float(53.4)) * pi / 180 -%}{%- set lon = state_attr(''zone.home'', ''longitude'') | float(-8.0) -%}{%- set ti = 35 * pi / 180 -%}{%-
-            for m in range(0, 1440, 10) -%}{%- set hr = m / 60 -%}{%- set g = 2 *
-            pi / 365 * (doy - 1 + (hr - 12) / 24) -%}{%- set decl = 0.006918 - 0.399912*cos(g)
+          model: '{%- set ns = namespace(E=0, W=0, pe=0, pw=0) -%}{%- set la = (state_attr(''zone.home'',
+            ''latitude'') | float(53.4)) * pi / 180 -%}{%- set lon = state_attr(''zone.home'',
+            ''longitude'') | float(-8.0) -%}{%- set ti = 35 * pi / 180 -%}{%- for
+            m in range(0, 1440, 10) -%}{%- set hr = m / 60 -%}{%- set g = 2 * pi /
+            365 * (doy - 1 + (hr - 12) / 24) -%}{%- set decl = 0.006918 - 0.399912*cos(g)
             + 0.070257*sin(g) - 0.006758*cos(2*g) + 0.000907*sin(2*g) - 0.002697*cos(3*g)
             + 0.00148*sin(3*g) -%}{%- set eqt = 229.18 * (0.000075 + 0.001868*cos(g)
             - 0.032077*sin(g) - 0.014615*cos(2*g) - 0.040849*sin(2*g)) -%}{%- set
