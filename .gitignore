@@ -115,3 +115,6 @@ scripts/update_tuesday_hosts.json
 
 # private pages served behind the HA login (custom_components/infra_private)
 /infra_private/
+
+# 3D house card: full floor plan + security sensor layout - kept out of the public repo (25-11-2026)
+www/live-house-card.js
