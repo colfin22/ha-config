@@ -6,7 +6,7 @@
  * and pushes the page down by its height. Elsewhere it does nothing.
  * Also defines custom:oaks-rooms-card (the Rooms overview tiles).
  */
-const ON_VERSION = "29";
+const ON_VERSION = "33";
 const HOME_DASH = "smart-home";
 // old smart-home pages (bookmarks, Node-RED doorbell + other notification taps) -> their new place
 const ALIASES = { cctv: "house-security/cctv", security: "house-security/alarm", doorbell: "house-security/doorbell",
@@ -43,7 +43,7 @@ const SECTIONS = [
       { p: "Storage", n: "Storage", i: "mdi:harddisk" }, { p: "Network", n: "Network", i: "mdi:lan" },
       { p: "IPs", n: "IPs", i: "mdi:ip-network" }, { p: "Apps", n: "Apps", i: "mdi:apps" },
       { p: "Updates", n: "Updates", i: "mdi:update" }, { p: "Homepage", n: "Homepage", i: "mdi:home-circle" },
-      { p: "Node-RED", n: "Node-RED", i: "mdi:sitemap" } ] },
+      { p: "Household Config", n: "Household Config", i: "mdi:home-account" } ] },   // his 25-11: tab shows the household dashboard now
 ];
 const BANNER = {
   mode: "input_select.house_mode", house: "alarm_control_panel.house", shed: "alarm_control_panel.shed",
@@ -407,6 +407,23 @@ function splitNav(ents) {   // [bar items, More items]: the list's "---" line di
   return [ents.slice(0, i).filter((e) => !e.sep && !e.unknown), ents.slice(i + 1).filter((e) => !e.sep)];
 }
 const curSeg = () => location.pathname.split("/").filter(Boolean)[0] || "";
+/* ---- Notifications count (same source as HA's own sidebar bell: persistent_notification/subscribe) ---- */
+const NOTIF = { n: 0, conn: null, map: {} };
+function notifSub(hass) {
+  if (window.OAKS_FAKE_NOTIFS) { NOTIF.n = window.OAKS_FAKE_NOTIFS.length; return; }   // test browser only
+  if (!hass || !hass.connection || NOTIF.conn === hass.connection) return;
+  NOTIF.conn = hass.connection; NOTIF.map = {};
+  hass.connection.subscribeMessage((m) => {
+    if (m.type === "current") NOTIF.map = {};
+    if (m.type === "removed") Object.keys(m.notifications || {}).forEach((k) => delete NOTIF.map[k]);
+    else Object.assign(NOTIF.map, m.notifications || {});
+    NOTIF.n = Object.keys(NOTIF.map).length;
+    try { railTick(); } catch (e) {} const f = document.querySelector("oaks-fbar"); if (f) f._sig = "";
+  }, { type: "persistent_notification/subscribe" }).catch(() => { NOTIF.conn = null; });
+}
+const showNotifs = () => { const ha = document.querySelector("home-assistant"); const main = ha.shadowRoot.querySelector("home-assistant-main"); (main || ha).dispatchEvent(new Event("hass-show-notifications", { bubbles: true, composed: true })); };
+const BADGE_CSS = `.nb{position:absolute;min-width:18px;height:18px;box-sizing:border-box;padding:0 5px;border-radius:9px;background:var(--accent-color);color:var(--text-accent-color,var(--text-primary-color,#fff));font-size:11px;font-weight:600;line-height:18px;text-align:center;pointer-events:none;font-family:var(--ha-font-family-body,Roboto,Noto,sans-serif)}`;
+const badge = (n) => n ? `<span class="nb">${n > 99 ? "99+" : n}</span>` : "";
 function hassIcon(el, icon) { const h = document.createElement("ha-icon"); h.icon = icon; el.appendChild(h); return h; }
 
 /* ---- More: popover / sheet (one element in <body>) ---- */
@@ -430,10 +447,11 @@ h4{margin:2px 4px 10px;font-size:12px;font-weight:600;letter-spacing:.9px;text-t
 .row a{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;color:var(--primary-text-color);font-size:13px;cursor:pointer;text-decoration:none;--mdc-icon-size:20px}
 .row a ha-icon{color:var(--secondary-text-color)} .row a:hover{background:var(--secondary-background-color)}
 .sp{flex:1}
+${BADGE_CSS} .row a{position:relative} .row .nb{position:static;margin-left:2px}
 </style><div class="scrim"></div><div class="card"><div class="grab"></div><h4>More</h4><div class="grid"></div><div class="row"></div></div>`;
     this.shadowRoot.querySelector(".scrim").onclick = () => this.close();
     this.shadowRoot.addEventListener("click", (e) => { const a = e.target.closest("[data-go]"); if (a) { e.preventDefault(); this.close(); go(a.dataset.go); }
-      const n = e.target.closest("[data-notif]"); if (n) { this.close(); const ha = document.querySelector("home-assistant"); const main = ha.shadowRoot.querySelector("home-assistant-main"); (main || ha).dispatchEvent(new Event("hass-show-notifications", { bubbles: true, composed: true })); } });
+      const n = e.target.closest("[data-notif]"); if (n) { this.close(); showNotifs(); } });
   }
   open(items, hass, phone, title) {
     const q = (s) => this.shadowRoot.querySelector(s); const cur = curSeg(); q("h4").textContent = title || "More";
@@ -449,7 +467,7 @@ h4{margin:2px 4px 10px;font-size:12px;font-weight:600;letter-spacing:.9px;text-t
     const row = q(".row");
     const link = (icon, text, attrs) => { const a = document.createElement("a"); Object.entries(attrs).forEach(([k, v]) => a.setAttribute(k, v)); hassIcon(a, icon); a.append(text); row.appendChild(a); };
     if (hass.user.is_admin) link("mdi:cog", "Settings", { "data-go": "/config", href: "/config" });
-    link("mdi:bell-outline", "Notifications", { "data-notif": "1" });
+    link("mdi:bell-outline", "Notifications", { "data-notif": "1" }); if (NOTIF.n) row.lastChild.insertAdjacentHTML("beforeend", badge(NOTIF.n));
     row.appendChild(Object.assign(document.createElement("span"), { className: "sp" }));
     link("mdi:account-circle", hass.user.name, { "data-go": "/profile", href: "/profile" });
     this.classList.add("open");
@@ -470,6 +488,7 @@ const RAIL_CSS = `
 #oaks-rail a.sel{color:var(--sidebar-selected-text-color,var(--primary-color))}
 #oaks-rail a.sel .pill{color:var(--sidebar-selected-icon-color,var(--primary-color));background:color-mix(in srgb,var(--sidebar-selected-icon-color,var(--primary-color)) 18%,transparent)}
 #oaks-rail .grow{flex:1}
+#oaks-rail .pill{position:relative} ${BADGE_CSS} #oaks-rail .nb{top:-4px;right:6px}
 #oaks-rail .me{width:40px;height:40px;border-radius:50%;margin-top:8px;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff);display:flex;align-items:center;justify-content:center;font-weight:500;overflow:hidden;background-size:cover;background-position:center}
 `;
 let RAIL_SIG = "";
@@ -487,9 +506,11 @@ function railTick() {
   let rail = sr.getElementById("oaks-rail");
   if (!rail) { rail = document.createElement("nav"); rail.id = "oaks-rail"; sr.appendChild(rail); RAIL_SIG = "";
     rail.addEventListener("click", (e) => { const a = e.target.closest("[data-go]"); if (a) { e.preventDefault(); go(a.dataset.go); return; }
+      if (e.target.closest("[data-notif]")) { showNotifs(); return; }
       if (e.target.closest("[data-more]")) { const h = document.querySelector("home-assistant").hass; MORE().open(splitNav(myEntries(h))[1], h, false); } }); }
   const cur = curSeg(); const secs = splitNav(ents)[0];
-  const sig = JSON.stringify([secs.map((e) => e.url), cur, hass.user.name]);
+  notifSub(hass);
+  const sig = JSON.stringify([secs.map((e) => e.url), cur, hass.user.name, NOTIF.n]);
   if (sig === RAIL_SIG) return; RAIL_SIG = sig;
   rail.innerHTML = "";
   const extraSel = !secs.some((e) => e.url === cur);
@@ -500,6 +521,8 @@ function railTick() {
   rail.appendChild(Object.assign(document.createElement("span"), { className: "grow" }));
   const m = document.createElement("a"); m.dataset.more = "1"; if (extraSel) m.className = "sel";
   const mp = document.createElement("span"); mp.className = "pill"; mp.innerHTML = ICO(P_MORE).replace("<svg", '<svg style="width:24px;height:24px;fill:currentColor"'); m.append(mp, "More"); rail.appendChild(m);
+  const nb = document.createElement("a"); nb.dataset.notif = "1"; nb.title = "Notifications";
+  const np = document.createElement("span"); np.className = "pill"; hassIcon(np, "mdi:bell-outline"); np.insertAdjacentHTML("beforeend", badge(NOTIF.n)); nb.append(np, "Notifications"); rail.appendChild(nb);
   const me = document.createElement("span"); me.className = "me"; me.dataset.more = "1"; me.title = hass.user.name;
   const person = Object.values(hass.states).find((s) => s.entity_id.startsWith("person.") && s.attributes.user_id === hass.user.id);
   if (person && person.attributes.entity_picture) me.style.backgroundImage = `url(${person.attributes.entity_picture})`;
@@ -526,6 +549,7 @@ const FBAR_CSS = `
 .secs a.sel{color:var(--primary-text-color)} .secs a.sel ha-icon,.secs a.sel svg{color:var(--primary-color);fill:var(--primary-color)}
 .secs svg{width:23px;height:23px;fill:currentColor}
 .secs span.l{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.secs .mi{position:relative;display:flex} ${BADGE_CSS} .secs .nb{top:-6px;left:14px}
 `;
 class OaksFbar extends HTMLElement {
   constructor() { super(); this.attachShadow({ mode: "open" }).innerHTML = `<style>${FBAR_CSS}</style><div class="card"><div class="segw"><div class="row seg"><span class="ind"></span></div></div><div class="row secs"><span class="ind"></span></div></div>`;
@@ -539,14 +563,15 @@ class OaksFbar extends HTMLElement {
     const secs = splitNav(ents)[0]; const cur = curSeg();
     const sec = w && w.sec; const vis = sec ? sec.tabs.filter((t) => !t.hidden) : [];
     const curTab = sec ? (sec.inner ? (document.querySelector("oaks-nav")._inner || vis[0].p) : (() => { const t = sec.tabs.find((x) => x.p === w.view); return t ? (t.parent || t.p) : null; })()) : null;
-    const sig = JSON.stringify([secs.map((e) => e.url), cur, vis.map((t) => t.p), curTab]);
+    notifSub(hass);
+    const sig = JSON.stringify([secs.map((e) => e.url), cur, vis.map((t) => t.p), curTab, NOTIF.n]);
     if (sig !== this._sig) {
       this._sig = sig;
       const sr = q(".secs"), sg = q(".seg"); sr.querySelectorAll("a").forEach((a) => a.remove()); sg.querySelectorAll("a").forEach((a) => a.remove());
       for (const e of secs.slice(0, 5)) { const a = document.createElement("a"); a.dataset.go = "/" + e.url; a.href = "/" + e.url; if (e.url === cur) a.className = "sel";
         hassIcon(a, e.icon); const l = document.createElement("span"); l.className = "l"; l.textContent = BAR_SHORT[e.title] || e.title; a.appendChild(l); sr.appendChild(a); }
       const more = document.createElement("a"); more.dataset.more = "1"; if (!secs.slice(0, 5).some((e) => e.url === cur)) more.className = "sel";
-      more.innerHTML = ICO(P_MORE) + '<span class="l">More</span>'; sr.appendChild(more);
+      more.innerHTML = '<span class="mi">' + ICO(P_MORE) + badge(NOTIF.n) + '</span><span class="l">More</span>'; sr.appendChild(more);
       if (vis.length > 1) for (const t of vis) { const a = document.createElement("a"); a.textContent = t.n;
         if (sec.inner) a.dataset.inner = t.p; else { a.dataset.go = "/" + sec.dash + "/" + t.p; a.href = a.dataset.go; }
         if (t.p === curTab) a.className = "sel"; sg.appendChild(a); }
