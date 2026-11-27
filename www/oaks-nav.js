@@ -1,3 +1,4 @@
+// oaks-nav v34 = v33 + Home v2 bar (gated by V2 / V2_LIVE, his 26-11)
 /* oaks-nav.js — banner + section tabs for the 6-section layout (mock ha-sidebar-mock-v2, accepted 25-11-2026).
  * Loaded as a Lovelace resource. On the dashboards listed in SECTIONS it draws, above the page:
  *   phone only: a ☰ bar (HA's header is hidden by kiosk-mode on these dashboards)
@@ -8,6 +9,12 @@
  */
 const ON_VERSION = "33";
 const HOME_DASH = "smart-home";
+const V2_LIVE = true;   // his switch (26-11): true = Home v2 bar for everyone; false = only on the test dashboard
+const V2_TEST = "home-test";
+const V2 = () => V2_LIVE || location.pathname.split("/")[1] === V2_TEST;
+const V2_HOME_TABS = [["lighting", "Lighting", "mdi:lightbulb-group-outline"], ["cctv", "CCTV", "mdi:cctv"], ["alarm", "Alarm", "mdi:shield-home"], ["heating", "Heating", "mdi:thermometer"]];
+let V2_ROW = null, V2_PTAB = null;   // which section's row is open (phone), the Home card's selected tab
+window.addEventListener("home-v2-state", (e) => { V2_PTAB = e.detail && e.detail.ptab; const f = document.querySelector("oaks-fbar"); if (f) { f._sig = ""; const h = document.querySelector("home-assistant"); if (h && h.hass) f.update(h.hass, document.querySelector("oaks-nav") && document.querySelector("oaks-nav")._where()); } });
 // old smart-home pages (bookmarks, Node-RED doorbell + other notification taps) -> their new place
 const ALIASES = { cctv: "house-security/cctv", security: "house-security/alarm", doorbell: "house-security/doorbell",
   climate: "house-energy/climate", kitchen: "house-map/kitchen", "sitting-room": "house-map/sitting-room", "colm-bedroom": "house-map/colm-bedroom",
@@ -25,8 +32,10 @@ const SECTIONS = [
       { p: "calendar-month", n: "Calendar", i: "mdi:calendar", hidden: true } ] },
   // his 25-11: Map section renamed House = Map (3D) + Rooms; People deleted; Night sky moved to More; Rooms section deleted
   { id: "house", dash: "house-map", tabs: [
-      { p: "floorplan", n: "Map", i: "mdi:floor-plan" },   // address stays /house-map/floorplan (his 25-11 "you can use floorplan")
+      { p: "floorplan", n: "Floorplan", i: "mdi:floor-plan" },   // address stays /house-map/floorplan (his 25-11 "you can use floorplan")
       { p: "rooms", n: "Rooms", i: "mdi:sofa" },
+      { p: "calendar", n: "Calendar", i: "mdi:calendar", v2: true, url: "/calendar" },   // his 26-11: Household gets Calendar + To-do
+      { p: "todo", n: "To-do", i: "mdi:format-list-checkbox", v2: true, url: "/todo" },
       ...["kitchen", "sitting-room", "colm-bedroom", "cian-bedroom", "aoife-bedroom", "office"].map((p) => ({ p, n: p, hidden: true, parent: "rooms" })) ] },
   { id: "energy", dash: "house-energy", tabs: [   // his 25-11: Heating first; solar page address /house-energy/solar
       { p: "climate", n: "Heating", i: "mdi:radiator" },
@@ -97,6 +106,17 @@ const CSS = `
 /* phone */
 :host(.phone) .menu{display:flex}
 :host(.phone) .btop{padding:6px 8px}
+:host(.v2home) .wrap{background:transparent!important}
+:host(.v2all) .btop{padding:14px 0 0}
+:host(.v2all.phone) .banner{margin:0 10px!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important;padding:0!important}
+:host(.v2all.phone) .btop{padding:8px 0 0}
+:host(.v2all.phone) .banner .sp, :host(.v2all.phone) .banner .sp ~ *{display:none!important}
+:host(.v2all) .banner{width:auto!important;margin:0 24px;background:transparent;border:0;border-radius:0;box-shadow:none;padding:4px 0;justify-content:flex-start} :host(.v2all) .banner .sp{flex:1 1 auto!important;min-width:24px}
+:host(.v2home) .btop{padding:14px 0 0}
+:host(.v2home.phone) .banner{margin:0 10px!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important;padding:0!important}
+:host(.v2home.phone) .btop{padding:8px 0 0}
+:host(.v2home.phone) .banner .sp, :host(.v2home.phone) .banner .sp ~ *{display:none!important}
+:host(.v2home) .banner{width:auto!important;margin:0 24px;background:transparent;border:0;border-radius:0;box-shadow:none;padding:4px 0;justify-content:flex-start} :host(.v2home) .banner .sp{flex:1 1 auto!important;min-width:24px}
 :host(.phone) .banner{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:4px;padding:6px;align-items:stretch}
 :host(.phone) .wi{display:inline-block;--mdc-icon-size:15px;margin-left:3px;vertical-align:-2px;color:var(--secondary-text-color)}
 :host(.phone) .sp{display:none}
@@ -150,10 +170,12 @@ class OaksNav extends HTMLElement {
     this._sig = ""; this._inner = null;
   }
   _ha() { return document.querySelector("home-assistant"); }
-  _root() { if (!this._hr || !this._hr.isConnected) this._hr = deep(document, "hui-root"); return this._hr; }
+  _root() { if (!this._hr || !this._hr.isConnected) this._hr = deep(document, "hui-root"); if (this._hr) return this._hr;
+    if (window.innerWidth > PHONE_MAX && /^\/(todo|calendar)(\/|$)/.test(location.pathname)) return deep(document, location.pathname.startsWith("/todo") ? "ha-panel-todo" : "ha-panel-calendar");
+    return null; }
   _where() {
-    const seg = location.pathname.split("/").filter(Boolean);
-    const sec = SECTIONS.find((s) => s.dash === seg[0]);
+    const seg = location.pathname.split("/").filter(Boolean); if (seg[0] === "todo") { seg[0] = "house-map"; seg[1] = "todo"; } else if (seg[0] === "calendar") { seg[0] = "house-map"; seg[1] = "calendar"; }
+    const sec = SECTIONS.find((s) => s.dash === seg[0]) || (seg[0] === V2_TEST ? SECTIONS[0] : null);
     if (!sec) return null;
     const view = seg[1] || sec.tabs[0].p;
     return { sec, view };
@@ -186,6 +208,7 @@ class OaksNav extends HTMLElement {
     fb.classList.toggle("on", !!fbOn); this.classList.toggle("fb", !!fbOn);
     peopleTick(this._ha().hass, !!fbOn && location.pathname === PEOPLE_PATH);
     doorbellFit(!!fbOn && location.pathname === DOORBELL_PATH);
+    { const hv = V2() && w.sec.id === 'home'; this.classList.toggle('v2home', hv); this.classList.toggle('v2all', V2()); const hb = this._q('.banner'); if (V2() && hb) hb.style.width = ''; }
     // push the page down by our height
     const v = r.shadowRoot && (r.shadowRoot.querySelector("#view") || r.shadowRoot.querySelector("hui-view-container"));
     const h = this.classList.contains("folded") && this._fullH ? this._fullH : Math.ceil(this.getBoundingClientRect().height);
@@ -194,11 +217,13 @@ class OaksNav extends HTMLElement {
     if (v && v.style.getPropertyValue("--view-container-padding-top") !== h + "px") v.style.setProperty("--view-container-padding-top", h + "px");
     PRIME_H = h; try { primePage(); } catch (e) {}
     this._v = v;
+    if (r.tagName !== "HUI-ROOT") { if (this._pp && this._pp !== r) this._unpad(); this._pp = r; { const fr = r.shadowRoot && r.shadowRoot.querySelector("ha-two-pane-top-app-bar-fixed, ha-top-app-bar-fixed"); if (fr && fr.style.height !== "100%") fr.style.height = "100%"; const fc = r.shadowRoot && r.shadowRoot.querySelector("ha-full-calendar"), fh = "calc(100vh - var(--header-height, 56px) - " + h + "px)"; if (fc && fc.style.height !== fh) fc.style.height = fh; } if (r.dataset.oaksPad !== String(h)) { r.dataset.oaksPad = h; Object.assign(r.style, { display: "block", position: "relative", top: h + "px", height: "calc(100% - " + h + "px)", transform: "translateZ(0)" });  } } else if (this._pp) this._unpad();
     if (v) { const pb = this.classList.contains("fb") ? Math.ceil(document.querySelector("oaks-fbar").getBoundingClientRect().height) + 24 + "px" : ""; if (v.style.paddingBottom !== pb) v.style.paddingBottom = pb; }
     if (w.sec.inner) this._driveInner(w.sec);
   }
   _disabled() { return location.search.includes("disable_km"); }
-  _off() { doorbellFit(false); const fb = document.querySelector("oaks-fbar"); if (fb) fb.classList.remove("on"); const pe = document.querySelector("oaks-people"); if (pe && pe.classList.contains("on")) { const ha = this._ha(); if (ha && ha.hass) peopleTick(ha.hass, false); } if (!this.classList.contains("on")) return; this.classList.remove("on", "fb"); if (this._v) { this._v.style.removeProperty("--view-container-padding-top"); this._v.style.paddingBottom = ""; } }
+  _unpad() { const r = this._pp; if (r) { Object.assign(r.style, { display: "", position: "", top: "", height: "", transform: "" }); delete r.dataset.oaksPad; } this._pp = null; }
+  _off() { this._unpad(); doorbellFit(false); const fb = document.querySelector("oaks-fbar"); if (fb) fb.classList.remove("on"); const pe = document.querySelector("oaks-people"); if (pe && pe.classList.contains("on")) { const ha = this._ha(); if (ha && ha.hass) peopleTick(ha.hass, false); } if (!this.classList.contains("on")) return; this.classList.remove("on", "fb"); if (this._v) { this._v.style.removeProperty("--view-container-padding-top"); this._v.style.paddingBottom = ""; } }
   _render(force, w, phone) {
     w = w || this._where(); if (!w) return; phone = phone ?? this.classList.contains("phone");
     const ha = this._ha(), hass = ha && ha.hass; if (!hass) return;
@@ -238,7 +263,7 @@ class OaksNav extends HTMLElement {
         ww.className = "wxw " + lv.toLowerCase(); ww.dataset.go = url("home", "weather-detail"); ww.href = ww.dataset.go; ww.style.width = b.style.width;
         ww.innerHTML = `<ha-icon icon="mdi:alert"></ha-icon><span class="wt"><b>${esc(lv[0].toUpperCase() + lv.slice(1).toLowerCase())} ${esc(kind.toLowerCase())}</b>${esc(where)}${day ? " · until " + t + " " + day : ""}</span><span class="go">Details ›</span>`; } }
     // tabs
-    const vis = w.sec.tabs.filter((t) => !t.hidden);
+    const vis = w.sec.tabs.filter((t) => !t.hidden && (V2() || !t.v2));   // Household Calendar / To-do only in V2
     const cur = w.sec.tabs.find((t) => t.p === w.view);
     const selP = w.sec.inner ? (this._inner || vis[0].p) : cur ? (cur.parent || cur.p) : null;
     const tabs = this._q(".tabs");
@@ -250,7 +275,7 @@ class OaksNav extends HTMLElement {
     const names0 = { home: "Home", house: "House", energy: "Energy", security: "Security", infra: "Infrastructure" };
     tabs.innerHTML = (compact ? `<a class="tab ham" data-ham><ha-icon icon="mdi:menu"></ha-icon></a>` + (vis.length < 2 ? `<span class="tab ttl">${names0[w.sec.id]}</span>` : "") : "") + (vis.length < 2 && compact ? "" : vis.map((t) => w.sec.inner
       ? `<a class="tab ${t.p === selP ? "sel" : ""}" data-inner="${esc(t.p)}"><ha-icon icon="${t.i}"></ha-icon><span class="tl">${esc(t.n)}</span></a>`
-      : `<a class="tab ${t.p === selP ? "sel" : ""}" data-go="/${w.sec.dash}/${t.p}" href="/${w.sec.dash}/${t.p}"><ha-icon icon="${t.i}"></ha-icon><span class="tl">${esc(t.n)}</span></a>`).join(""));
+      : `<a class="tab ${t.p === selP ? "sel" : ""}" data-go="${(window.innerWidth > PHONE_MAX && t.durl) || t.url || "/" + w.sec.dash + "/" + t.p}" href="${(window.innerWidth > PHONE_MAX && t.durl) || t.url || "/" + w.sec.dash + "/" + t.p}"><ha-icon icon="${t.i}"></ha-icon><span class="tl">${esc(t.n)}</span></a>`).join(""));
     const names = { home: "Home", house: "House", energy: "Energy", security: "Security", infra: "Infrastructure" };
     this._q(".title").textContent = names[w.sec.id];
   }
@@ -329,7 +354,7 @@ customElements.define("oaks-rooms-card", OaksRoomsCard);
  * Each line = a sidebar name as HA shows it (or its web address); "---" = divider.
  * HA's own list is hidden and these entries are drawn in its place (same HA list items, so collapse/drawer/selection work as normal).
  * If the lists can't be read, HA's normal sidebar is left alone. */
-const SB_SECTIONS = { home: "smart-home", house: "house-map", map: "house-map", energy: "house-energy", security: "house-security", infrastructure: "house-infra" };
+const SB_SECTIONS = { home: "smart-home", house: "house-map", household: "house-map", map: "house-map", energy: "house-energy", security: "house-security", infrastructure: "house-infra" };
 const SB_DEF_ICON = { calendar: "mdi:calendar", light: "mdi:lamps", todo: "mdi:clipboard-list", history: "mdi:chart-box", logbook: "mdi:format-list-bulleted-type",
   energy: "mdi:lightning-bolt", map: "mdi:tooltip-account", "media-browser": "mdi:play-box-multiple", config: "mdi:cog" };
 const SB = { lists: (() => { try { return JSON.parse(localStorage.getItem("oaks_sidebar_lists") || "null"); } catch (e) { return null; } })(), loaded: 0, sig: "" };
@@ -391,7 +416,10 @@ function sbTick() {
  *          and above it the current section's tabs as a segmented control. HA's drawer is left as it is
  *          for HA's own pages.
  * MORE:    a popover (desktop) / bottom sheet (phone) with the rest of your list + Settings (admins), Notifications, Profile. */
+let RAIL_WIDE = localStorage.getItem('oaks_rail_wide') === '1';
+const RAIL_W_N = 84, RAIL_W_W = 220;
 const RAIL_W = 84;
+document.documentElement.style.setProperty('--oaks-rail-w', (RAIL_WIDE ? RAIL_W_W : RAIL_W_N) + 'px');
 const ICO = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 const P_MORE = "M16,12A2,2 0 0,1 18,10A2,2 0 0,1 20,12A2,2 0 0,1 18,14A2,2 0 0,1 16,12M10,12A2,2 0 0,1 12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12M4,12A2,2 0 0,1 6,10A2,2 0 0,1 8,12A2,2 0 0,1 6,14A2,2 0 0,1 4,12Z";
 function myEntries(hass) {
@@ -406,7 +434,8 @@ function splitNav(ents) {   // [bar items, More items]: the list's "---" line di
   if (i < 0) return [ents.filter(isSection), ents.filter((e) => !isSection(e))];
   return [ents.slice(0, i).filter((e) => !e.sep && !e.unknown), ents.slice(i + 1).filter((e) => !e.sep)];
 }
-const curSeg = () => location.pathname.split("/").filter(Boolean)[0] || "";
+function liftAdd(px) { const pn = deep(document, "ha-panel-calendar") || deep(document, "ha-panel-todo"); if (!pn) return; const st = [pn.shadowRoot]; while (st.length) { const n = st.pop(); if (!n) continue; n.querySelectorAll("ha-button, ha-fab").forEach((b) => { const cs = getComputedStyle(b); if ((cs.position === "absolute" || cs.position === "fixed") && b.style.bottom !== px) b.style.bottom = px; }); n.querySelectorAll("*").forEach((e) => e.shadowRoot && st.push(e.shadowRoot)); } }
+const curSeg = () => { const s = location.pathname.split("/").filter(Boolean)[0] || ""; return s === "todo" || s === "calendar" ? "house-map" : s; };
 /* ---- Notifications count (same source as HA's own sidebar bell: persistent_notification/subscribe) ---- */
 const NOTIF = { n: 0, conn: null, map: {} };
 function notifSub(hass) {
@@ -432,7 +461,7 @@ class OaksMore extends HTMLElement {
 :host{position:fixed;inset:0;z-index:20;display:none;font-family:var(--ha-font-family-body,Roboto,Noto,sans-serif);color:var(--primary-text-color)}
 :host(.open){display:block}
 .scrim{position:absolute;inset:0;background:rgba(0,0,0,.28)}
-.card{position:absolute;left:${RAIL_W + 10}px;bottom:16px;width:360px;max-height:80vh;overflow:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35);padding:14px}
+.card{position:absolute;left:calc(var(--oaks-rail-w,${RAIL_W}px) + 10px);bottom:16px;width:360px;max-height:80vh;overflow:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.35);padding:14px}
 :host(.phone) .card{left:0;right:0;bottom:0;width:auto;border-radius:20px 20px 0 0;border-bottom:0;padding:8px 14px calc(18px + env(safe-area-inset-bottom));animation:up .22s ease}
 @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
 .grab{display:none;width:36px;height:4px;border-radius:2px;background:var(--divider-color);margin:2px auto 12px} :host(.phone) .grab{display:block}
@@ -488,10 +517,26 @@ const RAIL_CSS = `
 #oaks-rail a.sel{color:var(--sidebar-selected-text-color,var(--primary-color))}
 #oaks-rail a.sel .pill{color:var(--sidebar-selected-icon-color,var(--primary-color));background:color-mix(in srgb,var(--sidebar-selected-icon-color,var(--primary-color)) 18%,transparent)}
 #oaks-rail .grow{flex:1}
+#oaks-rail a.railw{padding:2px 0 4px} #oaks-rail a.railw .pill{height:26px}
+:host(.oaks-wide) #oaks-rail{align-items:stretch;padding:10px 10px 12px}
+:host(.oaks-wide) #oaks-rail a{width:auto;flex-direction:row;gap:12px;padding:4px 6px;font-size:14px;text-align:left}
+:host(.oaks-wide) #oaks-rail .pill{width:44px;flex:none}
+:host(.oaks-wide) #oaks-rail a.railw{justify-content:flex-end}
+:host(.oaks-wide) #oaks-rail .me{margin-left:8px}
 #oaks-rail .pill{position:relative} ${BADGE_CSS} #oaks-rail .nb{top:-4px;right:6px}
 #oaks-rail .me{width:40px;height:40px;border-radius:50%;margin-top:8px;cursor:pointer;background:var(--primary-color);color:var(--text-primary-color,#fff);display:flex;align-items:center;justify-content:center;font-weight:500;overflow:hidden;background-size:cover;background-position:center}
 `;
 let RAIL_SIG = "";
+function wideTick() {
+  const ha = document.querySelector("home-assistant"); const main = ha && ha.shadowRoot && ha.shadowRoot.querySelector("home-assistant-main");
+  const lov = main && main.shadowRoot && main.shadowRoot.querySelector("partial-panel-resolver ha-panel-lovelace");
+  const hr = lov && lov.shadowRoot && lov.shadowRoot.querySelector("hui-root"); if (!hr || !hr.shadowRoot) return;
+  const desk = window.innerWidth > PHONE_MAX;
+  hr.shadowRoot.querySelectorAll("hui-sections-view").forEach((v) => {
+    const one = (v.lovelace && v.lovelace.config && v.index != null && (((v.lovelace.config.views || [])[v.index] || {}).max_columns === 1));
+    const want = desk && !one ? "100vw" : "";
+    if (v.style.getPropertyValue("--column-max-width") !== want) { if (want) v.style.setProperty("--column-max-width", want); else v.style.removeProperty("--column-max-width"); } });
+}
 function railTick() {
   const ha = document.querySelector("home-assistant"), hass = ha && ha.hass; if (!hass || !hass.user) return;
   const main = ha.shadowRoot && ha.shadowRoot.querySelector("home-assistant-main"); if (!main || !main.shadowRoot) return;
@@ -500,17 +545,18 @@ function railTick() {
   const modal = main.hasAttribute("modal") || window.innerWidth <= PHONE_MAX;
   const on = !!ents && !modal && !location.search.includes("disable_km");
   if (!on) { if (main.style.getPropertyValue("--ha-sidebar-width")) main.style.removeProperty("--ha-sidebar-width"); sb.classList.remove("oaks-rail"); RAIL_SIG = ""; return; }
-  main.style.setProperty("--ha-sidebar-width", `calc(${RAIL_W}px + var(--safe-area-inset-left,0px))`);
+  main.style.setProperty("--ha-sidebar-width", `calc(${RAIL_WIDE ? RAIL_W_W : RAIL_W_N}px + var(--safe-area-inset-left,0px))`); sb.classList.toggle("oaks-wide", RAIL_WIDE);
   sb.classList.add("oaks-rail");
   if (!sr.getElementById("oaks-rail-style")) { const st = document.createElement("style"); st.id = "oaks-rail-style"; st.textContent = RAIL_CSS; sr.appendChild(st); RAIL_SIG = ""; }
   let rail = sr.getElementById("oaks-rail");
   if (!rail) { rail = document.createElement("nav"); rail.id = "oaks-rail"; sr.appendChild(rail); RAIL_SIG = "";
     rail.addEventListener("click", (e) => { const a = e.target.closest("[data-go]"); if (a) { e.preventDefault(); go(a.dataset.go); return; }
+      if (e.target.closest("[data-railw]")) { RAIL_WIDE = !RAIL_WIDE; localStorage.setItem("oaks_rail_wide", RAIL_WIDE ? "1" : "0"); document.documentElement.style.setProperty("--oaks-rail-w", (RAIL_WIDE ? RAIL_W_W : RAIL_W_N) + "px"); RAIL_SIG = ""; railTick(); return; }
       if (e.target.closest("[data-notif]")) { showNotifs(); return; }
       if (e.target.closest("[data-more]")) { const h = document.querySelector("home-assistant").hass; MORE().open(splitNav(myEntries(h))[1], h, false); } }); }
   const cur = curSeg(); const secs = splitNav(ents)[0];
   notifSub(hass);
-  const sig = JSON.stringify([secs.map((e) => e.url), cur, hass.user.name, NOTIF.n]);
+  const sig = JSON.stringify([secs.map((e) => e.url), cur, hass.user.name, NOTIF.n, RAIL_WIDE]);
   if (sig === RAIL_SIG) return; RAIL_SIG = sig;
   rail.innerHTML = "";
   const extraSel = !secs.some((e) => e.url === cur);
@@ -523,6 +569,7 @@ function railTick() {
   const mp = document.createElement("span"); mp.className = "pill"; mp.innerHTML = ICO(P_MORE).replace("<svg", '<svg style="width:24px;height:24px;fill:currentColor"'); m.append(mp, "More"); rail.appendChild(m);
   const nb = document.createElement("a"); nb.dataset.notif = "1"; nb.title = "Notifications";
   const np = document.createElement("span"); np.className = "pill"; hassIcon(np, "mdi:bell-outline"); np.insertAdjacentHTML("beforeend", badge(NOTIF.n)); nb.append(np, "Notifications"); rail.appendChild(nb);
+  const rw = document.createElement("a"); rw.dataset.railw = "1"; rw.className = "railw"; rw.title = RAIL_WIDE ? "Narrow sidebar" : "Wide sidebar"; rw.innerHTML = `<span class="pill"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:currentColor"><path d="${RAIL_WIDE ? "M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" : "M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"}"/></svg></span>`; rail.appendChild(rw);
   const me = document.createElement("span"); me.className = "me"; me.dataset.more = "1"; me.title = hass.user.name;
   const person = Object.values(hass.states).find((s) => s.entity_id.startsWith("person.") && s.attributes.user_id === hass.user.id);
   if (person && person.attributes.entity_picture) me.style.backgroundImage = `url(${person.attributes.entity_picture})`;
@@ -531,7 +578,8 @@ function railTick() {
 }
 
 /* ---- PHONE: floating hybrid bar (sections + segmented tabs) on your dashboards ---- */
-const BAR_SHORT = { "Music Assistant": "Music" };   // phone bar labels that would not fit
+const BAR_SHORT = { "Music Assistant": "Music" };
+const V2_NAME = { House: "Household" };   // shown names in V2 mode (his 26-11)   // phone bar labels that would not fit
 const FBAR_CSS = `
 :host{position:fixed;left:10px;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:5;display:none;font-family:var(--ha-font-family-body,Roboto,Noto,sans-serif)}
 :host(.on){display:block}
@@ -553,7 +601,15 @@ const FBAR_CSS = `
 `;
 class OaksFbar extends HTMLElement {
   constructor() { super(); this.attachShadow({ mode: "open" }).innerHTML = `<style>${FBAR_CSS}</style><div class="card"><div class="segw"><div class="row seg"><span class="ind"></span></div></div><div class="row secs"><span class="ind"></span></div></div>`;
-    this.shadowRoot.addEventListener("click", (e) => { const a = e.target.closest("[data-go]"); if (a) { e.preventDefault(); go(a.dataset.go); return; }
+    this.shadowRoot.addEventListener("click", (e) => {
+      const sc = e.target.closest("[data-sec]"); if (sc) { e.preventDefault(); const u = sc.dataset.sec, dash = u.split("/")[0];   // V2: a section press opens / closes its row
+        const known = SECTIONS.some((x) => x.dash === dash);
+        if (!known) { go("/" + u); return; }
+        if (V2_ROW === dash) { V2_ROW = null; if (dash === HOME_DASH) window.dispatchEvent(new CustomEvent("oaks-home-tab", { detail: { k: "none" } })); }
+        else { V2_ROW = dash; if (dash === HOME_DASH && !/^\/(smart-home\/home|home-test)/.test(location.pathname)) go(location.pathname.startsWith("/" + V2_TEST) ? location.pathname : "/" + HOME_DASH + "/home"); }
+        this._sig = ""; const h = document.querySelector("home-assistant"); this.update(h.hass, document.querySelector("oaks-nav")._where()); return; }
+      const ht = e.target.closest("[data-htab]"); if (ht) { e.preventDefault(); window.dispatchEvent(new CustomEvent("oaks-home-tab", { detail: { k: ht.dataset.htab } })); return; }
+      const a = e.target.closest("[data-go]"); if (a) { e.preventDefault(); go(a.dataset.go); return; }
       const t = e.target.closest("[data-inner]"); if (t) { const n = document.querySelector("oaks-nav"); n._inner = t.dataset.inner; n._innerApplied = null; n._render(true); this._sig = ""; return; }
       if (e.target.closest("[data-more]")) { const h = document.querySelector("home-assistant").hass; const [top, rest] = splitNav(myEntries(h)); MORE().open(top.slice(5).concat(rest), h, true); } });
     this._sig = ""; }
@@ -561,20 +617,21 @@ class OaksFbar extends HTMLElement {
     const ents = myEntries(hass); const q = (s) => this.shadowRoot.querySelector(s);
     if (!ents) return false;
     const secs = splitNav(ents)[0]; const cur = curSeg();
-    const sec = w && w.sec; const vis = sec ? sec.tabs.filter((t) => !t.hidden) : [];
+    const v2 = V2(); const sec = v2 ? (V2_ROW ? SECTIONS.find((x) => x.dash === V2_ROW || (V2_ROW === HOME_DASH && x.id === 'home')) : null) : (w && w.sec);
+    const vis = !sec ? [] : (v2 && sec.id === 'home') ? V2_HOME_TABS.map(([p, n, i]) => ({ p, n, i, home: true })) : sec.tabs.filter((t) => !t.hidden && (v2 || !t.v2));
     const curTab = sec ? (sec.inner ? (document.querySelector("oaks-nav")._inner || vis[0].p) : (() => { const t = sec.tabs.find((x) => x.p === w.view); return t ? (t.parent || t.p) : null; })()) : null;
     notifSub(hass);
-    const sig = JSON.stringify([secs.map((e) => e.url), cur, vis.map((t) => t.p), curTab, NOTIF.n]);
+    const sig = JSON.stringify([secs.map((e) => e.url), cur, vis.map((t) => t.p), curTab, NOTIF.n, v2, V2_ROW, V2_PTAB]);
     if (sig !== this._sig) {
       this._sig = sig;
       const sr = q(".secs"), sg = q(".seg"); sr.querySelectorAll("a").forEach((a) => a.remove()); sg.querySelectorAll("a").forEach((a) => a.remove());
-      for (const e of secs.slice(0, 5)) { const a = document.createElement("a"); a.dataset.go = "/" + e.url; a.href = "/" + e.url; if (e.url === cur) a.className = "sel";
-        hassIcon(a, e.icon); const l = document.createElement("span"); l.className = "l"; l.textContent = BAR_SHORT[e.title] || e.title; a.appendChild(l); sr.appendChild(a); }
+      for (const e of secs.slice(0, 5)) { const a = document.createElement("a"); a.href = "/" + e.url; if (v2) a.dataset.sec = e.url; else a.dataset.go = "/" + e.url; if (e.url === cur || (v2 && cur === V2_TEST && e.url === HOME_DASH)) a.className = "sel";
+        hassIcon(a, e.icon); const l = document.createElement("span"); l.className = "l"; l.textContent = BAR_SHORT[e.title] || (v2 && V2_NAME[e.title]) || e.title; a.appendChild(l); sr.appendChild(a); }
       const more = document.createElement("a"); more.dataset.more = "1"; if (!secs.slice(0, 5).some((e) => e.url === cur)) more.className = "sel";
       more.innerHTML = '<span class="mi">' + ICO(P_MORE) + badge(NOTIF.n) + '</span><span class="l">More</span>'; sr.appendChild(more);
       if (vis.length > 1) for (const t of vis) { const a = document.createElement("a"); a.textContent = t.n;
-        if (sec.inner) a.dataset.inner = t.p; else { a.dataset.go = "/" + sec.dash + "/" + t.p; a.href = a.dataset.go; }
-        if (t.p === curTab) a.className = "sel"; sg.appendChild(a); }
+        if (t.home) a.dataset.htab = t.p; else if (sec.inner) a.dataset.inner = t.p; else { a.dataset.go = t.url || "/" + sec.dash + "/" + t.p; a.href = a.dataset.go; }
+        if (t.home ? t.p === V2_PTAB : t.p === curTab) a.className = "sel"; sg.appendChild(a); }
       q(".card").classList.toggle("hasseg", vis.length > 1);
     }
     requestAnimationFrame(() => { for (const row of [".secs", ".seg"]) { const r = q(row), sel = r.querySelector("a.sel"), ind = r.querySelector(".ind");
@@ -674,7 +731,8 @@ function phoneEverywhere(hass, onDashboard) {
       fb.update(hass, null); fb.classList.add("on");
       // his 25-11 "add map back put it in more": HA's Map sheet sits in the top layer over our bar -> same as the old People tab (faces on the left)
       peopleTick(hass, location.pathname.startsWith("/" + MAP_DASH));
-    } else { fb.classList.remove("on"); peopleTick(hass, false); }
+    } else if (location.pathname.startsWith("/todo") || location.pathname.startsWith("/calendar")) { fb.update(hass, { sec: SECTIONS.find((x) => x.dash === "house-map"), view: location.pathname.startsWith("/todo") ? "todo" : "calendar" }); fb.classList.add("on"); liftAdd(Math.ceil(fb.getBoundingClientRect().height) + 24 + "px"); peopleTick(hass, false); panelPad(Math.ceil(fb.getBoundingClientRect().height) + 24); return true; }
+    else { fb.classList.remove("on"); peopleTick(hass, false); }
   }
   panelPad(0);
   return true;
@@ -737,7 +795,7 @@ if (!document.querySelector("oaks-nav")) {
   window.addEventListener("popstate", () => setTimeout(t, 50));
   window.addEventListener("resize", t);
   setInterval(t, 1000); t();
-  const sbt = () => { try { sbTick(); } catch (e) { console.warn('oaks sidebar', e); } try { railTick(); } catch (e) { console.warn('oaks rail', e); } };
+  const sbt = () => { try { sbTick(); } catch (e) { console.warn('oaks sidebar', e); } try { railTick(); } catch (e) { console.warn('oaks rail', e); } try { wideTick(); } catch (e) { console.warn('oaks wide', e); } };
   window.addEventListener('location-changed', () => { const m = document.querySelector('oaks-more'); if (m) m.close(); [150, 800, 2000].forEach((t) => setTimeout(hideMenuButtons, t)); });
   setInterval(sbt, 1000); window.addEventListener('location-changed', () => setTimeout(sbt, 60));
   const early = setInterval(() => { const h = document.querySelector('home-assistant'); if (h && h.hass && h.hass.connection) { clearInterval(early); if (!SB.loaded) { SB.loaded = Date.now(); sbLoad(h.hass).then(() => { t(); sbt(); }); } t(); sbt(); } }, 100);

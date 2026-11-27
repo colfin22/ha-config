@@ -20,11 +20,6 @@
         "type": "module"
       },
       {
-        "id": "ebdd6f33f9a541ef8164aa029fbaf8ca",
-        "url": "/local/community/hass-swipe-navigation/swipe-navigation.js?v=501725479-v1.16.3",
-        "type": "module"
-      },
-      {
         "id": "4237ba80f5e34a53a3897c57d6efb4a4",
         "url": "/local/community/HA-Firemote/HA-Firemote.js?v=536329656419",
         "type": "module"
@@ -61,7 +56,7 @@
       },
       {
         "id": "a5b00f99a4064df1a0f8882e75cb1569",
-        "url": "/local/room-card.js?v=8",
+        "url": "/local/room-card.js?v=10",
         "type": "module"
       },
       {
@@ -91,7 +86,7 @@
       },
       {
         "id": "acae53dfde9b4d88bba570b5caaf5cf7",
-        "url": "/local/cctv-strip-card.js?v=4",
+        "url": "/local/cctv-strip-card.js?v=5",
         "type": "module"
       },
       {
@@ -101,7 +96,7 @@
       },
       {
         "id": "8b3cd6ee846d40f7aacf38098d6adcf8",
-        "url": "/local/live-house-card.js?v=32",
+        "url": "/local/live-house-card.js?v=49",
         "type": "module"
       },
       {
@@ -121,7 +116,22 @@
       },
       {
         "id": "a7ba116213004df087dc6e0077df92e9",
-        "url": "/local/away-card.js?v=5",
+        "url": "/local/away-card.js?v=7",
+        "type": "module"
+      },
+      {
+        "id": "8bd8cd2a604143c694d190bda89856b9",
+        "url": "/local/community/kiosk-mode/kiosk-mode.js?v=497319128-v16.0.0",
+        "type": "module"
+      },
+      {
+        "id": "373dc8790f2444afab9e5983582ab8ec",
+        "url": "/local/oaks-nav.js?v=48",
+        "type": "module"
+      },
+      {
+        "id": "c3e49b3983714aa180b09558cd5f4bf2",
+        "url": "/local/home-v2-card.js?v=43",
         "type": "module"
       }
     ]

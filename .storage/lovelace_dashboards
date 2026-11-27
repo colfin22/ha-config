@@ -6,7 +6,7 @@
     "items": [
       {
         "id": "dashboard_map",
-        "show_in_sidebar": true,
+        "show_in_sidebar": false,
         "icon": "mdi:map",
         "title": "Map",
         "require_admin": false,
@@ -38,6 +38,60 @@
         "icon": "mdi:car",
         "show_in_sidebar": false,
         "require_admin": false,
+        "mode": "storage"
+      },
+      {
+        "id": "house_map",
+        "url_path": "house-map",
+        "title": "Household",
+        "icon": "mdi:floor-plan",
+        "require_admin": false,
+        "show_in_sidebar": true,
+        "mode": "storage"
+      },
+      {
+        "id": "house_energy",
+        "url_path": "house-energy",
+        "title": "Energy",
+        "icon": "mdi:lightning-bolt",
+        "require_admin": false,
+        "show_in_sidebar": true,
+        "mode": "storage"
+      },
+      {
+        "id": "house_security",
+        "url_path": "house-security",
+        "title": "Security",
+        "icon": "mdi:shield-home",
+        "require_admin": false,
+        "show_in_sidebar": true,
+        "mode": "storage"
+      },
+      {
+        "id": "house_infra",
+        "url_path": "house-infra",
+        "title": "Infrastructure",
+        "icon": "mdi:server-network",
+        "require_admin": true,
+        "show_in_sidebar": true,
+        "mode": "storage"
+      },
+      {
+        "id": "house_sky",
+        "url_path": "house-sky",
+        "title": "Night sky",
+        "icon": "mdi:weather-night",
+        "require_admin": false,
+        "show_in_sidebar": true,
+        "mode": "storage"
+      },
+      {
+        "id": "home_test",
+        "url_path": "home-test",
+        "title": "Home (test)",
+        "icon": "mdi:home-variant",
+        "require_admin": true,
+        "show_in_sidebar": false,
         "mode": "storage"
       }
     ]
