@@ -46,19 +46,22 @@ class HomeV2Card extends HTMLElement {
   connectedCallback() {
     if (!this._ro) { this._ro = new ResizeObserver(() => this._resize()); }
     this._ro.observe(this);
-    this._tick = setInterval(() => this._render(), 30000);
-    this._slow = setInterval(() => { this._loadStats(); this._loadMet(); this._loadCal(); }, 10 * 60000);
+    this._tick = setInterval(() => { this._render(); this._checkGL(); }, 30000);
+    this._slow = setInterval(() => { this._loadStats(); this._loadMet(); this._loadCal(); this._loadCameWent(); }, 10 * 60000);
     this._onTab = (e) => this._tab(e.detail && e.detail.k);   // oaks-nav floating bar row (phone)
     window.addEventListener("oaks-home-tab", this._onTab);
     this._onWin = () => this._place(); window.addEventListener("resize", this._onWin);
+    this._onVis = () => { if (!document.hidden) setTimeout(() => this._checkGL(), 600); }; document.addEventListener("visibilitychange", this._onVis);
+    setTimeout(() => this._checkGL(), 800);
   }
-  disconnectedCallback() { this._ro && this._ro.disconnect(); clearInterval(this._tick); clearInterval(this._slow); window.removeEventListener("oaks-home-tab", this._onTab);
+  disconnectedCallback() { document.removeEventListener("visibilitychange", this._onVis); this._ro && this._ro.disconnect(); clearInterval(this._tick); clearInterval(this._slow); window.removeEventListener("oaks-home-tab", this._onTab);
     if (this._fcUnsub) { this._fcUnsub.then(u => u && u()).catch(() => {}); this._fcUnsub = null; } }
   set hass(h) {
     const first = !this._h; this._h = h;
     if (!this._root) this._build();
     if (this._el) this._el.hass = h;
-    if (first) { this._loadStats(); this._loadMet(); this._subFc(); this._loadCal(); }
+    if (first) { this._loadStats(); this._loadMet(); this._subFc(); this._loadCal(); this._loadCameWent(); }
+    { const hk = HV2.people.map(p => (h.states[p[0]] || {}).state === "home" ? 1 : 0).join(""); if (this._hk !== undefined && hk !== this._hk) setTimeout(() => this._loadCameWent(), 3000); this._hk = hk; }   // someone arrived or left: refresh the line
     const sig = this._sig(); if (sig !== this._lastSig) { this._lastSig = sig; this._render(); clearTimeout(this._re); this._re = setTimeout(() => this._render(), 400); }   // again once the 3D card has the new state
   }
   _sig() { const h = this._h, ids = [HV2.weather, HV2.climate, HV2.mode, HV2.guest, HV2.storm, HV2.maint, HV2.house, HV2.shed, HV2.warning, HV2.heatStatus, HV2.load, HV2.loadToday, HV2.soc, HV2.boostT,
@@ -121,6 +124,10 @@ class HomeV2Card extends HTMLElement {
     this._root.addEventListener("mousemove", e => this._chartHover(e));
   }
   _resize() { const ph = this._phone(); if (this.S.ph !== null && ph !== this.S.ph) { this.S.ph = ph; this._mountHouse(); if (ph) { this.S.layer = null; this.S.ptab = null; this.S.view = "stacked"; } this._render(); } else this._place(); }
+  _checkGL() {   // his 27-11 "opened Music Assistant, back in HA the 3D map was a white area, had to reload": the phone took the 3D map's graphics (WebGL) context → rebuild it quietly, same floor/layer, no animation
+    const a = this._el && this._el.lhc; if (!a || !a.lost || document.hidden) return;
+    let lost = false; try { lost = a.lost(); } catch (e) { lost = true; }
+    if (lost) { this._still = true; this._mountHouse(); } }
   _mountHouse() {   // one live-house-card, rebuilt only when desktop ⇄ phone
     const tag = this._c.house_element;   // his 26-11 "3D didn't load first time": the 3D card's file may load after this one → wait for it
     if (!customElements.get(tag)) { if (!this._waitDef) { this._waitDef = true; customElements.whenDefined(tag).then(() => { this._waitDef = false; this._mountHouse(); }); } return; }
@@ -175,11 +182,17 @@ class HomeV2Card extends HTMLElement {
     else if (d.length === 1 && (!dw.length || !uw.length)) t = `The ${d[0]} and ${uw.length ? grp(uw, UW, "upstairs window") : grp(dw, DW, "downstairs window")} are open.`;
     else t = `${d.length ? pl(d.length, "door") + " and " : ""}${pl(dw.length + uw.length, "window")} are open.`.replace(/^./, c => c.toUpperCase());
     return { bad: 1, html: `<em>${hv2esc(t)}</em>${soft}` }; }
-  _cameWent() {   // the most recent arrival / departure of the 4 people: "Olivia got home at 15:40", "Cian left at 08:15", "Daire went to Daires House at 12:02"
-    const p2 = x => String(x).padStart(2, "0"); let best = null;
-    for (const [e, n] of HV2.people) { const s = this._st(e), t = s ? Date.parse(s.last_changed) : NaN; if (!isNaN(t) && !["unknown", "unavailable"].includes(s.state) && (!best || t > best.t)) best = { n, t, s: s.state }; }
-    if (!best) return ""; const dt = new Date(best.t), when = (dt.toDateString() === new Date().toDateString() ? "" : p2(dt.getDate()) + "-" + p2(dt.getMonth() + 1) + " ") + p2(dt.getHours()) + ":" + p2(dt.getMinutes());
-    return best.s === "home" ? `${best.n} got home at ${when}` : best.s === "not_home" ? `${best.n} left at ${when}` : `${best.n} went to ${best.s} at ${when}`; }
+  _cameWent() {   // his 27-11 "said Olivia went to Montessori but that was Daire who … left": only arriving HOME or leaving HOME counts (zone flaps at Montessori etc. ignored), from the last 24 h of history
+    const p2 = x => String(x).padStart(2, "0"), ev = this._cw; if (!ev) return "";
+    const dt = new Date(ev.t), when = (dt.toDateString() === new Date().toDateString() ? "" : p2(dt.getDate()) + "-" + p2(dt.getMonth() + 1) + " ") + p2(dt.getHours()) + ":" + p2(dt.getMinutes());
+    return ev.home ? `${ev.n} got home at ${when}` : `${ev.n} left at ${when}`; }
+  async _loadCameWent() { const h = this._h; if (!h) return;
+    try { const ids = HV2.people.map(p => p[0]), r = await h.callWS({ type: "history/history_during_period", start_time: new Date(Date.now() - 864e5).toISOString(), entity_ids: ids, minimal_response: true, no_attributes: true, significant_changes_only: false });
+      let best = null;
+      for (const [e, n] of HV2.people) { const rows = (r && r[e]) || []; let prev = null;
+        for (const x of rows) { const st = x.s, t = (x.lc || x.lu) * 1000; if (["unknown", "unavailable"].includes(st)) continue; const hm = st === "home";
+          if (prev !== null && hm !== prev && (!best || t > best.t)) best = { n, t, home: hm }; prev = hm; } }
+      this._cw = best; this._render(); } catch (er) { } }
   _calLine() { const h = this._h, today = new Date().toDateString(); let best = null;
     for (const [e, s] of Object.entries(h.states)) { if (!e.startsWith("calendar.") || e === "calendar.clocks_moon") continue; const a = s.attributes || {}; if (!a.message || !a.start_time) continue;
       const t = new Date(a.start_time.replace(" ", "T")); if (t.toDateString() === today && (!best || t < best.t)) best = { t, m: a.message }; }
